@@ -10,11 +10,24 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as EstrategiaRouteImport } from './routes/estrategia'
+import { Route as IntegracoesRouteImport } from './routes/integracoes'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as SimulacaoRouteImport } from './routes/simulacao'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EstrategiaRoute = EstrategiaRouteImport.update({
+  id: '/estrategia',
+  path: '/estrategia',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntegracoesRoute = IntegracoesRouteImport.update({
+  id: '/integracoes',
+  path: '/integracoes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -22,31 +35,49 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SimulacaoRoute = SimulacaoRouteImport.update({
+  id: '/simulacao',
+  path: '/simulacao',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/estrategia': typeof EstrategiaRoute
+  '/integracoes': typeof IntegracoesRoute
   '/login': typeof LoginRoute
+  '/simulacao': typeof SimulacaoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/estrategia': typeof EstrategiaRoute
+  '/integracoes': typeof IntegracoesRoute
   '/login': typeof LoginRoute
+  '/simulacao': typeof SimulacaoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/estrategia': typeof EstrategiaRoute
+  '/integracoes': typeof IntegracoesRoute
   '/login': typeof LoginRoute
+  '/simulacao': typeof SimulacaoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login'
+  fullPaths: '/' | '/estrategia' | '/integracoes' | '/login' | '/simulacao'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login'
-  id: '__root__' | '/' | '/login'
+  to: '/' | '/estrategia' | '/integracoes' | '/login' | '/simulacao'
+  id:
+    '__root__' | '/' | '/estrategia' | '/integracoes' | '/login' | '/simulacao'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  EstrategiaRoute: typeof EstrategiaRoute
+  IntegracoesRoute: typeof IntegracoesRoute
   LoginRoute: typeof LoginRoute
+  SimulacaoRoute: typeof SimulacaoRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,6 +89,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/estrategia': {
+      id: '/estrategia'
+      path: '/estrategia'
+      fullPath: '/estrategia'
+      preLoaderRoute: typeof EstrategiaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integracoes': {
+      id: '/integracoes'
+      path: '/integracoes'
+      fullPath: '/integracoes'
+      preLoaderRoute: typeof IntegracoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -65,12 +110,22 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/simulacao': {
+      id: '/simulacao'
+      path: '/simulacao'
+      fullPath: '/simulacao'
+      preLoaderRoute: typeof SimulacaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  EstrategiaRoute: EstrategiaRoute,
+  IntegracoesRoute: IntegracoesRoute,
   LoginRoute: LoginRoute,
+  SimulacaoRoute: SimulacaoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
