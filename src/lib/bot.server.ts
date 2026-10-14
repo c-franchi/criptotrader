@@ -61,7 +61,7 @@ export async function runGridStep(bot: Bot, enc: string) {
   const pool = await poolState(token);
   if (!pool) return { patch: { last_error: "Pool inexistente" }, order: null };
   const d = gridDecision(pool.price, Number(bot.lower_price), Number(bot.upper_price), bot.levels, bot.last_level);
-  const patch: Record<string, unknown> = { last_price: pool.price, last_level: d.level, last_error: null };
+  const patch: { last_price?: number; last_level?: number | null; last_error?: string | null } = { last_price: pool.price, last_level: d.level, last_error: null };
   if (d.action === "nenhuma") return { patch, order: null };
 
   const pub = pubClient();

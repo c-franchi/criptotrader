@@ -7,15 +7,15 @@ export async function tickBot(admin: any, bot: any) {
     await admin.from("grid_bots").update({ last_error: "Sem carteira do robô", last_run_at: new Date().toISOString() }).eq("id", bot.id);
     return { ok: false, action: "nenhuma" };
   }
-  let res;
+  let res: { patch: { last_error?: string | null } & Record<string, unknown>; order: any };
   try {
     res = await runGridStep(bot, bw.enc_key);
   } catch (e) {
-    res = { patch: { last_error: ((e as Error).message ?? "erro").split("\n")[0]!.slice(0, 300) }, order: null };
+    res = { patch: { last_error:  ((e as Error).message ?? "erro").split("\n")[0]!.slice(0, 300) }, order: null };
   }
   if (res.order) await admin.from("orders").insert(res.order);
   await admin.from("grid_bots").update({ ...res.patch, last_run_at: new Date().toISOString() }).eq("id", bot.id);
-  return { ok: !res.patch.last_error, action: res.order?.side ?? "nenhuma", status: res.order?.status ?? null, error: (res.patch.last_error as string | null) ?? null };
+  return { ok: !res.patch["last_error"], action: res.order?.side ?? "nenhuma", status: res.order?.status ?? null, error: (res.patch["last_error"] as string | null) ?? null };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
