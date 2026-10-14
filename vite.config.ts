@@ -12,4 +12,13 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    // WalletConnect expects Node's `events`/`buffer` in the browser; use the npm polyfills.
+    environments: {
+      client: {
+        resolve: { alias: { events: "events", buffer: "buffer" } },
+      },
+    },
+    optimizeDeps: { include: ["events", "buffer"] },
+  },
 });
