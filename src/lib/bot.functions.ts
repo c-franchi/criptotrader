@@ -60,7 +60,7 @@ export const withdrawBot = createServerFn({ method: "POST" })
     for (const t of TOKENS) {
       const b = await pub.readContract({ address: t.address, abi: erc20Abi, functionName: "balanceOf", args: [account.address] });
       if (b > 0n) {
-        const h = await wallet.writeContract({ address: t.address, abi: erc20Abi.concat([]) as any, functionName: "transfer", args: [dest, b] } as any);
+        const h = await wallet.writeContract({ address: t.address, abi: erc20Abi, functionName: "transfer", args: [dest, b] });
         await pub.waitForTransactionReceipt({ hash: h });
         hashes.push(h);
       }

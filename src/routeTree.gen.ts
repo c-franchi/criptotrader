@@ -15,6 +15,7 @@ import { Route as IntegracoesRouteImport } from './routes/integracoes'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OperarRouteImport } from './routes/operar'
 import { Route as SimulacaoRouteImport } from './routes/simulacao'
+import { Route as ApiPublicHooksGridTickRouteImport } from './routes/api/public/hooks/grid-tick'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +47,11 @@ const SimulacaoRoute = SimulacaoRouteImport.update({
   path: '/simulacao',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksGridTickRoute = ApiPublicHooksGridTickRouteImport.update({
+  id: '/api/public/hooks/grid-tick',
+  path: '/api/public/hooks/grid-tick',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/operar': typeof OperarRoute
   '/simulacao': typeof SimulacaoRoute
+  '/api/public/hooks/grid-tick': typeof ApiPublicHooksGridTickRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/operar': typeof OperarRoute
   '/simulacao': typeof SimulacaoRoute
+  '/api/public/hooks/grid-tick': typeof ApiPublicHooksGridTickRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,13 +79,27 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/operar': typeof OperarRoute
   '/simulacao': typeof SimulacaoRoute
+  '/api/public/hooks/grid-tick': typeof ApiPublicHooksGridTickRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/estrategia' | '/integracoes' | '/login' | '/operar' | '/simulacao'
+    | '/'
+    | '/estrategia'
+    | '/integracoes'
+    | '/login'
+    | '/operar'
+    | '/simulacao'
+    | '/api/public/hooks/grid-tick'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/estrategia' | '/integracoes' | '/login' | '/operar' | '/simulacao'
+  to:
+    | '/'
+    | '/estrategia'
+    | '/integracoes'
+    | '/login'
+    | '/operar'
+    | '/simulacao'
+    | '/api/public/hooks/grid-tick'
   id:
     | '__root__'
     | '/'
@@ -86,6 +108,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/operar'
     | '/simulacao'
+    | '/api/public/hooks/grid-tick'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -95,6 +118,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OperarRoute: typeof OperarRoute
   SimulacaoRoute: typeof SimulacaoRoute
+  ApiPublicHooksGridTickRoute: typeof ApiPublicHooksGridTickRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -141,6 +165,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SimulacaoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/grid-tick': {
+      id: '/api/public/hooks/grid-tick'
+      path: '/api/public/hooks/grid-tick'
+      fullPath: '/api/public/hooks/grid-tick'
+      preLoaderRoute: typeof ApiPublicHooksGridTickRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -151,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OperarRoute: OperarRoute,
   SimulacaoRoute: SimulacaoRoute,
+  ApiPublicHooksGridTickRoute: ApiPublicHooksGridTickRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
