@@ -158,7 +158,7 @@ function Operar() {
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
     const path = quote.side === "compra" ? [WBNB, GTE] as const : [GTE, WBNB] as const;
     const { data: order, error } = await supabase.from("orders").insert({
-      user_id: user.id, side: quote.side, wallet: acct, pair_address: pair, amount_in: quote.amountIn.toString(),
+      user_id: user.id, side: quote.side, wallet: acct, pair_address: pair ?? null, amount_in: quote.amountIn.toString(),
       amount_out_min: quote.min.toString(), quoted_out: quote.out.toString(), slippage_pct: cfg.maxSlippagePct, deadline: Number(deadline),
     }).select().single();
     if (error || !order) return void toast.error("Não foi possível registrar a ordem; nada foi enviado.");
