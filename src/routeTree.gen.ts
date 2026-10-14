@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as EstrategiaRouteImport } from './routes/estrategia'
 import { Route as IntegracoesRouteImport } from './routes/integracoes'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as OperarRouteImport } from './routes/operar'
 import { Route as SimulacaoRouteImport } from './routes/simulacao'
 
 const IndexRoute = IndexRouteImport.update({
@@ -35,6 +36,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OperarRoute = OperarRouteImport.update({
+  id: '/operar',
+  path: '/operar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SimulacaoRoute = SimulacaoRouteImport.update({
   id: '/simulacao',
   path: '/simulacao',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/estrategia': typeof EstrategiaRoute
   '/integracoes': typeof IntegracoesRoute
   '/login': typeof LoginRoute
+  '/operar': typeof OperarRoute
   '/simulacao': typeof SimulacaoRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/estrategia': typeof EstrategiaRoute
   '/integracoes': typeof IntegracoesRoute
   '/login': typeof LoginRoute
+  '/operar': typeof OperarRoute
   '/simulacao': typeof SimulacaoRoute
 }
 export interface FileRoutesById {
@@ -61,15 +69,23 @@ export interface FileRoutesById {
   '/estrategia': typeof EstrategiaRoute
   '/integracoes': typeof IntegracoesRoute
   '/login': typeof LoginRoute
+  '/operar': typeof OperarRoute
   '/simulacao': typeof SimulacaoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/estrategia' | '/integracoes' | '/login' | '/simulacao'
+  fullPaths:
+    '/' | '/estrategia' | '/integracoes' | '/login' | '/operar' | '/simulacao'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/estrategia' | '/integracoes' | '/login' | '/simulacao'
+  to: '/' | '/estrategia' | '/integracoes' | '/login' | '/operar' | '/simulacao'
   id:
-    '__root__' | '/' | '/estrategia' | '/integracoes' | '/login' | '/simulacao'
+    | '__root__'
+    | '/'
+    | '/estrategia'
+    | '/integracoes'
+    | '/login'
+    | '/operar'
+    | '/simulacao'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +93,7 @@ export interface RootRouteChildren {
   EstrategiaRoute: typeof EstrategiaRoute
   IntegracoesRoute: typeof IntegracoesRoute
   LoginRoute: typeof LoginRoute
+  OperarRoute: typeof OperarRoute
   SimulacaoRoute: typeof SimulacaoRoute
 }
 
@@ -110,6 +127,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/operar': {
+      id: '/operar'
+      path: '/operar'
+      fullPath: '/operar'
+      preLoaderRoute: typeof OperarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/simulacao': {
       id: '/simulacao'
       path: '/simulacao'
@@ -125,6 +149,7 @@ const rootRouteChildren: RootRouteChildren = {
   EstrategiaRoute: EstrategiaRoute,
   IntegracoesRoute: IntegracoesRoute,
   LoginRoute: LoginRoute,
+  OperarRoute: OperarRoute,
   SimulacaoRoute: SimulacaoRoute,
 }
 export const routeTree = rootRouteImport
