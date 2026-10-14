@@ -14,7 +14,167 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sim_accounts: {
+        Row: {
+          archived: boolean
+          cost_basis: number
+          created_at: string
+          fees_paid: number
+          id: string
+          initial_quote: number
+          quote_balance: number
+          quote_symbol: string
+          realized_pnl: number
+          token_balance: number
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          cost_basis?: number
+          created_at?: string
+          fees_paid?: number
+          id?: string
+          initial_quote: number
+          quote_balance: number
+          quote_symbol?: string
+          realized_pnl?: number
+          token_balance?: number
+          user_id: string
+        }
+        Update: {
+          archived?: boolean
+          cost_basis?: number
+          created_at?: string
+          fees_paid?: number
+          id?: string
+          initial_quote?: number
+          quote_balance?: number
+          quote_symbol?: string
+          realized_pnl?: number
+          token_balance?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sim_trades: {
+        Row: {
+          account_id: string
+          created_at: string
+          fee: number
+          gas_estimate: number
+          id: string
+          pair_address: string | null
+          price: number
+          quote_amount: number
+          realized_pnl: number
+          reason: string | null
+          side: string
+          slippage_pct: number
+          token_amount: number
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          fee: number
+          gas_estimate?: number
+          id?: string
+          pair_address?: string | null
+          price: number
+          quote_amount: number
+          realized_pnl?: number
+          reason?: string | null
+          side: string
+          slippage_pct: number
+          token_amount: number
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          fee?: number
+          gas_estimate?: number
+          id?: string
+          pair_address?: string | null
+          price?: number
+          quote_amount?: number
+          realized_pnl?: number
+          reason?: string | null
+          side?: string
+          slippage_pct?: number
+          token_amount?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sim_trades_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "sim_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      strategies: {
+        Row: {
+          config: Json
+          id: string
+          mode: string
+          pair_address: string | null
+          status: string
+          tracked_wallet: string | null
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          config?: Json
+          id?: string
+          mode?: string
+          pair_address?: string | null
+          status?: string
+          tracked_wallet?: string | null
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          config?: Json
+          id?: string
+          mode?: string
+          pair_address?: string | null
+          status?: string
+          tracked_wallet?: string | null
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
