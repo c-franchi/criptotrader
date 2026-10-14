@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Tables } from "@/integrations/supabase/types";
 import { TOKENS } from "@/lib/tokens";
+import { useSelectedToken } from "@/hooks/useSelectedToken";
 
 export const Route = createFileRoute("/operar")({
   head: () => ({
@@ -42,8 +43,9 @@ type Quote = { side: "compra" | "venda"; amountIn: bigint; out: bigint; min: big
 function Operar() {
   const { user } = useAuth();
   const providerRef = useRef<any>(null);
-  const [GTE, setGTE] = useState<`0x${string}`>(TOKENS[0]!.address);
-  const sym = TOKENS.find((t) => t.address === GTE)!.symbol;
+  const { token: selected, selectToken: setGTE } = useSelectedToken();
+  const GTE = selected.address;
+  const sym = selected.symbol;
   const [wallet, setWallet] = useState<WalletClient | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
@@ -207,7 +209,7 @@ function Operar() {
 
       <div className="flex flex-wrap gap-2">
         {TOKENS.map((t) => (
-          <Button key={t.address} size="sm" variant={t.address === GTE ? "default" : "secondary"} disabled={!!busy} onClick={() => { setGTE(t.address); setQuote(null); setPair(undefined); setReserves(null); }}>{t.symbol} — {t.name}</Button>
+          <Button key={t.address} size="sm" variant={t.address === GTE ? "default" : "secondary"} disabled={!!busy} onClick={() => { setGTE(t.address); setQuote(null); setPair(undefined); setReserves(null); setBal(null); }}>{t.symbol} — {t.name}</Button>
         ))}
       </div>
 

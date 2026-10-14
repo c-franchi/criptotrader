@@ -3,8 +3,8 @@ import { queryOptions, useQuery } from "@tanstack/react-query";
 import Decimal from "decimal.js";
 import { AppShell, Panel, Unavailable } from "@/components/AppShell";
 import { TOKENS } from "@/lib/tokens";
-import { useState } from "react";
-import { GTE_ADDRESS, getMarket, validateToken } from "@/lib/chain.functions";
+import { useSelectedToken } from "@/hooks/useSelectedToken";
+import { getMarket, validateToken } from "@/lib/chain.functions";
 import { Button } from "@/components/ui/button";
 
 const tokenQ = (a: string) => queryOptions({ queryKey: ["token", a], queryFn: () => validateToken({ data: { address: a } }), staleTime: 60_000 });
@@ -54,11 +54,11 @@ function fmtUsd(n: number | null) {
 }
 
 function Dashboard() {
-  const [addr, setAddr] = useState<string>(GTE_ADDRESS);
-  const info = TOKENS.find((x) => x.address === addr)!;
+  const { token: info, selectToken: setAddr, ready } = useSelectedToken();
+  const addr = info.address;
   const EXPECTED = { chainId: "56", name: info.name, symbol: info.symbol, decimals: String(info.decimals) };
-  const token = useQuery(tokenQ(addr));
-  const market = useQuery(marketQ(addr));
+  const token = useQuery({ ...tokenQ(addr), enabled: ready });
+  const market = useQuery({ ...marketQ(addr), enabled: ready });
   const t = token.data;
   const supply =
     t?.totalSupplyRaw.value && t.decimals.value
@@ -111,7 +111,7 @@ function Dashboard() {
 
         <Panel title="Mercado selecionado">
           {market.data?.error && <p className="mb-2 text-sm text-destructive">Fonte de mercado falhou: {market.data.error}</p>}
-          {market.data && !best && (
+          {market.data && !market.data.error && !best && (
             <p className="rounded border border-warning/40 bg-warning/10 p-3 text-sm text-warning">
               Aguardando pool e liquidez disponíveis. O monitoramento continua a cada 30s.
             </p>
@@ -136,7 +136,8 @@ function Dashboard() {
       <div className="mt-4">
         <Panel title="Pools encontrados">
           {market.isLoading && <p className="text-sm text-muted-foreground">Buscando…</p>}
-          {market.data && market.data.pools.length === 0 && <p className="text-sm text-muted-foreground">Nenhum pool encontrado pela fonte.</p>}
+          {market.data && !market.data.error && market.data.pools.length === 0 && <p className="text-sm text-muted-foreground">Nenhum pool encontrado pela fonte.</p>}
+          {market.data?.error && !best && <p className="text-sm text-muted-foreground">Pools indisponíveis; a falha de consulta não confirma ausência de liquidez.</p>}
           <div className="space-y-2">
             {market.data?.pools.map((p) => (
               <div key={p.pairAddress} className="rounded border border-border p-3 text-sm">

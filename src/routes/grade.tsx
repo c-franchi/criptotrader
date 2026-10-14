@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin, Unavailable } from "@/components/AppShell";
 import { createBotWallet, getBotWallet, runGridNow, withdrawBot } from "@/lib/bot.functions";
 import { TOKENS } from "@/lib/tokens";
+import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,7 +40,8 @@ const blank = { lower_price: "", upper_price: "", levels: "10", order_bnb: "0.01
 function Grade() {
   const { user } = useAuth();
   const getW = useServerFn(getBotWallet), createW = useServerFn(createBotWallet), withdraw = useServerFn(withdrawBot), runNow = useServerFn(runGridNow);
-  const [token, setToken] = useState<string>(TOKENS[1]!.address);
+  const { token: selected, selectToken: setToken } = useSelectedToken();
+  const token = selected.address;
   const [w, setW] = useState<Wallet | null>(null);
   const [bot, setBot] = useState<Bot | null>(null);
   const [f, setF] = useState(blank);
@@ -80,7 +82,7 @@ function Grade() {
     try { await fn(); toast.success(ok); } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); load(); }
   };
 
-  const sym = TOKENS.find((t) => t.address === token)!.symbol;
+  const sym = selected.symbol;
   const lo = Number(f.lower_price), hi = Number(f.upper_price), lv = Number(f.levels);
   const lines = hi > lo && lv >= 2 && lv <= 100 ? Array.from({ length: lv + 1 }, (_, i) => lo + (i * (hi - lo)) / lv) : [];
 
