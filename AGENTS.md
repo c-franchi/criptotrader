@@ -12,6 +12,7 @@
 ## Rules
 - Supported tokens live in src/lib/tokens.ts; pages pick from that list — keeps trading/analysis in sync.
 - Painel, Operar and Grade share selection through SelectedTokenProvider; restore browser storage after hydration so navigation does not silently change the asset.
+- Market reads cache and coalesce public requests per token in market.server.ts, falling back to factory/reserves on-chain; unavailable aggregate metrics remain null.
 - Automated grid signs with a server-generated bot wallet (AES-GCM with BOT_KEY_SECRET, table bot_wallets readable only by service_role) — users never hand over keys.
 - Grid decisions are pure in src/lib/grid.ts (tested); on-chain execution lives in *.server.ts and runs at most one swap per tick.
 - The scheduler endpoint /api/public/hooks/grid-tick authenticates with a token stored in internal_tokens (service_role only) so pg_cron and the route share it without exposing it.

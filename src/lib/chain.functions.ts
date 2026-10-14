@@ -112,46 +112,6 @@ export const getMarket = createServerFn({ method: "GET" })
     z.object({ address: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional() }).parse(d ?? {}),
   )
   .handler(async ({ data }) => {
-  const token = data.address ?? GTE_ADDRESS;
-  const fetchedAt = new Date().toISOString();
-  try {
-    const res = await withRetry(() =>
-      fetch(`https://api.dexscreener.com/token-pairs/v1/bsc/${token}`, {
-        signal: AbortSignal.timeout(8000),
-      }).then((r) => {
-        if (r.status === 429) throw new Error("Limite de requisições da DexScreener");
-        if (!r.ok) throw new Error(`DexScreener HTTP ${r.status}`);
-        return r.json();
-      }),
-    );
-    const arr = (Array.isArray(res) ? res : []) as Array<any>;
-    const pools: PoolInfo[] = arr.map((p) => {
-      const version = (p.labels?.[0] as string | undefined) ?? "desconhecida";
-      const isPancake = String(p.dexId).toLowerCase().includes("pancake");
-      return {
-        pairAddress: p.pairAddress,
-        dexId: p.dexId,
-        version,
-        supported: isPancake && version.toLowerCase() === "v2",
-        baseSymbol: p.baseToken?.symbol ?? "?",
-        quoteSymbol: p.quoteToken?.symbol ?? "?",
-        quoteAddress: p.quoteToken?.address ?? "",
-        priceNative: p.priceNative ?? null,
-        priceUsd: p.priceUsd ?? null,
-        liquidityUsd: p.liquidity?.usd ?? null,
-        volume24h: p.volume?.h24 ?? null,
-        priceChange24h: p.priceChange?.h24 ?? null,
-        url: p.url,
-      };
-    });
-    pools.sort((a, b) => (b.liquidityUsd ?? 0) - (a.liquidityUsd ?? 0));
-    return { pools, fetchedAt, source: "DexScreener", error: null as string | null };
-  } catch (e) {
-    return {
-      pools: [] as PoolInfo[],
-      fetchedAt,
-      source: "DexScreener",
-      error: e instanceof Error ? e.message : "falha",
-    };
-  }
-});
+    const { readMarket } = await import("./market.server");
+    return readMarket(data.address ?? GTE_ADDRESS, process.env["BSC_RPC_URL"] || DEFAULT_RPC);
+  });
