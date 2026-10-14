@@ -36,14 +36,14 @@ function Login() {
       ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } })
       : await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
-    if (error) return toast.error(error.message);
-    if (signup && !data.session) return toast.success("Confira seu e-mail para confirmar a conta.");
+    if (error) return void toast.error(error.message);
+    if (signup && !data.session) return void toast.success("Confira seu e-mail para confirmar a conta.");
     nav({ to: "/" });
   };
 
   const google = async () => {
     const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-    if (r.error) return toast.error("Falha no login com Google");
+    if (r.error) return void toast.error("Falha no login com Google");
     if (r.redirected) return;
     nav({ to: "/" });
   };

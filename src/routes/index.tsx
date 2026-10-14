@@ -24,7 +24,7 @@ export const Route = createFileRoute("/")({
 
 const EXPECTED = { chainId: "56", name: "Gold Tech", symbol: "GTE", decimals: "18" };
 
-function Row({ label, value, expected, error }: { label: string; value: string | null; expected?: string; error?: string }) {
+function Row({ label, value, expected, error }: { label: string; value: string | null; expected?: string | undefined; error?: string | undefined }) {
   const mismatch = expected && value !== null && value !== expected;
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-border/60 py-1.5 text-sm last:border-0">

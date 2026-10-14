@@ -69,7 +69,7 @@ function StrategyForm() {
       { user_id: user.id, config: c, tracked_wallet: wallet || null, version: version + 1, updated_at: new Date().toISOString() },
       { onConflict: "user_id" },
     );
-    if (error) return toast.error(error.message);
+    if (error) return void toast.error(error.message);
     await supabase.from("audit_log").insert({ user_id: user.id, action: "estrategia_salva", details: { version: version + 1, config: c } });
     setVersion(version + 1);
     toast.success(`Estratégia salva (versão ${version + 1})`);

@@ -119,7 +119,7 @@ export const getMarket = createServerFn({ method: "GET" }).handler(async () => {
         return r.json();
       }),
     );
-    const arr = (Array.isArray(res) ? res : []) as Array<Record<string, any>>;
+    const arr = (Array.isArray(res) ? res : []) as Array<any>;
     const pools: PoolInfo[] = arr.map((p) => {
       const version = (p.labels?.[0] as string | undefined) ?? "desconhecida";
       const isPancake = String(p.dexId).toLowerCase().includes("pancake");

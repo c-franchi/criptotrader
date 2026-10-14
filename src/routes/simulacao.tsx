@@ -63,11 +63,11 @@ function Sim() {
   useEffect(() => { load(); }, [load]);
 
   const create = async () => {
-    if (!user || !D(initial || 0).gt(0)) return toast.error("Informe um saldo inicial maior que zero");
+    if (!user || !D(initial || 0).gt(0)) return void toast.error("Informe um saldo inicial maior que zero");
     const { error } = await supabase.from("sim_accounts").insert({
       user_id: user.id, quote_symbol: pool?.quoteSymbol ?? "WBNB", initial_quote: initial, quote_balance: initial,
     } as never);
-    if (error) return toast.error(error.message);
+    if (error) return void toast.error(error.message);
     load();
   };
 
@@ -77,7 +77,7 @@ function Sim() {
       quote_balance: next.quote.toString(), token_balance: next.tokens.toString(), cost_basis: next.costBasis.toString(),
       realized_pnl: next.realized.toString(), fees_paid: next.fees.toString(),
     } as never).eq("id", acc.id);
-    if (error) return toast.error(error.message);
+    if (error) return void toast.error(error.message);
     await supabase.from("sim_trades").insert({
       user_id: user.id, account_id: acc.id, side, price: price.toString(), quote_amount: quoteAmt.toString(),
       token_amount: r.tokens.toString(), fee: r.fee.toString(), gas_estimate: DEFAULT_ASSUMPTIONS.gasQuote,
