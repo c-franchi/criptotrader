@@ -14,11 +14,7 @@ export default defineConfig({
   },
   vite: {
     // WalletConnect expects Node's `events`/`buffer` in the browser; use the npm polyfills.
-    environments: {
-      client: {
-        resolve: { alias: { events: "events/events.js", buffer: "buffer/index.js" } },
-      },
-    },
+    resolve: { alias: { events: "events/events.js", buffer: "buffer/index.js" } },
     optimizeDeps: { include: ["events", "buffer"] },
   },
 });
