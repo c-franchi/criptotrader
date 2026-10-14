@@ -2,11 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import Decimal from "decimal.js";
 import { AppShell, Panel, Unavailable } from "@/components/AppShell";
+import { TOKENS } from "@/lib/tokens";
+import { useState } from "react";
 import { GTE_ADDRESS, getMarket, validateToken } from "@/lib/chain.functions";
 import { Button } from "@/components/ui/button";
 
-const tokenQ = queryOptions({ queryKey: ["token"], queryFn: () => validateToken({ data: {} }), staleTime: 60_000 });
-const marketQ = queryOptions({ queryKey: ["market"], queryFn: () => getMarket(), refetchInterval: 30_000 });
+const tokenQ = (a: string) => queryOptions({ queryKey: ["token", a], queryFn: () => validateToken({ data: { address: a } }), staleTime: 60_000 });
+const marketQ = (a: string) => queryOptions({ queryKey: ["market", a], queryFn: () => getMarket({ data: { address: a } }), refetchInterval: 30_000 });
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -22,7 +24,7 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-const EXPECTED = { chainId: "56", name: "Gold Tech", symbol: "GTE", decimals: "18" };
+
 
 function Row({ label, value, expected, error }: { label: string; value: string | null; expected?: string | undefined; error?: string | undefined }) {
   const mismatch = expected && value !== null && value !== expected;
@@ -52,8 +54,11 @@ function fmtUsd(n: number | null) {
 }
 
 function Dashboard() {
-  const token = useQuery(tokenQ);
-  const market = useQuery(marketQ);
+  const [addr, setAddr] = useState<string>(GTE_ADDRESS);
+  const info = TOKENS.find((x) => x.address === addr)!;
+  const EXPECTED = { chainId: "56", name: info.name, symbol: info.symbol, decimals: String(info.decimals) };
+  const token = useQuery(tokenQ(addr));
+  const market = useQuery(marketQ(addr));
   const t = token.data;
   const supply =
     t?.totalSupplyRaw.value && t.decimals.value
@@ -64,10 +69,15 @@ function Dashboard() {
   return (
     <AppShell>
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Gold Tech (GTE)</h1>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {TOKENS.map((x) => (
+            <Button key={x.address} size="sm" variant={x.address === addr ? "default" : "secondary"} onClick={() => setAddr(x.address)}>{x.symbol}</Button>
+          ))}
+        </div>
+        <h1 className="text-2xl font-semibold">{info.name} ({info.symbol})</h1>
         <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
-          BNB Smart Chain · {GTE_ADDRESS}{" "}
-          <a className="text-primary underline" href={`https://bscscan.com/token/${GTE_ADDRESS}`} target="_blank" rel="noreferrer">
+          BNB Smart Chain · {addr}{" "}
+          <a className="text-primary underline" href={`https://bscscan.com/token/${addr}`} target="_blank" rel="noreferrer">
             BscScan
           </a>
         </p>

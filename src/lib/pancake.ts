@@ -22,6 +22,7 @@ export const erc20Abi = parseAbi([
   "function allowance(address,address) view returns (uint256)",
   "function approve(address,uint256) returns (bool)",
   "function decimals() view returns (uint8)",
+  "function transfer(address,uint256) returns (bool)",
 ]);
 
 /** amountOut * (1 - slippage%) using basis points, integer-only. */

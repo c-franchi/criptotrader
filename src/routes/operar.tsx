@@ -8,11 +8,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin, Unavailable } from "@/components/AppShell";
 import { getWalletConfig } from "@/lib/wallet.functions";
 import { EMPTY_CONFIG, type StrategyConfig } from "@/lib/strategy";
-import { GTE, PANCAKE_V2_FACTORY, PANCAKE_V2_ROUTER, WBNB, ZERO, erc20Abi, factoryAbi, minOut, pairAbi, priceImpactPct, routerAbi } from "@/lib/pancake";
+import { PANCAKE_V2_FACTORY, PANCAKE_V2_ROUTER, WBNB, ZERO, erc20Abi, factoryAbi, minOut, pairAbi, priceImpactPct, routerAbi } from "@/lib/pancake";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Tables } from "@/integrations/supabase/types";
+import { TOKENS } from "@/lib/tokens";
 
 export const Route = createFileRoute("/operar")({
   head: () => ({
@@ -41,6 +42,8 @@ type Quote = { side: "compra" | "venda"; amountIn: bigint; out: bigint; min: big
 function Operar() {
   const { user } = useAuth();
   const providerRef = useRef<any>(null);
+  const [GTE, setGTE] = useState<`0x${string}`>(TOKENS[0]!.address);
+  const sym = TOKENS.find((t) => t.address === GTE)!.symbol;
   const [wallet, setWallet] = useState<WalletClient | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
@@ -75,7 +78,7 @@ function Operar() {
       setPair(undefined);
       toast.error("Falha ao consultar a PancakeSwap");
     }
-  }, []);
+  }, [GTE]);
 
   const loadBalances = useCallback(async (addr: string) => {
     const a = getAddress(addr);
@@ -84,7 +87,7 @@ function Operar() {
       pub.readContract({ address: GTE, abi: erc20Abi, functionName: "balanceOf", args: [a] }),
     ]);
     setBal({ bnb, gte });
-  }, []);
+  }, [GTE]);
 
   useEffect(() => {
     supabase.from("strategies").select("tracked_wallet, config").maybeSingle().then(({ data }) => {
@@ -130,7 +133,7 @@ function Operar() {
   if (account && chainId !== 56) blocks.push(`Rede incorreta (chain ${chainId}). Mude para BNB Smart Chain (56).`);
   if (!tracked) blocks.push("Cadastre a carteira acompanhada na página Estratégia.");
   if (account && tracked && account.toLowerCase() !== tracked.toLowerCase()) blocks.push("A carteira conectada não é a carteira cadastrada.");
-  if (pair === null) blocks.push("Aguardando pool GTE/WBNB na PancakeSwap V2.");
+  if (pair === null) blocks.push(`Aguardando pool ${sym}/WBNB na PancakeSwap V2.`);
   if (pair === undefined) blocks.push("Dados do pool indisponíveis.");
   if (gasPrice && cfg.maxGasGwei && gasPrice > parseUnits(String(cfg.maxGasGwei), 9)) blocks.push("Gas acima do limite configurado.");
   const ready = blocks.length === 0;
@@ -141,7 +144,7 @@ function Operar() {
       const amountIn = side === "compra" ? parseEther(buyAmt || "0") : parseUnits(sellAmt || "0", 18);
       if (amountIn <= 0n) throw new Error("Informe um valor maior que zero");
       if (side === "compra" && amountIn + gasReserve > bal.bnb) throw new Error("Saldo de BNB insuficiente considerando a reserva para gas");
-      if (side === "venda" && amountIn > bal.gte) throw new Error("Saldo de GTE insuficiente");
+      if (side === "venda" && amountIn > bal.gte) throw new Error(`Saldo de ${sym} insuficiente`);
       if (side === "venda" && bal.bnb < gasReserve) throw new Error("BNB insuficiente para gas");
       const path = side === "compra" ? [WBNB, GTE] : [GTE, WBNB];
       const amounts = await pub.readContract({ address: PANCAKE_V2_ROUTER, abi: routerAbi, functionName: "getAmountsOut", args: [amountIn, path] });
@@ -158,7 +161,7 @@ function Operar() {
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
     const path = quote.side === "compra" ? [WBNB, GTE] as const : [GTE, WBNB] as const;
     const { data: order, error } = await supabase.from("orders").insert({
-      user_id: user.id, side: quote.side, wallet: acct, pair_address: pair ?? null, amount_in: quote.amountIn.toString(),
+      user_id: user.id, side: quote.side, wallet: acct, pair_address: pair ?? null, token: GTE, amount_in: quote.amountIn.toString(),
       amount_out_min: quote.min.toString(), quoted_out: quote.out.toString(), slippage_pct: cfg.maxSlippagePct, deadline: Number(deadline),
     }).select().single();
     if (error || !order) return void toast.error("Não foi possível registrar a ordem; nada foi enviado.");
@@ -202,6 +205,12 @@ function Operar() {
         <strong>Modo CONFIRMAÇÃO — operações reais.</strong> Cada transação precisa ser assinada por você na carteira. Gatilhos e cotações não garantem preço, lucro ou capacidade de venda.
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        {TOKENS.map((t) => (
+          <Button key={t.address} size="sm" variant={t.address === GTE ? "default" : "secondary"} disabled={!!busy} onClick={() => { setGTE(t.address); setQuote(null); setPair(undefined); setReserves(null); }}>{t.symbol} — {t.name}</Button>
+        ))}
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <Panel title="Carteira" right={account ? <Button size="sm" variant="ghost" onClick={disconnect}>Desconectar</Button> : null}>
           {account ? (
@@ -209,7 +218,7 @@ function Operar() {
               <p className="break-all font-mono text-xs">{account}</p>
               <p>Rede: {chainId === 56 ? <span className="text-success">BNB Smart Chain (56)</span> : <span className="text-destructive">chain {chainId}</span>}</p>
               <p>BNB: {bal ? <span className="font-mono">{fmtBnb(bal.bnb)}</span> : <Unavailable reason="carregando" />}</p>
-              <p>GTE: {bal ? <span className="font-mono">{fmtGte(bal.gte)}</span> : <Unavailable reason="carregando" />}</p>
+              <p>{sym}: {bal ? <span className="font-mono">{fmtGte(bal.gte)}</span> : <Unavailable reason="carregando" />}</p>
             </div>
           ) : (
             <Button onClick={connect} disabled={!!busy}>{busy === "conectando" ? "Conectando…" : "Conectar via WalletConnect"}</Button>
@@ -219,8 +228,8 @@ function Operar() {
 
         <Panel title="Rota PancakeSwap V2">
           <div className="space-y-1 text-sm">
-            <p>Pool GTE/WBNB: {pair ? <span className="break-all font-mono text-xs">{pair}</span> : <Unavailable reason={pair === null ? "pool não existe" : "falha de consulta"} />}</p>
-            <p>Reserva: {reserves ? <span className="font-mono">{fmtBnb(reserves.bnb)} WBNB / {fmtGte(reserves.gte)} GTE</span> : <Unavailable reason="sem pool" />}</p>
+            <p>Pool {sym}/WBNB: {pair ? <span className="break-all font-mono text-xs">{pair}</span> : <Unavailable reason={pair === null ? "pool não existe" : "falha de consulta"} />}</p>
+            <p>Reserva: {reserves ? <span className="font-mono">{fmtBnb(reserves.bnb)} WBNB / {fmtGte(reserves.gte)} {sym}</span> : <Unavailable reason="sem pool" />}</p>
             <p>Gas: {gasPrice ? <span className="font-mono">{formatUnits(gasPrice, 9)} gwei</span> : <Unavailable reason="sem dados" />}</p>
             <p className="text-xs text-muted-foreground">Router oficial {PANCAKE_V2_ROUTER}. Limites da estratégia: slippage {cfg.maxSlippagePct}%, impacto {cfg.maxPriceImpactPct}%, reserva {cfg.gasReserveBnb} BNB.</p>
           </div>
@@ -234,15 +243,15 @@ function Operar() {
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Panel title="Comprar GTE com BNB">
+        <Panel title={`Comprar ${sym} com BNB`}>
           <Label>Valor em BNB</Label>
           <div className="mt-1 flex gap-2">
             <Input type="number" step="any" value={buyAmt} onChange={(e) => { setBuyAmt(e.target.value); setQuote(null); }} />
             <Button onClick={() => prepare("compra")} disabled={!ready || !!busy}>Cotar</Button>
           </div>
         </Panel>
-        <Panel title="Vender GTE por BNB">
-          <Label>Quantidade de GTE</Label>
+        <Panel title={`Vender ${sym} por BNB`}>
+          <Label>Quantidade de {sym}</Label>
           <div className="mt-1 flex gap-2">
             <Input type="number" step="any" value={sellAmt} onChange={(e) => { setSellAmt(e.target.value); setQuote(null); }} />
             <Button variant="secondary" onClick={() => prepare("venda")} disabled={!ready || !!busy}>Cotar</Button>
@@ -253,9 +262,9 @@ function Operar() {
       {quote && (
         <Panel title="Revisar antes de assinar">
           <ul className="space-y-1 text-sm">
-            <li>{quote.side === "compra" ? `Enviar ${fmtBnb(quote.amountIn)} BNB` : `Enviar ${fmtGte(quote.amountIn)} GTE`}</li>
-            <li>Cotação atual: {quote.side === "compra" ? `${fmtGte(quote.out)} GTE` : `${fmtBnb(quote.out)} BNB`}</li>
-            <li>Mínimo aceito (slippage {cfg.maxSlippagePct}%): {quote.side === "compra" ? `${fmtGte(quote.min)} GTE` : `${fmtBnb(quote.min)} BNB`}</li>
+            <li>{quote.side === "compra" ? `Enviar ${fmtBnb(quote.amountIn)} BNB` : `Enviar ${fmtGte(quote.amountIn)} ${sym}`}</li>
+            <li>Cotação atual: {quote.side === "compra" ? `${fmtGte(quote.out)} ${sym}` : `${fmtBnb(quote.out)} BNB`}</li>
+            <li>Mínimo aceito (slippage {cfg.maxSlippagePct}%): {quote.side === "compra" ? `${fmtGte(quote.min)} ${sym}` : `${fmtBnb(quote.min)} BNB`}</li>
             <li>Impacto de preço estimado: {quote.impact.toFixed(2)}%</li>
             <li>Validade: 5 minutos. {quote.side === "venda" && "Pode exigir uma aprovação limitada a esta quantidade."}</li>
           </ul>

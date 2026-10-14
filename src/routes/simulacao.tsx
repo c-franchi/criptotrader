@@ -42,7 +42,7 @@ const toState = (a: Account): SimState => ({
 
 function Sim() {
   const { user } = useAuth();
-  const market = useQuery({ queryKey: ["market"], queryFn: () => getMarket(), refetchInterval: 30_000 });
+  const market = useQuery({ queryKey: ["market"], queryFn: () => getMarket({ data: {} }), refetchInterval: 30_000 });
   const pool = market.data?.pools.find((p) => p.supported);
   const price = pool?.priceNative ? D(pool.priceNative) : null;
 

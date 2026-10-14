@@ -107,11 +107,16 @@ export type PoolInfo = {
   url: string;
 };
 
-export const getMarket = createServerFn({ method: "GET" }).handler(async () => {
+export const getMarket = createServerFn({ method: "GET" })
+  .inputValidator((d: { address?: string } | undefined) =>
+    z.object({ address: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ data }) => {
+  const token = data.address ?? GTE_ADDRESS;
   const fetchedAt = new Date().toISOString();
   try {
     const res = await withRetry(() =>
-      fetch(`https://api.dexscreener.com/token-pairs/v1/bsc/${GTE_ADDRESS}`, {
+      fetch(`https://api.dexscreener.com/token-pairs/v1/bsc/${token}`, {
         signal: AbortSignal.timeout(8000),
       }).then((r) => {
         if (r.status === 429) throw new Error("Limite de requisições da DexScreener");
