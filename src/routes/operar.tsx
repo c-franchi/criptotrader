@@ -109,6 +109,8 @@ function Operar() {
     try {
       const { projectId } = await getWalletConfig();
       if (!projectId) throw new Error("Project ID do WalletConnect não configurado");
+      const { Buffer } = await import("buffer");
+      (globalThis as any).Buffer ??= Buffer;
       const { EthereumProvider } = await import("@walletconnect/ethereum-provider");
       const provider = await EthereumProvider.init({
         projectId, chains: [56], showQrModal: true,
