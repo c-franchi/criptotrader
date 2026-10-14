@@ -15,16 +15,18 @@ export default defineConfig({
   },
   vite: {
     // WalletConnect expects Node's `events`/`buffer` in the browser; use the npm polyfills.
-    environments: {
-      client: {
-        resolve: {
-          alias: [
-            { find: /^(node:)?events$/, replacement: fileURLToPath(new URL("./node_modules/events/events.js", import.meta.url)) },
-            { find: /^(node:)?buffer$/, replacement: fileURLToPath(new URL("./node_modules/buffer/index.js", import.meta.url)) },
-          ],
+    plugins: [
+      {
+        name: "browser-node-polyfills",
+        enforce: "pre",
+        resolveId(id) {
+          if (this.environment?.name !== "client") return null;
+          if (id === "events" || id === "node:events") return fileURLToPath(new URL("./node_modules/events/events.js", import.meta.url));
+          if (id === "buffer" || id === "node:buffer") return fileURLToPath(new URL("./node_modules/buffer/index.js", import.meta.url));
+          return null;
         },
       },
-    },
+    ],
     optimizeDeps: { include: ["events", "buffer"] },
   },
 });
