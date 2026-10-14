@@ -38,6 +38,84 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_wallets: {
+        Row: {
+          address: string
+          created_at: string
+          enc_key: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          enc_key: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          enc_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      grid_bots: {
+        Row: {
+          armed: boolean
+          gas_reserve_bnb: number
+          id: string
+          last_error: string | null
+          last_level: number | null
+          last_price: number | null
+          last_run_at: string | null
+          levels: number
+          lower_price: number
+          max_impact_pct: number
+          max_slippage_pct: number
+          order_bnb: number
+          token: string
+          updated_at: string
+          upper_price: number
+          user_id: string
+        }
+        Insert: {
+          armed?: boolean
+          gas_reserve_bnb?: number
+          id?: string
+          last_error?: string | null
+          last_level?: number | null
+          last_price?: number | null
+          last_run_at?: string | null
+          levels?: number
+          lower_price: number
+          max_impact_pct?: number
+          max_slippage_pct?: number
+          order_bnb: number
+          token: string
+          updated_at?: string
+          upper_price: number
+          user_id: string
+        }
+        Update: {
+          armed?: boolean
+          gas_reserve_bnb?: number
+          id?: string
+          last_error?: string | null
+          last_level?: number | null
+          last_price?: number | null
+          last_run_at?: string | null
+          levels?: number
+          lower_price?: number
+          max_impact_pct?: number
+          max_slippage_pct?: number
+          order_bnb?: number
+          token?: string
+          updated_at?: string
+          upper_price?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           amount_in: string
@@ -52,7 +130,9 @@ export type Database = {
           quoted_out: string
           side: string
           slippage_pct: number
+          source: string
           status: string
+          token: string
           tx_hash: string | null
           updated_at: string
           user_id: string
@@ -71,7 +151,9 @@ export type Database = {
           quoted_out: string
           side: string
           slippage_pct: number
+          source?: string
           status?: string
+          token?: string
           tx_hash?: string | null
           updated_at?: string
           user_id: string
@@ -90,7 +172,9 @@ export type Database = {
           quoted_out?: string
           side?: string
           slippage_pct?: number
+          source?: string
           status?: string
+          token?: string
           tx_hash?: string | null
           updated_at?: string
           user_id?: string
