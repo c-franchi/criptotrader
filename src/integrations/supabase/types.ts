@@ -38,6 +38,66 @@ export type Database = {
         }
         Relationships: []
       }
+      orders: {
+        Row: {
+          amount_in: string
+          amount_out_min: string
+          approve_hash: string | null
+          block_number: number | null
+          created_at: string
+          deadline: number
+          error: string | null
+          id: string
+          pair_address: string | null
+          quoted_out: string
+          side: string
+          slippage_pct: number
+          status: string
+          tx_hash: string | null
+          updated_at: string
+          user_id: string
+          wallet: string
+        }
+        Insert: {
+          amount_in: string
+          amount_out_min: string
+          approve_hash?: string | null
+          block_number?: number | null
+          created_at?: string
+          deadline: number
+          error?: string | null
+          id?: string
+          pair_address?: string | null
+          quoted_out: string
+          side: string
+          slippage_pct: number
+          status?: string
+          tx_hash?: string | null
+          updated_at?: string
+          user_id: string
+          wallet: string
+        }
+        Update: {
+          amount_in?: string
+          amount_out_min?: string
+          approve_hash?: string | null
+          block_number?: number | null
+          created_at?: string
+          deadline?: number
+          error?: string | null
+          id?: string
+          pair_address?: string | null
+          quoted_out?: string
+          side?: string
+          slippage_pct?: number
+          status?: string
+          tx_hash?: string | null
+          updated_at?: string
+          user_id?: string
+          wallet?: string
+        }
+        Relationships: []
+      }
       sim_accounts: {
         Row: {
           archived: boolean
