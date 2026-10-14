@@ -8,6 +8,7 @@ const nav = [
   { to: "/", label: "Painel" },
   { to: "/estrategia", label: "Estratégia" },
   { to: "/simulacao", label: "Simulação" },
+  { to: "/operar", label: "Operar" },
   { to: "/integracoes", label: "Integrações" },
 ] as const;
 
@@ -21,7 +22,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             GTE·MONITOR
           </Link>
           <span className="rounded border border-primary/40 bg-accent px-2 py-0.5 font-mono text-[10px] font-bold text-accent-foreground">
-            MODO SIMULAÇÃO
+            SIMULAÇÃO / CONFIRMAÇÃO
           </span>
           <nav className="order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:ml-4 sm:w-auto">
             {nav.map((n) => (
