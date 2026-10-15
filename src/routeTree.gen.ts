@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CarteirasRouteImport } from './routes/carteiras'
 import { Route as EstrategiaRouteImport } from './routes/estrategia'
 import { Route as GradeRouteImport } from './routes/grade'
+import { Route as InstalarRouteImport } from './routes/instalar'
 import { Route as IntegracoesRouteImport } from './routes/integracoes'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MetricasRouteImport } from './routes/metricas'
@@ -38,6 +39,11 @@ const EstrategiaRoute = EstrategiaRouteImport.update({
 const GradeRoute = GradeRouteImport.update({
   id: '/grade',
   path: '/grade',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InstalarRoute = InstalarRouteImport.update({
+  id: '/instalar',
+  path: '/instalar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IntegracoesRoute = IntegracoesRouteImport.update({
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/carteiras': typeof CarteirasRoute
   '/estrategia': typeof EstrategiaRoute
   '/grade': typeof GradeRoute
+  '/instalar': typeof InstalarRoute
   '/integracoes': typeof IntegracoesRoute
   '/login': typeof LoginRoute
   '/metricas': typeof MetricasRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/carteiras': typeof CarteirasRoute
   '/estrategia': typeof EstrategiaRoute
   '/grade': typeof GradeRoute
+  '/instalar': typeof InstalarRoute
   '/integracoes': typeof IntegracoesRoute
   '/login': typeof LoginRoute
   '/metricas': typeof MetricasRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/carteiras': typeof CarteirasRoute
   '/estrategia': typeof EstrategiaRoute
   '/grade': typeof GradeRoute
+  '/instalar': typeof InstalarRoute
   '/integracoes': typeof IntegracoesRoute
   '/login': typeof LoginRoute
   '/metricas': typeof MetricasRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/carteiras'
     | '/estrategia'
     | '/grade'
+    | '/instalar'
     | '/integracoes'
     | '/login'
     | '/metricas'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/carteiras'
     | '/estrategia'
     | '/grade'
+    | '/instalar'
     | '/integracoes'
     | '/login'
     | '/metricas'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/carteiras'
     | '/estrategia'
     | '/grade'
+    | '/instalar'
     | '/integracoes'
     | '/login'
     | '/metricas'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   CarteirasRoute: typeof CarteirasRoute
   EstrategiaRoute: typeof EstrategiaRoute
   GradeRoute: typeof GradeRoute
+  InstalarRoute: typeof InstalarRoute
   IntegracoesRoute: typeof IntegracoesRoute
   LoginRoute: typeof LoginRoute
   MetricasRoute: typeof MetricasRoute
@@ -188,6 +201,13 @@ declare module '@tanstack/react-router' {
       path: '/grade'
       fullPath: '/grade'
       preLoaderRoute: typeof GradeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/instalar': {
+      id: '/instalar'
+      path: '/instalar'
+      fullPath: '/instalar'
+      preLoaderRoute: typeof InstalarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/integracoes': {
@@ -240,6 +260,7 @@ const rootRouteChildren: RootRouteChildren = {
   CarteirasRoute: CarteirasRoute,
   EstrategiaRoute: EstrategiaRoute,
   GradeRoute: GradeRoute,
+  InstalarRoute: InstalarRoute,
   IntegracoesRoute: IntegracoesRoute,
   LoginRoute: LoginRoute,
   MetricasRoute: MetricasRoute,
