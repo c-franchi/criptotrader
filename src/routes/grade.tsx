@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin, Unavailable } from "@/components/AppShell";
 import { createBotWallet, getBotWallet, runGridNow, withdrawBot } from "@/lib/bot.functions";
-import { TOKENS } from "@/lib/tokens";
+import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +40,7 @@ const blank = { lower_price: "", upper_price: "", levels: "10", order_bnb: "0.01
 function Grade() {
   const { user } = useAuth();
   const getW = useServerFn(getBotWallet), createW = useServerFn(createBotWallet), withdraw = useServerFn(withdrawBot), runNow = useServerFn(runGridNow);
-  const { token: selected, selectToken: setToken } = useSelectedToken();
+  const { token: selected, selectToken: setToken, tokens } = useSelectedToken();
   const token = selected.address;
   const [w, setW] = useState<Wallet | null>(null);
   const [bot, setBot] = useState<Bot | null>(null);
@@ -93,9 +93,10 @@ function Grade() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {TOKENS.map((t) => (
+        {tokens.map((t) => (
           <Button key={t.address} size="sm" variant={t.address === token ? "default" : "secondary"} onClick={() => setToken(t.address)}>{t.symbol}</Button>
         ))}
+        <AddTokenDialog />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -160,7 +161,7 @@ function Grade() {
         {orders.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma ordem.</p> : orders.map((o) => (
           <div key={o.id} className="mb-2 rounded border border-border p-2 text-xs">
             <div className="flex flex-wrap justify-between gap-2">
-              <span className={o.side === "compra" ? "text-success" : "text-destructive"}>{o.side} {TOKENS.find((t) => t.address.toLowerCase() === o.token.toLowerCase())?.symbol}</span>
+              <span className={o.side === "compra" ? "text-success" : "text-destructive"}>{o.side} {tokens.find((t) => t.address.toLowerCase() === o.token.toLowerCase())?.symbol}</span>
               <span className="font-mono">{o.status}</span>
               <span className="text-muted-foreground">{new Date(o.created_at).toLocaleString("pt-BR")}</span>
             </div>

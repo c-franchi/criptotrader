@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin } from "@/components/AppShell";
 import { EMPTY_CONFIG, describeStrategy, type StrategyConfig } from "@/lib/strategy";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
-import { TOKENS } from "@/lib/tokens";
+import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { getMarket } from "@/lib/chain.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,7 +45,7 @@ function Num({ label, hint, value, onChange }: { label: string; hint?: string; v
 
 function StrategyForm() {
   const { user } = useAuth();
-  const { token, selectToken } = useSelectedToken();
+  const { token, selectToken, tokens } = useSelectedToken();
   const [c, setC] = useState<StrategyConfig>(EMPTY_CONFIG);
   const [wallet, setWallet] = useState("");
   const [version, setVersion] = useState(0);
@@ -93,12 +93,13 @@ function StrategyForm() {
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
       <div className="space-y-4">
         <Panel title="Token da estratégia">
-          <div className="flex gap-2">
-            {TOKENS.map((t) => (
+          <div className="flex flex-wrap gap-2">
+            {tokens.map((t) => (
               <Button key={t.address} size="sm" variant={t.address === token.address ? "default" : "outline"} onClick={() => selectToken(t.address)}>
                 {t.symbol}
               </Button>
             ))}
+        <AddTokenDialog wallet={wallet || null} />
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
             Cada token tem sua própria estratégia. Liquidez atual do pool {token.symbol}/WBNB:{" "}
