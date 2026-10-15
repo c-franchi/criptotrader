@@ -43,7 +43,16 @@ export const Route = createFileRoute("/operar")({
 
 const pub = createPublicClient({ chain: bsc, transport: http("https://bsc-dataseed.bnbchain.org") });
 type Order = Tables<"orders">;
-type Quote = { side: "compra" | "venda"; amountIn: bigint; out: bigint; min: bigint; impact: number };
+type Quote = { side: "compra" | "venda"; amountIn: bigint; out: bigint; min: bigint; impact: number; tax: number | null };
+
+function friendlyError(m: string): string {
+  if (/INSUFFICIENT_OUTPUT_AMOUNT/.test(m)) return "O valor recebido ficaria abaixo do mínimo aceito (o token pode cobrar taxa ou o preço mudou). Nada foi trocado. Cote de novo.";
+  if (/rejected|denied/i.test(m)) return "Você recusou a assinatura na carteira. Nada foi enviado.";
+  if (/insufficient funds/i.test(m)) return "BNB insuficiente para pagar o gás.";
+  if (/TRANSFER_FAILED|TransferHelper/.test(m)) return "O token bloqueou a transferência (pode ter limite ou restrição de venda).";
+  if (/EXPIRED/.test(m)) return "A cotação expirou. Cote de novo.";
+  return m.split("\n")[0] || "Erro desconhecido";
+}
 
 function Operar() {
   const { user } = useAuth();
