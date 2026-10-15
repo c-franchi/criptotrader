@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin } from "@/components/AppShell";
 import { EMPTY_CONFIG, describeStrategy, type StrategyConfig } from "@/lib/strategy";
+import { PRESETS, buildPreset } from "@/lib/presets";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { WalletPicker } from "@/components/WalletPicker";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
@@ -51,6 +52,7 @@ function StrategyForm() {
   const [wallet, setWallet] = useState("");
   const [version, setVersion] = useState(0);
   const [liq, setLiq] = useState<number | null>(null);
+  const [amount, setAmount] = useState("");
   const set = <K extends keyof StrategyConfig>(k: K, v: StrategyConfig[K]) => setC((p) => ({ ...p, [k]: v }));
 
   useEffect(() => {
@@ -106,6 +108,24 @@ function StrategyForm() {
             Cada token tem sua própria estratégia. Liquidez atual do pool {token.symbol}/WBNB:{" "}
             {liq === null ? "indisponível" : `US$ ${liq.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`}
           </p>
+        </Panel>
+
+        <Panel title="Estratégias prontas">
+          <Label>Quanto quer usar (em BNB/WBNB)</Label>
+          <Input type="number" step="any" min={0} placeholder="ex.: 0,1" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            {PRESETS.map((p) => (
+              <div key={p.id} className="flex flex-col rounded-md border border-border p-3">
+                <p className="font-semibold">{p.name}</p>
+                <p className="mb-2 text-xs text-muted-foreground">{p.summary}</p>
+                <ul className="mb-3 flex-1 space-y-1 text-xs">{p.how.map((h) => <li key={h}>• {h}</li>)}</ul>
+                <Button size="sm" disabled={!(Number(amount) > 0)} onClick={() => { setC(buildPreset(p.id, Number(amount), liq)); toast.success(`"${p.name}" montada para ${amount} BNB. Revise e salve.`); }}>
+                  Usar esta
+                </Button>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">Os campos abaixo são preenchidos automaticamente; ajuste se quiser e salve. Nenhuma estratégia garante lucro.</p>
         </Panel>
 
         <Panel title="Carteira acompanhada">
