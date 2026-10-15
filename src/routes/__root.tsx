@@ -80,8 +80,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "GTE Monitor" },
-      { name: "description", content: "Acompanhe o token Gold Tech (GTE) na BNB Smart Chain e simule estratégias." },
+      { title: "CryptoBot" },
+      { name: "description", content: "Robô de trade para tokens da BNB Smart Chain: mercado, estratégias, operações e grade automática." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },

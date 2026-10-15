@@ -11,9 +11,9 @@ import { Label } from "@/components/ui/label";
 export const Route = createFileRoute("/carteiras")({
   head: () => ({
     meta: [
-      { title: "Minhas carteiras — GTE Monitor" },
+      { title: "Minhas carteiras — CryptoBot" },
       { name: "description", content: "Salve os endereços das suas carteiras BSC e selecione-os rapidamente em qualquer função." },
-      { property: "og:title", content: "Minhas carteiras — GTE Monitor" },
+      { property: "og:title", content: "Minhas carteiras — CryptoBot" },
       { property: "og:description", content: "Salve os endereços das suas carteiras BSC e selecione-os rapidamente em qualquer função." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

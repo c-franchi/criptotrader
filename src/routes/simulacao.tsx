@@ -16,9 +16,9 @@ import type { Tables } from "@/integrations/supabase/types";
 export const Route = createFileRoute("/simulacao")({
   head: () => ({
     meta: [
-      { title: "Simulação — GTE Monitor" },
+      { title: "Simulação — CryptoBot" },
       { name: "description", content: "Carteira simulada persistente para testar compras e vendas de GTE sem transações reais." },
-      { property: "og:title", content: "Simulação — GTE Monitor" },
+      { property: "og:title", content: "Simulação — CryptoBot" },
       { property: "og:description", content: "Carteira simulada persistente para testar compras e vendas de GTE sem transações reais." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

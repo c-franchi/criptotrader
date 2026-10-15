@@ -14,9 +14,9 @@ import { Label } from "@/components/ui/label";
 export const Route = createFileRoute("/metricas")({
   head: () => ({
     meta: [
-      { title: "Métricas de evolução — GTE Monitor" },
+      { title: "Métricas de evolução — CryptoBot" },
       { name: "description", content: "Variação do token em 1h, 12h e 24h e quanto cada estratégia teria rendido." },
-      { property: "og:title", content: "Métricas de evolução — GTE Monitor" },
+      { property: "og:title", content: "Métricas de evolução — CryptoBot" },
       { property: "og:description", content: "Variação do token em 1h, 12h e 24h e quanto cada estratégia teria rendido." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -35,7 +35,7 @@ function Metrics() {
   const [hours, setHours] = useState(24);
   const [amount, setAmount] = useState("1");
   const market = useQuery({ queryKey: ["market", token.address], queryFn: () => getMarket({ data: { address: token.address } }) });
-  const pool = market.data?.pools.find((p) => p.supported)?.pairAddress;
+  const pool = market.data?.pools.find((p) => p.supported)?.pairAddress ?? market.data?.pools[0]?.pairAddress;
   const candles = useQuery({ queryKey: ["candles", pool], enabled: !!pool, queryFn: () => getCandles({ data: { pool: pool! } }), refetchInterval: 120_000, retry: 2, retryDelay: 3000 });
 
   const now = Date.now() / 1000;

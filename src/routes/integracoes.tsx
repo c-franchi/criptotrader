@@ -4,9 +4,9 @@ import { AppShell, Panel } from "@/components/AppShell";
 export const Route = createFileRoute("/integracoes")({
   head: () => ({
     meta: [
-      { title: "Integrações — GTE Monitor" },
+      { title: "Integrações — CryptoBot" },
       { name: "description", content: "Estado das integrações: RPC BSC, DexScreener, carteira, executor e automação." },
-      { property: "og:title", content: "Integrações — GTE Monitor" },
+      { property: "og:title", content: "Integrações — CryptoBot" },
       { property: "og:description", content: "Estado das integrações: RPC BSC, DexScreener, carteira, executor e automação." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
