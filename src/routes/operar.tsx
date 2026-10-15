@@ -104,7 +104,12 @@ function Operar() {
     return () => clearInterval(t);
   }, [loadOrders, loadMarket, GTE]);
 
-  useEffect(() => { if (account) loadBalances(account); }, [account, loadBalances]);
+  useEffect(() => {
+    if (!account) return;
+    loadBalances(account);
+    const t = setInterval(() => loadBalances(account), 30_000);
+    return () => clearInterval(t);
+  }, [account, loadBalances]);
 
   const connect = async () => {
     setBusy("conectando");
@@ -225,6 +230,12 @@ function Operar() {
               <p>Rede: {chainId === 56 ? <span className="text-success">BNB Smart Chain (56)</span> : <span className="text-destructive">chain {chainId}</span>}</p>
               <p>BNB: {bal ? <span className="font-mono">{fmtBnb(bal.bnb)}</span> : <Unavailable reason="carregando" />}</p>
               <p>{sym}: {bal ? <span className="font-mono">{fmtGte(bal.gte)}</span> : <Unavailable reason="carregando" />}</p>
+              {bal && gasPrice && (
+                <p className={bal.bnb < gasReserve ? "text-destructive" : "text-muted-foreground"}>
+                  Gás estimado por transação: ~{fmtBnb(gasPrice * 21000n)} BNB
+                  {bal.bnb < gasReserve ? " — BNB insuficiente para a reserva de gás" : bal.bnb < gasPrice * 21000n * 5n ? " — saldo de BNB baixo para várias transações" : ""}
+                </p>
+              )}
             </div>
           ) : (
             <Button onClick={connect} disabled={!!busy}>{busy === "conectando" ? "Conectando…" : "Conectar via WalletConnect"}</Button>
