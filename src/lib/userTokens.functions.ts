@@ -47,3 +47,15 @@ export const scanWallet = createServerFn({ method: "POST" })
     const bnb = formatUnits(await c.getBalance({ address: wallet }), 18);
     return { bnb, tokens: out.sort((x, y) => x.symbol.localeCompare(y.symbol)), checked: list.length };
   });
+
+/** Measures a token's buy/sell tax by simulating a tiny swap on-chain (nothing is sent). */
+export const getTokenTax = createServerFn({ method: "GET" })
+  .inputValidator((d: { address: string }) => z.object({ address: addr }).parse(d))
+  .handler(async ({ data }) => {
+    const { detectTax } = await import("./taxDetect.server");
+    try {
+      return { tax: await detectTax(data.address, process.env["BSC_RPC_URL"] || "https://bsc-dataseed.bnbchain.org"), error: null };
+    } catch {
+      return { tax: null, error: "Não foi possível medir a taxa (o token pode não ter par com BNB na PancakeSwap V2 ou bloquear vendas)." };
+    }
+  });
