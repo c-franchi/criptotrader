@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildPreset } from "./presets";
+import { EMPTY_CONFIG } from "./strategy";
 
 describe("buildPreset", () => {
   it("segura: 1/4 do valor por compra, exposição 50%", () => {

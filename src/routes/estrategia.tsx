@@ -5,7 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin } from "@/components/AppShell";
 import { EMPTY_CONFIG, describeStrategy, type StrategyConfig } from "@/lib/strategy";
-import { PRESETS, buildPreset } from "@/lib/presets";
+import { PRESETS, buildPreset, type PresetId } from "@/lib/presets";
+import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { WalletPicker } from "@/components/WalletPicker";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
@@ -69,6 +71,7 @@ function StrategyForm() {
       setWallet(rows.find((r) => r.tracked_wallet)?.tracked_wallet ?? "");
       setC(own ? { ...EMPTY_CONFIG, ...(own.config as Partial<StrategyConfig>) } : EMPTY_CONFIG);
       setVersion(own?.version ?? 0);
+      setEdited(false);
     });
     getMarket({ data: { address: token.address } }).then((m) => {
       if (alive) setLiq(m.pools.find((p) => p.supported)?.liquidityUsd ?? null);
