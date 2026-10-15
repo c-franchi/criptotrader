@@ -50,7 +50,7 @@ async function fromBscScan(address: string, key: string): Promise<{ list: Transf
 export const getTransfers = createServerFn({ method: "GET" })
   .inputValidator((d: { address: string }) => z.object({ address: z.string().regex(/^0x[0-9a-fA-F]{40}$/) }).parse(d))
   .handler(async ({ data }): Promise<TransfersResult> => {
-    const key = process.env.BSCSCAN_API_KEY;
+    const key = process.env["BSCSCAN_API_KEY"];
     let holdersNote = "chave da BscScan não configurada";
     if (key) {
       try {
@@ -74,8 +74,8 @@ export const getTransfers = createServerFn({ method: "GET" })
           out.push({
             hash: l.transactionHash,
             block: parseInt(l.blockNumber, 16),
-            from: `0x${l.topics[1].slice(26)}`,
-            to: `0x${l.topics[2].slice(26)}`,
+            from: `0x${l.topics[1]!.slice(26)}`,
+            to: `0x${l.topics[2]!.slice(26)}`,
             amountRaw: BigInt(l.data === "0x" ? 0 : l.data).toString(),
           });
         }
