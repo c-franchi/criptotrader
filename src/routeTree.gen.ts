@@ -15,6 +15,7 @@ import { Route as EstrategiaRouteImport } from './routes/estrategia'
 import { Route as GradeRouteImport } from './routes/grade'
 import { Route as IntegracoesRouteImport } from './routes/integracoes'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MetricasRouteImport } from './routes/metricas'
 import { Route as OperarRouteImport } from './routes/operar'
 import { Route as SimulacaoRouteImport } from './routes/simulacao'
 import { Route as ApiPublicHooksGridTickRouteImport } from './routes/api/public/hooks/grid-tick'
@@ -49,6 +50,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MetricasRoute = MetricasRouteImport.update({
+  id: '/metricas',
+  path: '/metricas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OperarRoute = OperarRouteImport.update({
   id: '/operar',
   path: '/operar',
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/grade': typeof GradeRoute
   '/integracoes': typeof IntegracoesRoute
   '/login': typeof LoginRoute
+  '/metricas': typeof MetricasRoute
   '/operar': typeof OperarRoute
   '/simulacao': typeof SimulacaoRoute
   '/api/public/hooks/grid-tick': typeof ApiPublicHooksGridTickRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/grade': typeof GradeRoute
   '/integracoes': typeof IntegracoesRoute
   '/login': typeof LoginRoute
+  '/metricas': typeof MetricasRoute
   '/operar': typeof OperarRoute
   '/simulacao': typeof SimulacaoRoute
   '/api/public/hooks/grid-tick': typeof ApiPublicHooksGridTickRoute
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/grade': typeof GradeRoute
   '/integracoes': typeof IntegracoesRoute
   '/login': typeof LoginRoute
+  '/metricas': typeof MetricasRoute
   '/operar': typeof OperarRoute
   '/simulacao': typeof SimulacaoRoute
   '/api/public/hooks/grid-tick': typeof ApiPublicHooksGridTickRoute
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/grade'
     | '/integracoes'
     | '/login'
+    | '/metricas'
     | '/operar'
     | '/simulacao'
     | '/api/public/hooks/grid-tick'
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/grade'
     | '/integracoes'
     | '/login'
+    | '/metricas'
     | '/operar'
     | '/simulacao'
     | '/api/public/hooks/grid-tick'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/grade'
     | '/integracoes'
     | '/login'
+    | '/metricas'
     | '/operar'
     | '/simulacao'
     | '/api/public/hooks/grid-tick'
@@ -142,6 +154,7 @@ export interface RootRouteChildren {
   GradeRoute: typeof GradeRoute
   IntegracoesRoute: typeof IntegracoesRoute
   LoginRoute: typeof LoginRoute
+  MetricasRoute: typeof MetricasRoute
   OperarRoute: typeof OperarRoute
   SimulacaoRoute: typeof SimulacaoRoute
   ApiPublicHooksGridTickRoute: typeof ApiPublicHooksGridTickRoute
@@ -191,6 +204,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/metricas': {
+      id: '/metricas'
+      path: '/metricas'
+      fullPath: '/metricas'
+      preLoaderRoute: typeof MetricasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/operar': {
       id: '/operar'
       path: '/operar'
@@ -222,6 +242,7 @@ const rootRouteChildren: RootRouteChildren = {
   GradeRoute: GradeRoute,
   IntegracoesRoute: IntegracoesRoute,
   LoginRoute: LoginRoute,
+  MetricasRoute: MetricasRoute,
   OperarRoute: OperarRoute,
   SimulacaoRoute: SimulacaoRoute,
   ApiPublicHooksGridTickRoute: ApiPublicHooksGridTickRoute,
