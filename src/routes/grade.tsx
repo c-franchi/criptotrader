@@ -104,6 +104,15 @@ function Grade() {
             <div className="space-y-1 text-sm">
               <p className="break-all font-mono text-xs">{w.address}</p>
               <p>BNB: {w.bnb !== null ? <span className="font-mono">{Number(w.bnb).toLocaleString("pt-BR", { maximumFractionDigits: 6 })}</span> : <Unavailable reason="falha de consulta" />}</p>
+              {w.bnb !== null && (
+                <p className={Number(w.bnb) < Number(f.gas_reserve_bnb) ? "text-destructive" : Number(w.bnb) < Number(f.gas_reserve_bnb) + Number(f.order_bnb) ? "text-warning" : "text-muted-foreground"}>
+                  {Number(w.bnb) < Number(f.gas_reserve_bnb)
+                    ? `BNB insuficiente até para a reserva de gás (${f.gas_reserve_bnb} BNB).`
+                    : Number(w.bnb) < Number(f.gas_reserve_bnb) + Number(f.order_bnb)
+                      ? `BNB cobre o gás, mas não uma ordem de ${f.order_bnb} BNB + reserva.`
+                      : `BNB suficiente para gás e ordens de ${f.order_bnb} BNB.`}
+                </p>
+              )}
               {w.tokens.map((t) => <p key={t.symbol}>{t.symbol}: <span className="font-mono">{Number(t.amount).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</span></p>)}
               <p className="text-xs text-muted-foreground">Envie BNB para este endereço para a grade poder comprar. A chave fica criptografada no servidor e nunca é mostrada.</p>
               <Button size="sm" variant="ghost" disabled={busy} onClick={() => confirm("Desarmar e enviar todo o saldo para a carteira cadastrada em Estratégia?") && act(() => withdraw(), "Saque enviado")}>Sacar tudo</Button>
