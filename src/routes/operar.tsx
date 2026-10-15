@@ -43,7 +43,16 @@ export const Route = createFileRoute("/operar")({
 
 const pub = createPublicClient({ chain: bsc, transport: http("https://bsc-dataseed.bnbchain.org") });
 type Order = Tables<"orders">;
-type Quote = { side: "compra" | "venda"; amountIn: bigint; out: bigint; min: bigint; impact: number };
+type Quote = { side: "compra" | "venda"; amountIn: bigint; out: bigint; min: bigint; impact: number; tax: number | null };
+
+function friendlyError(m: string): string {
+  if (/INSUFFICIENT_OUTPUT_AMOUNT/.test(m)) return "O valor recebido ficaria abaixo do mínimo aceito (o token pode cobrar taxa ou o preço mudou). Nada foi trocado. Cote de novo.";
+  if (/rejected|denied/i.test(m)) return "Você recusou a assinatura na carteira. Nada foi enviado.";
+  if (/insufficient funds/i.test(m)) return "BNB insuficiente para pagar o gás.";
+  if (/TRANSFER_FAILED|TransferHelper/.test(m)) return "O token bloqueou a transferência (pode ter limite ou restrição de venda).";
+  if (/EXPIRED/.test(m)) return "A cotação expirou. Cote de novo.";
+  return m.split("\n")[0] || "Erro desconhecido";
+}
 
 function Operar() {
   const { user } = useAuth();
@@ -185,8 +194,36 @@ function Operar() {
       const out = amounts[amounts.length - 1]!;
       const impact = priceImpactPct(amountIn, side === "compra" ? reserves.bnb : reserves.gte);
       if (impact > cfg.maxPriceImpactPct) throw new Error(`Impacto de preço ${impact.toFixed(2)}% acima do limite de ${cfg.maxPriceImpactPct}%`);
-      setQuote({ side, amountIn, out, min: minOut(out, cfg.maxSlippagePct), impact });
-    } catch (e) { toast.error((e as Error).message); }
+      let q: Quote = { side, amountIn, out, min: minOut(out, cfg.maxSlippagePct), impact, tax: null };
+      // Measure the real payout (catches token taxes). Sales can only be measured once approved.
+      if (account) {
+        const acct = getAddress(account);
+        const canMeasure = side === "compra" || (await pub.readContract({ address: GTE, abi: erc20Abi, functionName: "allowance", args: [acct, PANCAKE_V2_ROUTER] })) >= amountIn;
+        if (canMeasure) q = withTax(q, await measureReal(side, amountIn, acct, out));
+      }
+      setQuote(q);
+    } catch (e) { toast.error(friendlyError((e as Error).message)); }
+  };
+
+  const withTax = (q: Quote, real: bigint): Quote => {
+    const tax = q.out > 0n ? Math.max(0, Number(((q.out - real) * 10000n) / q.out) / 100) : 0;
+    return { ...q, out: real, min: minOut(real, cfg.maxSlippagePct), tax };
+  };
+
+  /** Binary-searches the largest minimum output the router accepts right now = what the swap really pays. */
+  const measureReal = async (side: "compra" | "venda", amountIn: bigint, acct: `0x${string}`, quoted: bigint) => {
+    const dl = BigInt(Math.floor(Date.now() / 1000) + 300);
+    const ok = async (min: bigint) => {
+      try {
+        if (side === "compra") await pub.simulateContract({ account: acct, address: PANCAKE_V2_ROUTER, abi: routerAbi, functionName: "swapExactETHForTokensSupportingFeeOnTransferTokens", args: [min, [WBNB, GTE], acct, dl], value: amountIn });
+        else await pub.simulateContract({ account: acct, address: PANCAKE_V2_ROUTER, abi: routerAbi, functionName: "swapExactTokensForETHSupportingFeeOnTransferTokens", args: [amountIn, min, [GTE, WBNB], acct, dl] });
+        return true;
+      } catch { return false; }
+    };
+    if (await ok(quoted)) return quoted;
+    let lo = 0n, hi = quoted;
+    for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2n; if (await ok(m)) lo = m; else hi = m; }
+    return lo;
   };
 
   const execute = async () => {
@@ -212,6 +249,18 @@ function Operar() {
           if (ar.status !== "success") throw new Error("Aprovação falhou");
         }
       }
+      if (quote.side === "venda" && quote.tax == null) {
+        // Approval is in place now: measure what the swap really pays (token taxes).
+        const real = await measureReal("venda", quote.amountIn, acct, quote.out);
+        const taxed = withTax(quote, real);
+        if (taxed.min < quote.min) {
+          await upd({ status: "cancelada", error: `Token cobra ~${taxed.tax!.toFixed(1)}% na venda; cotação refeita antes de enviar.` });
+          setQuote(taxed);
+          toast.warning(`O ${sym} cobra uma taxa de ~${taxed.tax!.toFixed(1)}% na venda. Nada foi vendido. Revise o novo valor e assine de novo.`);
+          setBusy(null); loadOrders();
+          return;
+        }
+      }
       const req = quote.side === "compra"
         ? (await pub.simulateContract({ account: acct, address: PANCAKE_V2_ROUTER, abi: routerAbi, functionName: "swapExactETHForTokensSupportingFeeOnTransferTokens", args: [quote.min, [...path], acct, deadline], value: quote.amountIn })).request
         : (await pub.simulateContract({ account: acct, address: PANCAKE_V2_ROUTER, abi: routerAbi, functionName: "swapExactTokensForETHSupportingFeeOnTransferTokens", args: [quote.amountIn, quote.min, [...path], acct, deadline] })).request;
@@ -222,7 +271,7 @@ function Operar() {
       await upd({ status: r.status === "success" ? "confirmada" : "falhou", block_number: Number(r.blockNumber) });
       r.status === "success" ? toast.success("Transação confirmada na blockchain") : toast.error("Transação revertida");
     } catch (e) {
-      const msg = (e as Error).message?.split("\n")[0] ?? "erro";
+      const msg = friendlyError((e as Error).message ?? "");
       await upd({ status: "falhou", error: msg.slice(0, 300) });
       toast.error(msg);
     } finally {
@@ -337,6 +386,12 @@ function Operar() {
             <li>Cotação atual: {quote.side === "compra" ? `${fmtGte(quote.out)} ${sym}` : `${fmtBnb(quote.out)} BNB`}</li>
             <li>Mínimo aceito (slippage {cfg.maxSlippagePct}%): {quote.side === "compra" ? `${fmtGte(quote.min)} ${sym}` : `${fmtBnb(quote.min)} BNB`}</li>
             <li>Impacto de preço estimado: {quote.impact.toFixed(2)}%</li>
+            <li>
+              {quote.tax == null
+                ? "Taxa do token: será medida depois da aprovação, antes de vender."
+                : quote.tax > 0.5 ? <span className="text-warning">Taxa do token detectada: ~{quote.tax.toFixed(1)}% (já descontada do valor acima)</span>
+                : "Taxa do token: nenhuma detectada."}
+            </li>
             <li>Validade: 5 minutos. {quote.side === "venda" && "Pode exigir uma aprovação limitada a esta quantidade."}</li>
           </ul>
           <div className="mt-3 flex gap-2">
