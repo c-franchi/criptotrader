@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -126,7 +127,11 @@ function StrategyForm() {
     await supabase.from("audit_log").insert({ user_id: user.id, action: "estrategia_salva", details: { token: token.symbol, version: version + 1, config: c } });
     setVersion(version + 1);
     toast.success(`Estratégia de ${token.symbol} salva (versão ${version + 1})`);
+    setAskTrade(true);
   };
+  const [askTrade, setAskTrade] = useState(false);
+  const navigate = useNavigate();
+  const firstEntry = c.sizingMode === "fixo" && c.buyAmount > 0 ? c.buyAmount : null;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
@@ -336,6 +341,24 @@ function StrategyForm() {
           {errors.length > 0 && (
             <ul className="mt-3 space-y-1 text-sm text-destructive">{errors.map((e) => <li key={e}>{e}</li>)}</ul>
           )}
+          <AlertDialog open={askTrade} onOpenChange={setAskTrade}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Estratégia salva! Fazer a primeira compra agora?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Você vai para Operar com a estratégia de {token.symbol} já carregada
+                  {firstEntry ? <> e a primeira entrada preenchida com <b>{firstEntry} BNB</b></> : null}.
+                  Lá você só confere o valor, conecta a carteira e confirma: paga BNB e recebe {token.symbol}.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Agora não</AlertDialogCancel>
+                <AlertDialogAction onClick={() => navigate({ to: "/operar", search: firstEntry ? { entrada: String(firstEntry) } : {} })}>
+                  Ir para a operação
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <Button className="mt-4 w-full" onClick={save} disabled={errors.length > 0}>
             Salvar estratégia{chosen ? ` · ${chosen.name}` : ""}{version ? ` (atual v${version})` : ""}
           </Button>
