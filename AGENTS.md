@@ -20,3 +20,4 @@
 - The scheduler endpoint /api/public/hooks/grid-tick authenticates with a token stored in internal_tokens (service_role only) so pg_cron and the route share it without exposing it.
 - Browser bundle maps Node `events`/`buffer` to npm polyfills via a client-only resolveId plugin in vite.config.ts — WalletConnect crashes (EventEmitter is not a constructor) without them.
 - Token buy/sell tax is measured by a simulated buy+sell eth_call with a state-overridden probe contract (taxDetect.server.ts) — no funds move and it works for any token with a V2 BNB pair; manual values in the strategy override it.
+- Bot withdrawals only go to a user_wallets address saved >=24h ago — limits damage from a stolen session.
