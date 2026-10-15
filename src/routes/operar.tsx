@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { PRESETS } from "@/lib/presets";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { createPublicClient, createWalletClient, custom, formatEther, formatUnits, http, parseEther, parseUnits, getAddress, type WalletClient } from "viem";
@@ -17,6 +18,8 @@ import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 
 export const Route = createFileRoute("/operar")({
+  validateSearch: (s: Record<string, unknown>): { entrada?: string } =>
+    typeof s.entrada === "string" && /^\d+(\.\d+)?$/.test(s.entrada) ? { entrada: s.entrada } : {},
   head: () => ({
     meta: [
       { title: "Operar — GTE Monitor" },
@@ -60,6 +63,9 @@ function Operar() {
   const [sellAmt, setSellAmt] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [hasStrategy, setHasStrategy] = useState(false);
+  const { entrada } = Route.useSearch();
+  const preset = PRESETS.find((p) => p.id === cfg.presetId) ?? null;
 
   const loadOrders = useCallback(async () => {
     const { data } = await supabase.from("orders").select("*").order("created_at", { ascending: false }).limit(50);
@@ -96,7 +102,11 @@ function Operar() {
       const rows = data ?? [];
       setTracked(rows.find((r) => r.tracked_wallet)?.tracked_wallet ?? null);
       const own = rows.find((r) => r.token.toLowerCase() === GTE.toLowerCase());
-      setCfg(own ? { ...EMPTY_CONFIG, ...(own.config as Partial<StrategyConfig>) } : EMPTY_CONFIG);
+      const next = own ? { ...EMPTY_CONFIG, ...(own.config as Partial<StrategyConfig>) } : EMPTY_CONFIG;
+      setHasStrategy(!!own);
+      setCfg(next);
+      const suggested = entrada ?? (next.sizingMode === "fixo" && next.buyAmount > 0 ? String(next.buyAmount) : "");
+      setBuyAmt((cur) => cur || suggested);
     });
     loadOrders();
     loadMarket();
@@ -260,9 +270,24 @@ function Operar() {
         </div>
       )}
 
+      <div className={hasStrategy ? "rounded border border-primary/60 bg-primary/10 p-3 text-sm" : "rounded border border-border p-3 text-sm"}>
+        {hasStrategy ? (
+          <>
+            <p><strong>✓ Estratégia em uso para {sym}:</strong> {preset ? preset.name : "personalizada"}</p>
+            <p className="text-xs text-muted-foreground">
+              {cfg.sizingMode === "fixo" && cfg.buyAmount > 0 ? `Primeira entrada sugerida: ${cfg.buyAmount} BNB. ` : ""}
+              Slippage máx. {cfg.maxSlippagePct}%, impacto máx. {cfg.maxPriceImpactPct}%, reserva de gás {cfg.gasReserveBnb} BNB — já aplicados aqui.
+            </p>
+          </>
+        ) : (
+          <p>Nenhuma estratégia salva para {sym}. <Link to="/estrategia" className="text-primary underline">Criar estratégia</Link> (opcional).</p>
+        )}
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <Panel title={`Comprar ${sym} com BNB`}>
-          <Label>Valor em BNB</Label>
+          <Label>Quanto BNB usar nesta entrada</Label>
+          <p className="text-xs text-muted-foreground">Você paga BNB e recebe {sym}.</p>
           <div className="mt-1 flex gap-2">
             <Input type="number" step="any" value={buyAmt} onChange={(e) => { setBuyAmt(e.target.value); setQuote(null); }} />
             <Button onClick={() => prepare("compra")} disabled={!ready || !!busy}>Cotar</Button>
