@@ -10,6 +10,7 @@ import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { WalletPicker } from "@/components/WalletPicker";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { getMarket } from "@/lib/chain.functions";
+import { getFxQuote, getBnbBalance } from "@/lib/fx.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,6 +54,9 @@ function StrategyForm() {
   const [version, setVersion] = useState(0);
   const [liq, setLiq] = useState<number | null>(null);
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState<"BRL" | "BNB">("BRL");
+  const [fx, setFx] = useState<{ bnbUsd: number | null; usdBrl: number | null } | null>(null);
+  const [bnbBalance, setBnbBalance] = useState<string | null>(null);
   const set = <K extends keyof StrategyConfig>(k: K, v: StrategyConfig[K]) => setC((p) => ({ ...p, [k]: v }));
 
   useEffect(() => {
