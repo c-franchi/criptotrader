@@ -70,8 +70,11 @@ export async function readMarket(address: string, rpcUrl: string): Promise<Marke
   const active = pending.get(key);
   if (active) return active;
   const request = fetchMarket(address, rpcUrl).then((result) => {
+    if (result.error && saved?.result.pools.length) {
+      return { ...saved.result, error: "Atualização indisponível; exibindo a última consulta" };
+    }
     if (cache.size >= 100) cache.clear();
-    cache.set(key, { result, expires: Date.now() + 30_000 });
+    cache.set(key, { result, expires: Date.now() + 15_000 });
     return result;
   }).finally(() => pending.delete(key));
   pending.set(key, request);
