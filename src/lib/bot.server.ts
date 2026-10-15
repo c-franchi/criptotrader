@@ -3,7 +3,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { bsc } from "viem/chains";
 import { PANCAKE_V2_FACTORY, PANCAKE_V2_ROUTER, WBNB, ZERO, erc20Abi, factoryAbi, minOut, pairAbi, priceImpactPct, routerAbi } from "./pancake";
 import { gridDecision } from "./grid";
-import { findToken } from "./tokens";
+import { tokenMeta } from "./tokenMeta.server";
 
 const RPC = () => process.env["BSC_RPC_URL"] || "https://bsc-dataseed.bnbchain.org";
 export const pubClient = () => createPublicClient({ chain: bsc, transport: http(RPC()) });
@@ -45,7 +45,7 @@ export async function poolState(token: `0x${string}`) {
   ]);
   const is0 = t0.toLowerCase() === token.toLowerCase();
   const tok = is0 ? r0 : r1, bnb = is0 ? r1 : r0;
-  const dec = findToken(token)?.decimals ?? 18;
+  const dec = (await tokenMeta(token)).decimals;
   const price = Number(formatEther(bnb)) / (Number(tok) / 10 ** dec); // BNB por token
   return { pair, tok, bnb, price };
 }
@@ -70,7 +70,7 @@ export async function runGridStep(bot: Bot, enc: string) {
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
   const reserve = parseEther(String(bot.gas_reserve_bnb));
   const bnbBal = await pub.getBalance({ address: me });
-  const dec = findToken(token)?.decimals ?? 18;
+  const dec = (await tokenMeta(token)).decimals;
   const bnbWanted = parseEther(String(Number(bot.order_bnb) * d.steps));
   let amountIn: bigint, path: `0x${string}`[];
 

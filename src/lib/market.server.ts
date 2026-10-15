@@ -1,7 +1,7 @@
 import { createPublicClient, formatUnits, getAddress, http } from "viem";
 import { bsc } from "viem/chains";
 import { PANCAKE_V2_FACTORY, WBNB, ZERO, factoryAbi, pairAbi } from "./pancake";
-import { findToken } from "./tokens";
+import { tokenMeta } from "./tokenMeta.server";
 import type { PoolInfo } from "./chain.functions";
 
 type Market = { pools: PoolInfo[]; fetchedAt: string; source: string; error: string | null };
@@ -16,8 +16,7 @@ const pending = new Map<string, Promise<Market>>();
 
 async function onChainPool(address: string, rpcUrl: string): Promise<PoolInfo[]> {
   const token = getAddress(address);
-  const info = findToken(address);
-  if (!info) throw new Error("Token não suportado");
+  const info = await tokenMeta(address);
   const client = createPublicClient({ chain: bsc, transport: http(rpcUrl, { timeout: 8000, retryCount: 1 }) });
   const pair = await client.readContract({ address: PANCAKE_V2_FACTORY, abi: factoryAbi, functionName: "getPair", args: [token, WBNB] });
   if (pair === ZERO) return [];
