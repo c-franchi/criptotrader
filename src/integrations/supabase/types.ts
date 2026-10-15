@@ -337,6 +337,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_tokens: {
+        Row: {
+          address: string
+          created_at: string
+          decimals: number
+          id: string
+          name: string
+          symbol: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          decimals: number
+          id?: string
+          name: string
+          symbol: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          decimals?: number
+          id?: string
+          name?: string
+          symbol?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
