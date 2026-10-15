@@ -14,6 +14,7 @@ import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { WalletPicker } from "@/components/WalletPicker";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { getMarket } from "@/lib/chain.functions";
+import { getTokenTax } from "@/lib/userTokens.functions";
 import { getFxQuote, getBnbBalance } from "@/lib/fx.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,7 +64,17 @@ function StrategyForm() {
   const [bnbBalance, setBnbBalance] = useState<string | null>(null);
   const [edited, setEdited] = useState(false);
   const set = <K extends keyof StrategyConfig>(k: K, v: StrategyConfig[K]) => { setEdited(true); setC((p) => ({ ...p, [k]: v })); };
-  const tax = taxFor(token.address, c);
+  const [measured, setMeasured] = useState<{ buy: number; sell: number } | null | "loading" | "fail">(null);
+  const auto = measured && typeof measured === "object" ? measured : null;
+  const tax = taxFor(token.address, { buyTaxPct: c.buyTaxPct ?? auto?.buy, sellTaxPct: c.sellTaxPct ?? auto?.sell });
+  const measure = (apply: boolean) => {
+    setMeasured("loading");
+    getTokenTax({ data: { address: token.address } }).then((r) => {
+      if (!r.tax) return void setMeasured("fail");
+      setMeasured(r.tax);
+      if (apply) { set("buyTaxPct", r.tax.buy); set("sellTaxPct", r.tax.sell); }
+    }).catch(() => setMeasured("fail"));
+  };
   const chosen = PRESETS.find((p) => p.id === c.presetId) ?? null;
   const applyPreset = (id: PresetId) => {
     setC(buildPreset(id, amountBnb, liq, tax));
@@ -84,6 +95,7 @@ function StrategyForm() {
       setVersion(own?.version ?? 0);
       setEdited(false);
     });
+    measure(false);
     getMarket({ data: { address: token.address } }).then((m) => {
       if (alive) setLiq(m.pools.find((p) => p.supported)?.liquidityUsd ?? null);
     }).catch(() => {});
@@ -181,6 +193,12 @@ function StrategyForm() {
               <label className="text-xs text-muted-foreground">Na venda (%)
                 <Input type="number" step="any" min={0} max={50} value={tax.sell} onChange={(e) => set("sellTaxPct", Math.min(50, Math.max(0, Number(e.target.value) || 0)))} />
               </label>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+              {measured === "loading" && <span className="text-muted-foreground">Medindo a taxa direto no contrato…</span>}
+              {auto && <span>✓ Medido no contrato agora: compra <b>{auto.buy}%</b> · venda <b>{auto.sell}%</b></span>}
+              {measured === "fail" && <span className="text-destructive">Não deu para medir a taxa automaticamente. Preencha à mão.</span>}
+              <Button type="button" size="sm" variant="outline" onClick={() => measure(true)} disabled={measured === "loading"}>Medir de novo e usar</Button>
             </div>
             <p className="mt-2 text-xs">
               {tax.buy + tax.sell > 0
