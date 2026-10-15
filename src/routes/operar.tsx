@@ -384,6 +384,21 @@ function Operar() {
           <ul className="space-y-1 text-sm">
             <li>{quote.side === "compra" ? `Enviar ${fmtBnb(quote.amountIn)} BNB` : `Enviar ${fmtGte(quote.amountIn)} ${sym}`}</li>
             <li>Cotação atual: {quote.side === "compra" ? `${fmtGte(quote.out)} ${sym}` : `${fmtBnb(quote.out)} BNB`}</li>
+            {quote.side === "compra" && pnl.lastSell && (() => {
+              const bnbIn = Number(formatEther(quote.amountIn)), tk = Number(formatUnits(quote.out, selected.decimals));
+              const edge = rebuyEdgePct(pnl.lastSell, bnbIn, tk);
+              const atSellRate = bnbIn * (pnl.lastSell.tokens / pnl.lastSell.bnb);
+              return edge == null ? null : (
+                <li className={edge >= 0 ? "text-success" : "text-destructive"}>
+                  Na última venda, {n6(bnbIn)} BNB valiam {n2(atSellRate)} {sym}. Agora você compra {n2(tk)} {sym}: {edge >= 0 ? "+" : ""}{edge.toFixed(1)}% {edge >= 0 ? "a mais" : "a menos"}.
+                </li>
+              );
+            })()}
+            {quote.side === "venda" && pnl.avgCost && (() => {
+              const tk = Number(formatUnits(quote.amountIn, selected.decimals)), bnb = Number(formatEther(quote.out));
+              const res = bnb - tk * pnl.avgCost;
+              return <li className={res >= 0 ? "text-success" : "text-destructive"}>Pelo seu preço médio, esta venda dá {res >= 0 ? "lucro" : "prejuízo"} de ~{n6(Math.abs(res))} BNB.</li>;
+            })()}
             <li>Mínimo aceito (slippage {cfg.maxSlippagePct}%): {quote.side === "compra" ? `${fmtGte(quote.min)} ${sym}` : `${fmtBnb(quote.min)} BNB`}</li>
             <li>Impacto de preço estimado: {quote.impact.toFixed(2)}%</li>
             <li>
@@ -402,6 +417,37 @@ function Operar() {
           </div>
         </Panel>
       )}
+
+      <Panel title={`Seus resultados com ${sym}`}>
+        {pnl.buys + pnl.sells === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhuma troca confirmada de {sym} ainda. Depois da primeira compra ou venda, o resultado aparece aqui.</p>
+        ) : (
+          <div className="space-y-3 text-sm">
+            <div className={cn("rounded border p-3", status === "pos" ? "border-success/50 bg-success/10" : status === "neg" ? "border-destructive/50 bg-destructive/10" : "border-border")}>
+              <p className="text-xs text-muted-foreground">Situação geral (vendido + valor atual do que sobrou − gasto)</p>
+              <p className={cn("text-2xl font-bold", status === "pos" ? "text-success" : status === "neg" ? "text-destructive" : "")}>
+                {total == null ? "—" : `${total >= 0 ? "+" : ""}${total.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB`}
+                {total != null && pnl.bnbSpent > 0 ? <span className="ml-2 text-base">({((total / pnl.bnbSpent) * 100).toFixed(1)}%)</span> : null}
+              </p>
+              <p>{status === "pos" ? "Você está positivo." : status === "neg" ? "Você está negativo." : total == null ? "Sem preço atual para calcular." : "Empatado."}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <p>Compras: <b>{pnl.buys}</b> · gasto {n6(pnl.bnbSpent)} BNB</p>
+              <p>Vendas: <b>{pnl.sells}</b> · recebido {n6(pnl.bnbReceived)} BNB</p>
+              <p>Lucro/prejuízo já realizado: <b className={pnl.realized >= 0 ? "text-success" : "text-destructive"}>{pnl.realized >= 0 ? "+" : ""}{n6(pnl.realized)} BNB</b></p>
+              <p>Ainda com você (destas compras): <b>{n2(pnl.position)} {sym}</b>{pnl.avgCost ? <> · preço médio {pnl.avgCost.toPrecision(4)} BNB</> : null}</p>
+            </div>
+            {pnl.lastSell && (
+              <p className="rounded border border-border p-2 text-xs">
+                <b>Última venda:</b> {n2(pnl.lastSell.tokens)} {sym} → {n6(pnl.lastSell.bnb)} BNB
+                (1 BNB = {n2(pnl.lastSell.tokens / pnl.lastSell.bnb)} {sym}).
+                {spot ? <> Agora 1 BNB compra ~{n2(spot)} {sym}: <b className={spot >= pnl.lastSell.tokens / pnl.lastSell.bnb ? "text-success" : "text-destructive"}>{spot >= pnl.lastSell.tokens / pnl.lastSell.bnb ? "mais" : "menos"} tokens</b> do que você vendeu.</> : null}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">Valores em BNB pela cotação de cada troca (com taxa do token), sem o gás. Tokens que já estavam na carteira antes não entram no lucro.</p>
+          </div>
+        )}
+      </Panel>
 
       <Panel title="Ordens reais">
         {orders.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma ordem.</p> : (
