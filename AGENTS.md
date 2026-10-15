@@ -10,7 +10,8 @@
 <!-- LOVABLE:END -->
 
 ## Rules
-- Supported tokens live in src/lib/tokens.ts; pages pick from that list — keeps trading/analysis in sync.
+- Built-in tokens live in src/lib/tokens.ts; users add more into user_tokens (RLS own), exposed via SelectedTokenProvider.tokens — pages never hardcode the list. Server reads unknown token metadata on-chain via tokenMeta.server.ts.
+- Wallet scan checks balances of POPULAR_BSC_TOKENS + saved tokens by multicall — free BSC RPCs/BscScan cannot list all tokens of a wallet.
 - Painel, Operar and Grade share selection through SelectedTokenProvider; restore browser storage after hydration so navigation does not silently change the asset.
 - Market reads cache and coalesce public requests per token in market.server.ts, falling back to factory/reserves on-chain; unavailable aggregate metrics remain null.
 - Automated grid signs with a server-generated bot wallet (AES-GCM with BOT_KEY_SECRET, table bot_wallets readable only by service_role) — users never hand over keys.
