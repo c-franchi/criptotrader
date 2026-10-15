@@ -13,6 +13,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin, Unavailable } from "@/components/AppShell";
 import { getWalletConfig } from "@/lib/wallet.functions";
 import { EMPTY_CONFIG, type StrategyConfig } from "@/lib/strategy";
+import { getTokenTax } from "@/lib/userTokens.functions";
+import { taxFor } from "@/lib/tokens";
 import { PANCAKE_V2_FACTORY, PANCAKE_V2_ROUTER, WBNB, ZERO, erc20Abi, factoryAbi, minOut, pairAbi, priceImpactPct, routerAbi } from "@/lib/pancake";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -252,6 +254,7 @@ function Operar() {
     if (error || !order) return void toast.error("Não foi possível registrar a ordem; nada foi enviado.");
     const upd = (patch: Partial<Order>) => supabase.from("orders").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", order.id);
     setBusy("assinatura");
+    let keepQuote = false;
     try {
       if (quote.side === "venda") {
         const allowance = await pub.readContract({ address: GTE, abi: erc20Abi, functionName: "allowance", args: [acct, PANCAKE_V2_ROUTER] });
@@ -273,7 +276,7 @@ function Operar() {
           await upd({ status: "cancelada", error: `Token cobrou ~${taxed.tax!.toFixed(1)}% na venda (mais que o previsto); valor atualizado, nada foi vendido.` });
           keepQuote = true;
           setQuote(taxed);
-          toast.warning(`Nada foi vendido. O valor a receber mudou para ${formatEther(taxed.out)} BNB. Toque em "Confirmar" de novo — a aprovação já está feita.`);
+          toast.warning(`Nada foi vendido. O valor a receber mudou para ${formatEther(taxed.out)} BNB. Toque em "Assinar na carteira" de novo — a aprovação já está feita.`);
           return;
         }
       }
