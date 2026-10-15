@@ -5,6 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin } from "@/components/AppShell";
 import { EMPTY_CONFIG, describeStrategy, type StrategyConfig } from "@/lib/strategy";
+import { useSelectedToken } from "@/hooks/useSelectedToken";
+import { TOKENS } from "@/lib/tokens";
+import { getMarket } from "@/lib/chain.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,20 +45,29 @@ function Num({ label, hint, value, onChange }: { label: string; hint?: string; v
 
 function StrategyForm() {
   const { user } = useAuth();
+  const { token, selectToken } = useSelectedToken();
   const [c, setC] = useState<StrategyConfig>(EMPTY_CONFIG);
   const [wallet, setWallet] = useState("");
   const [version, setVersion] = useState(0);
+  const [liq, setLiq] = useState<number | null>(null);
   const set = <K extends keyof StrategyConfig>(k: K, v: StrategyConfig[K]) => setC((p) => ({ ...p, [k]: v }));
 
   useEffect(() => {
-    supabase.from("strategies").select("*").maybeSingle().then(({ data }) => {
-      if (data) {
-        setC({ ...EMPTY_CONFIG, ...(data.config as Partial<StrategyConfig>) });
-        setWallet(data.tracked_wallet ?? "");
-        setVersion(data.version);
-      }
+    let alive = true;
+    setLiq(null);
+    supabase.from("strategies").select("*").order("updated_at", { ascending: false }).then(({ data }) => {
+      if (!alive) return;
+      const rows = data ?? [];
+      const own = rows.find((r) => r.token.toLowerCase() === token.address.toLowerCase());
+      setWallet(rows.find((r) => r.tracked_wallet)?.tracked_wallet ?? "");
+      setC(own ? { ...EMPTY_CONFIG, ...(own.config as Partial<StrategyConfig>) } : EMPTY_CONFIG);
+      setVersion(own?.version ?? 0);
     });
-  }, []);
+    getMarket({ data: { address: token.address } }).then((m) => {
+      if (alive) setLiq(m.pools.find((p) => p.supported)?.liquidityUsd ?? null);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [token.address]);
 
   const errors: string[] = [];
   if (wallet && !/^0x[0-9a-fA-F]{40}$/.test(wallet)) errors.push("Endereço de carteira inválido.");
@@ -66,22 +78,38 @@ function StrategyForm() {
   const save = async () => {
     if (!user || errors.length) return;
     const { error } = await supabase.from("strategies").upsert(
-      { user_id: user.id, config: c, tracked_wallet: wallet || null, version: version + 1, updated_at: new Date().toISOString() },
-      { onConflict: "user_id" },
+      { user_id: user.id, token: token.address, config: c, tracked_wallet: wallet || null, version: version + 1, updated_at: new Date().toISOString() },
+      { onConflict: "user_id,token" },
     );
     if (error) return void toast.error(error.message);
-    await supabase.from("audit_log").insert({ user_id: user.id, action: "estrategia_salva", details: { version: version + 1, config: c } });
+    // The wallet is shared by every token strategy.
+    await supabase.from("strategies").update({ tracked_wallet: wallet || null }).eq("user_id", user.id);
+    await supabase.from("audit_log").insert({ user_id: user.id, action: "estrategia_salva", details: { token: token.symbol, version: version + 1, config: c } });
     setVersion(version + 1);
-    toast.success(`Estratégia salva (versão ${version + 1})`);
+    toast.success(`Estratégia de ${token.symbol} salva (versão ${version + 1})`);
   };
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
       <div className="space-y-4">
+        <Panel title="Token da estratégia">
+          <div className="flex gap-2">
+            {TOKENS.map((t) => (
+              <Button key={t.address} size="sm" variant={t.address === token.address ? "default" : "outline"} onClick={() => selectToken(t.address)}>
+                {t.symbol}
+              </Button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Cada token tem sua própria estratégia. Liquidez atual do pool {token.symbol}/WBNB:{" "}
+            {liq === null ? "indisponível" : `US$ ${liq.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`}
+          </p>
+        </Panel>
+
         <Panel title="Carteira acompanhada">
           <Label>Endereço (somente leitura de dados públicos)</Label>
           <Input placeholder="0x…" value={wallet} onChange={(e) => setWallet(e.target.value.trim())} />
-          <p className="mt-1 text-xs text-muted-foreground">O endereço sozinho não autoriza nenhuma movimentação de fundos.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Vale para todos os tokens. O endereço sozinho não autoriza nenhuma movimentação de fundos.</p>
         </Panel>
 
         <Panel title="Entrada">
