@@ -56,6 +56,11 @@ export const withdrawBot = createServerFn({ method: "POST" })
     const { data: strat } = await context.supabase.from("strategies").select("tracked_wallet").not("tracked_wallet", "is", null).order("updated_at", { ascending: false }).limit(1).maybeSingle();
     const to = strat?.tracked_wallet;
     if (!to || !/^0x[0-9a-fA-F]{40}$/.test(to)) throw new Error("Cadastre a carteira acompanhada em Estratégia primeiro");
+    // Anti-theft: funds only go to a wallet saved in "Minhas carteiras" for at least 24h,
+    // so a stolen session cannot redirect withdrawals to a fresh attacker address.
+    const { data: saved } = await context.supabase.from("user_wallets").select("address, created_at").ilike("address", to).maybeSingle();
+    if (!saved) throw new Error("Por segurança, o destino precisa estar salvo em Minhas carteiras");
+    if (Date.now() - new Date(saved.created_at).getTime() < 24 * 3600 * 1000) throw new Error("Por segurança, carteiras novas só podem receber saques 24 horas depois de salvas");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin.from("grid_bots").update({ armed: false }).eq("user_id", context.userId);
     const { data: bw } = await supabaseAdmin.from("bot_wallets").select("enc_key").eq("user_id", context.userId).maybeSingle();
