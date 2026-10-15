@@ -26,7 +26,7 @@ export function backtest(c: Candle[], cfg: StrategyConfig, capital: number): Bac
   let prevFastAbove: boolean | null = null;
   const sell = (fraction: number, price: number) => {
     const amt = tokens * fraction;
-    quote += amt * price * (1 - FEE);
+    quote += amt * price * (1 - FEE) * (1 - (cfg.sellTaxPct ?? 0) / 100);
     cost *= 1 - fraction; tokens -= amt; trades++;
     if (tokens <= 1e-18) { tokens = 0; cost = 0; entries = 0; tpDone = 0; trailHigh = 0; }
   };
@@ -65,7 +65,7 @@ export function backtest(c: Candle[], cfg: StrategyConfig, capital: number): Bac
       }
     }
     if (canBuy && price !== null) {
-      quote -= size; tokens += (size * (1 - FEE)) / price; cost += size; entries++; trades++;
+      quote -= size; tokens += (size * (1 - FEE) * (1 - (cfg.buyTaxPct ?? 0) / 100)) / price; cost += size; entries++; trades++;
       peak = price; // signal re-arms from the new level
     }
     peak = Math.max(peak, h);

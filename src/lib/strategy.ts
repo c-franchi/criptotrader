@@ -2,6 +2,8 @@ export type PresetId = "segura" | "equilibrada" | "ativa";
 
 export type StrategyConfig = {
   presetId?: PresetId | null; // which ready-made style produced this config
+  buyTaxPct?: number; // token tax charged on buys (% of tokens received)
+  sellTaxPct?: number; // token tax charged on sells (% of BNB received)
   sizingMode: "fixo" | "percentual";
   buyAmount: number; // quote units when fixo, % of quote balance when percentual
   entryType: "queda" | "medias";

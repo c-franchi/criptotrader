@@ -21,3 +21,14 @@ describe("buildPreset", () => {
     expect(EMPTY_CONFIG.presetId).toBeUndefined();
   });
 });
+
+import { breakEvenPct } from "./tokens";
+describe("taxa do token", () => {
+  it("8% na compra e 8% na venda exigem ~18,1% de alta para empatar", () => {
+    expect(breakEvenPct({ buy: 8, sell: 8 })).toBeCloseTo(18.15, 1);
+  });
+  it("meta de +10% líquido vira ~30% de alta no preço com taxas de 8%/8%", () => {
+    const c = buildPreset("segura", 1, null, { buy: 8, sell: 8 });
+    expect(c.takeProfits[0]!.pct).toBeCloseTo(30, 0);
+  });
+});
