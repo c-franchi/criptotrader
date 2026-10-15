@@ -395,9 +395,37 @@ function Operar() {
 
       {quote && (
         <Panel title="Revisar antes de assinar">
-          <ul className="space-y-1 text-sm">
-            <li>{quote.side === "compra" ? `Enviar ${fmtBnb(quote.amountIn)} BNB` : `Enviar ${fmtGte(quote.amountIn)} ${sym}`}</li>
-            <li>Cotação atual: {quote.side === "compra" ? `${fmtGte(quote.out)} ${sym}` : `${fmtBnb(quote.out)} BNB`}</li>
+          {(() => {
+            const hasTax = quote.tax != null && quote.tax > 0.5;
+            const gross = hasTax ? (quote.out * 10000n) / BigInt(Math.round((100 - quote.tax!) * 100)) : null;
+            const envia = quote.side === "compra" ? `${fmtBnb(quote.amountIn)} BNB` : `${fmtGte(quote.amountIn)} ${sym}`;
+            const recebe = quote.side === "compra" ? `${fmtGte(quote.out)} ${sym}` : `${fmtBnb(quote.out)} BNB`;
+            const bruto = gross == null ? null : quote.side === "compra" ? `${fmtGte(gross)} ${sym}` : `${fmtBnb(gross)} BNB`;
+            const bnbIn = Number(formatEther(quote.amountIn));
+            const tkOut = Number(formatUnits(quote.out, selected.decimals));
+            return (
+              <div className="rounded-lg border border-primary/60 bg-primary/10 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Você envia</p>
+                <p className="font-mono text-2xl font-bold">{envia}</p>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {quote.side === "compra" ? `Você recebe — ${sym}, taxa do token já descontada` : quote.tax == null ? "Você recebe — BNB (taxa será medida depois da aprovação)" : "Você recebe — BNB, taxa do token já descontada"}
+                </p>
+                <p className="font-mono text-2xl font-bold text-success">{recebe}</p>
+                {quote.side === "compra" && quote.out > 0n && bnbIn > 0 ? (
+                  <p className="mt-1 text-xs text-muted-foreground">Câmbio desta troca: 1 BNB ≈ {n2(tkOut / bnbIn)} {sym} (taxa incluída).</p>
+                ) : null}
+                {quote.side === "venda" && quote.amountIn > 0n && tkOut > 0 ? (
+                  <p className="mt-1 text-xs text-muted-foreground">Câmbio desta troca: 1 {sym} ≈ {n6(bnbIn / tkOut)} BNB (taxa incluída).</p>
+                ) : null}
+                {bruto != null ? (
+                  <p className="mt-2 text-sm text-warning">Sem a taxa de ~{quote.tax!.toFixed(1)}%, seriam {bruto} — a diferença fica com o token.</p>
+                ) : quote.tax != null && quote.tax <= 0.5 ? (
+                  <p className="mt-2 text-sm text-muted-foreground">Taxa do token: nenhuma detectada nesta troca.</p>
+                ) : null}
+              </div>
+            );
+          })()}
+          <ul className="mt-3 space-y-1 text-sm">
             {quote.side === "compra" && pnl.lastSell && (() => {
               const bnbIn = Number(formatEther(quote.amountIn)), tk = Number(formatUnits(quote.out, selected.decimals));
               const edge = rebuyEdgePct(pnl.lastSell, bnbIn, tk);
@@ -415,12 +443,6 @@ function Operar() {
             })()}
             <li>Mínimo aceito (slippage {cfg.maxSlippagePct}%): {quote.side === "compra" ? `${fmtGte(quote.min)} ${sym}` : `${fmtBnb(quote.min)} BNB`}</li>
             <li>Impacto de preço estimado: {quote.impact.toFixed(2)}%</li>
-            <li>
-              {quote.tax == null
-                ? "Taxa do token: será medida depois da aprovação, antes de vender."
-                : quote.tax > 0.5 ? <span className="text-warning">Taxa do token detectada: ~{quote.tax.toFixed(1)}% (já descontada do valor acima)</span>
-                : "Taxa do token: nenhuma detectada."}
-            </li>
             <li>Validade: 5 minutos. {quote.side === "venda" && "Pode exigir uma aprovação limitada a esta quantidade."}</li>
           </ul>
           <div className="mt-3 flex gap-2">
