@@ -152,7 +152,7 @@ function Operar() {
   const prepare = async (side: "compra" | "venda") => {
     try {
       if (!reserves || !bal) throw new Error("Dados indisponíveis");
-      const amountIn = side === "compra" ? parseEther(buyAmt || "0") : parseUnits(sellAmt || "0", 18);
+      const amountIn = side === "compra" ? parseEther(buyAmt || "0") : parseUnits(sellAmt || "0", selected.decimals);
       if (amountIn <= 0n) throw new Error("Informe um valor maior que zero");
       if (side === "compra" && amountIn + gasReserve > bal.bnb) throw new Error("Saldo de BNB insuficiente considerando a reserva para gas");
       if (side === "venda" && amountIn > bal.gte) throw new Error(`Saldo de ${sym} insuficiente`);
@@ -207,7 +207,7 @@ function Operar() {
     }
   };
 
-  const fmtGte = (v: bigint) => Number(formatUnits(v, 18)).toLocaleString("pt-BR", { maximumFractionDigits: 4 });
+  const fmtGte = (v: bigint) => Number(formatUnits(v, selected.decimals)).toLocaleString("pt-BR", { maximumFractionDigits: 4 });
   const fmtBnb = (v: bigint) => Number(formatEther(v)).toLocaleString("pt-BR", { maximumFractionDigits: 6 });
 
   return (
