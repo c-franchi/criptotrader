@@ -1,75 +1,74 @@
-import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { Link, useLocation } from "@tanstack/react-router";
+import { useState, type ReactNode } from "react";
+import { ArrowLeftRight, Bot, FlaskConical, LayoutDashboard, Menu, Settings, Target, Wallet } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
 const nav = [
-  { to: "/", label: "Painel" },
-  { to: "/estrategia", label: "Estratégia" },
-  { to: "/simulacao", label: "Simulação" },
-  { to: "/operar", label: "Operar" },
-  { to: "/grade", label: "Grade" },
-  { to: "/integracoes", label: "Integrações" },
+  { to: "/", label: "Painel", desc: "Preço, liquidez e transferências", icon: LayoutDashboard },
+  { to: "/estrategia", label: "Estratégia", desc: "Regras de compra, venda e risco", icon: Target },
+  { to: "/simulacao", label: "Simulação", desc: "Treine sem dinheiro real", icon: FlaskConical },
+  { to: "/operar", label: "Operar", desc: "Trade real com sua carteira", icon: ArrowLeftRight },
+  { to: "/grade", label: "Grade automática", desc: "Robô que compra e vende sozinho", icon: Bot },
+  { to: "/carteiras", label: "Minhas carteiras", desc: "Endereços salvos e perfil", icon: Wallet },
+  { to: "/integracoes", label: "Integrações", desc: "Fontes de dados e status", icon: Settings },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const { pathname } = useLocation();
+  const current = nav.find((n) => n.to === pathname);
   return (
-    <div className="min-h-screen pb-20 sm:pb-0">
+    <div className="min-h-screen">
       <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
-          <Link to="/" className="shrink-0 font-mono text-sm font-semibold tracking-wider text-primary">
-            GTE·MONITOR
-          </Link>
-          <span className="hidden rounded border border-primary/40 bg-accent px-2 py-0.5 font-mono text-[10px] font-bold text-accent-foreground lg:inline">
-            SIMULAÇÃO / CONFIRMAÇÃO
-          </span>
-          <nav className="hidden gap-1 sm:ml-4 sm:flex">
-            {nav.map((n) => (
-              <Link
-                key={n.to}
-                to={n.to}
-                className="whitespace-nowrap rounded px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-                activeProps={{ className: "bg-secondary text-foreground" }}
-                activeOptions={{ exact: true }}
-              >
-                {n.label}
-              </Link>
-            ))}
-          </nav>
-          <div className="ml-auto flex shrink-0 gap-1">
-            {user ? (
-              <>
-              <Button size="sm" variant="secondary" asChild>
-                <Link to="/carteiras">Carteiras</Link>
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => supabase.auth.signOut()}>
-                Sair
-              </Button>
-              </>
-            ) : (
-              <Button size="sm" asChild>
-                <Link to="/login">Entrar</Link>
-              </Button>
-            )}
+        <div className="mx-auto flex max-w-6xl items-center gap-2 px-3 py-2.5 sm:px-4">
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button size="icon" variant="ghost" aria-label="Abrir menu"><Menu className="h-5 w-5" /></Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[85vw] max-w-xs p-0">
+              <SheetHeader className="border-b border-border px-4 py-4 text-left">
+                <SheetTitle className="font-mono text-sm tracking-wider text-primary">GTE·MONITOR</SheetTitle>
+                {user && <p className="truncate text-xs text-muted-foreground">{user.email}</p>}
+              </SheetHeader>
+              <nav className="flex flex-col gap-1 p-2">
+                {nav.map((n) => (
+                  <Link
+                    key={n.to}
+                    to={n.to}
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-3 rounded-md px-3 py-2.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    activeProps={{ className: "bg-secondary text-foreground" }}
+                    activeOptions={{ exact: true }}
+                  >
+                    <n.icon className="h-5 w-5 shrink-0 text-primary" />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium">{n.label}</span>
+                      <span className="block truncate text-xs text-muted-foreground">{n.desc}</span>
+                    </span>
+                  </Link>
+                ))}
+              </nav>
+              <div className="border-t border-border p-3">
+                {user ? (
+                  <Button variant="outline" className="w-full" onClick={() => { setOpen(false); void supabase.auth.signOut(); }}>Sair da conta</Button>
+                ) : (
+                  <Button className="w-full" asChild><Link to="/login" onClick={() => setOpen(false)}>Entrar</Link></Button>
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
+          <Link to="/" className="shrink-0 font-mono text-sm font-semibold tracking-wider text-primary">GTE·MONITOR</Link>
+          {current && <span className="min-w-0 truncate text-sm text-muted-foreground">/ {current.label}</span>}
+          <div className="ml-auto shrink-0">
+            {!user && <Button size="sm" asChild><Link to="/login">Entrar</Link></Button>}
           </div>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-3 py-4 sm:px-4 sm:py-6">{children}</main>
-      <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-6 border-t border-border bg-background/95 backdrop-blur sm:hidden">
-        {nav.map((n) => (
-          <Link
-            key={n.to}
-            to={n.to}
-            className="truncate px-0.5 py-3 text-center text-[11px] text-muted-foreground"
-            activeProps={{ className: "font-semibold text-primary" }}
-            activeOptions={{ exact: true }}
-          >
-            {n.label === "Integrações" ? "Config." : n.label === "Estratégia" ? "Estrat." : n.label === "Simulação" ? "Simular" : n.label}
-          </Link>
-        ))}
-      </nav>
     </div>
   );
 }
