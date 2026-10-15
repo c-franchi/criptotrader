@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import Decimal from "decimal.js";
 import { AppShell, Panel, Unavailable } from "@/components/AppShell";
-import { TOKENS } from "@/lib/tokens";
+import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { getMarket, validateToken } from "@/lib/chain.functions";
 import { getTransfers } from "@/lib/transfers.functions";
@@ -55,7 +55,7 @@ function fmtUsd(n: number | null) {
 }
 
 function Dashboard() {
-  const { token: info, selectToken: setAddr, ready } = useSelectedToken();
+  const { token: info, selectToken: setAddr, ready, tokens } = useSelectedToken();
   const addr = info.address;
   const EXPECTED = { chainId: "56", name: info.name, symbol: info.symbol, decimals: String(info.decimals) };
   const token = useQuery({ ...tokenQ(addr), enabled: ready });
@@ -73,10 +73,11 @@ function Dashboard() {
 
   return (
     <AppShell>
-      <div className="mb-4 flex gap-2">
-        {TOKENS.map((x) => (
+      <div className="mb-4 flex flex-wrap gap-2">
+        {tokens.map((x) => (
           <Button key={x.address} className="flex-1 sm:flex-none" variant={x.address === addr ? "default" : "secondary"} onClick={() => setAddr(x.address)}>{x.symbol}</Button>
         ))}
+        <AddTokenDialog />
       </div>
 
       <section className="mb-4 rounded-lg border border-primary/30 bg-card p-4">

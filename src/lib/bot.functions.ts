@@ -1,7 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { TOKENS } from "./tokens";
+import { TOKENS, type TokenInfo } from "./tokens";
+
+/** Built-in tokens plus the ones the user added. */
+async function allTokens(userId: string): Promise<TokenInfo[]> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin.from("user_tokens").select("address,symbol,name,decimals").eq("user_id", userId);
+  const extra = (data ?? []).filter((t) => !TOKENS.some((b) => b.address.toLowerCase() === t.address.toLowerCase())) as TokenInfo[];
+  return [...TOKENS, ...extra];
+}
 
 export const getBotWallet = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -14,9 +22,10 @@ export const getBotWallet = createServerFn({ method: "GET" })
     const { formatEther, formatUnits } = await import("viem");
     const pub = pubClient();
     const addr = data.address as `0x${string}`;
+    const list = await allTokens(context.userId);
     try {
       const bnb = formatEther(await pub.getBalance({ address: addr }));
-      const tokens = await Promise.all(TOKENS.map(async (t) => ({
+      const tokens = await Promise.all(list.map(async (t) => ({
         symbol: t.symbol,
         amount: formatUnits(await pub.readContract({ address: t.address, abi: erc20Abi, functionName: "balanceOf", args: [addr] }), t.decimals),
       })));
@@ -57,7 +66,7 @@ export const withdrawBot = createServerFn({ method: "POST" })
     const pub = pubClient();
     const dest = to as `0x${string}`;
     const hashes: string[] = [];
-    for (const t of TOKENS) {
+    for (const t of await allTokens(context.userId)) {
       const b = await pub.readContract({ address: t.address, abi: erc20Abi, functionName: "balanceOf", args: [account.address] });
       if (b > 0n) {
         const h = await wallet.writeContract({ address: t.address, abi: erc20Abi, functionName: "transfer", args: [dest, b] });

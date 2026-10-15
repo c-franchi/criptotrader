@@ -36,6 +36,13 @@
       "when": 1792074940219,
       "tag": "0004_strategies_per_token",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792076603844,
+      "tag": "0005_user_tokens",
+      "breakpoints": true
     }
   ]
 }

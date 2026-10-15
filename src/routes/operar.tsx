@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Tables } from "@/integrations/supabase/types";
-import { TOKENS } from "@/lib/tokens";
+import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 
 export const Route = createFileRoute("/operar")({
@@ -43,7 +43,7 @@ type Quote = { side: "compra" | "venda"; amountIn: bigint; out: bigint; min: big
 function Operar() {
   const { user } = useAuth();
   const providerRef = useRef<any>(null);
-  const { token: selected, selectToken: setGTE } = useSelectedToken();
+  const { token: selected, selectToken: setGTE, tokens } = useSelectedToken();
   const GTE = selected.address;
   const sym = selected.symbol;
   const [wallet, setWallet] = useState<WalletClient | null>(null);
@@ -152,7 +152,7 @@ function Operar() {
   const prepare = async (side: "compra" | "venda") => {
     try {
       if (!reserves || !bal) throw new Error("Dados indisponíveis");
-      const amountIn = side === "compra" ? parseEther(buyAmt || "0") : parseUnits(sellAmt || "0", 18);
+      const amountIn = side === "compra" ? parseEther(buyAmt || "0") : parseUnits(sellAmt || "0", selected.decimals);
       if (amountIn <= 0n) throw new Error("Informe um valor maior que zero");
       if (side === "compra" && amountIn + gasReserve > bal.bnb) throw new Error("Saldo de BNB insuficiente considerando a reserva para gas");
       if (side === "venda" && amountIn > bal.gte) throw new Error(`Saldo de ${sym} insuficiente`);
@@ -207,7 +207,7 @@ function Operar() {
     }
   };
 
-  const fmtGte = (v: bigint) => Number(formatUnits(v, 18)).toLocaleString("pt-BR", { maximumFractionDigits: 4 });
+  const fmtGte = (v: bigint) => Number(formatUnits(v, selected.decimals)).toLocaleString("pt-BR", { maximumFractionDigits: 4 });
   const fmtBnb = (v: bigint) => Number(formatEther(v)).toLocaleString("pt-BR", { maximumFractionDigits: 6 });
 
   return (
@@ -217,9 +217,10 @@ function Operar() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {TOKENS.map((t) => (
+        {tokens.map((t) => (
           <Button key={t.address} size="sm" variant={t.address === GTE ? "default" : "secondary"} disabled={!!busy} onClick={() => { setGTE(t.address); setQuote(null); setPair(undefined); setReserves(null); setBal(null); }}>{t.symbol} — {t.name}</Button>
         ))}
+        <AddTokenDialog wallet={account} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
