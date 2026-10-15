@@ -377,6 +377,12 @@ function Operar() {
             <li>Cotação atual: {quote.side === "compra" ? `${fmtGte(quote.out)} ${sym}` : `${fmtBnb(quote.out)} BNB`}</li>
             <li>Mínimo aceito (slippage {cfg.maxSlippagePct}%): {quote.side === "compra" ? `${fmtGte(quote.min)} ${sym}` : `${fmtBnb(quote.min)} BNB`}</li>
             <li>Impacto de preço estimado: {quote.impact.toFixed(2)}%</li>
+            <li>
+              {quote.tax == null
+                ? "Taxa do token: será medida depois da aprovação, antes de vender."
+                : quote.tax > 0.5 ? <span className="text-warning">Taxa do token detectada: ~{quote.tax.toFixed(1)}% (já descontada do valor acima)</span>
+                : "Taxa do token: nenhuma detectada."}
+            </li>
             <li>Validade: 5 minutos. {quote.side === "venda" && "Pode exigir uma aprovação limitada a esta quantidade."}</li>
           </ul>
           <div className="mt-3 flex gap-2">
