@@ -5,6 +5,7 @@ import { AppShell, Panel, Unavailable } from "@/components/AppShell";
 import { TOKENS } from "@/lib/tokens";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { getMarket, validateToken } from "@/lib/chain.functions";
+import { getTransfers } from "@/lib/transfers.functions";
 import { Button } from "@/components/ui/button";
 
 const tokenQ = (a: string) => queryOptions({ queryKey: ["token", a], queryFn: () => validateToken({ data: { address: a } }), staleTime: 60_000 });
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/")({
 function Row({ label, value, expected, error }: { label: string; value: string | null; expected?: string | undefined; error?: string | undefined }) {
   const mismatch = expected && value !== null && value !== expected;
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border/60 py-1.5 text-sm last:border-0">
+    <div className="flex items-baseline justify-between gap-3 min-w-0 border-b border-border/60 py-1.5 text-sm last:border-0">
       <span className="text-muted-foreground">{label}</span>
       <span className="text-right font-mono">
         {value === null ? (
@@ -66,108 +67,127 @@ function Dashboard() {
       : null;
   const best = market.data?.pools.find((p) => p.supported);
 
+  const transfers = useQuery({ queryKey: ["transfers", addr], queryFn: () => getTransfers({ data: { address: addr } }), enabled: ready, refetchInterval: 60_000 });
+  const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+  const fmtAmt = (raw: string) => new Decimal(raw).div(new Decimal(10).pow(info.decimals)).toDecimalPlaces(2).toNumber().toLocaleString("pt-BR");
+
   return (
     <AppShell>
-      <div className="mb-6">
-        <div className="mb-3 flex flex-wrap gap-2">
-          {TOKENS.map((x) => (
-            <Button key={x.address} size="sm" variant={x.address === addr ? "default" : "secondary"} onClick={() => setAddr(x.address)}>{x.symbol}</Button>
-          ))}
-        </div>
-        <h1 className="text-2xl font-semibold">{info.name} ({info.symbol})</h1>
-        <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
-          BNB Smart Chain · {addr}{" "}
-          <a className="text-primary underline" href={`https://bscscan.com/token/${addr}`} target="_blank" rel="noreferrer">
-            BscScan
-          </a>
-        </p>
+      <div className="mb-4 flex gap-2">
+        {TOKENS.map((x) => (
+          <Button key={x.address} className="flex-1 sm:flex-none" variant={x.address === addr ? "default" : "secondary"} onClick={() => setAddr(x.address)}>{x.symbol}</Button>
+        ))}
       </div>
+
+      <section className="mb-4 rounded-lg border border-primary/30 bg-card p-4">
+        <div className="flex items-baseline justify-between gap-2">
+          <h1 className="min-w-0 truncate text-lg font-semibold sm:text-2xl">{info.name} <span className="text-muted-foreground">({info.symbol})</span></h1>
+          <a className="shrink-0 text-xs text-primary underline" href={`https://bscscan.com/token/${addr}`} target="_blank" rel="noreferrer">BscScan</a>
+        </div>
+        <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">{addr}</p>
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat label="Preço USD" value={best?.priceUsd ? `US$ ${best.priceUsd}` : null} />
+          <Stat label={`Preço ${best?.quoteSymbol ?? "BNB"}`} value={best?.priceNative ?? null} />
+          <Stat label="Liquidez" value={fmtUsd(best?.liquidityUsd ?? null)} />
+          <Stat label="Variação 24h" value={best?.priceChange24h == null ? null : `${best.priceChange24h}%`} tone={best?.priceChange24h == null ? undefined : best.priceChange24h >= 0 ? "text-success" : "text-destructive"} />
+        </div>
+        {market.isLoading && <p className="mt-3 text-xs text-muted-foreground">Buscando mercado…</p>}
+        {market.data?.error && <p className="mt-3 text-xs text-destructive">Fonte de mercado falhou: {market.data.error}</p>}
+        {market.data && !market.data.error && !best && (
+          <p className="mt-3 rounded border border-warning/40 bg-warning/10 p-2 text-xs text-warning">Aguardando pool e liquidez disponíveis. Atualiza a cada 30s.</p>
+        )}
+        {best && (
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            {best.baseSymbol}/{best.quoteSymbol} · {best.dexId} {best.version} · Vol. 24h {fmtUsd(best.volume24h) ?? "indisponível"} · {market.data?.source} {market.data && new Date(market.data.fetchedAt).toLocaleTimeString("pt-BR")}
+          </p>
+        )}
+      </section>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Panel
-          title="Validação on-chain"
-          right={
-            <Button size="sm" variant="outline" onClick={() => token.refetch()} disabled={token.isFetching}>
-              {token.isFetching ? "Consultando…" : "Revalidar"}
-            </Button>
-          }
-        >
-          {token.isError && <p className="text-sm text-destructive">Falha ao consultar o RPC.</p>}
-          {t && (
-            <>
-              <Row label="Chain ID" value={t.chainId.value} expected={EXPECTED.chainId} error={t.chainId.error} />
-              <Row label="Contrato possui bytecode" value={t.hasCode.value === null ? null : t.hasCode.value === "true" ? "sim" : "não"} expected="sim" error={t.hasCode.error} />
-              <Row label="name()" value={t.name.value} expected={EXPECTED.name} error={t.name.error} />
-              <Row label="symbol()" value={t.symbol.value} expected={EXPECTED.symbol} error={t.symbol.error} />
-              <Row label="decimals()" value={t.decimals.value} expected={EXPECTED.decimals} error={t.decimals.error} />
-              <Row label="totalSupply()" value={supply} error={t.totalSupplyRaw.error} />
-              <Row label="Bloco consultado" value={t.block.value} error={t.block.error} />
-              <p className="mt-2 text-xs text-muted-foreground">
-                {t.rpc} · {new Date(t.checkedAt).toLocaleString("pt-BR")}. Metadados corretos não comprovam legitimidade ou segurança do token.
-              </p>
-            </>
+        <Panel title="Transferências recentes" right={<span className="text-[11px] text-muted-foreground">Holders: {transfers.data?.holders ?? "—"}</span>}>
+          {transfers.isLoading && <p className="text-sm text-muted-foreground">Buscando…</p>}
+          {transfers.data?.error && <p className="text-sm text-muted-foreground">Indisponível: {transfers.data.error}</p>}
+          {transfers.data && !transfers.data.error && transfers.data.transfers.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhuma transferência nos últimos ~{transfers.data.scannedBlocks.toLocaleString("pt-BR")} blocos.</p>
+          )}
+          <ul className="divide-y divide-border/60">
+            {transfers.data?.transfers.map((t, i) => (
+              <li key={t.hash + i} className="flex items-center justify-between gap-2 py-2 text-xs">
+                <a href={`https://bscscan.com/tx/${t.hash}`} target="_blank" rel="noreferrer" className="min-w-0 truncate font-mono text-muted-foreground hover:text-primary">
+                  {short(t.from)} → {short(t.to)}
+                </a>
+                <span className="shrink-0 font-mono">{fmtAmt(t.amountRaw)}</span>
+              </li>
+            ))}
+          </ul>
+          {transfers.data && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Fonte: {transfers.data.source === "bscscan" ? "BscScan" : "rede BSC (direto)"}
+              {transfers.data.holders === null && ` · Holders indisponível (${transfers.data.holdersNote})`}
+            </p>
           )}
         </Panel>
 
-        <Panel title="Mercado selecionado">
-          {market.data?.error && <p className="mb-2 text-sm text-destructive">Fonte de mercado falhou: {market.data.error}</p>}
-          {market.data && !market.data.error && !best && (
-            <p className="rounded border border-warning/40 bg-warning/10 p-3 text-sm text-warning">
-              Aguardando pool e liquidez disponíveis. O monitoramento continua a cada 30s.
-            </p>
-          )}
-          {best && (
-            <div className="space-y-1">
-              <Row label="Pool" value={`${best.baseSymbol}/${best.quoteSymbol} · ${best.dexId} ${best.version}`} />
-              <Row label={`Preço em ${best.quoteSymbol}`} value={best.priceNative} error="não informado pela fonte" />
-              <Row label="Preço em USD" value={best.priceUsd ? `US$ ${best.priceUsd}` : null} error="conversão indisponível" />
-              <Row label="Liquidez (estimativa)" value={fmtUsd(best.liquidityUsd)} error="não informada" />
-              <Row label="Volume 24h" value={fmtUsd(best.volume24h)} error="não informado" />
-              <Row label="Variação 24h" value={best.priceChange24h === null ? null : `${best.priceChange24h}%`} error="não informada" />
-              <p className="pt-2 text-xs text-muted-foreground">
-                Sugestão por maior liquidez entre pools PancakeSwap V2. Todos os dados do mesmo pool. Fonte: {market.data?.source} ·{" "}
-                {market.data && new Date(market.data.fetchedAt).toLocaleTimeString("pt-BR")}
-              </p>
-            </div>
+        <Panel title="Validação on-chain" right={<Button size="sm" variant="outline" onClick={() => token.refetch()} disabled={token.isFetching}>{token.isFetching ? "…" : "Revalidar"}</Button>}>
+          {token.isError && <p className="text-sm text-destructive">Falha ao consultar o RPC.</p>}
+          {t && (
+            <details>
+              <summary className="cursor-pointer text-sm">
+                {[t.name.value === EXPECTED.name, t.symbol.value === EXPECTED.symbol, t.decimals.value === EXPECTED.decimals, t.chainId.value === EXPECTED.chainId].every(Boolean)
+                  ? <span className="text-success">✓ Contrato confere</span>
+                  : <span className="text-warning">Verifique os detalhes</span>}
+                <span className="ml-2 text-xs text-muted-foreground">ver detalhes</span>
+              </summary>
+              <div className="mt-2">
+                <Row label="Chain ID" value={t.chainId.value} expected={EXPECTED.chainId} error={t.chainId.error} />
+                <Row label="Bytecode" value={t.hasCode.value === null ? null : t.hasCode.value === "true" ? "sim" : "não"} expected="sim" error={t.hasCode.error} />
+                <Row label="Nome" value={t.name.value} expected={EXPECTED.name} error={t.name.error} />
+                <Row label="Símbolo" value={t.symbol.value} expected={EXPECTED.symbol} error={t.symbol.error} />
+                <Row label="Decimais" value={t.decimals.value} expected={EXPECTED.decimals} error={t.decimals.error} />
+                <Row label="Supply total" value={supply} error={t.totalSupplyRaw.error} />
+                <Row label="Bloco" value={t.block.value} error={t.block.error} />
+                <p className="mt-2 text-[11px] text-muted-foreground">Metadados corretos não comprovam legitimidade ou segurança do token.</p>
+              </div>
+            </details>
           )}
         </Panel>
       </div>
 
-      <div className="mt-4">
-        <Panel title="Pools encontrados">
-          {market.isLoading && <p className="text-sm text-muted-foreground">Buscando…</p>}
-          {market.data && !market.data.error && market.data.pools.length === 0 && <p className="text-sm text-muted-foreground">Nenhum pool encontrado pela fonte.</p>}
-          {market.data?.error && !best && <p className="text-sm text-muted-foreground">Pools indisponíveis; a falha de consulta não confirma ausência de liquidez.</p>}
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <Panel title={`Pools (${market.data?.pools.length ?? 0})`}>
+          {market.data?.error && !best && <p className="text-sm text-muted-foreground">Pools indisponíveis; a falha não confirma ausência de liquidez.</p>}
           <div className="space-y-2">
             {market.data?.pools.map((p) => (
-              <div key={p.pairAddress} className="rounded border border-border p-3 text-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-medium">
-                    {p.baseSymbol}/{p.quoteSymbol} · {p.dexId} {p.version}
-                  </span>
-                  <span className={p.supported ? "text-xs text-success" : "text-xs text-warning"}>
-                    {p.supported ? "suportado" : "não suportado nesta versão"}
-                  </span>
+              <div key={p.pairAddress} className="rounded border border-border p-2.5 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate font-medium">{p.baseSymbol}/{p.quoteSymbol} · {p.dexId} {p.version}</span>
+                  <span className={p.supported ? "shrink-0 text-success" : "shrink-0 text-warning"}>{p.supported ? "suportado" : "não suportado"}</span>
                 </div>
-                <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{p.pairAddress}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Liquidez: {fmtUsd(p.liquidityUsd) ?? "indisponível"} · Volume 24h: {fmtUsd(p.volume24h) ?? "indisponível"}
-                </p>
+                <p className="mt-1 text-muted-foreground">Liq. {fmtUsd(p.liquidityUsd) ?? "indisponível"} · Vol. {fmtUsd(p.volume24h) ?? "indisponível"}</p>
               </div>
             ))}
           </div>
         </Panel>
-      </div>
-
-      <div className="mt-4">
-        <Panel title="Anúncios não verificados do projeto">
-          <ul className="space-y-1 text-sm text-muted-foreground">
-            <li>Encerramento da pré-venda: 12/10/2026 · Lançamento: 14/10/2026 · Primeira “injeção”: 16/10/2026</li>
-            <li>Preço de pré-venda anunciado: 0,00014 (moeda não confirmada) · Lançamento anunciado: US$ 0,0003</li>
-            <li className="text-xs">Informativos apenas. Não são usados como gatilho nem como preço negociável.</li>
-          </ul>
+        <Panel title="Anúncios não verificados">
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer">Datas e preços anunciados (informativos)</summary>
+            <ul className="mt-2 space-y-1">
+              <li>Pré-venda até 12/10/2026 · Lançamento 14/10/2026 · “Injeção” 16/10/2026</li>
+              <li>Pré-venda anunciada: 0,00014 (moeda não confirmada) · Lançamento: US$ 0,0003</li>
+              <li>Não são usados como gatilho nem como preço negociável.</li>
+            </ul>
+          </details>
         </Panel>
       </div>
     </AppShell>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: string | null; tone?: string | undefined }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={`truncate font-mono text-base font-semibold ${value === null ? "text-muted-foreground" : tone ?? ""}`}>{value ?? "—"}</p>
+    </div>
   );
 }
