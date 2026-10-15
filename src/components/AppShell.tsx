@@ -55,7 +55,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </nav>
               <div className="border-t border-border p-3">
                 {user ? (
-                  <Button variant="outline" className="w-full" onClick={() => { setOpen(false); void supabase.auth.signOut(); }}>Sair da conta</Button>
+                  <Button variant="outline" className="w-full" onClick={async () => { setOpen(false); await supabase.auth.signOut(); window.location.replace("/"); }}>Sair da conta</Button>
                 ) : (
                   <Button className="w-full" asChild><Link to="/login" onClick={() => setOpen(false)}>Entrar</Link></Button>
                 )}
