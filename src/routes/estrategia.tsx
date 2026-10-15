@@ -95,6 +95,7 @@ function StrategyForm() {
   const typed = Number(amount) || 0;
   const amountBnb = currency === "BNB" ? typed : bnbBrl ? typed / bnbBrl : 0;
   const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const walletOk = /^0x[0-9a-fA-F]{40}$/.test(wallet);
 
   const errors: string[] = [];
   if (wallet && !/^0x[0-9a-fA-F]{40}$/.test(wallet)) errors.push("Endereço de carteira inválido.");
@@ -119,45 +120,74 @@ function StrategyForm() {
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
       <div className="space-y-4">
-        <Panel title="Token da estratégia">
+        <Panel title="Passo 1 · Escolha sua carteira">
+          <p className="mb-2 text-xs text-muted-foreground">Comece por aqui: é dessa carteira que sai o BNB para comprar e para onde volta o BNB das vendas.</p>
+          <WalletPicker value={wallet} onPick={setWallet} />
+          <Input className="mt-2" placeholder="ou cole o endereço 0x…" value={wallet} onChange={(e) => setWallet(e.target.value.trim())} />
+          {walletOk ? (
+            <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
+              <p className="text-xs text-muted-foreground">Saldo de BNB nesta carteira</p>
+              <p className="text-xl font-semibold">{bnbBalance === null ? "carregando…" : `${Number(bnbBalance).toLocaleString("pt-BR", { maximumFractionDigits: 5 })} BNB`}</p>
+              {bnbBalance !== null && bnbBrl && <p className="text-sm text-muted-foreground">≈ {brl(Number(bnbBalance) * bnbBrl)}</p>}
+              {bnbBalance !== null && Number(bnbBalance) < 0.002 && <p className="mt-1 text-xs text-destructive">Saldo baixo: deixe pelo menos ~0,002 BNB para pagar as taxas de rede (gás).</p>}
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-muted-foreground">{wallet ? "Endereço inválido." : "Nenhuma carteira escolhida ainda."} O endereço sozinho não autoriza nenhuma movimentação.</p>
+          )}
+        </Panel>
+
+        <fieldset disabled={!walletOk} className={walletOk ? "space-y-4" : "space-y-4 opacity-50"}>
+        <Panel title="Passo 2 · Escolha o token">
           <div className="flex flex-wrap gap-2">
             {tokens.map((t) => (
               <Button key={t.address} size="sm" variant={t.address === token.address ? "default" : "outline"} onClick={() => selectToken(t.address)}>
                 {t.symbol}
               </Button>
             ))}
-        <AddTokenDialog wallet={wallet || null} />
+            <AddTokenDialog wallet={wallet || null} />
+          </div>
+          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+            <div className="rounded-md border border-border p-2"><span className="font-semibold">Comprar:</span> você paga <b>BNB</b> e recebe <b>{token.symbol}</b></div>
+            <div className="rounded-md border border-border p-2"><span className="font-semibold">Vender:</span> você entrega <b>{token.symbol}</b> e recebe <b>BNB</b></div>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Cada token tem sua própria estratégia. Liquidez atual do pool {token.symbol}/WBNB:{" "}
+            Liquidez atual do pool {token.symbol}/BNB:{" "}
             {liq === null ? "indisponível" : `US$ ${liq.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`}
           </p>
         </Panel>
 
-        <Panel title="Estratégias prontas">
-          <Label>Quanto quer usar (em BNB/WBNB)</Label>
-          <Input type="number" step="any" min={0} placeholder="ex.: 0,1" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
+        <Panel title={`Passo 3 · Quanto de BNB usar para comprar ${token.symbol}`}>
+          <div className="mb-2 flex gap-2">
+            {(["BRL", "BNB"] as const).map((cur) => (
+              <Button key={cur} size="sm" variant={currency === cur ? "default" : "outline"} onClick={() => setCurrency(cur)}>
+                {cur === "BRL" ? "Real (R$)" : "BNB"}
+              </Button>
+            ))}
+          </div>
+          <Input type="number" step="any" min={0} placeholder={currency === "BRL" ? "ex.: 100" : "ex.: 0,1"} value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <p className="mt-1 text-sm">
+            {typed > 0 && amountBnb > 0
+              ? <>= <b>{amountBnb.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB</b>{bnbBrl ? <> ≈ {brl(amountBnb * bnbBrl)}</> : null} que serão trocados por {token.symbol}</>
+              : currency === "BRL" && !bnbBrl ? "Cotação do real indisponível agora; use BNB." : "Digite um valor."}
+          </p>
+          {bnbBalance !== null && amountBnb > Number(bnbBalance) && <p className="text-xs text-destructive">Valor maior que o saldo de BNB da carteira.</p>}
+
+          <p className="mt-4 mb-2 text-sm font-semibold">Passo 4 · Escolha um estilo</p>
+          <div className="grid gap-3 md:grid-cols-3">
             {PRESETS.map((p) => (
               <div key={p.id} className="flex flex-col rounded-md border border-border p-3">
                 <p className="font-semibold">{p.name}</p>
                 <p className="mb-2 text-xs text-muted-foreground">{p.summary}</p>
                 <ul className="mb-3 flex-1 space-y-1 text-xs">{p.how.map((h) => <li key={h}>• {h}</li>)}</ul>
-                <Button size="sm" disabled={!(Number(amount) > 0)} onClick={() => { setC(buildPreset(p.id, Number(amount), liq)); toast.success(`"${p.name}" montada para ${amount} BNB. Revise e salve.`); }}>
+                <Button size="sm" disabled={!(amountBnb > 0)} onClick={() => { setC(buildPreset(p.id, amountBnb, liq)); toast.success(`"${p.name}" montada: compra ${token.symbol} com até ${amountBnb.toFixed(4)} BNB. Revise e salve.`); }}>
                   Usar esta
                 </Button>
               </div>
             ))}
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">Os campos abaixo são preenchidos automaticamente; ajuste se quiser e salve. Nenhuma estratégia garante lucro.</p>
+          <p className="mt-2 text-xs text-muted-foreground">Compras usam BNB para obter {token.symbol}; vendas (lucro ou stop) devolvem BNB. Os campos abaixo são preenchidos sozinhos — revise e salve. Nenhuma estratégia garante lucro.</p>
         </Panel>
-
-        <Panel title="Carteira acompanhada">
-          <Label>Endereço (somente leitura de dados públicos)</Label>
-          <Input placeholder="0x…" value={wallet} onChange={(e) => setWallet(e.target.value.trim())} />
-          <WalletPicker value={wallet} onPick={setWallet} />
-          <p className="mt-1 text-xs text-muted-foreground">Vale para todos os tokens. O endereço sozinho não autoriza nenhuma movimentação de fundos.</p>
-        </Panel>
+        </fieldset>
 
         <Panel title="Entrada">
           <div className="grid gap-3 sm:grid-cols-2">

@@ -3,7 +3,7 @@ import { createPublicClient, formatEther, http, isAddress } from "viem";
 import { bsc } from "viem/chains";
 
 const WBNB = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c";
-const RPC = process.env.BSC_RPC_URL || "https://bsc-rpc.publicnode.com";
+const RPC = process.env['BSC_RPC_URL'] || "https://bsc-rpc.publicnode.com";
 
 export type FxQuote = { bnbUsd: number | null; usdBrl: number | null; at: number };
 
