@@ -305,6 +305,7 @@ export type Database = {
           mode: string
           pair_address: string | null
           status: string
+          token: string
           tracked_wallet: string | null
           updated_at: string
           user_id: string
@@ -316,6 +317,7 @@ export type Database = {
           mode?: string
           pair_address?: string | null
           status?: string
+          token?: string
           tracked_wallet?: string | null
           updated_at?: string
           user_id: string
@@ -327,6 +329,7 @@ export type Database = {
           mode?: string
           pair_address?: string | null
           status?: string
+          token?: string
           tracked_wallet?: string | null
           updated_at?: string
           user_id?: string

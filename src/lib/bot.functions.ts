@@ -44,7 +44,7 @@ export const createBotWallet = createServerFn({ method: "POST" })
 export const withdrawBot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data: strat } = await context.supabase.from("strategies").select("tracked_wallet").maybeSingle();
+    const { data: strat } = await context.supabase.from("strategies").select("tracked_wallet").not("tracked_wallet", "is", null).order("updated_at", { ascending: false }).limit(1).maybeSingle();
     const to = strat?.tracked_wallet;
     if (!to || !/^0x[0-9a-fA-F]{40}$/.test(to)) throw new Error("Cadastre a carteira acompanhada em Estratégia primeiro");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

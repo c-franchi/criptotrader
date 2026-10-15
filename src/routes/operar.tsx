@@ -92,15 +92,17 @@ function Operar() {
   }, [GTE]);
 
   useEffect(() => {
-    supabase.from("strategies").select("tracked_wallet, config").maybeSingle().then(({ data }) => {
-      setTracked(data?.tracked_wallet ?? null);
-      if (data) setCfg({ ...EMPTY_CONFIG, ...(data.config as Partial<StrategyConfig>) });
+    supabase.from("strategies").select("tracked_wallet, config, token").order("updated_at", { ascending: false }).then(({ data }) => {
+      const rows = data ?? [];
+      setTracked(rows.find((r) => r.tracked_wallet)?.tracked_wallet ?? null);
+      const own = rows.find((r) => r.token.toLowerCase() === GTE.toLowerCase());
+      setCfg(own ? { ...EMPTY_CONFIG, ...(own.config as Partial<StrategyConfig>) } : EMPTY_CONFIG);
     });
     loadOrders();
     loadMarket();
     const t = setInterval(loadMarket, 30_000);
     return () => clearInterval(t);
-  }, [loadOrders, loadMarket]);
+  }, [loadOrders, loadMarket, GTE]);
 
   useEffect(() => { if (account) loadBalances(account); }, [account, loadBalances]);
 

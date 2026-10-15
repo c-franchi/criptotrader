@@ -29,6 +29,13 @@
       "when": 1792014384414,
       "tag": "0003_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792074940219,
+      "tag": "0004_strategies_per_token",
+      "breakpoints": true
     }
   ]
 }
