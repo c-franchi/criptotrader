@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin } from "@/components/AppShell";
 import { EMPTY_CONFIG, describeStrategy, type StrategyConfig } from "@/lib/strategy";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
+import { WalletPicker } from "@/components/WalletPicker";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { getMarket } from "@/lib/chain.functions";
 import { Button } from "@/components/ui/button";
@@ -110,6 +111,7 @@ function StrategyForm() {
         <Panel title="Carteira acompanhada">
           <Label>Endereço (somente leitura de dados públicos)</Label>
           <Input placeholder="0x…" value={wallet} onChange={(e) => setWallet(e.target.value.trim())} />
+          <WalletPicker value={wallet} onPick={setWallet} />
           <p className="mt-1 text-xs text-muted-foreground">Vale para todos os tokens. O endereço sozinho não autoriza nenhuma movimentação de fundos.</p>
         </Panel>
 
