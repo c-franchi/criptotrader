@@ -160,7 +160,7 @@ function StrategyForm() {
             <Num label="Liquidez mínima (US$)" value={c.minLiquidityUsd} onChange={(n) => set("minLiquidityUsd", n)} />
             <Num label="Máx. entradas por posição" value={c.maxEntries} onChange={(n) => set("maxEntries", n)} />
             <Num label="Intervalo mínimo entre compras (min)" value={c.cooldownMin} onChange={(n) => set("cooldownMin", n)} />
-            <Num label="Exposição máxima ao GTE (moeda do par)" value={c.maxExposureQuote} onChange={(n) => set("maxExposureQuote", n)} />
+            <Num label={`Exposição máxima ao ${token.symbol} (moeda do par)`} value={c.maxExposureQuote} onChange={(n) => set("maxExposureQuote", n)} />
             <Num label="Reserva de BNB para gas" value={c.gasReserveBnb} onChange={(n) => set("gasReserveBnb", n)} />
             <Num label="Máx. operações por dia" value={c.maxTradesPerDay} onChange={(n) => set("maxTradesPerDay", n)} />
           </div>
