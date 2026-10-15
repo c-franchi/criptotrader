@@ -7,7 +7,7 @@ export type WindowStats = { changePct: number; high: number; low: number; open: 
 
 export function windowStats(c: Candle[]): WindowStats | null {
   if (c.length === 0) return null;
-  const open = c[0][1], close = c[c.length - 1][4];
+  const open = c[0]![1], close = c[c.length - 1]![4];
   const high = Math.max(...c.map((x) => x[2])), low = Math.min(...c.map((x) => x[3]));
   return { open, close, high, low, changePct: (close / open - 1) * 100, maxRisePct: (high / open - 1) * 100, maxDropPct: (low / open - 1) * 100 };
 }
@@ -19,7 +19,7 @@ const FEE = 0.0025; // PancakeSwap V2 fee per swap
 /** Simplified replay of a strategy over candles. Capital and sizes in the quote currency. */
 export function backtest(c: Candle[], cfg: StrategyConfig, capital: number): BacktestResult | null {
   if (c.length < 2 || capital <= 0) return null;
-  let quote = capital, tokens = 0, cost = 0, entries = 0, trades = 0, peak = c[0][2], tpDone = 0, trailHigh = 0;
+  let quote = capital, tokens = 0, cost = 0, entries = 0, trades = 0, peak = c[0]![2], tpDone = 0, trailHigh = 0;
   const size = cfg.sizingMode === "fixo" ? cfg.buyAmount : (capital * cfg.buyAmount) / 100;
   const closes: number[] = [];
   const ma = (n: number) => (closes.length < n ? null : closes.slice(-n).reduce((a, b) => a + b, 0) / n);
@@ -40,7 +40,7 @@ export function backtest(c: Candle[], cfg: StrategyConfig, capital: number): Bac
       else if (cfg.trailingEnabled && trailHigh >= avg * (1 + cfg.trailingActivatePct / 100) && l <= trailHigh * (1 - cfg.trailingDistancePct / 100)) sell(1, trailHigh * (1 - cfg.trailingDistancePct / 100));
       else {
         while (tokens > 0 && tpDone < cfg.takeProfits.length) {
-          const tp = cfg.takeProfits[tpDone];
+          const tp = cfg.takeProfits[tpDone]!;
           const target = avg * (1 + tp.pct / 100);
           if (h < target) break;
           tpDone++;
@@ -70,7 +70,7 @@ export function backtest(c: Candle[], cfg: StrategyConfig, capital: number): Bac
     }
     peak = Math.max(peak, h);
   }
-  const last = c[c.length - 1][4];
+  const last = c[c.length - 1]![4];
   const finalValue = quote + tokens * last;
-  return { trades, finalValue, pnl: finalValue - capital, pnlPct: (finalValue / capital - 1) * 100, holdPnlPct: (last / c[0][1] - 1) * 100 };
+  return { trades, finalValue, pnl: finalValue - capital, pnlPct: (finalValue / capital - 1) * 100, holdPnlPct: (last / c[0]![1] - 1) * 100 };
 }

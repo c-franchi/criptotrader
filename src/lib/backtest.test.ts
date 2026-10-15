@@ -14,7 +14,7 @@ describe("windowStats", () => {
 describe("backtest", () => {
   it("compra na queda de 8% e vende no take-profit", () => {
     const cfg = buildPreset("segura", 1, null); // 0.25 por compra, queda 8%, TP 10%/20%
-    const c: Candle[] = [[0, 1, 1, 1, 1], [1, 1, 1, 0.9, 0.92], [2, 0.92, 1.2, 0.92, 1.15]];
+    const c: Candle[] = [[0, 1, 1, 1, 1], [1, 1, 1, 0.9, 0.92], [2, 0.95, 1.2, 0.95, 1.15]];
     const r = backtest(c, cfg, 1)!;
     expect(r.trades).toBe(3);
     expect(r.pnl).toBeGreaterThan(0);
