@@ -45,7 +45,8 @@ export const Route = createFileRoute("/operar")({
 
 const pub = createPublicClient({ chain: bsc, transport: http("https://bsc-dataseed.bnbchain.org") });
 type Order = Tables<"orders">;
-type Quote = { side: "compra" | "venda"; amountIn: bigint; out: bigint; min: bigint; impact: number; tax: number | null };
+/** gross = router quote before token tax; estimated = tax came from the contract simulation, confirmed again right before signing. */
+type Quote = { side: "compra" | "venda"; amountIn: bigint; out: bigint; min: bigint; impact: number; tax: number | null; gross?: bigint; estimated?: boolean };
 
 function friendlyError(m: string): string {
   if (/INSUFFICIENT_OUTPUT_AMOUNT/.test(m)) return "O valor recebido ficaria abaixo do mínimo aceito (o token pode cobrar taxa ou o preço mudou). Nada foi trocado. Cote de novo.";
@@ -196,20 +197,31 @@ function Operar() {
       const out = amounts[amounts.length - 1]!;
       const impact = priceImpactPct(amountIn, side === "compra" ? reserves.bnb : reserves.gte);
       if (impact > cfg.maxPriceImpactPct) throw new Error(`Impacto de preço ${impact.toFixed(2)}% acima do limite de ${cfg.maxPriceImpactPct}%`);
-      let q: Quote = { side, amountIn, out, min: minOut(out, cfg.maxSlippagePct), impact, tax: null };
-      // Measure the real payout (catches token taxes). Sales can only be measured once approved.
+      let q: Quote = { side, amountIn, out, min: minOut(out, cfg.maxSlippagePct), impact, tax: null, gross: out };
+      // Measure the real payout (catches token taxes). With the wallet's approval we simulate the exact swap;
+      // without it (sales before approval) we use the tax measured on the contract, so the quote already includes it.
       if (account) {
         const acct = getAddress(account);
         const canMeasure = side === "compra" || (await pub.readContract({ address: GTE, abi: erc20Abi, functionName: "allowance", args: [acct, PANCAKE_V2_ROUTER] })) >= amountIn;
         if (canMeasure) q = withTax(q, await measureReal(side, amountIn, acct, out));
+        else {
+          const r = await getTokenTax({ data: { address: GTE } }).catch(() => null);
+          const sell = r?.tax?.sell ?? taxFor(GTE, cfg).sell;
+          if (sell > 0) {
+            // +1 pp margin: the token's fee varies a little between blocks (seen 8.0%–8.7% on GTE).
+            const est = (out * BigInt(Math.round((100 - sell) * 100))) / 10000n;
+            q = { ...q, out: est, min: minOut(est, cfg.maxSlippagePct + 1), tax: sell, estimated: true };
+          }
+        }
       }
       setQuote(q);
     } catch (e) { toast.error(friendlyError((e as Error).message)); }
   };
 
   const withTax = (q: Quote, real: bigint): Quote => {
-    const tax = q.out > 0n ? Math.max(0, Number(((q.out - real) * 10000n) / q.out) / 100) : 0;
-    return { ...q, out: real, min: minOut(real, cfg.maxSlippagePct), tax };
+    const base = q.gross ?? q.out;
+    const tax = base > 0n ? Math.max(0, Number(((base - real) * 10000n) / base) / 100) : 0;
+    return { ...q, out: real, min: minOut(real, cfg.maxSlippagePct), tax, estimated: false };
   };
 
   /** Binary-searches the largest minimum output the router accepts right now = what the swap really pays. */
