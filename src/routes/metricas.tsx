@@ -36,7 +36,7 @@ function Metrics() {
   const [amount, setAmount] = useState("1");
   const market = useQuery({ queryKey: ["market", token.address], queryFn: () => getMarket({ data: { address: token.address } }) });
   const pool = market.data?.pools.find((p) => p.supported)?.pairAddress;
-  const candles = useQuery({ queryKey: ["candles", pool], enabled: !!pool, queryFn: () => getCandles({ data: { pool: pool! } }), refetchInterval: 120_000 });
+  const candles = useQuery({ queryKey: ["candles", pool], enabled: !!pool, queryFn: () => getCandles({ data: { pool: pool! } }), refetchInterval: 120_000, retry: 2, retryDelay: 3000 });
 
   const now = Date.now() / 1000;
   const win = (candles.data ?? []).filter((c) => c[0] >= now - hours * 3600);
@@ -64,7 +64,10 @@ function Metrics() {
       ) : !pool ? (
         <Panel title="Indisponível"><p className="text-sm text-muted-foreground">Sem pool PancakeSwap V2 confirmado para {token.symbol}, ou a consulta de mercado falhou.</p></Panel>
       ) : candles.error ? (
-        <Panel title="Indisponível"><p className="text-sm text-destructive">Não foi possível ler o histórico agora. Tente de novo em instantes.</p></Panel>
+        <Panel title="Indisponível">
+          <p className="text-sm text-destructive">Não foi possível ler o histórico agora. Tente de novo em instantes.</p>
+          <Button className="mt-3" variant="outline" size="sm" onClick={() => candles.refetch()}>Tentar novamente</Button>
+        </Panel>
       ) : !stats ? (
         <Panel title="Sem negociações"><p className="text-sm text-muted-foreground">Nenhuma negociação de {token.symbol} nas últimas {hours}h.</p></Panel>
       ) : (
