@@ -263,15 +263,17 @@ function Operar() {
           if (ar.status !== "success") throw new Error("Aprovação falhou");
         }
       }
-      if (quote.side === "venda" && quote.tax == null) {
-        // Approval is in place now: measure what the swap really pays (token taxes).
+      if (quote.side === "venda" && (quote.tax == null || quote.estimated)) {
+        // Approval is in place now: confirm what the swap really pays (token taxes) before asking for the signature.
         const real = await measureReal("venda", quote.amountIn, acct, quote.out);
-        const taxed = withTax(quote, real);
-        if (taxed.min < quote.min) {
-          await upd({ status: "cancelada", error: `Token cobra ~${taxed.tax!.toFixed(1)}% na venda; cotação refeita antes de enviar.` });
+        if (real < quote.min) {
+          // Pays less than the accepted minimum: show the corrected value and keep it on screen.
+          // The approval is already done, so the next tap goes straight to the sale signature.
+          const taxed = withTax(quote, real);
+          await upd({ status: "cancelada", error: `Token cobrou ~${taxed.tax!.toFixed(1)}% na venda (mais que o previsto); valor atualizado, nada foi vendido.` });
+          keepQuote = true;
           setQuote(taxed);
-          toast.warning(`O ${sym} cobra uma taxa de ~${taxed.tax!.toFixed(1)}% na venda. Nada foi vendido. Revise o novo valor e assine de novo.`);
-          setBusy(null); loadOrders();
+          toast.warning(`Nada foi vendido. O valor a receber mudou para ${formatEther(taxed.out)} BNB. Toque em "Confirmar" de novo — a aprovação já está feita.`);
           return;
         }
       }
@@ -289,7 +291,7 @@ function Operar() {
       await upd({ status: "falhou", error: msg.slice(0, 300) });
       toast.error(msg);
     } finally {
-      setBusy(null); setQuote(null); loadOrders(); loadBalances(account);
+      setBusy(null); if (!keepQuote) setQuote(null); loadOrders(); loadBalances(account);
     }
   };
 
