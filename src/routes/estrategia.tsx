@@ -10,6 +10,7 @@ import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { WalletPicker } from "@/components/WalletPicker";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { getMarket } from "@/lib/chain.functions";
+import { getFxQuote, getBnbBalance } from "@/lib/fx.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,6 +54,9 @@ function StrategyForm() {
   const [version, setVersion] = useState(0);
   const [liq, setLiq] = useState<number | null>(null);
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState<"BRL" | "BNB">("BRL");
+  const [fx, setFx] = useState<{ bnbUsd: number | null; usdBrl: number | null } | null>(null);
+  const [bnbBalance, setBnbBalance] = useState<string | null>(null);
   const set = <K extends keyof StrategyConfig>(k: K, v: StrategyConfig[K]) => setC((p) => ({ ...p, [k]: v }));
 
   useEffect(() => {
@@ -71,6 +75,26 @@ function StrategyForm() {
     }).catch(() => {});
     return () => { alive = false; };
   }, [token.address]);
+
+  useEffect(() => {
+    let alive = true;
+    getFxQuote().then((q) => alive && setFx(q)).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    setBnbBalance(null);
+    if (/^0x[0-9a-fA-F]{40}$/.test(wallet)) {
+      getBnbBalance({ data: { address: wallet } }).then((b) => alive && setBnbBalance(b)).catch(() => {});
+    }
+    return () => { alive = false; };
+  }, [wallet]);
+
+  const bnbBrl = fx?.bnbUsd != null && fx?.usdBrl != null ? fx.bnbUsd * fx.usdBrl : null;
+  const typed = Number(amount) || 0;
+  const amountBnb = currency === "BNB" ? typed : bnbBrl ? typed / bnbBrl : 0;
+  const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const errors: string[] = [];
   if (wallet && !/^0x[0-9a-fA-F]{40}$/.test(wallet)) errors.push("Endereço de carteira inválido.");
