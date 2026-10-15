@@ -11,9 +11,9 @@ import { Label } from "@/components/ui/label";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Entrar — GTE Monitor" },
+      { title: "Entrar — CryptoBot" },
       { name: "description", content: "Acesse sua conta para salvar estratégias e simulações do GTE." },
-      { property: "og:title", content: "Entrar — GTE Monitor" },
+      { property: "og:title", content: "Entrar — CryptoBot" },
       { property: "og:description", content: "Acesse sua conta para salvar estratégias e simulações do GTE." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

@@ -32,7 +32,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </SheetTrigger>
             <SheetContent side="left" className="w-[85vw] max-w-xs p-0">
               <SheetHeader className="border-b border-border px-4 py-4 text-left">
-                <SheetTitle className="font-mono text-sm tracking-wider text-primary">GTE·MONITOR</SheetTitle>
+                <SheetTitle className="font-mono text-sm tracking-wider text-primary">CRYPTO·BOT</SheetTitle>
                 {user && <p className="truncate text-xs text-muted-foreground">{user.email}</p>}
               </SheetHeader>
               <nav className="flex flex-col gap-1 p-2">
@@ -62,7 +62,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </SheetContent>
           </Sheet>
-          <Link to="/" className="shrink-0 font-mono text-sm font-semibold tracking-wider text-primary">GTE·MONITOR</Link>
+          <Link to="/" className="shrink-0 font-mono text-sm font-semibold tracking-wider text-primary">CRYPTO·BOT</Link>
           {current && <span className="min-w-0 truncate text-sm text-muted-foreground">/ {current.label}</span>}
           <div className="ml-auto shrink-0">
             {!user && <Button size="sm" asChild><Link to="/login">Entrar</Link></Button>}

@@ -22,9 +22,9 @@ export const Route = createFileRoute("/operar")({
     typeof s["entrada"] === "string" && /^\d+(\.\d+)?$/.test(s["entrada"]) ? { entrada: s["entrada"] } : {},
   head: () => ({
     meta: [
-      { title: "Operar — GTE Monitor" },
+      { title: "Operar — CryptoBot" },
       { name: "description", content: "Compre e venda GTE pela PancakeSwap V2 com confirmação na sua carteira via WalletConnect." },
-      { property: "og:title", content: "Operar — GTE Monitor" },
+      { property: "og:title", content: "Operar — CryptoBot" },
       { property: "og:description", content: "Compre e venda GTE pela PancakeSwap V2 com confirmação na sua carteira via WalletConnect." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -131,7 +131,7 @@ function Operar() {
       const { EthereumProvider } = await import("@walletconnect/ethereum-provider");
       const provider = await EthereumProvider.init({
         projectId, chains: [56], showQrModal: true,
-        metadata: { name: "GTE Monitor", description: "Monitor GTE", url: window.location.origin, icons: [] },
+        metadata: { name: "CryptoBot", description: "Monitor GTE", url: window.location.origin, icons: [] },
       });
       provider.on("accountsChanged", (a: string[]) => { setAccount(a[0] ?? null); setQuote(null); toast.warning("Conta alterada na carteira"); });
       provider.on("chainChanged", (c: string) => { setChainId(Number(c)); setQuote(null); });

@@ -22,9 +22,9 @@ import { Switch } from "@/components/ui/switch";
 export const Route = createFileRoute("/estrategia")({
   head: () => ({
     meta: [
-      { title: "Estratégia — GTE Monitor" },
+      { title: "Estratégia — CryptoBot" },
       { name: "description", content: "Configure regras de entrada, take-profit, stop-loss e limites de risco para o GTE." },
-      { property: "og:title", content: "Estratégia — GTE Monitor" },
+      { property: "og:title", content: "Estratégia — CryptoBot" },
       { property: "og:description", content: "Configure regras de entrada, take-profit, stop-loss e limites de risco para o GTE." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

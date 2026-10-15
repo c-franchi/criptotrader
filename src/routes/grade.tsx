@@ -16,9 +16,9 @@ import type { Tables } from "@/integrations/supabase/types";
 export const Route = createFileRoute("/grade")({
   head: () => ({
     meta: [
-      { title: "Grade automática — GTE Monitor" },
+      { title: "Grade automática — CryptoBot" },
       { name: "description", content: "Robô de grade na PancakeSwap V2: compra nas quedas e vende nas altas usando uma carteira dedicada." },
-      { property: "og:title", content: "Grade automática — GTE Monitor" },
+      { property: "og:title", content: "Grade automática — CryptoBot" },
       { property: "og:description", content: "Robô de grade na PancakeSwap V2 com carteira dedicada e botão de armar." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
