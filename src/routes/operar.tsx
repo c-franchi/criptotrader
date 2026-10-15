@@ -13,6 +13,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin, Unavailable } from "@/components/AppShell";
 import { getWalletConfig } from "@/lib/wallet.functions";
 import { EMPTY_CONFIG, type StrategyConfig } from "@/lib/strategy";
+import { getTokenTax } from "@/lib/userTokens.functions";
+import { taxFor } from "@/lib/tokens";
 import { PANCAKE_V2_FACTORY, PANCAKE_V2_ROUTER, WBNB, ZERO, erc20Abi, factoryAbi, minOut, pairAbi, priceImpactPct, routerAbi } from "@/lib/pancake";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,7 +47,8 @@ export const Route = createFileRoute("/operar")({
 
 const pub = createPublicClient({ chain: bsc, transport: http("https://bsc-dataseed.bnbchain.org") });
 type Order = Tables<"orders">;
-type Quote = { side: "compra" | "venda"; amountIn: bigint; out: bigint; min: bigint; impact: number; tax: number | null };
+/** gross = router quote before token tax; estimated = tax came from the contract simulation, confirmed again right before signing. */
+type Quote = { side: "compra" | "venda"; amountIn: bigint; out: bigint; min: bigint; impact: number; tax: number | null; gross?: bigint; estimated?: boolean };
 
 function friendlyError(m: string): string {
   if (/INSUFFICIENT_OUTPUT_AMOUNT/.test(m)) return "O valor recebido ficaria abaixo do mínimo aceito (o token pode cobrar taxa ou o preço mudou). Nada foi trocado. Cote de novo.";
@@ -196,20 +199,31 @@ function Operar() {
       const out = amounts[amounts.length - 1]!;
       const impact = priceImpactPct(amountIn, side === "compra" ? reserves.bnb : reserves.gte);
       if (impact > cfg.maxPriceImpactPct) throw new Error(`Impacto de preço ${impact.toFixed(2)}% acima do limite de ${cfg.maxPriceImpactPct}%`);
-      let q: Quote = { side, amountIn, out, min: minOut(out, cfg.maxSlippagePct), impact, tax: null };
-      // Measure the real payout (catches token taxes). Sales can only be measured once approved.
+      let q: Quote = { side, amountIn, out, min: minOut(out, cfg.maxSlippagePct), impact, tax: null, gross: out };
+      // Measure the real payout (catches token taxes). With the wallet's approval we simulate the exact swap;
+      // without it (sales before approval) we use the tax measured on the contract, so the quote already includes it.
       if (account) {
         const acct = getAddress(account);
         const canMeasure = side === "compra" || (await pub.readContract({ address: GTE, abi: erc20Abi, functionName: "allowance", args: [acct, PANCAKE_V2_ROUTER] })) >= amountIn;
         if (canMeasure) q = withTax(q, await measureReal(side, amountIn, acct, out));
+        else {
+          const r = await getTokenTax({ data: { address: GTE } }).catch(() => null);
+          const sell = r?.tax?.sell ?? taxFor(GTE, cfg).sell;
+          if (sell > 0) {
+            // +1 pp margin: the token's fee varies a little between blocks (seen 8.0%–8.7% on GTE).
+            const est = (out * BigInt(Math.round((100 - sell) * 100))) / 10000n;
+            q = { ...q, out: est, min: minOut(est, cfg.maxSlippagePct + 1), tax: sell, estimated: true };
+          }
+        }
       }
       setQuote(q);
     } catch (e) { toast.error(friendlyError((e as Error).message)); }
   };
 
   const withTax = (q: Quote, real: bigint): Quote => {
-    const tax = q.out > 0n ? Math.max(0, Number(((q.out - real) * 10000n) / q.out) / 100) : 0;
-    return { ...q, out: real, min: minOut(real, cfg.maxSlippagePct), tax };
+    const base = q.gross ?? q.out;
+    const tax = base > 0n ? Math.max(0, Number(((base - real) * 10000n) / base) / 100) : 0;
+    return { ...q, out: real, min: minOut(real, cfg.maxSlippagePct), tax, estimated: false };
   };
 
   /** Binary-searches the largest minimum output the router accepts right now = what the swap really pays. */
@@ -240,6 +254,7 @@ function Operar() {
     if (error || !order) return void toast.error("Não foi possível registrar a ordem; nada foi enviado.");
     const upd = (patch: Partial<Order>) => supabase.from("orders").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", order.id);
     setBusy("assinatura");
+    let keepQuote = false;
     try {
       if (quote.side === "venda") {
         const allowance = await pub.readContract({ address: GTE, abi: erc20Abi, functionName: "allowance", args: [acct, PANCAKE_V2_ROUTER] });
@@ -251,15 +266,17 @@ function Operar() {
           if (ar.status !== "success") throw new Error("Aprovação falhou");
         }
       }
-      if (quote.side === "venda" && quote.tax == null) {
-        // Approval is in place now: measure what the swap really pays (token taxes).
+      if (quote.side === "venda" && (quote.tax == null || quote.estimated)) {
+        // Approval is in place now: confirm what the swap really pays (token taxes) before asking for the signature.
         const real = await measureReal("venda", quote.amountIn, acct, quote.out);
-        const taxed = withTax(quote, real);
-        if (taxed.min < quote.min) {
-          await upd({ status: "cancelada", error: `Token cobra ~${taxed.tax!.toFixed(1)}% na venda; cotação refeita antes de enviar.` });
+        if (real < quote.min) {
+          // Pays less than the accepted minimum: show the corrected value and keep it on screen.
+          // The approval is already done, so the next tap goes straight to the sale signature.
+          const taxed = withTax(quote, real);
+          await upd({ status: "cancelada", error: `Token cobrou ~${taxed.tax!.toFixed(1)}% na venda (mais que o previsto); valor atualizado, nada foi vendido.` });
+          keepQuote = true;
           setQuote(taxed);
-          toast.warning(`O ${sym} cobra uma taxa de ~${taxed.tax!.toFixed(1)}% na venda. Nada foi vendido. Revise o novo valor e assine de novo.`);
-          setBusy(null); loadOrders();
+          toast.warning(`Nada foi vendido. O valor a receber mudou para ${formatEther(taxed.out)} BNB. Toque em "Assinar na carteira" de novo — a aprovação já está feita.`);
           return;
         }
       }
@@ -277,7 +294,7 @@ function Operar() {
       await upd({ status: "falhou", error: msg.slice(0, 300) });
       toast.error(msg);
     } finally {
-      setBusy(null); setQuote(null); loadOrders(); loadBalances(account);
+      setBusy(null); if (!keepQuote) setQuote(null); loadOrders(); loadBalances(account);
     }
   };
 
@@ -408,7 +425,7 @@ function Operar() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Você envia</p>
                 <p className="font-mono text-2xl font-bold">{envia}</p>
                 <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {quote.side === "compra" ? `Você recebe — ${sym}, taxa do token já descontada` : quote.tax == null ? "Você recebe — BNB (taxa será medida depois da aprovação)" : "Você recebe — BNB, taxa do token já descontada"}
+                  {quote.side === "compra" ? `Você recebe — ${sym}, taxa do token já descontada` : quote.tax == null ? "Você recebe — BNB (taxa será medida depois da aprovação)" : quote.estimated ? "Você recebe — BNB, taxa do token já descontada (conferida de novo antes de assinar)" : "Você recebe — BNB, taxa do token já descontada"}
                 </p>
                 <p className="font-mono text-2xl font-bold text-success">{recebe}</p>
                 {quote.side === "compra" && quote.out > 0n && bnbIn > 0 ? (
