@@ -3,6 +3,7 @@ import { queryOptions, useQuery } from "@tanstack/react-query";
 import Decimal from "decimal.js";
 import { AppShell, Panel, Unavailable } from "@/components/AppShell";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
+import { StrategyAlert } from "@/components/StrategyAlert";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { getMarket, validateToken } from "@/lib/chain.functions";
 import { getTransfers } from "@/lib/transfers.functions";
@@ -77,8 +78,10 @@ function Dashboard() {
         {tokens.map((x) => (
           <Button key={x.address} className="flex-1 sm:flex-none" variant={x.address === addr ? "default" : "secondary"} onClick={() => setAddr(x.address)}>{x.symbol}</Button>
         ))}
-        <AddTokenDialog />
+         <AddTokenDialog />
       </div>
+
+      <StrategyAlert address={addr} symbol={info.symbol} pools={market.data?.pools ?? []} />
 
       <section className="mb-4 rounded-lg border border-primary/30 bg-card p-4">
         <div className="flex items-baseline justify-between gap-2">
