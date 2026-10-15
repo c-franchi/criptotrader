@@ -425,7 +425,7 @@ function Operar() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Você envia</p>
                 <p className="font-mono text-2xl font-bold">{envia}</p>
                 <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {quote.side === "compra" ? `Você recebe — ${sym}, taxa do token já descontada` : quote.tax == null ? "Você recebe — BNB (taxa será medida depois da aprovação)" : "Você recebe — BNB, taxa do token já descontada"}
+                  {quote.side === "compra" ? `Você recebe — ${sym}, taxa do token já descontada` : quote.tax == null ? "Você recebe — BNB (taxa será medida depois da aprovação)" : quote.estimated ? "Você recebe — BNB, taxa do token já descontada (conferida de novo antes de assinar)" : "Você recebe — BNB, taxa do token já descontada"}
                 </p>
                 <p className="font-mono text-2xl font-bold text-success">{recebe}</p>
                 {quote.side === "compra" && quote.out > 0n && bnbIn > 0 ? (
