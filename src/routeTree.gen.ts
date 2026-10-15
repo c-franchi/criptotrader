@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CarteirasRouteImport } from './routes/carteiras'
 import { Route as EstrategiaRouteImport } from './routes/estrategia'
 import { Route as GradeRouteImport } from './routes/grade'
 import { Route as IntegracoesRouteImport } from './routes/integracoes'
@@ -21,6 +22,11 @@ import { Route as ApiPublicHooksGridTickRouteImport } from './routes/api/public/
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CarteirasRoute = CarteirasRouteImport.update({
+  id: '/carteiras',
+  path: '/carteiras',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EstrategiaRoute = EstrategiaRouteImport.update({
@@ -61,6 +67,7 @@ const ApiPublicHooksGridTickRoute = ApiPublicHooksGridTickRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/carteiras': typeof CarteirasRoute
   '/estrategia': typeof EstrategiaRoute
   '/grade': typeof GradeRoute
   '/integracoes': typeof IntegracoesRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/carteiras': typeof CarteirasRoute
   '/estrategia': typeof EstrategiaRoute
   '/grade': typeof GradeRoute
   '/integracoes': typeof IntegracoesRoute
@@ -82,6 +90,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/carteiras': typeof CarteirasRoute
   '/estrategia': typeof EstrategiaRoute
   '/grade': typeof GradeRoute
   '/integracoes': typeof IntegracoesRoute
@@ -94,6 +103,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/carteiras'
     | '/estrategia'
     | '/grade'
     | '/integracoes'
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/carteiras'
     | '/estrategia'
     | '/grade'
     | '/integracoes'
@@ -114,6 +125,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/carteiras'
     | '/estrategia'
     | '/grade'
     | '/integracoes'
@@ -125,6 +137,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CarteirasRoute: typeof CarteirasRoute
   EstrategiaRoute: typeof EstrategiaRoute
   GradeRoute: typeof GradeRoute
   IntegracoesRoute: typeof IntegracoesRoute
@@ -141,6 +154,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/carteiras': {
+      id: '/carteiras'
+      path: '/carteiras'
+      fullPath: '/carteiras'
+      preLoaderRoute: typeof CarteirasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/estrategia': {
@@ -197,6 +217,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CarteirasRoute: CarteirasRoute,
   EstrategiaRoute: EstrategiaRoute,
   GradeRoute: GradeRoute,
   IntegracoesRoute: IntegracoesRoute,

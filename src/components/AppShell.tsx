@@ -38,11 +38,16 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             ))}
           </nav>
-          <div className="ml-auto shrink-0">
+          <div className="ml-auto flex shrink-0 gap-1">
             {user ? (
+              <>
+              <Button size="sm" variant="secondary" asChild>
+                <Link to="/carteiras">Carteiras</Link>
+              </Button>
               <Button size="sm" variant="ghost" onClick={() => supabase.auth.signOut()}>
                 Sair
               </Button>
+              </>
             ) : (
               <Button size="sm" asChild>
                 <Link to="/login">Entrar</Link>

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { findToken, TOKENS } from "@/lib/tokens";
 import { inspectToken, scanWallet, type WalletToken } from "@/lib/userTokens.functions";
+import { WalletPicker } from "@/components/WalletPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -74,6 +75,7 @@ export function AddTokenDialog({ wallet: initialWallet }: { wallet?: string | nu
             <Input placeholder="0x…" value={wallet} onChange={(e) => setWallet(e.target.value.trim())} />
             <Button onClick={scan} disabled={busy === "scan"}>{busy === "scan" ? "Lendo…" : "Buscar"}</Button>
           </div>
+          <WalletPicker value={wallet} onPick={(a) => { setWallet(a); setFound(null); }} />
           <p className="text-xs text-muted-foreground">
             A busca confere os tokens mais comuns da BSC e os que você já adicionou. Tokens menos conhecidos não aparecem sozinhos — adicione pelo endereço abaixo.
           </p>
