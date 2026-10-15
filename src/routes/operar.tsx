@@ -102,7 +102,7 @@ function Operar() {
     loadMarket();
     const t = setInterval(loadMarket, 30_000);
     return () => clearInterval(t);
-  }, [loadOrders, loadMarket]);
+  }, [loadOrders, loadMarket, GTE]);
 
   useEffect(() => { if (account) loadBalances(account); }, [account, loadBalances]);
 
