@@ -104,7 +104,12 @@ function Operar() {
     return () => clearInterval(t);
   }, [loadOrders, loadMarket, GTE]);
 
-  useEffect(() => { if (account) loadBalances(account); }, [account, loadBalances]);
+  useEffect(() => {
+    if (!account) return;
+    loadBalances(account);
+    const t = setInterval(() => loadBalances(account), 30_000);
+    return () => clearInterval(t);
+  }, [account, loadBalances]);
 
   const connect = async () => {
     setBusy("conectando");
