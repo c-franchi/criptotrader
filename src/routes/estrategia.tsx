@@ -76,6 +76,26 @@ function StrategyForm() {
     return () => { alive = false; };
   }, [token.address]);
 
+  useEffect(() => {
+    let alive = true;
+    getFxQuote().then((q) => alive && setFx(q)).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    setBnbBalance(null);
+    if (/^0x[0-9a-fA-F]{40}$/.test(wallet)) {
+      getBnbBalance({ data: { address: wallet } }).then((b) => alive && setBnbBalance(b)).catch(() => {});
+    }
+    return () => { alive = false; };
+  }, [wallet]);
+
+  const bnbBrl = fx?.bnbUsd != null && fx?.usdBrl != null ? fx.bnbUsd * fx.usdBrl : null;
+  const typed = Number(amount) || 0;
+  const amountBnb = currency === "BNB" ? typed : bnbBrl ? typed / bnbBrl : 0;
+  const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
   const errors: string[] = [];
   if (wallet && !/^0x[0-9a-fA-F]{40}$/.test(wallet)) errors.push("Endereço de carteira inválido.");
   if (c.sizingMode === "percentual" && c.buyAmount > 100) errors.push("Percentual do saldo não pode passar de 100%.");
