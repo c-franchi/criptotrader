@@ -20,10 +20,18 @@ export type MonitorState = {
  * because those triggers are relative to the user's entry price — with a
  * manual reference the user can set it to their buy price.
  */
-export function monitorState(cfg: StrategyConfig, price: number | null, high24h: number | null): MonitorState {
+const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+
+/** closes: closed candle closes at the strategy interval, oldest first. */
+export function monitorState(cfg: StrategyConfig, price: number | null, high24h: number | null, closes: number[] = []): MonitorState {
   const reference = cfg.referenceType === "manual" ? cfg.manualReference : high24h;
   const referenceLabel = cfg.referenceType === "manual" ? "referência definida" : `máxima de ${cfg.windowHours}h`;
   const alerts: MonitorAlert[] = [];
+  if (cfg.entryType === "medias" && price != null && price > 0 && cfg.maFast > 0 && cfg.maSlow > cfg.maFast && closes.length >= cfg.maSlow) {
+    const fast = avg(closes.slice(-cfg.maFast));
+    const slow = avg(closes.slice(-cfg.maSlow));
+    alerts.push({ kind: "compra", label: `Compra: média de ${cfg.maFast} velas acima da média de ${cfg.maSlow} (velas de ${cfg.candleInterval})`, triggerAt: slow, active: fast > slow });
+  }
   if (reference == null || !(reference > 0) || price == null || !(price > 0)) return { reference, referenceLabel, alerts };
 
   if (cfg.entryType === "queda" && cfg.dropPct > 0) {

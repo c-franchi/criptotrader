@@ -26,4 +26,9 @@ describe("monitoramento da estratégia", () => {
     const auto = monitorState(cfg, 0.5, 1);
     expect(auto.alerts.some((a) => a.kind !== "compra")).toBe(false);
   });
+  it("médias: compra ativa quando a média curta passa a longa", () => {
+    const m = { ...cfg, entryType: "medias" as const, maFast: 2, maSlow: 4 };
+    expect(monitorState(m, 1, null, [1, 1, 2, 2]).alerts[0]?.active).toBe(true);
+    expect(monitorState(m, 1, null, [2, 2, 1, 1]).alerts[0]?.active).toBe(false);
+  });
 });
