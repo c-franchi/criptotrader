@@ -184,17 +184,54 @@ function StrategyForm() {
           {bnbBalance !== null && amountBnb > Number(bnbBalance) && <p className="text-xs text-destructive">Valor maior que o saldo de BNB da carteira.</p>}
 
           <p className="mt-4 mb-2 text-sm font-semibold">Passo 4 · Escolha um estilo</p>
+          <div className="mb-3 rounded-md border border-border bg-muted/30 p-2.5">
+            {chosen ? (
+              <>
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-primary">
+                  <Check className="h-4 w-4 shrink-0" /> Estilo escolhido: {chosen.name}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {edited
+                    ? `Você ajustou campos à mão — a estratégia continua salva como ${chosen.name}.`
+                    : "Os campos abaixo são exatamente esta estratégia."}
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">Nenhum estilo escolhido ainda: toque em “Usar esta” para preencher os campos.</p>
+            )}
+          </div>
           <div className="grid gap-3 md:grid-cols-3">
-            {PRESETS.map((p) => (
-              <div key={p.id} className="flex flex-col rounded-md border border-border p-3">
-                <p className="font-semibold">{p.name}</p>
-                <p className="mb-2 text-xs text-muted-foreground">{p.summary}</p>
-                <ul className="mb-3 flex-1 space-y-1 text-xs">{p.how.map((h) => <li key={h}>• {h}</li>)}</ul>
-                <Button size="sm" disabled={!(amountBnb > 0)} onClick={() => { setC(buildPreset(p.id, amountBnb, liq)); toast.success(`"${p.name}" montada: compra ${token.symbol} com até ${amountBnb.toFixed(4)} BNB. Revise e salve.`); }}>
-                  Usar esta
-                </Button>
-              </div>
-            ))}
+            {PRESETS.map((p) => {
+              const on = c.presetId === p.id;
+              return (
+                <div
+                  key={p.id}
+                  data-selected={on}
+                  className={cn(
+                    "relative flex flex-col rounded-md p-3 transition-colors",
+                    on ? "border-2 border-primary bg-primary/10" : "border border-border hover:border-primary/50",
+                  )}
+                >
+                  {on && (
+                    <span className="absolute -top-2.5 right-3 inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">
+                      <Check className="h-3 w-3" /> Em uso
+                    </span>
+                  )}
+                  <p className={cn("font-semibold", on && "text-primary")}>{p.name}</p>
+                  <p className="mb-2 text-xs text-muted-foreground">{p.summary}</p>
+                  <ul className="mb-3 flex-1 space-y-1 text-xs">{p.how.map((h) => <li key={h}>• {h}</li>)}</ul>
+                  <Button size="sm" variant={on ? "default" : "outline"} disabled={!(amountBnb > 0)} onClick={() => applyPreset(p.id)}>
+                    {on ? (
+                      <>
+                        <Check className="h-4 w-4" /> {edited ? "Reaplicar" : "Selecionada"}
+                      </>
+                    ) : (
+                      "Usar esta"
+                    )}
+                  </Button>
+                </div>
+              );
+            })}
           </div>
           <p className="mt-2 text-xs text-muted-foreground">Compras usam BNB para obter {token.symbol}; vendas (lucro ou stop) devolvem BNB. Os campos abaixo são preenchidos sozinhos — revise e salve. Nenhuma estratégia garante lucro.</p>
         </Panel>
@@ -287,6 +324,12 @@ function StrategyForm() {
 
       <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
         <Panel title="Prévia em linguagem simples">
+          {chosen && (
+            <p className="mb-3 flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 p-2 text-sm font-semibold text-primary">
+              <Check className="h-4 w-4 shrink-0" /> {chosen.name}
+              {edited && <span className="font-normal text-muted-foreground">(com ajustes manuais)</span>}
+            </p>
+          )}
           <ul className="space-y-2 text-sm">
             {describeStrategy(c).map((l, i) => <li key={i}>• {l}</li>)}
           </ul>
@@ -294,7 +337,7 @@ function StrategyForm() {
             <ul className="mt-3 space-y-1 text-sm text-destructive">{errors.map((e) => <li key={e}>{e}</li>)}</ul>
           )}
           <Button className="mt-4 w-full" onClick={save} disabled={errors.length > 0}>
-            Salvar estratégia{version ? ` (atual v${version})` : ""}
+            Salvar estratégia{chosen ? ` · ${chosen.name}` : ""}{version ? ` (atual v${version})` : ""}
           </Button>
           <p className="mt-2 text-xs text-muted-foreground">
             Salvar não ativa nenhuma operação real. Execução automática estará disponível em fases futuras.
