@@ -25,5 +25,19 @@ export const POPULAR_BSC_TOKENS: string[] = [
   "0x4B0F1812e5Df2A09796481Ff14017e6005508003", // TWT
 ];
 
+/** Token taxes known for built-in tokens (measured/announced). Unknown tokens default to 0 until the user sets them. */
+export const KNOWN_TAX: Record<string, { buy: number; sell: number }> = {
+  "0xa229c797c8e6a275cf5ee4cda37f5e619f15affa": { buy: 8, sell: 8 }, // GTE
+};
+export type TokenTax = { buy: number; sell: number };
+export const taxFor = (addr: string, cfg?: { buyTaxPct?: number | undefined; sellTaxPct?: number | undefined }): TokenTax => {
+  const k = KNOWN_TAX[addr.toLowerCase()] ?? { buy: 0, sell: 0 };
+  return { buy: cfg?.buyTaxPct ?? k.buy, sell: cfg?.sellTaxPct ?? k.sell };
+};
+/** % the price must rise just to break even after paying both taxes. */
+export const breakEvenPct = (t: TokenTax) => (1 / ((1 - t.buy / 100) * (1 - t.sell / 100)) - 1) * 100;
+/** Gross price rise needed so the trade nets `netPct` after taxes. */
+export const grossForNet = (netPct: number, t: TokenTax) => ((1 + netPct / 100) / ((1 - t.buy / 100) * (1 - t.sell / 100)) - 1) * 100;
+
 export const findToken = (addr: string, extra: TokenInfo[] = []) =>
   [...TOKENS, ...extra].find((t) => t.address.toLowerCase() === addr.toLowerCase());

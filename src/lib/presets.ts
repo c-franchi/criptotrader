@@ -1,3 +1,4 @@
+import { grossForNet, type TokenTax } from "./tokens";
 import { EMPTY_CONFIG, type PresetId, type StrategyConfig } from "./strategy";
 
 export type { PresetId };
@@ -41,7 +42,14 @@ export const PRESETS: { id: PresetId; name: string; summary: string; how: string
 const r = (n: number) => Math.floor(n * 1e6) / 1e6;
 
 /** Builds a full strategy from a preset and the capital (in the pair currency, e.g. WBNB). */
-export function buildPreset(id: PresetId, amount: number, liquidityUsd: number | null): StrategyConfig {
+export function buildPreset(id: PresetId, amount: number, liquidityUsd: number | null, tax: TokenTax = { buy: 0, sell: 0 }): StrategyConfig {
+  const c = buildRaw(id, amount, liquidityUsd);
+  // Take-profit targets are the NET gain wanted; raise the price target so token taxes are covered.
+  const tp = c.takeProfits.map((t) => ({ ...t, pct: Math.round(grossForNet(t.pct, tax) * 10) / 10 }));
+  return { ...c, takeProfits: tp, buyTaxPct: tax.buy, sellTaxPct: tax.sell };
+}
+
+function buildRaw(id: PresetId, amount: number, liquidityUsd: number | null): StrategyConfig {
   const minLiq = liquidityUsd ? Math.round(liquidityUsd * 0.7) : 5000;
   const base = { ...EMPTY_CONFIG, presetId: id, sizingMode: "fixo" as const, referenceType: "maxima" as const, windowHours: 24, minLiquidityUsd: minLiq, maxSlippagePct: 2, maxPriceImpactPct: 2 };
   if (id === "segura")
