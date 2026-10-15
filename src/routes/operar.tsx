@@ -19,7 +19,7 @@ import { useSelectedToken } from "@/hooks/useSelectedToken";
 
 export const Route = createFileRoute("/operar")({
   validateSearch: (s: Record<string, unknown>): { entrada?: string } =>
-    typeof s.entrada === "string" && /^\d+(\.\d+)?$/.test(s.entrada) ? { entrada: s.entrada } : {},
+    typeof s["entrada"] === "string" && /^\d+(\.\d+)?$/.test(s["entrada"]) ? { entrada: s["entrada"] } : {},
   head: () => ({
     meta: [
       { title: "Operar — GTE Monitor" },
