@@ -38,7 +38,7 @@ export const scanWallet = createServerFn({ method: "POST" })
     const out: WalletToken[] = [];
     await Promise.all(list.map(async (a, i) => {
       const r = res[i];
-      if (r.status !== "success" || (r.result as bigint) === 0n) return;
+      if (!r || r.status !== "success" || (r.result as bigint) === 0n) return;
       try {
         const m = await tokenMeta(a);
         out.push({ ...m, balance: formatUnits(r.result as bigint, m.decimals) });
