@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { PRESETS } from "@/lib/presets";
+import { computePnl, rebuyEdgePct, type Fill } from "@/lib/pnl";
+import { cn } from "@/lib/utils";
 import { TokenChart } from "@/components/TokenChart";
 import { Slider } from "@/components/ui/slider";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -281,6 +283,18 @@ function Operar() {
 
   const fmtGte = (v: bigint) => Number(formatUnits(v, selected.decimals)).toLocaleString("pt-BR", { maximumFractionDigits: 4 });
   const fmtBnb = (v: bigint) => Number(formatEther(v)).toLocaleString("pt-BR", { maximumFractionDigits: 6 });
+  const n6 = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 6 });
+  const n2 = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+  const fills: Fill[] = orders
+    .filter((o) => o.status === "confirmada" && o.token.toLowerCase() === GTE.toLowerCase())
+    .map((o) => o.side === "compra"
+      ? { side: "compra" as const, bnb: Number(formatEther(BigInt(o.amount_in))), tokens: Number(formatUnits(BigInt(o.quoted_out), selected.decimals)), at: o.created_at }
+      : { side: "venda" as const, tokens: Number(formatUnits(BigInt(o.amount_in), selected.decimals)), bnb: Number(formatEther(BigInt(o.quoted_out))), at: o.created_at });
+  const pnl = computePnl(fills);
+  // tokens per BNB at the current pool price (raw reserve ratio, decimals adjusted)
+  const spot = reserves && reserves.bnb > 0n ? Number(formatUnits(reserves.gte, selected.decimals)) / Number(formatEther(reserves.bnb)) : null;
+  const total = spot ? pnl.bnbReceived + pnl.position / spot - pnl.bnbSpent : pnl.position === 0 ? pnl.bnbReceived - pnl.bnbSpent : null;
+  const status = total == null ? null : total > 1e-9 ? "pos" : total < -1e-9 ? "neg" : "zero";
 
   return (
     <div className="space-y-4">
