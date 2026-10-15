@@ -1,6 +1,6 @@
-import { EMPTY_CONFIG, type StrategyConfig } from "./strategy";
+import { EMPTY_CONFIG, type PresetId, type StrategyConfig } from "./strategy";
 
-export type PresetId = "segura" | "equilibrada" | "ativa";
+export type { PresetId };
 
 export const PRESETS: { id: PresetId; name: string; summary: string; how: string[] }[] = [
   {
@@ -43,7 +43,7 @@ const r = (n: number) => Math.floor(n * 1e6) / 1e6;
 /** Builds a full strategy from a preset and the capital (in the pair currency, e.g. WBNB). */
 export function buildPreset(id: PresetId, amount: number, liquidityUsd: number | null): StrategyConfig {
   const minLiq = liquidityUsd ? Math.round(liquidityUsd * 0.7) : 5000;
-  const base = { ...EMPTY_CONFIG, sizingMode: "fixo" as const, referenceType: "maxima" as const, windowHours: 24, minLiquidityUsd: minLiq, maxSlippagePct: 2, maxPriceImpactPct: 2 };
+  const base = { ...EMPTY_CONFIG, presetId: id, sizingMode: "fixo" as const, referenceType: "maxima" as const, windowHours: 24, minLiquidityUsd: minLiq, maxSlippagePct: 2, maxPriceImpactPct: 2 };
   if (id === "segura")
     return { ...base, buyAmount: r(amount / 4), entryType: "queda", dropPct: 8, maxEntries: 2, maxTradesPerDay: 2, cooldownMin: 240, maxExposureQuote: r(amount * 0.5), takeProfits: [{ pct: 10, sellPct: 50 }, { pct: 20, sellPct: 100 }], stopLossPct: 10, dailyLossLimit: r(amount * 0.1) };
   if (id === "equilibrada")

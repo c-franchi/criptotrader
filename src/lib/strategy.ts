@@ -1,4 +1,7 @@
+export type PresetId = "segura" | "equilibrada" | "ativa";
+
 export type StrategyConfig = {
+  presetId?: PresetId | null; // which ready-made style produced this config
   sizingMode: "fixo" | "percentual";
   buyAmount: number; // quote units when fixo, % of quote balance when percentual
   entryType: "queda" | "medias";
