@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin } from "@/components/AppShell";
 import { EMPTY_CONFIG, describeStrategy, type StrategyConfig } from "@/lib/strategy";
 import { PRESETS, buildPreset, type PresetId } from "@/lib/presets";
+import { breakEvenPct, taxFor } from "@/lib/tokens";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
@@ -62,9 +63,10 @@ function StrategyForm() {
   const [bnbBalance, setBnbBalance] = useState<string | null>(null);
   const [edited, setEdited] = useState(false);
   const set = <K extends keyof StrategyConfig>(k: K, v: StrategyConfig[K]) => { setEdited(true); setC((p) => ({ ...p, [k]: v })); };
+  const tax = taxFor(token.address, c);
   const chosen = PRESETS.find((p) => p.id === c.presetId) ?? null;
   const applyPreset = (id: PresetId) => {
-    setC(buildPreset(id, amountBnb, liq));
+    setC(buildPreset(id, amountBnb, liq, tax));
     setEdited(false);
     const p = PRESETS.find((x) => x.id === id)!;
     toast.success(`"${p.name}" montada: compra ${token.symbol} com até ${amountBnb.toFixed(4)} BNB. Revise e salve.`);
@@ -170,6 +172,22 @@ function StrategyForm() {
             Liquidez atual do pool {token.symbol}/BNB:{" "}
             {liq === null ? "indisponível" : `US$ ${liq.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`}
           </p>
+          <div className="mt-3 rounded-md border border-warning/40 bg-warning/5 p-3">
+            <p className="text-sm font-semibold">Taxa cobrada pelo {token.symbol}</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <label className="text-xs text-muted-foreground">Na compra (%)
+                <Input type="number" step="any" min={0} max={50} value={tax.buy} onChange={(e) => set("buyTaxPct", Math.min(50, Math.max(0, Number(e.target.value) || 0)))} />
+              </label>
+              <label className="text-xs text-muted-foreground">Na venda (%)
+                <Input type="number" step="any" min={0} max={50} value={tax.sell} onChange={(e) => set("sellTaxPct", Math.min(50, Math.max(0, Number(e.target.value) || 0)))} />
+              </label>
+            </div>
+            <p className="mt-2 text-xs">
+              {tax.buy + tax.sell > 0
+                ? <>Com essas taxas, o preço precisa subir <b>{breakEvenPct(tax).toFixed(1)}%</b> só para empatar. As metas de venda das estratégias prontas já somam isso.</>
+                : "Nenhuma taxa informada. Se o token cobrar taxa, preencha aqui para a estratégia não vender no prejuízo."}
+            </p>
+          </div>
         </Panel>
 
         <Panel title={`Passo 3 · Quanto de BNB usar para comprar ${token.symbol}`}>

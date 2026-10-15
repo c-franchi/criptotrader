@@ -7,6 +7,7 @@ import { getMarket } from "@/lib/chain.functions";
 import { getCandles } from "@/lib/history.functions";
 import { backtest, windowStats } from "@/lib/backtest";
 import { PRESETS, buildPreset } from "@/lib/presets";
+import { taxFor } from "@/lib/tokens";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +33,7 @@ const usd = (n: number) => `US$ ${n < 0.01 ? n.toPrecision(4) : n.toFixed(4)}`;
 
 function Metrics() {
   const { token, tokens, selectToken } = useSelectedToken();
+  const tax = taxFor(token.address);
   const [hours, setHours] = useState(24);
   const [amount, setAmount] = useState("1");
   const market = useQuery({ queryKey: ["market", token.address], queryFn: () => getMarket({ data: { address: token.address } }) });
@@ -89,14 +91,14 @@ function Metrics() {
             <Label>Valor aplicado (BNB)</Label>
             <Input type="number" step="any" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} />
             <div className="mt-3 space-y-2">
-              <Row name="Só comprar e segurar" pnlPct={stats.changePct} cap={cap} trades={1} />
+              <Row name="Só comprar e segurar" pnlPct={((1 + stats.changePct / 100) * (1 - tax.buy / 100) * (1 - tax.sell / 100) - 1) * 100} cap={cap} trades={1} />
               {PRESETS.map((p) => {
-                const r = backtest(win, buildPreset(p.id, cap, liq), cap);
+                const r = backtest(win, buildPreset(p.id, cap, liq, tax), cap);
                 return r ? <Row key={p.id} name={p.name} pnlPct={r.pnlPct} cap={cap} trades={r.trades} /> : null;
               })}
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              Estimativa feita com o histórico de preço (velas de 5 min) e taxa de 0,25% por troca. Não inclui gás, slippage nem impacto de preço. Resultado passado não garante resultado futuro.
+              Estimativa feita com o histórico de preço (velas de 5 min) e taxa de 0,25% por troca e a taxa do token ({tax.buy}% na compra, {tax.sell}% na venda). Não inclui gás, slippage nem impacto de preço. Resultado passado não garante resultado futuro.
             </p>
           </Panel>
         </>
