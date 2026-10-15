@@ -14,10 +14,10 @@ const marketQ = (a: string) => queryOptions({ queryKey: ["market", a], queryFn: 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Painel GTE — Gold Tech na BNB Smart Chain" },
-      { name: "description", content: "Validação on-chain, pools PancakeSwap, preço e liquidez do token GTE." },
-      { property: "og:title", content: "Painel GTE — Gold Tech na BNB Smart Chain" },
-      { property: "og:description", content: "Validação on-chain, pools PancakeSwap, preço e liquidez do token GTE." },
+      { title: "Painel de tokens — CryptoBot" },
+      { name: "description", content: "Preços, liquidez e validação dos tokens selecionados na BNB Smart Chain." },
+      { property: "og:title", content: "Painel de tokens — CryptoBot" },
+      { property: "og:description", content: "Preços, liquidez e validação dos tokens selecionados na BNB Smart Chain." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

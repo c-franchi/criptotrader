@@ -1,4 +1,5 @@
 # Correção da seleção e do mercado
+- [x] Estabilizar histórico e gráfico; consultar preço a cada 15s e histórico a cada minuto, mantendo dados nas falhas. Testado logado em celular/computador; seis testes passaram.
 - [x] Compartilhar o token selecionado entre Painel, Operar e Grade.
 - [x] Distinguir fonte indisponível de ausência de pool e consultar PancakeSwap diretamente como alternativa.
 - [x] Testar seleção, navegação, recarregamento e consulta real no Painel; quatro testes passaram.

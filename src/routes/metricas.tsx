@@ -36,7 +36,7 @@ function Metrics() {
   const [amount, setAmount] = useState("1");
   const market = useQuery({ queryKey: ["market", token.address], queryFn: () => getMarket({ data: { address: token.address } }) });
   const pool = market.data?.pools.find((p) => p.supported)?.pairAddress ?? market.data?.pools[0]?.pairAddress;
-  const candles = useQuery({ queryKey: ["candles", pool], enabled: !!pool, queryFn: () => getCandles({ data: { pool: pool! } }), refetchInterval: 120_000, retry: 2, retryDelay: 3000 });
+  const candles = useQuery({ queryKey: ["candles", pool, token.address], enabled: !!pool, queryFn: () => { if (!pool) throw new Error("Pool indisponível"); return getCandles({ data: { pool, token: token.address } }); }, staleTime: 60_000, refetchInterval: 60_000, retry: 1, retryDelay: 5000 });
 
   const now = Date.now() / 1000;
   const win = (candles.data ?? []).filter((c) => c[0] >= now - hours * 3600);

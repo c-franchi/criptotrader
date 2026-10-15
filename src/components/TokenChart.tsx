@@ -1,73 +1,88 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { RefreshCw } from "lucide-react";
 import { getMarket } from "@/lib/chain.functions";
 import { getCandles } from "@/lib/history.functions";
+import { chartWindow } from "@/lib/chart";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const PERIODS = [
-  { id: "1H", ms: 3_600_000 },
-  { id: "4H", ms: 4 * 3_600_000 },
-  { id: "12H", ms: 12 * 3_600_000 },
-  { id: "1D", ms: 24 * 3_600_000 },
+  { id: "1H", ms: 3_600_000 }, { id: "4H", ms: 4 * 3_600_000 },
+  { id: "12H", ms: 12 * 3_600_000 }, { id: "1D", ms: 24 * 3_600_000 },
 ] as const;
+const usd = (n: number) => `US$ ${n.toLocaleString("pt-BR", { maximumSignificantDigits: 6 })}`;
+const time = (n: number) => new Date(n).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-const usd = (n: number) => `$${n < 0.01 ? n.toPrecision(4) : n.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}`;
+export function TokenChart(props: { address: string; symbol: string }) {
+  return <PriceChart key={props.address} {...props} />;
+}
 
-/** Price header + line chart from real pool history. Shows "indisponível" instead of inventing data. */
-export function TokenChart({ address, symbol }: { address: string; symbol: string }) {
+function PriceChart({ address, symbol }: { address: string; symbol: string }) {
   const [period, setPeriod] = useState<(typeof PERIODS)[number]["id"]>("1D");
-  const market = useQuery({ queryKey: ["market", address], queryFn: () => getMarket({ data: { address } }), refetchInterval: 30_000 });
+  const [now, setNow] = useState(0);
+  const [pool, setPool] = useState<string>();
+  useEffect(() => { setNow(Date.now()); const timer = setInterval(() => setNow(Date.now()), 15_000); return () => clearInterval(timer); }, []);
+  const market = useQuery({ queryKey: ["market", address], queryFn: () => getMarket({ data: { address } }), staleTime: 10_000, refetchInterval: 15_000, retry: 1 });
   const pools = market.data?.pools ?? [];
-  const pool = pools.find((p) => p.supported)?.pairAddress ?? pools[0]?.pairAddress;
-  const candles = useQuery({ queryKey: ["candles", pool], enabled: !!pool, queryFn: () => getCandles({ data: { pool: pool! } }), refetchInterval: 120_000, retry: 2, retryDelay: 3000 });
-
-  const ms = PERIODS.find((p) => p.id === period)!.ms;
+  useEffect(() => {
+    if (pool) return;
+    const chosen = market.data?.pools.find((p) => p.supported) ?? market.data?.pools[0];
+    if (chosen) setPool(chosen.pairAddress);
+  }, [market.data, pool]);
+  const candles = useQuery({
+    queryKey: ["candles", pool, address], enabled: !!pool,
+    queryFn: () => { if (!pool) throw new Error("Pool indisponível"); return getCandles({ data: { pool, token: address } }); },
+    staleTime: 60_000, gcTime: 30 * 60_000, refetchInterval: 60_000, retry: 1, retryDelay: 5000,
+  });
+  const ms = PERIODS.find((p) => p.id === period)?.ms ?? 86_400_000;
   const all = candles.data ?? [];
-  const lastT = all.length ? all[all.length - 1]![0] * 1000 : 0;
-  const pts = all.filter((c) => c[0] * 1000 >= lastT - ms).map((c) => c[4]);
-  const live = pools[0]?.priceUsd ? Number(pools[0].priceUsd) : null;
-  const price = live ?? (pts.length ? pts[pts.length - 1]! : null);
-  const first = pts[0];
-  const change = first && price ? ((price - first) / first) * 100 : null;
+  const { visible, baseline, covered } = chartWindow(all, now, ms);
+  const currentPool = pools.find((p) => p.pairAddress.toLowerCase() === pool?.toLowerCase());
+  const rawPrice = Number(currentPool?.priceUsd);
+  const live = rawPrice > 0 && Number.isFinite(rawPrice) ? rawPrice : null;
+  const last = all.at(-1);
+  const price = live ?? last?.[4] ?? null;
+  const change = covered && baseline != null && price != null ? (price / baseline - 1) * 100 : null;
   const up = (change ?? 0) >= 0;
-
   const W = 320, H = 140;
-  let path = "", area = "";
-  if (pts.length > 1) {
-    const min = Math.min(...pts), max = Math.max(...pts), span = max - min || 1;
-    const xy = pts.map((v, i) => [(i / (pts.length - 1)) * W, H - 6 - ((v - min) / span) * (H - 12)] as const);
-    path = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-    area = `${path} L${W},${H} L0,${H} Z`;
-  }
-
+  const values = visible.map((c) => c[4]);
+  const min = values.length ? Math.min(...values) : 0;
+  const max = values.length ? Math.max(...values) : 0;
+  const span = max - min;
+  const xy = visible.map((c) => [((c[0] * 1000 - (now - ms)) / ms) * W, span ? H - 8 - ((c[4] - min) / span) * (H - 16) : H / 2] as const);
+  const path = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const fetching = market.isFetching || candles.isFetching;
+  const stale = market.isError || !!market.data?.error || candles.isError;
+  const refresh = () => { void market.refetch(); if (pool) void candles.refetch(); };
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <section aria-label={`Gráfico de ${symbol}`} className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-2xl font-bold">{symbol}</p>
-        <div className="text-right">
-          <p className="font-mono text-2xl font-bold">{price != null ? usd(price) : "—"}</p>
-          {change != null
-            ? <p className={cn("text-sm font-medium", up ? "text-success" : "text-destructive")}>{up ? "+" : ""}{change.toFixed(2)}% · {period}</p>
-            : <p className="text-xs text-muted-foreground">variação indisponível</p>}
+        <p className="min-w-0 break-all text-xl font-bold">{symbol}</p>
+        <div className="min-w-0 text-right">
+          <p className="break-words font-mono text-xl font-bold">{price != null ? usd(price) : "—"}</p>
+          <p className={cn("text-sm font-medium", change == null ? "text-muted-foreground" : up ? "text-success" : "text-destructive")}>
+            {change != null ? `${up ? "+" : ""}${change.toFixed(2)}% · ${period}` : "Variação indisponível"}
+          </p>
+          {live == null && last && <p className="text-xs text-warning">Último preço do histórico · {time(last[0] * 1000)}</p>}
         </div>
       </div>
+      <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+        <span>{market.data ? `Consulta: ${time(Date.parse(market.data.fetchedAt))}` : "Consultando preço…"}</span>
+        <Button aria-label="Atualizar preço e gráfico" title="Atualizar preço e gráfico" variant="ghost" size="icon" disabled={fetching} onClick={refresh} className="h-7 w-7"><RefreshCw className={cn("h-3.5 w-3.5", fetching && "motion-safe:animate-spin")} /></Button>
+      </div>
+      <p className="text-[11px] text-muted-foreground">Preço: consulta a cada 15s · Histórico: a cada 1 min</p>
       <div className="mt-3 h-36">
-        {path ? (
-          <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className={cn("h-full w-full", up ? "text-success" : "text-destructive")}>
-            <path d={area} fill="currentColor" opacity={0.12} />
-            <path d={path} fill="none" stroke="currentColor" strokeWidth={2} vectorEffect="non-scaling-stroke" />
-          </svg>
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            {market.isLoading || candles.isLoading ? "Carregando gráfico…" : !pool ? "Sem pool com histórico para este token" : "Histórico indisponível agora"}
-          </div>
-        )}
+        {path ? <svg aria-label={`Histórico de preço em ${period}`} role="img" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className={cn("h-full w-full", up ? "text-success" : "text-destructive")}>
+          {[35, 70, 105].map((y) => <line key={y} x1={0} x2={W} y1={y} y2={y} stroke="currentColor" opacity={0.12} />)}
+          {xy.length > 1 && <path d={path} fill="none" stroke="currentColor" strokeWidth={2} vectorEffect="non-scaling-stroke" />}
+          {xy.at(-1) && <circle cx={xy.at(-1)?.[0]} cy={xy.at(-1)?.[1]} r={3} fill="currentColor" />}
+        </svg> : <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">{market.isLoading || candles.isLoading ? "Carregando histórico…" : !pool ? "Pool indisponível para este token" : all.length ? "Sem dados de preço neste período" : "Histórico indisponível agora"}</div>}
       </div>
-      <div className="mt-2 flex gap-1">
-        {PERIODS.map((p) => (
-          <button key={p.id} onClick={() => setPeriod(p.id)} className={cn("rounded-full px-3 py-1 text-sm", period === p.id ? "bg-secondary font-semibold text-foreground" : "text-muted-foreground")}>{p.id}</button>
-        ))}
-      </div>
-    </div>
+      {now > 0 && <div className="mt-1 flex justify-between text-[11px] text-muted-foreground"><span>{new Date(now - ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span><span>Agora</span></div>}
+      <div className="mt-3 grid grid-cols-4 gap-1">{PERIODS.map((p) => <Button key={p.id} size="sm" variant={period === p.id ? "secondary" : "ghost"} aria-pressed={period === p.id} onClick={() => setPeriod(p.id)}>{p.id}</Button>)}</div>
+      {stale && <p role="status" className="mt-2 text-xs text-warning">Atualização indisponível. Os últimos dados recebidos foram mantidos; tentando novamente.</p>}
+      {path && !covered && <p className="mt-2 text-xs text-muted-foreground">Histórico parcial neste período.</p>}
+    </section>
   );
 }
