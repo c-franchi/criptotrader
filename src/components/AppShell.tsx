@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
-import { ArrowLeftRight, Bot, LineChart, FlaskConical, LayoutDashboard, Menu, Settings, Target, Wallet } from "lucide-react";
+import { Download, ArrowLeftRight, Bot, LineChart, FlaskConical, LayoutDashboard, Menu, Settings, Target, Wallet } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,7 @@ const nav = [
   { to: "/grade", label: "Grade automática", desc: "Robô que compra e vende sozinho", icon: Bot },
   { to: "/carteiras", label: "Minhas carteiras", desc: "Endereços salvos e perfil", icon: Wallet },
   { to: "/integracoes", label: "Integrações", desc: "Fontes de dados e status", icon: Settings },
+  { to: "/instalar", label: "Instalar o app", desc: "Ícone na tela inicial do celular", icon: Download },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
