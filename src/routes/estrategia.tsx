@@ -59,7 +59,15 @@ function StrategyForm() {
   const [currency, setCurrency] = useState<"BRL" | "BNB">("BRL");
   const [fx, setFx] = useState<{ bnbUsd: number | null; usdBrl: number | null } | null>(null);
   const [bnbBalance, setBnbBalance] = useState<string | null>(null);
-  const set = <K extends keyof StrategyConfig>(k: K, v: StrategyConfig[K]) => setC((p) => ({ ...p, [k]: v }));
+  const [edited, setEdited] = useState(false);
+  const set = <K extends keyof StrategyConfig>(k: K, v: StrategyConfig[K]) => { setEdited(true); setC((p) => ({ ...p, [k]: v })); };
+  const chosen = PRESETS.find((p) => p.id === c.presetId) ?? null;
+  const applyPreset = (id: PresetId) => {
+    setC(buildPreset(id, amountBnb, liq));
+    setEdited(false);
+    const p = PRESETS.find((x) => x.id === id)!;
+    toast.success(`"${p.name}" montada: compra ${token.symbol} com até ${amountBnb.toFixed(4)} BNB. Revise e salve.`);
+  };
 
   useEffect(() => {
     let alive = true;
