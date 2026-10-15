@@ -33,7 +33,7 @@ export function StrategyAlert({ address, symbol, pools }: { address: string; sym
   const pool = pools.find((p) => p.supported) ?? pools[0];
   const candles = useQuery({
     queryKey: ["candles", pool?.pairAddress, address],
-    enabled: !!cfg && cfg.referenceType !== "manual" && !!pool,
+    enabled: !!cfg && (cfg.referenceType !== "manual" || cfg.entryType === "medias") && !!pool,
     queryFn: () => getCandles({ data: { pool: pool!.pairAddress, token: address } }),
     staleTime: 60_000,
     refetchInterval: 60_000,
@@ -46,7 +46,11 @@ export function StrategyAlert({ address, symbol, pools }: { address: string; sym
     ? Math.max(...candles.data.filter((c) => c[0] * 1000 >= since).map((c) => c[2]))
     : null;
 
-  const state = cfg ? monitorState(cfg, price, high24h) : null;
+  const step = { "5m": 1, "15m": 3, "1h": 12, "4h": 48 }[cfg?.candleInterval ?? "15m"] ?? 3;
+  const all = candles.data ?? [];
+  const closes: number[] = [];
+  for (let i = all.length - 1 - step; i >= 0; i -= step) closes.unshift(all[i]![4]); // skip the still-open interval
+  const state = cfg ? monitorState(cfg, price, high24h, closes) : null;
   const active = state?.alerts.filter((a) => a.active) ?? [];
 
   // toast once per crossing (alert becomes active / leaves the zone)
@@ -76,7 +80,7 @@ export function StrategyAlert({ address, symbol, pools }: { address: string; sym
   if (!state || state.alerts.length === 0) {
     return (
       <p className="mb-4 rounded-lg border border-border bg-card p-3 text-xs text-muted-foreground">
-        Monitoramento de {symbol}: {state?.reference == null ? "aguardando preço de referência (máxima de 24h ou referência manual)." : "esta estratégia não tem gatilhos de preço para monitorar."}
+        Monitoramento de {symbol}: {state?.reference == null ? "aguardando preço de referência (máxima de 24h ou referência manual)." : cfg.entryType === "medias" ? "aguardando histórico de preços para calcular as médias." : "esta estratégia não tem gatilhos de preço para monitorar."}
       </p>
     );
   }
