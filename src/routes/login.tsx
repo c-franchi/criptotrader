@@ -7,6 +7,8 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ShieldCheck } from "lucide-react";
+import icon from "@/assets/app-icon.jpg";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -50,28 +52,41 @@ function Login() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-sm rounded-lg border border-border bg-card p-6">
-        <h1 className="mb-4 text-xl font-semibold">{signup ? "Criar conta" : "Entrar"}</h1>
-        <form onSubmit={submit} className="space-y-3">
-          <div>
-            <Label htmlFor="email">E-mail</Label>
-            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="pw">Senha</Label>
-            <Input id="pw" type="password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} />
-          </div>
-          <Button className="w-full" disabled={busy}>
-            {signup ? "Criar conta" : "Entrar"}
+      <div className="relative mx-auto max-w-sm">
+        <div className="pointer-events-none absolute -inset-8 -z-10 rounded-full bg-primary/10 blur-3xl" />
+        <div className="flex flex-col items-center text-center">
+          <img src={icon} alt="CryptoBot" width={1024} height={1024} className="h-20 w-20 rounded-2xl border border-primary/40 shadow-lg shadow-primary/20" />
+          <h1 className="mt-4 text-2xl font-semibold">{signup ? "Crie sua conta" : "Bem-vindo de volta"}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{signup ? "Leva menos de um minuto." : "Entre para acessar suas estratégias e operações."}</p>
+        </div>
+        <div className="mt-6 rounded-2xl border border-border bg-card/80 p-6 shadow-xl backdrop-blur">
+          <Button variant="outline" className="h-11 w-full" onClick={google}>
+            Continuar com Google
           </Button>
-        </form>
-        <Button variant="outline" className="mt-3 w-full" onClick={google}>
-          Continuar com Google
-        </Button>
-        <button className="mt-4 w-full text-sm text-muted-foreground underline" onClick={() => setSignup(!signup)}>
-          {signup ? "Já tenho conta" : "Criar uma conta"}
-        </button>
-        <p className="mt-4 text-xs text-muted-foreground">Nunca pediremos sua seed phrase ou chave privada.</p>
+          <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="h-px flex-1 bg-border" /> ou com e-mail <div className="h-px flex-1 bg-border" />
+          </div>
+          <form onSubmit={submit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email">E-mail</Label>
+              <Input id="email" type="email" className="h-11" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pw">Senha</Label>
+              <Input id="pw" type="password" className="h-11" autoComplete={signup ? "new-password" : "current-password"} minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} />
+            </div>
+            <Button className="h-11 w-full text-base" disabled={busy}>
+              {busy ? "Aguarde..." : signup ? "Criar conta" : "Entrar"}
+            </Button>
+          </form>
+          <button className="mt-5 w-full text-sm text-muted-foreground hover:text-foreground" onClick={() => setSignup(!signup)}>
+            {signup ? "Já tem conta? " : "Ainda não tem conta? "}
+            <span className="font-medium text-primary underline">{signup ? "Entrar" : "Criar agora"}</span>
+          </button>
+        </div>
+        <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+          <ShieldCheck className="h-4 w-4 text-primary" /> Nunca pediremos sua frase de recuperação ou chave privada.
+        </p>
       </div>
     </AppShell>
   );
