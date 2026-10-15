@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { PRESETS } from "@/lib/presets";
+import { TokenChart } from "@/components/TokenChart";
+import { Slider } from "@/components/ui/slider";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { createPublicClient, createWalletClient, custom, formatEther, formatUnits, http, parseEther, parseUnits, getAddress, type WalletClient } from "viem";
@@ -63,6 +65,7 @@ function Operar() {
   const [sellAmt, setSellAmt] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [side, setSide] = useState<"compra" | "venda">("compra");
   const [hasStrategy, setHasStrategy] = useState(false);
   const { entrada } = Route.useSearch();
   const preset = PRESETS.find((p) => p.id === cfg.presetId) ?? null;
@@ -149,6 +152,16 @@ function Operar() {
   const disconnect = async () => { await providerRef.current?.disconnect(); setAccount(null); setWallet(null); };
 
   const gasReserve = parseEther(String(cfg.gasReserveBnb || 0));
+  const spendable = bal && bal.bnb > gasReserve ? bal.bnb - gasReserve : 0n;
+  const maxIn = side === "compra" ? spendable : (bal?.gte ?? 0n);
+  const curIn = (() => { try { return side === "compra" ? parseEther(buyAmt || "0") : parseUnits(sellAmt || "0", selected.decimals); } catch { return 0n; } })();
+  const pctNow = maxIn > 0n ? Math.min(100, Number((curIn * 10000n) / maxIn) / 100) : 0;
+  const applyPct = (p: number) => {
+    const v = (maxIn * BigInt(Math.round(p * 100))) / 10000n;
+    if (side === "compra") setBuyAmt(v > 0n ? formatEther(v) : "");
+    else setSellAmt(v > 0n ? formatUnits(v, selected.decimals) : "");
+    setQuote(null);
+  };
   const blocks: string[] = [];
   if (!account) blocks.push("Conecte a carteira.");
   if (account && chainId !== 56) blocks.push(`Rede incorreta (chain ${chainId}). Mude para BNB Smart Chain (56).`);
@@ -233,6 +246,14 @@ function Operar() {
         <AddTokenDialog wallet={account} />
       </div>
 
+      <TokenChart address={GTE} symbol={sym} />
+      {bal && (
+        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+          <span className="font-semibold">Seu saldo</span>
+          <span className="text-right font-mono text-sm">{fmtGte(bal.gte)} {sym}<br /><span className="text-muted-foreground">{fmtBnb(bal.bnb)} BNB</span></span>
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
         <Panel title="Carteira" right={account ? <Button size="sm" variant="ghost" onClick={disconnect}>Desconectar</Button> : null}>
           {account ? (
@@ -284,22 +305,29 @@ function Operar() {
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Panel title={`Comprar ${sym} com BNB`}>
-          <Label>Quanto BNB usar nesta entrada</Label>
-          <p className="text-xs text-muted-foreground">Você paga BNB e recebe {sym}.</p>
-          <div className="mt-1 flex gap-2">
-            <Input type="number" step="any" value={buyAmt} onChange={(e) => { setBuyAmt(e.target.value); setQuote(null); }} />
-            <Button onClick={() => prepare("compra")} disabled={!ready || !!busy}>Cotar</Button>
-          </div>
-        </Panel>
-        <Panel title={`Vender ${sym} por BNB`}>
-          <Label>Quantidade de {sym}</Label>
-          <div className="mt-1 flex gap-2">
-            <Input type="number" step="any" value={sellAmt} onChange={(e) => { setSellAmt(e.target.value); setQuote(null); }} />
-            <Button variant="secondary" onClick={() => prepare("venda")} disabled={!ready || !!busy}>Cotar</Button>
-          </div>
-        </Panel>
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="grid grid-cols-2 gap-2">
+          <Button className={side === "compra" ? "bg-success text-background hover:bg-success/90" : ""} variant={side === "compra" ? "default" : "secondary"} onClick={() => { setSide("compra"); setQuote(null); }}>Comprar</Button>
+          <Button variant={side === "venda" ? "destructive" : "secondary"} onClick={() => { setSide("venda"); setQuote(null); }}>Vender</Button>
+        </div>
+        <p className="mt-3 text-sm text-muted-foreground">
+          {side === "compra" ? <>Você paga <b>BNB</b> e recebe <b>{sym}</b>.</> : <>Você entrega <b>{sym}</b> e recebe <b>BNB</b>.</>}
+        </p>
+        <Label className="mt-3 block">{side === "compra" ? "Quanto BNB usar" : `Quantidade de ${sym}`}</Label>
+        <Input className="mt-1" type="number" step="any" value={side === "compra" ? buyAmt : sellAmt}
+          onChange={(e) => { (side === "compra" ? setBuyAmt : setSellAmt)(e.target.value); setQuote(null); }} />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Disponível: {bal ? (side === "compra" ? `${fmtBnb(spendable)} BNB (já descontada a reserva de gás)` : `${fmtGte(bal.gte)} ${sym}`) : "conecte a carteira"}
+        </p>
+        <Slider className="mt-4" min={0} max={100} step={1} value={[pctNow]} disabled={!bal} onValueChange={([v]) => applyPct(v ?? 0)} />
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          {[25, 50, 75, 100].map((p) => (
+            <Button key={p} size="sm" variant={Math.round(pctNow) === p ? "default" : "outline"} disabled={!bal} onClick={() => applyPct(p)}>{p === 100 ? "Máx" : `${p}%`}</Button>
+          ))}
+        </div>
+        <Button className="mt-4 w-full" size="lg" variant={side === "venda" ? "destructive" : "default"} onClick={() => prepare(side)} disabled={!ready || !!busy}>
+          {side === "compra" ? `Cotar compra de ${sym}` : `Cotar venda de ${sym}`}
+        </Button>
       </div>
 
       {quote && (
