@@ -14,4 +14,9 @@ describe("buildPreset", () => {
     expect(c.maxEntries).toBe(3);
     expect(c.minLiquidityUsd).toBe(7000);
   });
+  it("registra qual estilo foi escolhido, para a tela mostrar a seleção", () => {
+    expect(buildPreset("ativa", 1, null).presetId).toBe("ativa");
+    expect(buildPreset("segura", 1, null).presetId).toBe("segura");
+    expect(EMPTY_CONFIG.presetId).toBeUndefined();
+  });
 });
