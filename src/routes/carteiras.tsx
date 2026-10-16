@@ -53,6 +53,8 @@ function Wallets() {
         <p className="text-sm">Conta: <strong>{user?.email}</strong></p>
       </Panel>
 
+      <BotWallet />
+
       <Panel title="Adicionar carteira">
         <div className="space-y-3">
           <div>
