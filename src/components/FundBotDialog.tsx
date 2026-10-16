@@ -197,7 +197,7 @@ export function FundBotDialog({ botAddress, onDone, botBnb, need }: { botAddress
                 <p>O robô já tem {(botBnb ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB. Faltam <strong>{miss.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB (≈ {brl(miss)})</strong>.</p>
                 <p className="text-muted-foreground">O gás de cada operação custa centavos — a reserva é só uma "poupança" para o robô nunca travar no meio de uma venda. Você pode diminuir essa reserva ou o valor de compra na estratégia.</p>
                 <div className="flex flex-wrap gap-2 pt-1">
-                  <Button type="button" size="sm" disabled={botBnb == null || (botBnb ?? 0) + miss + n > max + (botBnb ?? 0)} onClick={() => setVal(n + miss)}>Usar valor mínimo</Button>
+                  <Button type="button" size="sm" disabled={n + miss > max} onClick={() => setVal(n + miss)}>Usar valor mínimo</Button>
                   <Button asChild type="button" size="sm" variant="outline"><Link to="/estrategia" onClick={() => setOpen(false)}>Ajustar estratégia</Link></Button>
                 </div>
               </div>
