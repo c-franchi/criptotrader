@@ -85,7 +85,7 @@ function Alerts() {
   const valid = rule.basePrice > 0 && rule.targetPct > 0 && rule.warnBeforePct >= 0 && rule.warnBeforePct < rule.targetPct;
 
   const save = async () => {
-    if (!valid) return;
+    if (!valid) return undefined;
     setBusy(true);
     const { error } = await supabase.from("price_alerts").insert({
       user_id: user!.id, token_address: token.address, symbol: token.symbol, direction,
@@ -93,8 +93,9 @@ function Alerts() {
       last_state: price ? alertState(rule, price) : "longe",
     });
     setBusy(false);
-    if (error) return toast.error("Não foi possível salvar o aviso.");
+    if (error) { toast.error("Não foi possível salvar o aviso."); return undefined; }
     toast.success("Aviso criado!");
+    return undefined;
     qc.invalidateQueries({ queryKey: ["price_alerts"] });
   };
 
