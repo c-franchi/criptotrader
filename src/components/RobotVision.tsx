@@ -46,7 +46,7 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
     const cl = closesAt(candles.data, intervalMinutes(cfg.candleInterval), now || Date.now());
     if (cl.length < cfg.maSlow) return null;
     const f = cl.slice(-cfg.maFast).reduce((a, b) => a + b, 0) / cfg.maFast, s = cl.slice(-cfg.maSlow).reduce((a, b) => a + b, 0) / cfg.maSlow;
-    return { s, up: f > s };
+    return { f, s, up: f > s };
   })();
   const lines: Line[] = mode === "grade" ? grid.map((p, i) => ({ price: p, label: i === 0 ? "Grade (base)" : i === grid.length - 1 ? "Grade (topo)" : "", tone: "grid" as const })) : [...robotLines(cfg, state, high), ...(slowAvg?.up && state.entries < Math.max(1, cfg?.maxEntries ?? 1) ? [{ price: slowAvg.s, label: `Compra abaixo daqui (média de ${cfg?.maSlow})`, tone: "buy" as const }] : [])];
   const trades = orders.filter((o) => o.status === "confirmada" && o.token.toLowerCase() === token.toLowerCase()).map((o) => {
@@ -115,6 +115,66 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
           {reason && <p className="text-muted-foreground">O robô está pensando: {reason}</p>}
         </div>
       )}
+      {live != null && all.length > 1 && (() => {
+        const closes = all.map((c) => c[4]);
+        const lo24 = Math.min(...all.map((c) => c[3])), hi24 = Math.max(...all.map((c) => c[2]));
+        const pos = hi24 > lo24 ? Math.min(100, Math.max(0, ((live - lo24) / (hi24 - lo24)) * 100)) : 50;
+        const at = (minAgo: number) => all.reduce((b, c) => (Math.abs(c[0] * 1000 - (now - minAgo * 60_000)) < Math.abs(b[0] * 1000 - (now - minAgo * 60_000)) ? c : b), all[0]!)[4];
+        const pct = (a: number) => ((live / a - 1) * 100);
+        const ch = [{ l: "15 min", v: pct(at(15)) }, { l: "1h", v: pct(at(60)) }, { l: "6h", v: pct(at(360)) }, { l: "24h", v: pct(closes[0]!) }];
+        const zone = pos < 25 ? { t: "Perto da mínima do dia (preço baixo)", c: "text-success" } : pos > 75 ? { t: "Perto da máxima do dia (preço alto)", c: "text-destructive" } : { t: "No meio da faixa do dia", c: "text-warning" };
+        const recent = closes.slice(-12);
+        const vol = recent.length > 1 ? ((Math.max(...recent) - Math.min(...recent)) / Math.min(...recent)) * 100 : 0;
+        const entriesLeft = state.entries < Math.max(1, cfg?.maxEntries ?? 1);
+        const checks: { ok: boolean; t: string }[] = [];
+        if (mode !== "grade" && cfg) {
+          checks.push({ ok: armed, t: armed ? "Robô ligado" : "Robô desligado" });
+          checks.push({ ok: entriesLeft, t: `Compras feitas: ${state.entries} de ${Math.max(1, cfg.maxEntries)}` });
+          if (cfg.entryType === "medias") {
+            checks.push({ ok: !!slowAvg?.up, t: slowAvg ? (slowAvg.up ? "Tendência de alta (média rápida acima da lenta)" : "Tendência de queda (média rápida abaixo da lenta)") : "Calculando médias…" });
+            if (slowAvg) checks.push({ ok: live <= slowAvg.s, t: live <= slowAvg.s ? "Preço recuou até a média" : `Preço ${pct(slowAvg.s).toFixed(1)}% acima da média lenta` });
+          } else if (buyLine) {
+            checks.push({ ok: live <= buyLine.price, t: live <= buyLine.price ? "Preço abaixo do ponto de compra" : `Faltam ${((live / buyLine.price - 1) * 100).toFixed(1)}% de queda` });
+          }
+        }
+        return (
+          <div className="rounded-md border border-border p-3 text-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="font-semibold">Análise em tempo real</p>
+              <span className="text-[10px] text-muted-foreground">atualiza a cada 15s{now ? ` · ${new Date(now).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}</span>
+            </div>
+            <div>
+              <p className="mb-1 text-muted-foreground">Faixa de preço das últimas 24h</p>
+              <div className="relative h-2 rounded-full bg-gradient-to-r from-success/60 via-warning/60 to-destructive/60">
+                <span className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-foreground" style={{ left: `${pos}%` }} />
+              </div>
+              <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground"><span>Mín {usd(lo24)}</span><span>Máx {usd(hi24)}</span></div>
+              <p className={cn("mt-1 font-medium", zone.c)}>{zone.t} · {pos.toFixed(0)}% da faixa</p>
+            </div>
+            <div className="grid grid-cols-4 gap-1 text-center">
+              {ch.map((c) => (
+                <div key={c.l} className="rounded bg-background/50 p-1.5">
+                  <p className="text-[10px] text-muted-foreground">{c.l}</p>
+                  <p className={cn("font-mono font-semibold", c.v >= 0 ? "text-success" : "text-destructive")}>{c.v >= 0 ? "+" : ""}{c.v.toFixed(1)}%</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-muted-foreground">Agitação na última hora: <strong className={vol > 5 ? "text-warning" : "text-foreground"}>{vol.toFixed(1)}%</strong> {vol > 5 ? "(preço oscilando bastante)" : "(preço calmo)"}</p>
+            {slowAvg && cfg && (
+              <p className="text-muted-foreground">Média rápida ({cfg.maFast}): <strong className="text-foreground">{usd(slowAvg.f)}</strong> · Média lenta ({cfg.maSlow}): <strong className="text-foreground">{usd(slowAvg.s)}</strong></p>
+            )}
+            {checks.length > 0 && (
+              <div>
+                <p className="mb-1 text-muted-foreground">O que o robô confere antes de comprar:</p>
+                <ul className="space-y-0.5">
+                  {checks.map((c, i) => <li key={i} className={c.ok ? "text-success" : "text-muted-foreground"}>{c.ok ? "✓" : "○"} {c.t}</li>)}
+                </ul>
+                <p className="mt-1 font-medium">{checks.every((c) => c.ok) ? "Tudo certo: o robô compra na próxima verificação." : "Ainda não: o robô espera todas as condições ficarem ✓."}</p>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
