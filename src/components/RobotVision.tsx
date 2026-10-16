@@ -24,7 +24,7 @@ export function robotLines(cfg: StrategyConfig | null | undefined, s: BotState, 
   if (cfg.entryType === "queda" && cfg.dropPct > 0 && s.entries < Math.max(1, cfg.maxEntries)) {
     let ref = cfg.referenceType === "manual" ? cfg.manualReference : high24h;
     if (s.entries > 0 && s.lastBuyUsd > 0) ref = ref ? Math.min(ref, s.lastBuyUsd) : s.lastBuyUsd;
-    if (ref && ref > 0) out.push({ price: ref * (1 - cfg.dropPct / 100), label: `Compra (-${cfg.dropPct}%)`, tone: "buy" });
+    if (ref && ref > 0) out.push({ price: ref * (1 - cfg.dropPct / 100), label: `Compra abaixo daqui (-${cfg.dropPct}% do topo)`, tone: "buy" });
   }
   return out;
 }
@@ -100,7 +100,9 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
       {live != null && (
         <div className="rounded-md border border-border p-3 text-xs space-y-1">
           <p>Preço agora: <strong>{usd(live)}</strong></p>
-          {buyLine && <p className="text-success">Falta {Math.max(0, (live / buyLine.price - 1) * 100).toFixed(1)}% de queda para o robô comprar.</p>}
+          {buyLine && (live <= buyLine.price
+            ? <p className="text-success">O preço já está <strong>abaixo</strong> do ponto de compra: para o robô, ele está "barato". A compra acontece na próxima verificação, se houver BNB suficiente.</p>
+            : <p className="text-success">Falta {((live / buyLine.price - 1) * 100).toFixed(1)}% de queda para o robô comprar.</p>)}
           {nextSell && <p className="text-primary">Falta {Math.max(0, (nextSell.price / live - 1) * 100).toFixed(1)}% de alta para a próxima venda com lucro.</p>}
           {mode !== "grade" && cfg?.entryType === "medias" && <p className="text-muted-foreground">Esta estratégia compra quando a média curta cruza acima da longa — não existe um preço fixo; o robô avisa quando acontecer.</p>}
           {reason && <p className="text-muted-foreground">O robô está pensando: {reason}</p>}
