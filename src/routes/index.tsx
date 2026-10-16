@@ -8,6 +8,7 @@ import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { getMarket, validateToken } from "@/lib/chain.functions";
 import { getTransfers } from "@/lib/transfers.functions";
 import { Button } from "@/components/ui/button";
+import { HelpTip } from "@/components/HelpTip";
 
 const tokenQ = (a: string) => queryOptions({ queryKey: ["token", a], queryFn: () => validateToken({ data: { address: a } }), staleTime: 60_000 });
 const marketQ = (a: string) => queryOptions({ queryKey: ["market", a], queryFn: () => getMarket({ data: { address: a } }), refetchInterval: 30_000 });
@@ -68,8 +69,14 @@ function Dashboard() {
       : null;
   const best = market.data?.pools.find((p) => p.supported);
 
-  const transfers = useQuery({ queryKey: ["transfers", addr], queryFn: () => getTransfers({ data: { address: addr } }), enabled: ready, refetchInterval: 60_000 });
   const pool = best?.pairAddress.toLowerCase();
+  const transfers = useQuery({
+    queryKey: ["transfers", addr, pool ?? ""],
+    queryFn: () => getTransfers({ data: { address: addr, ...(pool && /^0x[0-9a-f]{40}$/.test(pool) ? { pool } : {}) } }),
+    enabled: ready && !market.isLoading,
+    refetchInterval: 30_000,
+    placeholderData: (prev) => prev,
+  });
   const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
   const fmtAmt = (raw: string) => new Decimal(raw).div(new Decimal(10).pow(info.decimals)).toDecimalPlaces(2).toNumber().toLocaleString("pt-BR");
 
@@ -137,9 +144,38 @@ function Dashboard() {
           </ul>
           {transfers.data && (
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Fonte: {transfers.data.source === "bscscan" ? "BscScan" : "rede BSC (direto)"}
-              {transfers.data.holders === null && ` · Holders indisponível (${transfers.data.holdersNote})`}
+              Fonte: rede BSC (direto) · atualiza sozinho a cada 30s · {new Date(transfers.data.fetchedAt).toLocaleTimeString("pt-BR")}{transfers.isFetching && " · atualizando…"}
             </p>
+          )}
+        </Panel>
+
+        <Panel collapsible defaultOpen title={`Top 10 carteiras que mais negociam`} right={<HelpTip title="O que é este ranking?">Lista as carteiras que mais compraram e venderam este token no pool da PancakeSwap nas últimas horas. Muitas compras e vendas indicam quem está fazendo trade. Não é recomendação: grandes carteiras podem ser do próprio projeto, robôs ou corretoras.</HelpTip>}>
+          {!pool && <p className="text-sm text-muted-foreground">Ranking indisponível: sem pool conhecido para este token.</p>}
+          {pool && transfers.data && transfers.data.ranking.length === 0 && !transfers.data.error && <p className="text-sm text-muted-foreground">Nenhuma compra ou venda no período lido.</p>}
+          {transfers.data && transfers.data.ranking.length > 0 && (
+            <>
+              <p className="mb-2 text-[11px] text-muted-foreground">Baseado em {transfers.data.rankedTransfers} movimentações dos últimos ~{transfers.data.scannedBlocks.toLocaleString("pt-BR")} blocos. Ordenado pelo volume em {info.symbol}.</p>
+              <ol className="divide-y divide-border/60">
+                {transfers.data.ranking.map((w, i) => {
+                  const net = BigInt(w.boughtRaw) - BigInt(w.soldRaw);
+                  const profile = w.buys > 0 && w.sells > 0 ? { t: "TRADER", c: "border-primary/50 bg-primary/15 text-primary" } : w.buys > 0 ? { t: "COMPRADOR", c: "border-success/50 bg-success/15 text-success" } : { t: "VENDEDOR", c: "border-destructive/50 bg-destructive/15 text-destructive" };
+                  return (
+                    <li key={w.wallet} className="py-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 shrink-0 font-mono font-bold text-primary">{i + 1}º</span>
+                        <a href={`https://bscscan.com/address/${w.wallet}`} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate font-mono hover:text-primary">{short(w.wallet)}</a>
+                        <span className={`shrink-0 rounded border px-1 py-0.5 text-[10px] font-semibold ${profile.c}`}>{profile.t}</span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-x-3 pl-7 text-[11px] text-muted-foreground">
+                        <span className="text-success">{w.buys} compras · {fmtAmt(w.boughtRaw)}</span>
+                        <span className="text-destructive">{w.sells} vendas · {fmtAmt(w.soldRaw)}</span>
+                        <span>Saldo do período: <span className={net >= 0n ? "text-success" : "text-destructive"}>{net >= 0n ? "+" : "−"}{fmtAmt((net < 0n ? -net : net).toString())}</span></span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </>
           )}
         </Panel>
 
