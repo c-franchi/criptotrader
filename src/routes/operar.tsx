@@ -148,7 +148,7 @@ function Operar() {
       const { EthereumProvider } = await import("@walletconnect/ethereum-provider");
       const provider = await EthereumProvider.init({
         projectId, chains: [56], showQrModal: true,
-        metadata: { name: "CryptoBot", description: "Monitor GTE", url: window.location.origin, icons: [] },
+        metadata: { name: "CryptoBot", description: "Monitor GTE", url: window.location.origin, icons: [`${window.location.origin}/icon-192.png`], redirect: { universal: window.location.href } },
       });
       provider.on("accountsChanged", (a: string[]) => { setAccount(a[0] ?? null); setQuote(null); toast.warning("Conta alterada na carteira"); });
       provider.on("chainChanged", (c: string) => { setChainId(Number(c)); setQuote(null); });

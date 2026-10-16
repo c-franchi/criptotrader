@@ -37,7 +37,7 @@ export function FundBotDialog({ botAddress, onDone }: { botAddress: string; onDo
       const provider = await EthereumProvider.init({
         projectId, chains: [56], showQrModal: true,
         methods: ["eth_sendTransaction"], optionalMethods: ["eth_sendTransaction", "personal_sign", "wallet_switchEthereumChain"],
-        metadata: { name: "CryptoBot", description: "Abastecer robô", url: window.location.origin, icons: [] },
+        metadata: { name: "CryptoBot", description: "Abastecer robô", url: window.location.origin, icons: [`${window.location.origin}/icon-192.png`], redirect: { universal: window.location.href } },
       });
       await provider.connect();
       providerRef.current = provider;
