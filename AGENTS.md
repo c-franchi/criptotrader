@@ -10,6 +10,7 @@
 <!-- LOVABLE:END -->
 
 ## Rules
+- Strategy stop mode is optional for backward compatibility; use the shared stopLoss helpers for robot, chart and monitoring, avoiding double-counted buy tax in simulations that track net token cost.
 - Built-in tokens live in src/lib/tokens.ts; users add more into user_tokens (RLS own), exposed via SelectedTokenProvider.tokens — pages never hardcode the list. Server reads unknown token metadata on-chain via tokenMeta.server.ts.
 - Wallet scan checks balances of POPULAR_BSC_TOKENS + saved tokens by multicall — free BSC RPCs/BscScan cannot list all tokens of a wallet.
 - Painel, Operar and Grade share selection through SelectedTokenProvider; restore browser storage after hydration so navigation does not silently change the asset.

@@ -5,6 +5,7 @@ import { useCandles } from "@/hooks/useCandles";
 import { closesAt, readRegime, intervalMinutes, referenceHigh, type BotState } from "@/lib/autoStrategy";
 import type { StrategyConfig } from "@/lib/strategy";
 import { cn } from "@/lib/utils";
+import { stopPrice, netPositionPct } from "@/lib/stopLoss";
 
 type Order = { side: string; status: string; token: string; created_at: string };
 type Line = { price: number; label: string; tone: "buy" | "sell" | "stop" | "avg" | "grid" };
@@ -19,7 +20,8 @@ export function robotLines(cfg: StrategyConfig | null | undefined, s: BotState, 
   if (s.tokens > 0 && s.avgPriceUsd > 0) {
     out.push({ price: s.avgPriceUsd, label: "Preço médio", tone: "avg" });
     cfg.takeProfits.forEach((t, i) => { if (t.pct > 0 && !s.tpDone.includes(i)) out.push({ price: s.avgPriceUsd * (1 + t.pct / 100), label: `Venda ${i + 1} (+${t.pct}%)`, tone: "sell" }); });
-    if (cfg.stopLossPct > 0) out.push({ price: s.avgPriceUsd * (1 - cfg.stopLossPct / 100), label: `Stop (-${cfg.stopLossPct}%)`, tone: "stop" });
+    const stop = stopPrice(s.avgPriceUsd, cfg);
+    if (stop != null) out.push({ price: stop, label: cfg.stopLossMode === "liquido" ? `Stop líquido (-${cfg.stopLossPct}%)` : `Stop (-${cfg.stopLossPct}% preço)`, tone: "stop" });
   }
   if (cfg.entryType === "queda" && cfg.dropPct > 0 && s.entries < Math.max(1, cfg.maxEntries)) {
     let ref = cfg.referenceType === "manual" ? cfg.manualReference : high24h;
@@ -119,6 +121,7 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
       {live != null && (
         <div className="rounded-md border border-border p-3 text-xs space-y-1">
           <p>Preço agora: <strong>{usd(live)}</strong></p>
+          {mode !== "grade" && cfg?.stopLossMode === "liquido" && state.tokens > 0 && state.avgPriceUsd > 0 && <p className="text-warning">Resultado líquido estimado: {netPositionPct(live, state.avgPriceUsd, cfg).toFixed(1)}% · limite de perda: {cfg.stopLossPct}%. Inclui taxas do token; não inclui gás nem variação da execução. O stop vende a posição, mas o robô continua ligado e os saques continuam disponíveis.</p>}
           {buyLine && (live <= buyLine.price
             ? <p className="text-success">O preço já está <strong>abaixo</strong> do ponto de compra: para o robô, ele está "barato". A compra acontece na próxima verificação, se houver BNB suficiente.</p>
             : <p className="text-success">Falta {((live / buyLine.price - 1) * 100).toFixed(1)}% de queda para o robô comprar.</p>)}
