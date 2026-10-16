@@ -8,6 +8,7 @@ import { AppShell, Panel, RequireLogin } from "@/components/AppShell";
 import { EMPTY_CONFIG, describeStrategy, type StrategyConfig } from "@/lib/strategy";
 import { PRESETS, buildPreset, type PresetId } from "@/lib/presets";
 import { breakEvenPct, taxFor } from "@/lib/tokens";
+import { TokenAlerts } from "@/components/TokenAlerts";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
@@ -361,6 +362,7 @@ function StrategyForm() {
             )}
           </div>
         </Panel>
+        <TokenAlerts token={token} tax={tax} />
       </div>
 
       <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">

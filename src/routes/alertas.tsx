@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -119,39 +119,12 @@ function Alerts() {
         )}
       </Panel>
 
-      <Panel title={`2. Criar um aviso para ${token.symbol}`}>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant={direction === "queda" ? "default" : "outline"} onClick={() => setDirection("queda")}>{direction === "queda" ? "✓ " : ""}Quando cair (comprar)</Button>
-            <Button variant={direction === "alta" ? "default" : "outline"} onClick={() => setDirection("alta")}>{direction === "alta" ? "✓ " : ""}Quando subir (vender)</Button>
-          </div>
-          <div>
-            <Label>Preço de partida (US$)</Label>
-            <Input inputMode="decimal" value={base} onChange={(e) => setBase(e.target.value)} />
-            <p className="mt-1 text-xs text-muted-foreground">Preço agora: {price ? `US$ ${fmt(price)}` : "indisponível"}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>{direction === "queda" ? "Comprar com queda de (%)" : "Vender com alta de (%)"}</Label>
-              <Input inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} />
-            </div>
-            <div>
-              <Label>Avisar quando faltar (%)</Label>
-              <Input inputMode="decimal" value={warn} onChange={(e) => setWarn(e.target.value)} />
-            </div>
-          </div>
-          {valid && (
-            <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
-              Você recebe <b>“chegando perto”</b> com {direction} de <b>{fmt(rule.targetPct - rule.warnBeforePct)}%</b> (US$ {fmt(rule.basePrice * (1 + (direction === "queda" ? -1 : 1) * (rule.targetPct - rule.warnBeforePct) / 100))})
-              {" "}e <b>“chegou no ponto”</b> com {fmt(rule.targetPct)}% (US$ {fmt(targetPrice(rule))}).
-            </div>
-          )}
-          <Button size="lg" className="w-full" onClick={save} disabled={!valid || busy}>Salvar aviso</Button>
-          <p className="text-xs text-muted-foreground">O app confere o preço a cada minuto, mesmo com o celular fechado. É só um aviso: nenhuma compra ou venda é feita sozinha.</p>
-        </div>
+      <Panel title="2. Configure os avisos em cada token">
+        <p className="text-sm text-muted-foreground">Cada token tem sua própria taxa e seu jeito de comprar e vender. Por isso os pontos de aviso ficam na Estratégia do token: escolha o token lá e role até “Avisos no celular”.</p>
+        <Button asChild size="lg" className="mt-3 w-full"><Link to="/estrategia">Configurar avisos do {token.symbol}</Link></Button>
       </Panel>
 
-      <Panel title="Seus avisos">
+      <Panel title="Todos os seus avisos">
         {!alerts.data?.length ? <p className="text-sm text-muted-foreground">Nenhum aviso criado ainda.</p> : (
           <ul className="space-y-2">
             {alerts.data.map((a) => {
