@@ -1,9 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, Panel, RequireLogin } from "@/components/AppShell";
 import { useSavedWallets } from "@/hooks/useSavedWallets";
 import { useAuth } from "@/hooks/useAuth";
+import { getBotWallet } from "@/lib/bot.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
