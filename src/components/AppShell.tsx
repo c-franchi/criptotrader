@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
-import { Download, ArrowLeftRight, Bot, LineChart, FlaskConical, LayoutDashboard, Menu, Settings, Target, Wallet } from "lucide-react";
+import { Bell, Download, ArrowLeftRight, Bot, LineChart, FlaskConical, LayoutDashboard, Menu, Settings, Target, Wallet } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 
 const nav = [
   { to: "/", label: "Painel", desc: "Preço, liquidez e transferências", icon: LayoutDashboard },
+  { to: "/alertas", label: "Avisos no celular", desc: "Aviso quando chegar perto da compra ou venda", icon: Bell },
   { to: "/metricas", label: "Métricas", desc: "Evolução em 1h, 12h, 24h e resultado das estratégias", icon: LineChart },
   { to: "/estrategia", label: "Estratégia", desc: "Regras de compra, venda e risco", icon: Target },
   { to: "/simulacao", label: "Simulação", desc: "Treine sem dinheiro real", icon: FlaskConical },
