@@ -1,7 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-const LOGS_RPC = "https://bsc-rpc.publicnode.com";
+const LOGS_RPCS = [
+  "https://bsc-rpc.publicnode.com",
+  "https://bsc-dataseed.bnbchain.org",
+  "https://rpc.ankr.com/bsc",
+  "https://binance.llamarpc.com",
+  "https://bsc-dataseed1.defibit.io",
+];
 const TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const CHUNK = 5000;
 
@@ -15,16 +21,36 @@ export type TransfersResult = {
   scannedBlocks: number;
 };
 
-async function rpc<T>(method: string, params: unknown[]): Promise<T> {
-  const r = await fetch(LOGS_RPC, {
+const cache = new Map<string, { value: TransfersResult; expires: number }>();
+const pending = new Map<string, Promise<TransfersResult>>();
+let preferred = 0;
+
+async function rpcOnce<T>(url: string, method: string, params: unknown[]): Promise<T> {
+  const r = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
     signal: AbortSignal.timeout(10000),
   });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const j = (await r.json()) as { result?: T; error?: { message: string } };
   if (j.error) throw new Error(j.error.message);
+  if (j.result === undefined) throw new Error("sem resposta");
   return j.result as T;
+}
+
+/** Tries each public node in turn, starting with the last one that worked. */
+async function rpc<T>(method: string, params: unknown[]): Promise<T> {
+  let last: unknown;
+  for (let i = 0; i < LOGS_RPCS.length; i++) {
+    const idx = (preferred + i) % LOGS_RPCS.length;
+    try {
+      const out = await rpcOnce<T>(LOGS_RPCS[idx]!, method, params);
+      preferred = idx;
+      return out;
+    } catch (e) { last = e; }
+  }
+  throw new Error(`Todos os servidores públicos falharam (${last instanceof Error ? last.message : "falha"})`);
 }
 
 async function fromBscScan(address: string, key: string): Promise<{ list: Transfer[] | null; holders: number | null; note: string }> {
@@ -50,11 +76,30 @@ async function fromBscScan(address: string, key: string): Promise<{ list: Transf
 export const getTransfers = createServerFn({ method: "GET" })
   .inputValidator((d: { address: string }) => z.object({ address: z.string().regex(/^0x[0-9a-fA-F]{40}$/) }).parse(d))
   .handler(async ({ data }): Promise<TransfersResult> => {
+    const k = data.address.toLowerCase();
+    const saved = cache.get(k);
+    if (saved && saved.expires > Date.now()) return saved.value;
+    const active = pending.get(k);
+    if (active) return active;
+    const req = load(data.address).then((value) => {
+      if (!value.error) {
+        if (cache.size >= 200) cache.clear();
+        cache.set(k, { value, expires: Date.now() + 45_000 });
+        return value;
+      }
+      // Keep the last good list instead of showing an error.
+      return saved ? saved.value : value;
+    }).finally(() => pending.delete(k));
+    pending.set(k, req);
+    return req;
+  });
+
+async function load(address: string): Promise<TransfersResult> {
     const key = process.env["BSCSCAN_API_KEY"];
     let holdersNote = "chave da BscScan não configurada";
     if (key) {
       try {
-        const b = await fromBscScan(data.address, key);
+        const b = await fromBscScan(address, key);
         holdersNote = b.note;
         if (b.list) return { transfers: b.list, source: "bscscan", holders: b.holders, holdersNote, error: null, scannedBlocks: 0 };
       } catch { holdersNote = "BscScan não respondeu"; }
@@ -67,7 +112,7 @@ export const getTransfers = createServerFn({ method: "GET" })
       for (let i = 0; i < 4 && out.length < 15; i++) {
         const from = to - CHUNK + 1;
         const logs = await rpc<{ transactionHash: string; blockNumber: string; topics: string[]; data: string }[]>("eth_getLogs", [
-          { fromBlock: `0x${from.toString(16)}`, toBlock: `0x${to.toString(16)}`, address: data.address, topics: [TRANSFER] },
+          { fromBlock: `0x${from.toString(16)}`, toBlock: `0x${to.toString(16)}`, address, topics: [TRANSFER] },
         ]);
         for (const l of logs.reverse()) {
           if (l.topics.length < 3) continue;
@@ -86,4 +131,4 @@ export const getTransfers = createServerFn({ method: "GET" })
     } catch (e) {
       return { transfers: [], source: null, holders: null, holdersNote, error: e instanceof Error ? e.message : "falha", scannedBlocks: 0 };
     }
-  });
+}
