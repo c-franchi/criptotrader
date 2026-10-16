@@ -24,7 +24,7 @@ export function FundBotDialog({ botAddress, onDone }: { botAddress: string; onDo
   const [unit, setUnit] = useState<"BRL" | "BNB">("BRL");
   const [brlPerBnb, setBrlPerBnb] = useState<number | null>(null);
   useEffect(() => { if (open) getFxQuote().then((q) => setBrlPerBnb(q.bnbUsd && q.usdBrl ? q.bnbUsd * q.usdBrl : null)).catch(() => {}); }, [open]);
-  const providerRef = useRef<{ disconnect: () => Promise<void> } | null>(null);
+  const providerRef = useRef<{ disconnect: () => Promise<void>; request: (a: { method: string; params?: unknown[] }) => Promise<unknown> } | null>(null);
 
   const connect = async () => {
     setBusy("Conectando…");
@@ -36,6 +36,7 @@ export function FundBotDialog({ botAddress, onDone }: { botAddress: string; onDo
       const { EthereumProvider } = await import("@walletconnect/ethereum-provider");
       const provider = await EthereumProvider.init({
         projectId, chains: [56], showQrModal: true,
+        methods: ["eth_sendTransaction"], optionalMethods: ["eth_sendTransaction", "personal_sign", "wallet_switchEthereumChain"],
         metadata: { name: "CryptoBot", description: "Abastecer robô", url: window.location.origin, icons: [] },
       });
       await provider.connect();
@@ -68,11 +69,20 @@ export function FundBotDialog({ botAddress, onDone }: { botAddress: string; onDo
   };
 
   const send = async () => {
-    if (!wallet || !account || !valid) return;
+    if (!wallet || !account || !valid || !providerRef.current) return;
     if (account.toLowerCase() === botAddress.toLowerCase()) return void toast.error("Essa já é a carteira do robô");
     setBusy("Confirme no app da sua carteira…");
     try {
-      const h = await wallet.sendTransaction({ account: account as `0x${string}`, chain: bsc, to: botAddress as `0x${string}`, value: parseEther(n.toFixed(6)) });
+      // Envia direto pelo app da carteira, já com gás calculado aqui — algumas carteiras
+      // (ex.: Trust) recusam os pedidos extras de estimativa ("Unknown method").
+      const value = parseEther(n.toFixed(6));
+      const p = pub();
+      const [gasPrice, gas] = await Promise.all([
+        p.getGasPrice(),
+        p.estimateGas({ account: account as `0x${string}`, to: botAddress as `0x${string}`, value }).catch(() => 21000n),
+      ]);
+      const hex = (v: bigint) => `0x${v.toString(16)}`;
+      const h = (await providerRef.current!.request({ method: "eth_sendTransaction", params: [{ from: account, to: botAddress, value: hex(value), gas: hex(gas), gasPrice: hex(gasPrice) }] })) as `0x${string}`;
       setHash(h);
       setBusy("Aguardando a rede confirmar…");
       const r = await pub().waitForTransactionReceipt({ hash: h, timeout: 90_000 });
