@@ -5,6 +5,7 @@ import Decimal from "decimal.js";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { AppShell, Panel, RequireLogin, Unavailable } from "@/components/AppShell";
 import { getMarket } from "@/lib/chain.functions";
 import { DEFAULT_ASSUMPTIONS, avgPrice, simBuy, simSell, type SimState } from "@/lib/sim";
@@ -17,9 +18,9 @@ export const Route = createFileRoute("/simulacao")({
   head: () => ({
     meta: [
       { title: "Simulação — CryptoBot" },
-      { name: "description", content: "Carteira simulada persistente para testar compras e vendas de GTE sem transações reais." },
+      { name: "description", content: "Carteira simulada persistente para testar compras e vendas de tokens sem transações reais." },
       { property: "og:title", content: "Simulação — CryptoBot" },
-      { property: "og:description", content: "Carteira simulada persistente para testar compras e vendas de GTE sem transações reais." },
+      { property: "og:description", content: "Carteira simulada persistente para testar compras e vendas de tokens sem transações reais." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -42,7 +43,8 @@ const toState = (a: Account): SimState => ({
 
 function Sim() {
   const { user } = useAuth();
-  const market = useQuery({ queryKey: ["market"], queryFn: () => getMarket({ data: {} }), refetchInterval: 30_000 });
+  const { token } = useSelectedToken();
+  const market = useQuery({ queryKey: ["market", token.address], queryFn: () => getMarket({ data: { address: token.address } }), refetchInterval: 30_000 });
   const pool = market.data?.pools.find((p) => p.supported);
   const price = pool?.priceNative ? D(pool.priceNative) : null;
 
@@ -145,7 +147,7 @@ function Sim() {
       <div className="grid gap-4 md:grid-cols-3">
         <Panel title="Saldos">
           <p className="font-mono text-sm">{s.quote.toSignificantDigits(8).toString()} {q}</p>
-          <p className="font-mono text-sm">{s.tokens.toSignificantDigits(10).toString()} GTE</p>
+          <p className="font-mono text-sm">{s.tokens.toSignificantDigits(10).toString()} {token.symbol}</p>
           <p className="mt-2 text-xs text-muted-foreground">Inicial: {acc.initial_quote} {q}</p>
         </Panel>
         <Panel title="Posição">
@@ -184,7 +186,7 @@ function Sim() {
         {trades.length === 0 ? <p className="text-sm text-muted-foreground">Sem operações.</p> : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="text-muted-foreground"><tr><th className="py-1">Data</th><th>Lado</th><th>Preço</th><th>{q}</th><th>GTE</th><th>Resultado</th></tr></thead>
+              <thead className="text-muted-foreground"><tr><th className="py-1">Data</th><th>Lado</th><th>Preço</th><th>{q}</th><th>{token.symbol}</th><th>Resultado</th></tr></thead>
               <tbody className="font-mono">
                 {trades.map((t) => (
                   <tr key={t.id} className="border-t border-border">
