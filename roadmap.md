@@ -1,4 +1,10 @@
 # Correção da seleção e do mercado
+## Melhorias pontuais e auditoria (16/10/2026)
+- [ ] Gráfico compartilhado OHLCV, períodos visuais persistentes, SMA e marcadores rastreáveis.
+- [ ] Auditoria de receitas/custos e registro de decisões sem reescrever históricos/posições.
+- [ ] Motor candidato exclusivamente simulado: recuperação, rearme, orçamento, custos, saídas e regimes confirmados.
+- [ ] Comparação justa sem recompra/uma recompra e relatório curto com testes e limitações.
+- [ ] Verificar fluxo visual autenticado e testes, sem enviar transações.
 - [x] Adicionar opção de stop por perda líquida às estratégias, gráficos e simulação, preservando estratégias existentes; 29 testes passaram, sem enviar transações.
 - [ ] Verificar salvamento do stop líquido na conta do usuário — sessão indisponível; requer entrada na prévia, sem alterar robôs ativos automaticamente.
 - [x] Estabilizar histórico e gráfico; consultar preço a cada 15s e histórico a cada minuto, mantendo dados nas falhas. Testado logado em celular/computador; seis testes passaram.
