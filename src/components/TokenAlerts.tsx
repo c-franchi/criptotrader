@@ -33,7 +33,7 @@ export function TokenAlerts({ token, tax }: { token: { address: string; symbol: 
   if (!user) return null;
   const be = breakEvenPct(tax);
   return (
-    <Panel title={`Avisos no celular · ${token.symbol}`}>
+    <Panel title={`Avisos no celular · ${token.symbol}`} right={<Link to="/alertas" className="text-xs text-primary underline">Ver monitoramento ›</Link>}>
       <div className="space-y-4">
         {(devices.data?.length ?? 0) === 0 && (
           <p className="rounded-md border border-border bg-muted/40 p-3 text-sm">
