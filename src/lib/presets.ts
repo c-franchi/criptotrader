@@ -3,7 +3,7 @@ import { EMPTY_CONFIG, type PresetId, type StrategyConfig } from "./strategy";
 
 export type { PresetId };
 
-export const PRESETS: { id: PresetId; name: string; summary: string; how: string[] }[] = [
+export const PRESETS: { id: PresetId; name: string; summary: string; how: string[]; forWho: string }[] = [
   {
     id: "segura",
     name: "Entrada segura",
@@ -14,6 +14,7 @@ export const PRESETS: { id: PresetId; name: string; summary: string; how: string
       "Vende metade com +10% e o resto com +20%. Stop-loss em -10%.",
       "Usa no máximo 50% do valor; o restante fica guardado.",
     ],
+    forWho: "Para quem está começando: espera o token ficar bem mais barato antes de comprar e opera pouco. Menos chances de lucro rápido, mas menos risco.",
   },
   {
     id: "equilibrada",
@@ -25,6 +26,7 @@ export const PRESETS: { id: PresetId; name: string; summary: string; how: string
       "Vende 40% com +6% e o resto com +12%. Stop-loss em -8%.",
       "Trailing stop: após +8%, vende se cair 4% do topo. Usa no máximo 60% do valor.",
     ],
+    forWho: "Meio-termo: compra em quedas menores, faz algumas operações por dia e protege o lucro com o stop móvel. Bom depois de entender o básico.",
   },
   {
     id: "ativa",
@@ -36,6 +38,7 @@ export const PRESETS: { id: PresetId; name: string; summary: string; how: string
       "Vende metade com +4% e o resto com +8%. Stop-loss em -5%.",
       "Usa no máximo 75% do valor. Mais operações = mais taxas e mais risco.",
     ],
+    forWho: "Para quem acompanha o mercado: compra quando o preço começa a subir e vende rápido. Em tokens com taxa alta (ex.: 8%), muitas operações comem o lucro.",
   },
 ];
 
