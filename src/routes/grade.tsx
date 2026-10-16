@@ -291,6 +291,8 @@ function Robo() {
           <Faq q="Ele considera a taxa do token?">Sim. A taxa medida no contrato (ex.: 8% no GTE) é descontada do valor mínimo que ele aceita receber, e as metas de lucro da estratégia já estão ajustadas para o ganho depois da taxa.</Faq>
           <Faq q="Ele pode comprar sem parar?">Não. Ele respeita o máximo de compras, o limite de BNB investido, a pausa entre operações, o limite de operações por dia e o limite de perda do dia. Faz no máximo uma troca por minuto.</Faq>
           <Faq q="E se o preço não puder ser lido?">Ele espera. Sem preço confiável ele não compra nem vende.</Faq>
+          <Faq q="A carteira do robô é real?">Sim. É um endereço de verdade na rede BSC, criado só para você. Toque em "Ver na BscScan" para conferir saldo e operações.</Faq>
+          <Faq q="O robô pode mexer na minha carteira pessoal?">Não. Ele só usa o BNB que você enviar para a carteira dele. Sua carteira pessoal continua 100% sua.</Faq>
           <Faq q="Como paro tudo?">Toque em "Desligar robô". Para pegar o dinheiro de volta, use "Sacar tudo".</Faq>
         </div>
       </Panel>
