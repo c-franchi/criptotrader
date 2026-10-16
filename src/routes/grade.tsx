@@ -305,6 +305,10 @@ function Robo() {
         ))}
       </Panel>
 
+      <AuditPanel />
+
+
+
       <Panel collapsible title="Dúvidas comuns">
         <div className="space-y-3 text-sm">
           <Faq q="O robô usa a estratégia que eu salvei?">Sim. No modo "Minha estratégia" ele lê a estratégia salva do token a cada minuto. Se você mudar e salvar a estratégia, o robô passa a seguir a nova na próxima verificação.</Faq>
@@ -317,6 +321,40 @@ function Robo() {
         </div>
       </Panel>
     </div>
+  );
+}
+
+const AUDIT_LABEL: Record<string, string> = {
+  bot_wallet_created: "Carteira do robô criada", bot_funded: "Você abasteceu o robô", bot_withdraw: "Saldo devolvido para sua carteira",
+  bot_armed: "Robô ligado", bot_disarmed: "Robô desligado", bot_saved: "Configuração salva",
+};
+/** Shows the user's own security/audit trail with BscScan links so every action can be checked on-chain. */
+function AuditPanel() {
+  const [rows, setRows] = useState<Tables<"audit_log">[]>([]);
+  useEffect(() => {
+    supabase.from("audit_log").select("*").order("created_at", { ascending: false }).limit(30).then(({ data }) => setRows(data ?? []));
+  }, []);
+  const links = (d: unknown): string[] => {
+    const o = (d ?? {}) as { hash?: string; hashes?: string[]; address?: string };
+    return [...(o.hash ? [`tx/${o.hash}`] : []), ...(o.hashes ?? []).map((h) => `tx/${h}`), ...(o.address ? [`address/${o.address}`] : [])];
+  };
+  return (
+    <Panel collapsible title={`Histórico de segurança (${rows.length})`}>
+      <p className="mb-2 text-xs text-muted-foreground">Tudo o que aconteceu com o seu robô fica registrado aqui. Movimentos de dinheiro têm link para conferir na BscScan, a rede pública.</p>
+      {rows.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum registro ainda.</p> : rows.map((r) => {
+        const d = (r.details ?? {}) as { asset?: string; amount?: number; to?: string };
+        return (
+          <div key={r.id} className="mb-2 rounded border border-border p-2 text-xs">
+            <div className="flex flex-wrap justify-between gap-2">
+              <span className="font-semibold">{AUDIT_LABEL[r.action] ?? r.action}{d.amount ? ` · ${d.amount} ${d.asset ?? ""}` : ""}</span>
+              <span className="text-muted-foreground">{new Date(r.created_at).toLocaleString("pt-BR")}</span>
+            </div>
+            {d.to && <p className="break-all font-mono text-muted-foreground">Para: {d.to}</p>}
+            {links(r.details).map((l) => <a key={l} className="mr-3 text-primary underline" href={`https://bscscan.com/${l}`} target="_blank" rel="noreferrer">Ver na BscScan</a>)}
+          </div>
+        );
+      })}
+    </Panel>
   );
 }
 
