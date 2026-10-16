@@ -78,6 +78,13 @@
       "when": 1792161508738,
       "tag": "0010_move_test_tokens_to_users",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792164167759,
+      "tag": "0011_price_candles_cache",
+      "breakpoints": true
     }
   ]
 }
