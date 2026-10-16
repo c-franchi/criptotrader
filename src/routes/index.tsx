@@ -149,7 +149,7 @@ function Dashboard() {
           )}
         </Panel>
 
-        <Panel collapsible defaultOpen title={`Top 10 carteiras que mais negociam`} right={<HelpTip title="O que é este ranking?" text="Lista as carteiras que mais compraram e venderam este token no pool da PancakeSwap nas últimas horas. Muitas compras e vendas indicam quem está fazendo trade. Não é recomendação: grandes carteiras podem ser do próprio projeto, robôs ou corretoras." />}>
+        <Panel collapsible defaultOpen title={`Top 10 carteiras que mais negociam`} right={<HelpTip title="O que é este ranking?">Lista as carteiras que mais compraram e venderam este token no pool da PancakeSwap nas últimas horas. Muitas compras e vendas indicam quem está fazendo trade. Não é recomendação: grandes carteiras podem ser do próprio projeto, robôs ou corretoras.</HelpTip>}>
           {!pool && <p className="text-sm text-muted-foreground">Ranking indisponível: sem pool conhecido para este token.</p>}
           {pool && transfers.data && transfers.data.ranking.length === 0 && !transfers.data.error && <p className="text-sm text-muted-foreground">Nenhuma compra ou venda no período lido.</p>}
           {transfers.data && transfers.data.ranking.length > 0 && (
