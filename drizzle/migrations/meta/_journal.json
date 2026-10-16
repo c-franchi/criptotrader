@@ -71,6 +71,13 @@
       "when": 1792156995599,
       "tag": "0009_bot_follow_strategy",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792161508738,
+      "tag": "0010_move_test_tokens_to_users",
+      "breakpoints": true
     }
   ]
 }
