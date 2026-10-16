@@ -41,7 +41,7 @@ async function fetchGecko(pool: string, token?: string): Promise<Candle[]> {
       const list = json.data?.attributes?.ohlcv_list;
       if (!Array.isArray(list)) throw new Error("Histórico inválido");
       return list.filter((x) => x.length >= 5 && x.slice(0, 5).every(Number.isFinite) && x.slice(1, 5).every((n) => n > 0))
-        .map((x): Candle => [Number(x[0]), Number(x[1]), Number(x[2]), Number(x[3]), Number(x[4])]).sort((a, b) => a[0] - b[0]);
+        .map((x): Candle => x[5] != null && Number.isFinite(x[5]) && x[5] >= 0 ? [Number(x[0]), Number(x[1]), Number(x[2]), Number(x[3]), Number(x[4]), Number(x[5])] : [Number(x[0]), Number(x[1]), Number(x[2]), Number(x[3]), Number(x[4])]).sort((a, b) => a[0] - b[0]);
     } catch (e) {
       lastError = e;
       if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
@@ -62,6 +62,7 @@ export async function readCandles(pool: string, token?: string): Promise<Candle[
     if ((failures.get(key) ?? 0) <= Date.now()) {
       try {
         const candles = await fetchGecko(pool, token);
+        if (!candles.length) throw new Error("Histórico vazio");
         if (cache.size >= 100) { cache.clear(); failures.clear(); }
         cache.set(key, { candles, expires: Date.now() + 60_000 });
         failures.delete(key);

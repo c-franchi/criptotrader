@@ -38,6 +38,24 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_execution_locks: {
+        Row: {
+          acquired_at: string
+          owner: string
+          user_id: string
+        }
+        Insert: {
+          acquired_at?: string
+          owner: string
+          user_id: string
+        }
+        Update: {
+          acquired_at?: string
+          owner?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       bot_wallets: {
         Row: {
           address: string
