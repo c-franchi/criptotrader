@@ -14,7 +14,7 @@
 - Wallet scan checks balances of POPULAR_BSC_TOKENS + saved tokens by multicall — free BSC RPCs/BscScan cannot list all tokens of a wallet.
 - Painel, Operar and Grade share selection through SelectedTokenProvider; restore browser storage after hydration so navigation does not silently change the asset.
 - Market reads cache and coalesce public requests per token in market.server.ts, falling back to factory/reserves on-chain; unavailable aggregate metrics remain null.
-- Chart history reads cache and coalesce in history.server.ts by pool and token; retain the last successful chart on refresh failure and label stale data rather than fabricating prices.
+- Chart history reads cache and coalesce in history.server.ts by pool and token, persist the last good list in price_candles (service_role only) and on the device (useCandles); on source failure serve the saved list and label its age instead of fabricating prices.
 - Automated grid signs with a server-generated bot wallet (AES-GCM with BOT_KEY_SECRET, table bot_wallets readable only by service_role) — users never hand over keys.
 - Robot decisions are pure and tested (src/lib/autoStrategy.ts follows the saved strategy per token; src/lib/grid.ts for price-grid mode); on-chain execution lives in *.server.ts, discounts token tax in min-out, and runs at most one swap per tick.
 - /api/public/hooks/grid-tick runs every minute via managed schedule and accepts the managed cron secret or the internal_tokens grid_tick token.
@@ -24,3 +24,5 @@
 - Price alerts: pure rules in src/lib/alerts.ts (tested); /api/public/hooks/alert-tick runs every minute via managed schedule, sends FCM through the connector gateway, and dedupes by last_state so repeat calls are harmless.
 
 - In-app notifications live in the notifications table (users read/delete own; only service_role inserts) — alert and robot ticks write them alongside push.
+
+- On-chain market fallback converts to USD through the PancakeSwap V2 WBNB/USDT pool so the robot keeps a USD price when DexScreener is rate-limited.
