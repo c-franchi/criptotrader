@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AlertasRouteImport } from './routes/alertas'
 import { Route as CarteirasRouteImport } from './routes/carteiras'
 import { Route as EstrategiaRouteImport } from './routes/estrategia'
 import { Route as GradeRouteImport } from './routes/grade'
@@ -19,11 +20,17 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as MetricasRouteImport } from './routes/metricas'
 import { Route as OperarRouteImport } from './routes/operar'
 import { Route as SimulacaoRouteImport } from './routes/simulacao'
+import { Route as ApiPublicHooksAlertTickRouteImport } from './routes/api/public/hooks/alert-tick'
 import { Route as ApiPublicHooksGridTickRouteImport } from './routes/api/public/hooks/grid-tick'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AlertasRoute = AlertasRouteImport.update({
+  id: '/alertas',
+  path: '/alertas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CarteirasRoute = CarteirasRouteImport.update({
@@ -71,6 +78,11 @@ const SimulacaoRoute = SimulacaoRouteImport.update({
   path: '/simulacao',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksAlertTickRoute = ApiPublicHooksAlertTickRouteImport.update({
+  id: '/api/public/hooks/alert-tick',
+  path: '/api/public/hooks/alert-tick',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksGridTickRoute = ApiPublicHooksGridTickRouteImport.update({
   id: '/api/public/hooks/grid-tick',
   path: '/api/public/hooks/grid-tick',
@@ -79,6 +91,7 @@ const ApiPublicHooksGridTickRoute = ApiPublicHooksGridTickRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/alertas': typeof AlertasRoute
   '/carteiras': typeof CarteirasRoute
   '/estrategia': typeof EstrategiaRoute
   '/grade': typeof GradeRoute
@@ -88,10 +101,12 @@ export interface FileRoutesByFullPath {
   '/metricas': typeof MetricasRoute
   '/operar': typeof OperarRoute
   '/simulacao': typeof SimulacaoRoute
+  '/api/public/hooks/alert-tick': typeof ApiPublicHooksAlertTickRoute
   '/api/public/hooks/grid-tick': typeof ApiPublicHooksGridTickRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/alertas': typeof AlertasRoute
   '/carteiras': typeof CarteirasRoute
   '/estrategia': typeof EstrategiaRoute
   '/grade': typeof GradeRoute
@@ -101,11 +116,13 @@ export interface FileRoutesByTo {
   '/metricas': typeof MetricasRoute
   '/operar': typeof OperarRoute
   '/simulacao': typeof SimulacaoRoute
+  '/api/public/hooks/alert-tick': typeof ApiPublicHooksAlertTickRoute
   '/api/public/hooks/grid-tick': typeof ApiPublicHooksGridTickRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/alertas': typeof AlertasRoute
   '/carteiras': typeof CarteirasRoute
   '/estrategia': typeof EstrategiaRoute
   '/grade': typeof GradeRoute
@@ -115,12 +132,14 @@ export interface FileRoutesById {
   '/metricas': typeof MetricasRoute
   '/operar': typeof OperarRoute
   '/simulacao': typeof SimulacaoRoute
+  '/api/public/hooks/alert-tick': typeof ApiPublicHooksAlertTickRoute
   '/api/public/hooks/grid-tick': typeof ApiPublicHooksGridTickRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/alertas'
     | '/carteiras'
     | '/estrategia'
     | '/grade'
@@ -130,10 +149,12 @@ export interface FileRouteTypes {
     | '/metricas'
     | '/operar'
     | '/simulacao'
+    | '/api/public/hooks/alert-tick'
     | '/api/public/hooks/grid-tick'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/alertas'
     | '/carteiras'
     | '/estrategia'
     | '/grade'
@@ -143,10 +164,12 @@ export interface FileRouteTypes {
     | '/metricas'
     | '/operar'
     | '/simulacao'
+    | '/api/public/hooks/alert-tick'
     | '/api/public/hooks/grid-tick'
   id:
     | '__root__'
     | '/'
+    | '/alertas'
     | '/carteiras'
     | '/estrategia'
     | '/grade'
@@ -156,11 +179,13 @@ export interface FileRouteTypes {
     | '/metricas'
     | '/operar'
     | '/simulacao'
+    | '/api/public/hooks/alert-tick'
     | '/api/public/hooks/grid-tick'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AlertasRoute: typeof AlertasRoute
   CarteirasRoute: typeof CarteirasRoute
   EstrategiaRoute: typeof EstrategiaRoute
   GradeRoute: typeof GradeRoute
@@ -170,6 +195,7 @@ export interface RootRouteChildren {
   MetricasRoute: typeof MetricasRoute
   OperarRoute: typeof OperarRoute
   SimulacaoRoute: typeof SimulacaoRoute
+  ApiPublicHooksAlertTickRoute: typeof ApiPublicHooksAlertTickRoute
   ApiPublicHooksGridTickRoute: typeof ApiPublicHooksGridTickRoute
 }
 
@@ -180,6 +206,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/alertas': {
+      id: '/alertas'
+      path: '/alertas'
+      fullPath: '/alertas'
+      preLoaderRoute: typeof AlertasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/carteiras': {
@@ -245,6 +278,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SimulacaoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/alert-tick': {
+      id: '/api/public/hooks/alert-tick'
+      path: '/api/public/hooks/alert-tick'
+      fullPath: '/api/public/hooks/alert-tick'
+      preLoaderRoute: typeof ApiPublicHooksAlertTickRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/grid-tick': {
       id: '/api/public/hooks/grid-tick'
       path: '/api/public/hooks/grid-tick'
@@ -257,6 +297,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AlertasRoute: AlertasRoute,
   CarteirasRoute: CarteirasRoute,
   EstrategiaRoute: EstrategiaRoute,
   GradeRoute: GradeRoute,
@@ -266,6 +307,7 @@ const rootRouteChildren: RootRouteChildren = {
   MetricasRoute: MetricasRoute,
   OperarRoute: OperarRoute,
   SimulacaoRoute: SimulacaoRoute,
+  ApiPublicHooksAlertTickRoute: ApiPublicHooksAlertTickRoute,
   ApiPublicHooksGridTickRoute: ApiPublicHooksGridTickRoute,
 }
 export const routeTree = rootRouteImport

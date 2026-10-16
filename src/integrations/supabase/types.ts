@@ -197,6 +197,75 @@ export type Database = {
         }
         Relationships: []
       }
+      price_alerts: {
+        Row: {
+          base_price: number
+          created_at: string
+          direction: string
+          enabled: boolean
+          id: string
+          last_checked_at: string | null
+          last_price: number | null
+          last_state: string
+          symbol: string
+          target_pct: number
+          token_address: string
+          user_id: string
+          warn_before_pct: number
+        }
+        Insert: {
+          base_price: number
+          created_at?: string
+          direction?: string
+          enabled?: boolean
+          id?: string
+          last_checked_at?: string | null
+          last_price?: number | null
+          last_state?: string
+          symbol: string
+          target_pct: number
+          token_address: string
+          user_id: string
+          warn_before_pct?: number
+        }
+        Update: {
+          base_price?: number
+          created_at?: string
+          direction?: string
+          enabled?: boolean
+          id?: string
+          last_checked_at?: string | null
+          last_price?: number | null
+          last_state?: string
+          symbol?: string
+          target_pct?: number
+          token_address?: string
+          user_id?: string
+          warn_before_pct?: number
+        }
+        Relationships: []
+      }
+      push_devices: {
+        Row: {
+          created_at: string
+          id: string
+          token: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          token: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sim_accounts: {
         Row: {
           archived: boolean
