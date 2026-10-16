@@ -145,7 +145,7 @@ function Sim() {
       <div className="grid gap-4 md:grid-cols-3">
         <Panel title="Saldos">
           <p className="font-mono text-sm">{s.quote.toSignificantDigits(8).toString()} {q}</p>
-          <p className="font-mono text-sm">{s.tokens.toSignificantDigits(10).toString()} GTE</p>
+          <p className="font-mono text-sm">{s.tokens.toSignificantDigits(10).toString()} {token.symbol}</p>
           <p className="mt-2 text-xs text-muted-foreground">Inicial: {acc.initial_quote} {q}</p>
         </Panel>
         <Panel title="Posição">
@@ -184,7 +184,7 @@ function Sim() {
         {trades.length === 0 ? <p className="text-sm text-muted-foreground">Sem operações.</p> : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="text-muted-foreground"><tr><th className="py-1">Data</th><th>Lado</th><th>Preço</th><th>{q}</th><th>GTE</th><th>Resultado</th></tr></thead>
+              <thead className="text-muted-foreground"><tr><th className="py-1">Data</th><th>Lado</th><th>Preço</th><th>{q}</th><th>{token.symbol}</th><th>Resultado</th></tr></thead>
               <tbody className="font-mono">
                 {trades.map((t) => (
                   <tr key={t.id} className="border-t border-border">
