@@ -76,7 +76,8 @@ async function fetchMarket(address: string, rpcUrl: string): Promise<Market> {
   }
   try {
     return { pools: await onChainPool(address, rpcUrl), fetchedAt, source: "PancakeSwap V2 · consulta on-chain", error: null };
-  } catch {
+  } catch (e) {
+    console.error('DBG', e);
     return { pools: [], fetchedAt, source: "DexScreener / PancakeSwap V2", error: dexError ? `${dexError}; consulta on-chain indisponível` : "Consulta on-chain indisponível" };
   }
 }
