@@ -8,6 +8,7 @@ import { AppShell, Panel, RequireLogin, Unavailable } from "@/components/AppShel
 import { createBotWallet, getBotWallet, runGridNow, withdrawBot } from "@/lib/bot.functions";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { HelpTip } from "@/components/HelpTip";
+import { FundBotDialog } from "@/components/FundBotDialog";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,13 +135,37 @@ function Robo() {
         <AddTokenDialog />
       </div>
 
+      <Panel collapsible title="Como funciona a carteira do robô (leia antes)">
+        <div className="grid gap-3 text-sm sm:grid-cols-3">
+          <div className="rounded-md border border-border p-3">
+            <p className="font-semibold text-primary">👛 Sua carteira</p>
+            <p className="mt-1 text-xs text-muted-foreground">A que você já usa (MetaMask, Trust…). Continua só sua. O robô <strong className="text-foreground">não tem acesso</strong> a ela.</p>
+          </div>
+          <div className="rounded-md border border-border p-3">
+            <p className="font-semibold text-primary">➡️ Você envia</p>
+            <p className="mt-1 text-xs text-muted-foreground">Com o botão "Enviar BNB da minha carteira", você escolhe o valor e confirma no seu app. Só esse valor passa para o robô.</p>
+          </div>
+          <div className="rounded-md border border-border p-3">
+            <p className="font-semibold text-primary">🤖 Carteira do robô</p>
+            <p className="mt-1 text-xs text-muted-foreground">Uma carteira real e separada na rede BSC (dá para ver na BscScan). Ele compra e vende só com o que está nela.</p>
+          </div>
+        </div>
+        <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+          <li>🔒 A chave da carteira do robô é criada no servidor e guardada criptografada. Ninguém a vê — nem você, nem a equipe.</li>
+          <li>🔒 O CryptoBot <strong className="text-foreground">nunca</strong> pede sua frase secreta ou chave privada. Se alguém pedir, é golpe.</li>
+          <li>🔒 O dinheiro do robô só pode voltar para uma carteira sua salva em Minhas carteiras há mais de 24 horas.</li>
+          <li>💡 Deixe no robô só um valor pequeno que aceita arriscar. Para recuperar tudo, use "Sacar tudo".</li>
+        </ul>
+      </Panel>
+
       <Panel title={`Para o robô funcionar com ${sym}`}>
         <ol className="space-y-2">
           <Step n={1} done={!!w?.address} title="Criar a carteira do robô">
             É uma carteira nova, só do robô. A chave fica guardada criptografada no servidor e ninguém vê. Toque em "Criar carteira do robô" abaixo.
           </Step>
           <Step n={2} done={hasFunds} title="Colocar BNB na carteira do robô">
-            Envie BNB da sua carteira para o endereço do robô (abaixo). Ele precisa de BNB para comprar e um pouquinho para o gás ({reserve} BNB fica guardado para isso).
+            Toque em "Enviar BNB da minha carteira" (abaixo), escolha o valor e confirme no app da sua carteira. Ele precisa de BNB para comprar e um pouquinho para o gás ({reserve} BNB fica guardado para isso).
+            {w?.address && <div className="mt-2"><FundBotDialog botAddress={w.address} onDone={load} /></div>}
           </Step>
           <Step n={3} done={mode === "grade" || !!cfg} title={`Salvar uma estratégia para ${sym}`}>
             O robô faz exatamente o que a estratégia diz. <Link to="/estrategia" className="text-primary underline">Criar estratégia ›</Link>
@@ -230,7 +255,11 @@ function Robo() {
         {w === null ? <Unavailable reason="carregando" /> : w.address ? (
           <div className="space-y-1 text-sm">
             <p className="break-all font-mono text-xs">{w.address}</p>
-            <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(w.address!); toast.success("Endereço copiado"); }}>Copiar endereço</Button>
+            <div className="flex flex-wrap gap-2 py-1">
+              <FundBotDialog botAddress={w.address} onDone={load} />
+              <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(w.address!); toast.success("Endereço copiado"); }}>Copiar endereço</Button>
+              <a className="inline-flex items-center text-xs text-primary underline" href={`https://bscscan.com/address/${w.address}`} target="_blank" rel="noreferrer">Ver na BscScan</a>
+            </div>
             <p>BNB: {bnb !== null ? <span className="font-mono">{bnb.toLocaleString("pt-BR", { maximumFractionDigits: 6 })}</span> : <Unavailable reason="falha de consulta" />}</p>
             {bnb !== null && <p className={bnb < reserve ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>{bnb < reserve ? `Saldo abaixo da reserva de gás (${reserve} BNB). Envie BNB para o robô poder operar.` : "Saldo suficiente para o gás."}</p>}
             {w.tokens.filter((t) => Number(t.amount) > 0).map((t) => <p key={t.symbol}>{t.symbol}: <span className="font-mono">{Number(t.amount).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</span></p>)}
