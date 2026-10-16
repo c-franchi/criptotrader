@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
 import { InstallPopup } from "@/components/InstallPopup";
+import { PushAfterInstall } from "@/components/PushAfterInstall";
 import { SelectedTokenProvider } from "@/hooks/useSelectedToken";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -130,6 +131,7 @@ function RootComponent() {
       <SelectedTokenProvider><Outlet /></SelectedTokenProvider>
       <Toaster />
       <InstallPopup />
+      <PushAfterInstall />
     </QueryClientProvider>
   );
 }
