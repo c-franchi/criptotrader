@@ -7,7 +7,7 @@ import { bsc } from "viem/chains";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getWalletConfig } from "@/lib/wallet.functions";
+import { connectWallet, isUnknownMethod, resetWallet } from "@/lib/walletConnect";
 
 const pub = () => createPublicClient({ chain: bsc, transport: http("https://bsc-dataseed.bnbchain.org") });
 const GAS_KEEP = 0.001; // fica na carteira pessoal para pagar o gás desta transferência
@@ -29,17 +29,7 @@ export function FundBotDialog({ botAddress, onDone }: { botAddress: string; onDo
   const connect = async () => {
     setBusy("Conectando…");
     try {
-      const { projectId } = await getWalletConfig();
-      if (!projectId) throw new Error("Conexão de carteira não configurada");
-      const { Buffer } = await import("buffer");
-      (globalThis as any).Buffer ??= Buffer;
-      const { EthereumProvider } = await import("@walletconnect/ethereum-provider");
-      const provider = await EthereumProvider.init({
-        projectId, chains: [56], showQrModal: true,
-        methods: ["eth_sendTransaction"], optionalMethods: ["eth_sendTransaction", "personal_sign", "wallet_switchEthereumChain"],
-        metadata: { name: "CryptoBot", description: "Abastecer robô", url: window.location.origin, icons: [`${window.location.origin}/icon-192.png`], redirect: { universal: window.location.href } },
-      });
-      await provider.connect();
+      const provider = await connectWallet();
       providerRef.current = provider;
       const a = provider.accounts[0] ?? null;
       setAccount(a);
@@ -90,13 +80,18 @@ export function FundBotDialog({ botAddress, onDone }: { botAddress: string; onDo
       toast.success(`${n} BNB enviados para o robô`);
       onDone?.();
     } catch (e) {
-      toast.error(((e as Error).message || "Transferência cancelada").split("\n")[0]!);
+      if (isUnknownMethod(e)) {
+        // Sessão antiga/defeituosa com a carteira: desfaz e pede para conectar de novo.
+        await resetWallet();
+        setAccount(null); setWallet(null); setBal(null);
+        toast.error("A carteira não reconheceu o pedido. Conecte de novo (passo 1) e tente outra vez — nada foi enviado.");
+      } else toast.error(((e as Error).message || "Transferência cancelada").split("\n")[0]!);
     } finally { setBusy(null); }
   };
 
   const close = (o: boolean) => {
     setOpen(o);
-    if (!o) { void providerRef.current?.disconnect().catch(() => {}); setAccount(null); setWallet(null); setBal(null); setAmount(""); setHash(null); }
+    if (!o) { setAccount(null); setWallet(null); setBal(null); setAmount(""); setHash(null); }
   };
 
   return (

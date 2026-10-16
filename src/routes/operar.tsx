@@ -11,7 +11,7 @@ import { bsc } from "viem/chains";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin, Unavailable } from "@/components/AppShell";
-import { getWalletConfig } from "@/lib/wallet.functions";
+import { connectWallet } from "@/lib/walletConnect";
 import { EMPTY_CONFIG, type StrategyConfig } from "@/lib/strategy";
 import { getTokenTax } from "@/lib/userTokens.functions";
 import { taxFor } from "@/lib/tokens";
@@ -141,19 +141,10 @@ function Operar() {
   const connect = async () => {
     setBusy("conectando");
     try {
-      const { projectId } = await getWalletConfig();
-      if (!projectId) throw new Error("Project ID do WalletConnect não configurado");
-      const { Buffer } = await import("buffer");
-      (globalThis as any).Buffer ??= Buffer;
-      const { EthereumProvider } = await import("@walletconnect/ethereum-provider");
-      const provider = await EthereumProvider.init({
-        projectId, chains: [56], showQrModal: true,
-        metadata: { name: "CryptoBot", description: "Monitor GTE", url: window.location.origin, icons: [`${window.location.origin}/icon-192.png`], redirect: { universal: window.location.href } },
-      });
+      const provider = await connectWallet();
       provider.on("accountsChanged", (a: string[]) => { setAccount(a[0] ?? null); setQuote(null); toast.warning("Conta alterada na carteira"); });
       provider.on("chainChanged", (c: string) => { setChainId(Number(c)); setQuote(null); });
       provider.on("disconnect", () => { setAccount(null); setWallet(null); });
-      await provider.connect();
       providerRef.current = provider;
       setAccount(provider.accounts[0] ?? null);
       setChainId(provider.chainId);
