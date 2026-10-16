@@ -74,10 +74,13 @@ function Robo() {
   const { wallets: saved } = useSavedWallets();
   const [dest, setDest] = useState("");
   const [vision, setVision] = useState(false);
+  const [allBots, setAllBots] = useState<Bot[]>([]);
 
   const load = useCallback(async () => {
     getW().then(setW).catch(() => setW({ address: null, bnb: null, tokens: [] }));
-    const { data } = await supabase.from("grid_bots").select("*").eq("token", token).maybeSingle();
+    const { data: list } = await supabase.from("grid_bots").select("*").order("updated_at", { ascending: false });
+    setAllBots(list ?? []);
+    const data = (list ?? []).find((b) => b.token.toLowerCase() === token.toLowerCase()) ?? null;
     setBot(data);
     setMode((data?.mode as Mode) ?? "estrategia");
     setF(data && data.mode === "grade" ? Object.fromEntries(Object.keys(blank).map((k) => [k, String((data as Record<string, unknown>)[k])])) as typeof blank : blank);
@@ -135,11 +138,38 @@ function Robo() {
         </div>
       </section>
 
-      <div className="flex flex-wrap gap-2">
-        {tokens.map((t) => (
-          <Button key={t.address} size="sm" variant={t.address === token ? "default" : "secondary"} onClick={() => setToken(t.address)}>{t.symbol}</Button>
-        ))}
-        <AddTokenDialog />
+      <Panel title={`Meus robôs (${allBots.filter((b) => b.armed).length} ligado${allBots.filter((b) => b.armed).length === 1 ? "" : "s"})`}>
+        <p className="mb-2 text-xs text-muted-foreground">Você pode ter <strong className="text-foreground">um robô para cada token</strong>, todos ao mesmo tempo. Toque em um robô para ver e alterar. Todos usam o mesmo saldo da carteira do robô.</p>
+        {allBots.length === 0 ? <p className="text-xs text-muted-foreground">Nenhum robô criado ainda. Escolha um token abaixo e siga os passos.</p> : (
+          <ul className="space-y-2">
+            {allBots.map((b) => {
+              const tk = tokens.find((t) => t.address.toLowerCase() === b.token.toLowerCase());
+              const active = b.token.toLowerCase() === token.toLowerCase();
+              return (
+                <li key={b.id}>
+                  <button onClick={() => setToken(tk?.address ?? b.token)} className={`w-full rounded-md border p-3 text-left text-xs ${active ? "border-primary bg-primary/10" : "border-border"}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold">🤖 {tk?.symbol ?? `${b.token.slice(0, 6)}…`}{active && <span className="ml-2 text-[10px] text-primary">● vendo agora</span>}</span>
+                      <span className={b.armed ? "font-medium text-success" : "text-muted-foreground"}>{b.armed ? "● Ligado" : "○ Desligado"}</span>
+                    </div>
+                    <p className="mt-1 text-muted-foreground">{b.mode === "grade" ? "Grade de preços" : "Minha estratégia"}{b.last_run_at ? ` · conferiu às ${new Date(b.last_run_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""}</p>
+                    {(b.last_error || b.last_reason) && <p className={`mt-0.5 ${b.last_error ? "text-destructive" : "text-muted-foreground"}`}>{b.last_error ?? b.last_reason}</p>}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Panel>
+
+      <div>
+        <p className="mb-2 text-xs text-muted-foreground">Criar ou abrir robô para o token:</p>
+        <div className="flex flex-wrap gap-2">
+          {tokens.map((t) => (
+            <Button key={t.address} size="sm" variant={t.address === token ? "default" : "secondary"} onClick={() => setToken(t.address)}>{allBots.some((b) => b.armed && b.token.toLowerCase() === t.address.toLowerCase()) ? "● " : ""}{t.symbol}</Button>
+          ))}
+          <AddTokenDialog />
+        </div>
       </div>
 
       <Panel collapsible title="Como funciona a carteira do robô (leia antes)">

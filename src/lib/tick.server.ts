@@ -36,7 +36,7 @@ export async function tickBot(admin: any, bot: any) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function tickAll(admin: any) {
-  const { data: bots } = await admin.from("grid_bots").select("*").eq("armed", true).limit(20);
+  const { data: bots } = await admin.from("grid_bots").select("*").eq("armed", true).limit(200);
   const out = [];
   for (const b of bots ?? []) out.push(await tickBot(admin, b));
   return out.length;
