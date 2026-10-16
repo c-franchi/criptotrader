@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin, Unavailable } from "@/components/AppShell";
 import { createBotWallet, getBotWallet, runGridNow, withdrawBot } from "@/lib/bot.functions";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
+import { ChevronDown } from "lucide-react";
 import { HelpTip } from "@/components/HelpTip";
 import { RobotVision } from "@/components/RobotVision";
 import { FundBotDialog } from "@/components/FundBotDialog";
@@ -136,6 +137,12 @@ function Robo() {
         <div className="mt-3 rounded border border-destructive/50 bg-destructive/10 p-2.5 text-xs">
           <strong>Dinheiro real, sem confirmação.</strong> Ligado, o robô troca sozinho. Coloque na carteira dele só o que aceita perder. Nenhuma estratégia garante lucro.
         </div>
+        {armed && (
+          <div className="mt-3 flex items-center gap-2 rounded-md border border-success bg-success/10 p-3 text-sm font-semibold text-success">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-success motion-safe:animate-pulse" />
+            <span className="min-w-0">🤖 Robô em operação agora · {mode === "grade" ? "Grade de preços" : preset ? preset.name : "Estratégia manual"} · {sym}</span>
+          </div>
+        )}
       </section>
 
       <Panel title={`Meus robôs (${allBots.filter((b) => b.armed).length} ligado${allBots.filter((b) => b.armed).length === 1 ? "" : "s"})`}>
@@ -147,7 +154,7 @@ function Robo() {
               const active = b.token.toLowerCase() === token.toLowerCase();
               return (
                 <li key={b.id}>
-                  <button onClick={() => setToken(tk?.address ?? b.token)} className={`w-full rounded-md border p-3 text-left text-xs ${active ? "border-primary bg-primary/10" : "border-border"}`}>
+                  <button onClick={() => setToken(tk?.address ?? b.token)} className={`w-full rounded-md border p-3 text-left text-xs ${active ? "border-primary bg-primary/10" : b.armed ? "border-success/50 bg-success/5" : "border-border"}`}>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-semibold">🤖 {tk?.symbol ?? `${b.token.slice(0, 6)}…`}{active && <span className="ml-2 text-[10px] text-primary">● vendo agora</span>}</span>
                       <span className={b.armed ? "font-medium text-success" : "text-muted-foreground"}>{b.armed ? "● Ligado" : "○ Desligado"}</span>
@@ -228,14 +235,22 @@ function Robo() {
               Você ainda não salvou uma estratégia para {sym}. <Link to="/estrategia" className="font-medium text-primary underline">Criar agora ›</Link>
             </div>
           ) : (
-            <Link to="/estrategia" className="block rounded-md border border-primary/40 p-3 hover:bg-secondary/40">
-              <p className="text-sm font-semibold text-primary">✓ {preset ? preset.name : "Estratégia manual"} · {sym}</p>
-              <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                {describeStrategy(cfg, "BNB").map((l, i) => <li key={i}>• {l}</li>)}
-                {(cfg.buyTaxPct || cfg.sellTaxPct) ? <li>• Taxa do token já considerada: {cfg.buyTaxPct ?? 0}% na compra e {cfg.sellTaxPct ?? 0}% na venda.</li> : null}
-              </ul>
-              <p className="mt-2 text-xs text-primary">Tocar para ver ou mudar a estratégia ›</p>
-            </Link>
+            <div className="rounded-md border border-primary/40 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="min-w-0 text-sm font-semibold text-primary">✓ {preset ? preset.name : "Estratégia manual"} · {sym}</p>
+                <Link to="/estrategia" className="shrink-0 text-xs font-medium text-primary underline">Ver ou mudar ›</Link>
+              </div>
+              <details className="group mt-2">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-muted-foreground [&::-webkit-details-marker]:hidden">
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" />
+                  {preset ? "Ver como esta estratégia funciona" : "Ver as regras da estratégia"}
+                </summary>
+                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  {describeStrategy(cfg, "BNB").map((l, i) => <li key={i}>• {l}</li>)}
+                  {(cfg.buyTaxPct || cfg.sellTaxPct) ? <li>• Taxa do token já considerada: {cfg.buyTaxPct ?? 0}% na compra e {cfg.sellTaxPct ?? 0}% na venda.</li> : null}
+                </ul>
+              </details>
+            </div>
           ))}
           {mode === "grade" && (
             <div>
@@ -257,10 +272,10 @@ function Robo() {
           )}
         </Panel>
 
-        <Panel title={`Situação do robô · ${sym}`}>
+        <Panel title={armed ? `🤖 Em operação · ${sym}` : `Situação do robô · ${sym}`}>
           <div className="space-y-2 text-sm">
-            <div className={`rounded-md border p-3 ${armed ? "border-success/50 bg-success/10" : "border-border"}`}>
-              <p className="font-semibold">{armed ? <span className="text-success">● LIGADO — operando sozinho</span> : <span className="text-muted-foreground">○ Desligado</span>}</p>
+            <div className={`rounded-md border p-3 ${armed ? "border-success bg-success/10" : "border-border"}`}>
+              <p className={`font-semibold ${armed ? "text-base text-success" : ""}`}>{armed ? <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-success motion-safe:animate-pulse" />LIGADO — operando sozinho</span> : <span className="text-muted-foreground">○ Desligado</span>}</p>
               {bot?.last_reason && <p className="mt-1 text-xs"><span className="text-muted-foreground">O que ele está pensando: </span>{bot.last_reason}</p>}
               <p className="mt-1 text-[11px] text-muted-foreground">Última verificação: {bot?.last_run_at ? new Date(bot.last_run_at).toLocaleString("pt-BR") : "ainda não verificou"}</p>
               {bot?.last_error && <p className="mt-1 text-xs text-destructive">Atenção: {bot.last_error}</p>}
