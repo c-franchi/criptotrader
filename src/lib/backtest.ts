@@ -54,14 +54,15 @@ export function backtest(c: Candle[], cfg: StrategyConfig, capital: number): Bac
     let price: number | null = null;
     if (cfg.entryType === "queda") {
       const ref = cfg.referenceType === "manual" && cfg.manualReference ? cfg.manualReference : peak;
+      void prevFastAbove;
       const trigger = ref * (1 - cfg.dropPct / 100);
       if (cfg.dropPct > 0 && l <= trigger) price = trigger;
     } else {
       const f = ma(cfg.maFast), s = ma(cfg.maSlow);
       if (f !== null && s !== null) {
-        const above = f > s;
-        if (prevFastAbove === false && above) price = cl;
-        prevFastAbove = above;
+        // buy the dip inside an uptrend (same rule as the robot)
+        if (f > s && l <= s) price = Math.min(s, cl);
+        prevFastAbove = f > s;
       }
     }
     if (canBuy && price !== null) {

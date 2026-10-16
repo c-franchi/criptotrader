@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCandles } from "@/hooks/useCandles";
+import { referenceHigh } from "@/lib/autoStrategy";
 import { monitorState } from "@/lib/monitor";
 import { EMPTY_CONFIG, type StrategyConfig } from "@/lib/strategy";
 import type { PoolInfo } from "@/lib/chain.functions";
@@ -35,9 +36,7 @@ export function StrategyAlert({ address, symbol, pools }: { address: string; sym
   const rawPrice = Number(pool?.priceUsd);
   const price = rawPrice > 0 && Number.isFinite(rawPrice) ? rawPrice : null;
   const since = Date.now() - (cfg?.windowHours ?? 24) * 3_600_000;
-  const high24h = candles.data?.length
-    ? Math.max(...candles.data.filter((c) => c[0] * 1000 >= since).map((c) => c[2]))
-    : null;
+  const high24h = candles.data?.length ? referenceHigh(candles.data, since / 1000) : null;
 
   const step = { "5m": 1, "15m": 3, "1h": 12, "4h": 48 }[cfg?.candleInterval ?? "15m"] ?? 3;
   const all = candles.data ?? [];

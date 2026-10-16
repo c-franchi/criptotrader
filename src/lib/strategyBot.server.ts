@@ -4,7 +4,7 @@ import { botSigner, poolState, pubClient, sendSwap } from "./bot.server";
 import { tokenMeta } from "./tokenMeta.server";
 import { readMarket } from "./market.server";
 import { readCandles } from "./history.server";
-import { afterTrade, closesAt, decide, intervalMinutes, normalizeState } from "./autoStrategy";
+import { afterTrade, closesAt, referenceHigh, decide, intervalMinutes, normalizeState } from "./autoStrategy";
 import { taxFor } from "./tokens";
 import { EMPTY_CONFIG, type StrategyConfig } from "./strategy";
 
@@ -27,9 +27,7 @@ export async function runStrategyStep(admin: any, bot: Bot, enc: string) {
   if (!best || !(priceUsd > 0)) return { patch: { last_error: null, last_reason: "Preço indisponível — aguardando", strat_state: state }, order: null };
   let candles: Awaited<ReturnType<typeof readCandles>> = [];
   try { candles = await readCandles(best.pairAddress.toLowerCase(), token.toLowerCase()); } catch { /* history unavailable */ }
-  const since = now / 1000 - cfg.windowHours * 3600;
-  const recent = candles.filter((c) => c[0] >= since);
-  const high = recent.length ? Math.max(...recent.map((c) => c[2])) : null;
+  const high = referenceHigh(candles, now / 1000 - cfg.windowHours * 3600);
   const closes = closesAt(candles, intervalMinutes(cfg.candleInterval), now);
   if (state.tokens > 0) state.peakUsd = Math.max(state.peakUsd, priceUsd);
 
