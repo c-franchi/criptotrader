@@ -4,6 +4,7 @@ import { Download, Share, PlusSquare, MoreVertical, CheckCircle2 } from "lucide-
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import icon from "@/assets/app-icon.jpg";
+import { getInstallState, runInstall, subscribeInstall } from "@/lib/installPrompt";
 
 export const Route = createFileRoute("/instalar")({
   head: () => ({
@@ -19,10 +20,8 @@ export const Route = createFileRoute("/instalar")({
   component: Instalar,
 });
 
-type BIP = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
-
 function Instalar() {
-  const [evt, setEvt] = useState<BIP | null>(null);
+  const [evt, setEvt] = useState(false);
   const [installed, setInstalled] = useState(false);
   const [ios, setIos] = useState(false);
   const [inFrame, setInFrame] = useState(false);
@@ -30,20 +29,12 @@ function Instalar() {
   useEffect(() => {
     setIos(/iphone|ipad|ipod/i.test(navigator.userAgent));
     setInFrame(window.self !== window.top);
-    setInstalled(window.matchMedia("(display-mode: standalone)").matches);
-    const h = (e: Event) => { e.preventDefault(); setEvt(e as BIP); };
-    const done = () => setInstalled(true);
-    window.addEventListener("beforeinstallprompt", h);
-    window.addEventListener("appinstalled", done);
-    return () => { window.removeEventListener("beforeinstallprompt", h); window.removeEventListener("appinstalled", done); };
+    const sync = () => { const s = getInstallState(); setEvt(s.canInstall); setInstalled(s.installed); };
+    sync();
+    return subscribeInstall(sync);
   }, []);
 
-  const install = async () => {
-    if (!evt) return;
-    await evt.prompt();
-    if ((await evt.userChoice).outcome === "accepted") setInstalled(true);
-    setEvt(null);
-  };
+  const install = async () => { if (await runInstall()) setInstalled(true); };
 
   return (
     <AppShell>
