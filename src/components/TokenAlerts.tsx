@@ -55,7 +55,7 @@ export function TokenAlerts({ token, tax }: { token: { address: string; symbol: 
 }
 
 function AlertEditor({ dir, symbol, address, price, row, minUp, onChange, userId }: {
-  dir: Dir; symbol: string; address: string; price: number | null; row?: Row; minUp: number; onChange: () => void; userId: string;
+  dir: Dir; symbol: string; address: string; price: number | null; row?: Row | undefined; minUp: number; onChange: () => void; userId: string;
 }) {
   const [base, setBase] = useState("");
   const [target, setTarget] = useState(dir === "queda" ? "20" : String(Math.max(20, Math.ceil(minUp + 5))));
