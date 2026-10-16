@@ -113,6 +113,10 @@ export function FundBotDialog({ botAddress, onDone }: { botAddress: string; onDo
       const { data: u } = await supabase.auth.getUser();
       if (u.user) await supabase.from("audit_log").insert({ user_id: u.user.id, action: "bot_funded", details: { asset: sym, amount: n, from, hash: h } });
       onDone?.();
+      setBusy(null);
+      // Fecha a janela sozinha e volta para a tela do robô após a confirmação.
+      await new Promise((res) => setTimeout(res, 1600));
+      close(false);
     } catch (e) {
       if (isUnknownMethod(e)) {
         await resetWallet();
