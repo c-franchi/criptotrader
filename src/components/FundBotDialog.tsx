@@ -11,6 +11,8 @@ import { connectWallet, isUnknownMethod, resetWallet } from "@/lib/walletConnect
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { erc20Abi } from "@/lib/pancake";
 import { supabase } from "@/integrations/supabase/client";
+import { Link } from "@tanstack/react-router";
+import { missingBnb } from "@/lib/botFunding";
 
 const pub = () => createPublicClient({ chain: bsc, transport: http("https://bsc-dataseed.bnbchain.org") });
 const GAS_KEEP = 0.001; // fica na carteira pessoal para pagar o gás desta transferência
@@ -19,7 +21,7 @@ const hex = (v: bigint) => `0x${v.toString(16)}`;
 type Req = { disconnect: () => Promise<void>; request: (a: { method: string; params?: unknown[] }) => Promise<unknown> };
 
 /** Sends BNB or a token from the user's personal wallet (signed in their own app) to the robot wallet. */
-export function FundBotDialog({ botAddress, onDone }: { botAddress: string; onDone?: () => void }) {
+export function FundBotDialog({ botAddress, onDone, botBnb, need }: { botAddress: string; onDone?: () => void; botBnb?: number | null; need?: { reserve: number; trade: number; total: number } | null }) {
   const { tokens } = useSelectedToken();
   const [open, setOpen] = useState(false);
   const [account, setAccount] = useState<string | null>(null);
@@ -69,7 +71,8 @@ export function FundBotDialog({ botAddress, onDone }: { botAddress: string; onDo
   const typed = Number(amount.replace(",", "."));
   const n = floor6(useBrl ? (brlPerBnb ? typed / brlPerBnb : 0) : typed);
   const gasOk = isBnb || (bnbBal ?? 0) >= 0.0003;
-  const valid = n > 0 && n <= max && gasOk;
+  const miss = isBnb && need ? missingBnb(need.total, botBnb ?? 0, n) : 0;
+  const valid = n > 0 && n <= max && gasOk && miss === 0;
   const pct = max > 0 ? Math.min(100, Math.round((n / max) * 100)) : 0;
   const sym = tok?.symbol ?? "BNB";
   const brl = (bnb: number) => brlPerBnb ? (bnb * brlPerBnb).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
@@ -186,6 +189,19 @@ export function FundBotDialog({ botAddress, onDone }: { botAddress: string; onDo
             </p>
             {!gasOk && account && <p className="mt-1 text-xs text-destructive">Você precisa de um pouco de BNB na sua carteira para pagar a taxa da rede deste envio.</p>}
             {account && n > max && <p className="mt-1 text-xs text-destructive">Valor maior que o disponível.</p>}
+            {account && n > 0 && miss > 0 && need && (
+              <div className="mt-2 rounded border border-destructive/50 bg-destructive/10 p-2 text-xs space-y-1">
+                <p className="font-semibold">⚠️ Valor não é compatível com a sua estratégia</p>
+                <p>Para o robô conseguir fazer uma compra, a carteira dele precisa de <strong>{need.total.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB</strong> (≈ {brl(need.total)}):</p>
+                <p>• {need.trade.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB para a compra ({brl(need.trade)})<br />• {need.reserve} BNB guardados para o gás ({brl(need.reserve)})</p>
+                <p>O robô já tem {(botBnb ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB. Faltam <strong>{miss.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB (≈ {brl(miss)})</strong>.</p>
+                <p className="text-muted-foreground">O gás de cada operação custa centavos — a reserva é só uma "poupança" para o robô nunca travar no meio de uma venda. Você pode diminuir essa reserva ou o valor de compra na estratégia.</p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button type="button" size="sm" disabled={botBnb == null || (botBnb ?? 0) + miss + n > max + (botBnb ?? 0)} onClick={() => setVal(n + miss)}>Usar valor mínimo</Button>
+                  <Button asChild type="button" size="sm" variant="outline"><Link to="/estrategia" onClick={() => setOpen(false)}>Ajustar estratégia</Link></Button>
+                </div>
+              </div>
+            )}
             {big && <p className="mt-2 rounded border border-warning/50 bg-warning/10 p-2 text-xs">⚠️ Valor alto para começar. Recomendamos testar primeiro com pouco (ex.: R$ 50) e só aumentar depois de ver o robô funcionando com a sua estratégia.</p>}
             {!isBnb && <p className="mt-1 text-[11px] text-muted-foreground">Atenção: alguns tokens cobram taxa até em transferências; o robô pode receber um pouco menos. Lembre que o robô também precisa de BNB para o gás.</p>}
           </li>
