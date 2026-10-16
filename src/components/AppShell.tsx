@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
-import { Bell, Download, ArrowLeftRight, Bot, LineChart, FlaskConical, LayoutDashboard, Menu, Settings, Target, Wallet } from "lucide-react";
+import { Bell, ChevronDown, Download, ArrowLeftRight, Bot, LineChart, FlaskConical, LayoutDashboard, Menu, Settings, Target, Wallet } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,7 +76,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-export function Panel({ title, children, right }: { title: string; children: ReactNode; right?: ReactNode }) {
+export function Panel({ title, children, right, collapsible, defaultOpen = false }: { title: string; children: ReactNode; right?: ReactNode; collapsible?: boolean; defaultOpen?: boolean }) {
+  if (collapsible)
+    return (
+      <details open={defaultOpen} className="group min-w-0 rounded-lg border border-border bg-card p-3 sm:p-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+          <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-widest text-muted-foreground">{title}</h2>
+          <span className="flex items-center gap-2">
+            {right && <span onClick={(e) => e.stopPropagation()}>{right}</span>}
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+          </span>
+        </summary>
+        <div className="mt-3">{children}</div>
+      </details>
+    );
   return (
     <section className="min-w-0 rounded-lg border border-border bg-card p-3 sm:p-4">
       <div className="mb-3 flex items-center justify-between gap-2">

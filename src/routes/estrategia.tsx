@@ -9,6 +9,7 @@ import { EMPTY_CONFIG, describeStrategy, type StrategyConfig } from "@/lib/strat
 import { PRESETS, buildPreset, type PresetId } from "@/lib/presets";
 import { breakEvenPct, taxFor } from "@/lib/tokens";
 import { TokenAlerts } from "@/components/TokenAlerts";
+import { HelpTip } from "@/components/HelpTip";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
@@ -42,10 +43,10 @@ export const Route = createFileRoute("/estrategia")({
   ),
 });
 
-function Num({ label, hint, value, onChange }: { label: string; hint?: string; value: number | null; onChange: (n: number) => void }) {
+function Num({ label, hint, help, value, onChange }: { label: string; hint?: string; help?: string; value: number | null; onChange: (n: number) => void }) {
   return (
     <div>
-      <Label className="text-sm">{label}</Label>
+      <div className="flex items-center gap-1"><Label className="text-sm">{label}</Label>{help && <HelpTip title={label}><p>{help}</p></HelpTip>}</div>
       <Input type="number" step="any" min={0} value={value ?? ""} onChange={(e) => onChange(Number(e.target.value))} />
       {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
     </div>
@@ -259,7 +260,7 @@ function StrategyForm() {
                       <Check className="h-3 w-3" /> Em uso
                     </span>
                   )}
-                  <p className={cn("font-semibold", on && "text-primary")}>{p.name}</p>
+                  <div className="flex items-center gap-1.5"><p className={cn("font-semibold", on && "text-primary")}>{p.name}</p><HelpTip title={p.name}><p>{p.summary}</p><ul className="list-disc space-y-1 pl-4">{p.how.map((h) => <li key={h}>{h}</li>)}</ul><p className="text-foreground">{p.forWho}</p></HelpTip></div>
                   <p className="mb-2 text-xs text-muted-foreground">{p.summary}</p>
                   <ul className="mb-3 flex-1 space-y-1 text-xs">{p.how.map((h) => <li key={h}>• {h}</li>)}</ul>
                   <Button size="sm" variant={on ? "default" : "outline"} disabled={!(amountBnb > 0)} onClick={() => applyPreset(p.id)}>
@@ -279,18 +280,18 @@ function StrategyForm() {
         </Panel>
         </fieldset>
 
-        <Panel title="Entrada">
+        <Panel title="Entrada (quando comprar)" collapsible>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label>Tamanho da compra</Label>
+              <div className="flex items-center gap-1"><Label>Tamanho da compra</Label><HelpTip title="Tamanho da compra"><p><b>Valor fixo:</b> sempre a mesma quantia de BNB.</p><p><b>% do saldo:</b> uma porcentagem do BNB que estiver na carteira.</p></HelpTip></div>
               <select className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={c.sizingMode} onChange={(e) => set("sizingMode", e.target.value as "fixo")}>
                 <option value="percentual">% do saldo disponível</option>
                 <option value="fixo">Valor fixo</option>
               </select>
             </div>
-            <Num label={c.sizingMode === "fixo" ? "Valor por compra (moeda do par)" : "% do saldo usado na compra"} value={c.buyAmount} onChange={(n) => set("buyAmount", n)} />
+            <Num label={c.sizingMode === "fixo" ? "Valor por compra (moeda do par)" : "% do saldo usado na compra"} value={c.buyAmount} help="Quanto o robô usa em cada compra. Ex.: com 0,01 BNB por compra e 3 compras, o máximo gasto é 0,03 BNB. Comece com pouco." onChange={(n) => set("buyAmount", n)} />
             <div>
-              <Label>Tipo de sinal</Label>
+              <div className="flex items-center gap-1"><Label>Tipo de sinal</Label><HelpTip title="Tipo de sinal"><p><b>Queda percentual:</b> compra quando o preço cai X% — bom para comprar barato.</p><p><b>Cruzamento de médias:</b> compra quando o preço começa a subir — segue a tendência.</p></HelpTip></div>
               <select className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={c.entryType} onChange={(e) => set("entryType", e.target.value as "queda")}>
                 <option value="queda">Queda percentual</option>
                 <option value="medias">Cruzamento de médias</option>
@@ -298,24 +299,24 @@ function StrategyForm() {
             </div>
             {c.entryType === "queda" ? (
               <>
-                <Num label="Queda que dispara a compra (%)" hint="Movimento do preço, não do saldo." value={c.dropPct} onChange={(n) => set("dropPct", n)} />
+                <Num label="Queda que dispara a compra (%)" hint="Movimento do preço, não do saldo." value={c.dropPct} help="Quanto o preço precisa cair para comprar. Ex.: 10% significa comprar quando o token ficar 10% mais barato que a referência. Quedas maiores = compras mais raras e mais baratas." onChange={(n) => set("dropPct", n)} />
                 <div>
-                  <Label>Referência da queda</Label>
+                  <div className="flex items-center gap-1"><Label>Referência da queda</Label><HelpTip title="Referência da queda"><p>De onde a queda é contada: do preço mais alto recente (automático) ou de um preço que você define.</p></HelpTip></div>
                   <select className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={c.referenceType} onChange={(e) => set("referenceType", e.target.value as "manual")}>
                     <option value="maxima">Máxima na janela</option>
                     <option value="manual">Preço definido por mim</option>
                   </select>
                 </div>
                 {c.referenceType === "manual" ? (
-                  <Num label="Preço de referência (moeda do par)" value={c.manualReference} onChange={(n) => set("manualReference", n)} />
+                  <Num label="Preço de referência (moeda do par)" value={c.manualReference} help="Preço que você considera 'normal'. A queda é medida a partir dele. Use o preço de hoje se não souber." onChange={(n) => set("manualReference", n)} />
                 ) : (
-                  <Num label="Janela (horas)" value={c.windowHours} onChange={(n) => set("windowHours", n)} />
+                  <Num label="Janela (horas)" value={c.windowHours} help="Período usado para achar o preço mais alto. Ex.: 24h = a queda é medida a partir da máxima do último dia." onChange={(n) => set("windowHours", n)} />
                 )}
               </>
             ) : (
               <>
-                <Num label="Média rápida (velas)" value={c.maFast} onChange={(n) => set("maFast", n)} />
-                <Num label="Média lenta (velas)" value={c.maSlow} onChange={(n) => set("maSlow", n)} />
+                <Num label="Média rápida (velas)" value={c.maFast} help="Média do preço das últimas poucas velas. Reage rápido às mudanças." onChange={(n) => set("maFast", n)} />
+                <Num label="Média lenta (velas)" value={c.maSlow} help="Média de mais velas, reage devagar. Quando a média rápida passa acima da lenta, sinal de que o preço começou a subir." onChange={(n) => set("maSlow", n)} />
                 <div>
                   <Label>Intervalo das velas</Label>
                   <select className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={c.candleInterval} onChange={(e) => set("candleInterval", e.target.value)}>
@@ -324,40 +325,40 @@ function StrategyForm() {
                 </div>
               </>
             )}
-            <Num label="Liquidez mínima (US$)" value={c.minLiquidityUsd} onChange={(n) => set("minLiquidityUsd", n)} />
-            <Num label="Máx. entradas por posição" value={c.maxEntries} onChange={(n) => set("maxEntries", n)} />
-            <Num label="Intervalo mínimo entre compras (min)" value={c.cooldownMin} onChange={(n) => set("cooldownMin", n)} />
-            <Num label={`Exposição máxima ao ${token.symbol} (moeda do par)`} value={c.maxExposureQuote} onChange={(n) => set("maxExposureQuote", n)} />
-            <Num label="Reserva de BNB para gas" value={c.gasReserveBnb} onChange={(n) => set("gasReserveBnb", n)} />
-            <Num label="Máx. operações por dia" value={c.maxTradesPerDay} onChange={(n) => set("maxTradesPerDay", n)} />
+            <Num label="Liquidez mínima (US$)" value={c.minLiquidityUsd} help="Dinheiro disponível no pool para trocas. Pouca liquidez = preço salta muito e pode ser difícil vender. Abaixo deste valor, não compra." onChange={(n) => set("minLiquidityUsd", n)} />
+            <Num label="Máx. entradas por posição" value={c.maxEntries} help="Quantas vezes pode comprar antes de vender. Comprar em partes ajuda a pegar um preço médio melhor se continuar caindo." onChange={(n) => set("maxEntries", n)} />
+            <Num label="Intervalo mínimo entre compras (min)" value={c.cooldownMin} help="Tempo mínimo de espera entre uma compra e outra, para não gastar tudo numa queda rápida." onChange={(n) => set("cooldownMin", n)} />
+            <Num label={`Exposição máxima ao ${token.symbol} (moeda do par)`} value={c.maxExposureQuote} help="Teto total de BNB aplicado neste token. Protege para não colocar tudo num só lugar." onChange={(n) => set("maxExposureQuote", n)} />
+            <Num label="Reserva de BNB para gas" value={c.gasReserveBnb} help="BNB guardado para pagar as taxas da rede. Sem ele, você não consegue nem vender." onChange={(n) => set("gasReserveBnb", n)} />
+            <Num label="Máx. operações por dia" value={c.maxTradesPerDay} help="Limite de operações por dia. Menos operações = menos taxas pagas." onChange={(n) => set("maxTradesPerDay", n)} />
           </div>
         </Panel>
 
-        <Panel title="Saídas e risco" right={<Button size="sm" variant="outline" onClick={() => set("takeProfits", [...c.takeProfits, { pct: 0, sellPct: 0 }])}>+ Take-profit</Button>}>
+        <Panel title="Saídas e risco (quando vender)" collapsible right={<Button size="sm" variant="outline" onClick={() => set("takeProfits", [...c.takeProfits, { pct: 0, sellPct: 0 }])}>+ Take-profit</Button>}>
           <div className="space-y-3">
             {c.takeProfits.map((t, i) => (
               <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
-                <Num label={`TP ${i + 1}: valorização sobre preço médio (%)`} value={t.pct} onChange={(n) => set("takeProfits", c.takeProfits.map((x, j) => (j === i ? { ...x, pct: n } : x)))} />
-                <Num label="% do saldo remanescente vendido" value={t.sellPct} onChange={(n) => set("takeProfits", c.takeProfits.map((x, j) => (j === i ? { ...x, sellPct: n } : x)))} />
+                <Num label={`TP ${i + 1}: valorização sobre preço médio (%)`} help="Take-profit (realizar lucro): quando o preço subir esse % acima do que você pagou, vende uma parte. Ex.: +10% vende metade e garante o ganho." value={t.pct} onChange={(n) => set("takeProfits", c.takeProfits.map((x, j) => (j === i ? { ...x, pct: n } : x)))} />
+                <Num label="% do saldo remanescente vendido" help="Quanto do que sobrou vender nesse alvo. 100% = vende tudo." value={t.sellPct} onChange={(n) => set("takeProfits", c.takeProfits.map((x, j) => (j === i ? { ...x, sellPct: n } : x)))} />
                 <Button variant="ghost" size="sm" onClick={() => set("takeProfits", c.takeProfits.filter((_, j) => j !== i))}>Remover</Button>
               </div>
             ))}
             <div className="grid gap-3 sm:grid-cols-2">
-              <Num label="Stop-loss: queda sobre preço médio (%)" hint="0 = desativado" value={c.stopLossPct} onChange={(n) => set("stopLossPct", n)} />
-              <Num label="Limite de perda diária (moeda do par)" value={c.dailyLossLimit} onChange={(n) => set("dailyLossLimit", n)} />
-              <Num label="Slippage máximo (%)" value={c.maxSlippagePct} onChange={(n) => set("maxSlippagePct", n)} />
-              <Num label="Impacto de preço máximo (%)" value={c.maxPriceImpactPct} onChange={(n) => set("maxPriceImpactPct", n)} />
-              <Num label="Gas máximo (gwei)" value={c.maxGasGwei} onChange={(n) => set("maxGasGwei", n)} />
-              <Num label="Tentativas após falha" value={c.maxRetries} onChange={(n) => set("maxRetries", n)} />
+              <Num label="Stop-loss: queda sobre preço médio (%)" hint="0 = desativado" value={c.stopLossPct} help="Venda de proteção: se o preço cair esse % abaixo do que você pagou, vende tudo para não perder mais. 0 = desligado." onChange={(n) => set("stopLossPct", n)} />
+              <Num label="Limite de perda diária (moeda do par)" value={c.dailyLossLimit} help="Se as perdas do dia chegarem a esse valor, o robô para até o dia seguinte." onChange={(n) => set("dailyLossLimit", n)} />
+              <Num label="Slippage máximo (%)" value={c.maxSlippagePct} help="Quanto o preço pode mudar entre a cotação e a execução. Tokens com taxa precisam de um valor um pouco maior." onChange={(n) => set("maxSlippagePct", n)} />
+              <Num label="Impacto de preço máximo (%)" value={c.maxPriceImpactPct} help="Quanto a sua própria compra/venda move o preço. Alto = você paga mais caro. Evite passar de 3%." onChange={(n) => set("maxPriceImpactPct", n)} />
+              <Num label="Gas máximo (gwei)" value={c.maxGasGwei} help="Preço máximo da taxa de rede. Se a rede estiver cara, espera." onChange={(n) => set("maxGasGwei", n)} />
+              <Num label="Tentativas após falha" value={c.maxRetries} help="Quantas vezes tentar de novo se uma troca falhar." onChange={(n) => set("maxRetries", n)} />
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={c.trailingEnabled} onCheckedChange={(v) => set("trailingEnabled", v)} />
-              <span className="text-sm">Trailing stop</span>
+              <span className="text-sm">Trailing stop</span><HelpTip title="Trailing stop (stop móvel)"><p>Segue o preço para cima. Depois de lucrar, se o preço virar e cair um pouco do topo, vende e garante o ganho.</p></HelpTip>
             </div>
             {c.trailingEnabled && (
               <div className="grid gap-3 sm:grid-cols-2">
-                <Num label="Lucro para ativar (%)" value={c.trailingActivatePct} onChange={(n) => set("trailingActivatePct", n)} />
-                <Num label="Distância da máxima (%)" value={c.trailingDistancePct} onChange={(n) => set("trailingDistancePct", n)} />
+                <Num label="Lucro para ativar (%)" value={c.trailingActivatePct} help="Lucro a partir do qual o 'stop móvel' começa a seguir o preço." onChange={(n) => set("trailingActivatePct", n)} />
+                <Num label="Distância da máxima (%)" value={c.trailingDistancePct} help="Se o preço cair esse % do ponto mais alto depois de ativado, vende e garante o lucro." onChange={(n) => set("trailingDistancePct", n)} />
               </div>
             )}
           </div>

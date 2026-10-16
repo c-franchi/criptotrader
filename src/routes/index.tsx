@@ -69,6 +69,7 @@ function Dashboard() {
   const best = market.data?.pools.find((p) => p.supported);
 
   const transfers = useQuery({ queryKey: ["transfers", addr], queryFn: () => getTransfers({ data: { address: addr } }), enabled: ready, refetchInterval: 60_000 });
+  const pool = best?.pairAddress.toLowerCase();
   const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
   const fmtAmt = (raw: string) => new Decimal(raw).div(new Decimal(10).pow(info.decimals)).toDecimalPlaces(2).toNumber().toLocaleString("pt-BR");
 
@@ -108,19 +109,29 @@ function Dashboard() {
       </section>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Panel title="Transferências recentes" right={<span className="text-[11px] text-muted-foreground">Holders: {transfers.data?.holders ?? "—"}</span>}>
+        <Panel collapsible title={`Transferências recentes (${transfers.data?.transfers.length ?? 0})`} right={<span className="text-[11px] text-muted-foreground">Holders: {transfers.data?.holders ?? "—"}</span>}>
           {transfers.isLoading && <p className="text-sm text-muted-foreground">Buscando…</p>}
           {transfers.data?.error && <p className="text-sm text-muted-foreground">Indisponível: {transfers.data.error}</p>}
           {transfers.data && !transfers.data.error && transfers.data.transfers.length === 0 && (
             <p className="text-sm text-muted-foreground">Nenhuma transferência nos últimos ~{transfers.data.scannedBlocks.toLocaleString("pt-BR")} blocos.</p>
           )}
+          <p className="mb-1 text-[11px] text-muted-foreground"><span className="text-success">Compra</span> = saiu do pool para alguém · <span className="text-destructive">Venda</span> = entrou no pool.</p>
           <ul className="divide-y divide-border/60">
             {transfers.data?.transfers.map((t, i) => (
               <li key={t.hash + i} className="flex items-center justify-between gap-2 py-2 text-xs">
-                <a href={`https://bscscan.com/tx/${t.hash}`} target="_blank" rel="noreferrer" className="min-w-0 truncate font-mono text-muted-foreground hover:text-primary">
-                  {short(t.from)} → {short(t.to)}
-                </a>
-                <span className="shrink-0 font-mono">{fmtAmt(t.amountRaw)}</span>
+                {(() => {
+                  const kind = pool && t.from.toLowerCase() === pool ? "compra" : pool && t.to.toLowerCase() === pool ? "venda" : "transf.";
+                  const tone = kind === "compra" ? "border-success/50 bg-success/15 text-success" : kind === "venda" ? "border-destructive/50 bg-destructive/15 text-destructive" : "border-border text-muted-foreground";
+                  return (
+                    <>
+                      <span className={`w-14 shrink-0 rounded border px-1 py-0.5 text-center text-[10px] font-semibold uppercase ${tone}`}>{kind}</span>
+                      <a href={`https://bscscan.com/tx/${t.hash}`} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate font-mono text-muted-foreground hover:text-primary">
+                        {short(t.from)} → {short(t.to)}
+                      </a>
+                      <span className={`shrink-0 font-mono ${kind === "compra" ? "text-success" : kind === "venda" ? "text-destructive" : ""}`}>{fmtAmt(t.amountRaw)}</span>
+                    </>
+                  );
+                })()}
               </li>
             ))}
           </ul>

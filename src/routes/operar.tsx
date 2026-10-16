@@ -374,7 +374,7 @@ function Operar() {
       <div className={hasStrategy ? "rounded border border-primary/60 bg-primary/10 p-3 text-sm" : "rounded border border-border p-3 text-sm"}>
         {hasStrategy ? (
           <>
-            <p><strong>✓ Estratégia em uso para {sym}:</strong> {preset ? preset.name : "personalizada"}</p>
+            <Link to="/estrategia" className="block hover:underline"><strong>✓ Estratégia em uso para {sym}:</strong> {preset ? preset.name : "personalizada"} <span className="text-xs text-primary">· ver/editar ›</span></Link>
             <p className="text-xs text-muted-foreground">
               {cfg.sizingMode === "fixo" && cfg.buyAmount > 0 ? `Primeira entrada sugerida: ${cfg.buyAmount} BNB. ` : ""}
               Slippage máx. {cfg.maxSlippagePct}%, impacto máx. {cfg.maxPriceImpactPct}%, reserva de gás {cfg.gasReserveBnb} BNB — já aplicados aqui.
@@ -502,7 +502,7 @@ function Operar() {
         )}
       </Panel>
 
-      <Panel title="Ordens reais">
+      <Panel title={`Histórico de operações (${orders.length})`} collapsible>
         {orders.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma ordem.</p> : (
           <div className="space-y-2">
             {orders.map((o) => (
