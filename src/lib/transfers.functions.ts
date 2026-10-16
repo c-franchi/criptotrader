@@ -1,7 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-const LOGS_RPC = "https://bsc-rpc.publicnode.com";
+const LOGS_RPCS = [
+  "https://bsc-rpc.publicnode.com",
+  "https://bsc-dataseed.bnbchain.org",
+  "https://rpc.ankr.com/bsc",
+  "https://binance.llamarpc.com",
+  "https://bsc-dataseed1.defibit.io",
+];
 const TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const CHUNK = 5000;
 
@@ -15,16 +21,36 @@ export type TransfersResult = {
   scannedBlocks: number;
 };
 
-async function rpc<T>(method: string, params: unknown[]): Promise<T> {
-  const r = await fetch(LOGS_RPC, {
+const cache = new Map<string, { value: TransfersResult; expires: number }>();
+const pending = new Map<string, Promise<TransfersResult>>();
+let preferred = 0;
+
+async function rpcOnce<T>(url: string, method: string, params: unknown[]): Promise<T> {
+  const r = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
     signal: AbortSignal.timeout(10000),
   });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const j = (await r.json()) as { result?: T; error?: { message: string } };
   if (j.error) throw new Error(j.error.message);
+  if (j.result === undefined) throw new Error("sem resposta");
   return j.result as T;
+}
+
+/** Tries each public node in turn, starting with the last one that worked. */
+async function rpc<T>(method: string, params: unknown[]): Promise<T> {
+  let last: unknown;
+  for (let i = 0; i < LOGS_RPCS.length; i++) {
+    const idx = (preferred + i) % LOGS_RPCS.length;
+    try {
+      const out = await rpcOnce<T>(LOGS_RPCS[idx]!, method, params);
+      preferred = idx;
+      return out;
+    } catch (e) { last = e; }
+  }
+  throw new Error(`Todos os servidores públicos falharam (${last instanceof Error ? last.message : "falha"})`);
 }
 
 async function fromBscScan(address: string, key: string): Promise<{ list: Transfer[] | null; holders: number | null; note: string }> {
