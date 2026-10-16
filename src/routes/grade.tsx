@@ -8,6 +8,7 @@ import { AppShell, Panel, RequireLogin, Unavailable } from "@/components/AppShel
 import { createBotWallet, getBotWallet, runGridNow, withdrawBot } from "@/lib/bot.functions";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { HelpTip } from "@/components/HelpTip";
+import { RobotVision } from "@/components/RobotVision";
 import { FundBotDialog } from "@/components/FundBotDialog";
 import { requiredBotBnb } from "@/lib/botFunding";
 import { useSavedWallets } from "@/hooks/useSavedWallets";
@@ -72,6 +73,7 @@ function Robo() {
   const [busy, setBusy] = useState(false);
   const { wallets: saved } = useSavedWallets();
   const [dest, setDest] = useState("");
+  const [vision, setVision] = useState(false);
 
   const load = useCallback(async () => {
     getW().then(setW).catch(() => setW({ address: null, bnb: null, tokens: [] }));
@@ -255,6 +257,12 @@ function Robo() {
           </div>
         </Panel>
       </div>
+
+      <Panel title="Ver o robô em ação">
+        <p className="mb-2 text-xs text-muted-foreground">Veja no gráfico onde o robô vai comprar e vender, e cada operação que ele já fez.</p>
+        <Button variant={vision ? "secondary" : "default"} onClick={() => setVision(!vision)}>{vision ? "Esconder gráfico" : "✨ Ver o robô em ação"}</Button>
+        {vision && <div className="mt-3"><RobotVision token={token} symbol={sym} cfg={cfg} state={st} mode={mode} grid={lines} orders={orders} armed={armed} reason={bot?.last_reason} /></div>}
+      </Panel>
 
       <Panel title="Carteira do robô">
         {w === null ? <Unavailable reason="carregando" /> : w.address ? (
