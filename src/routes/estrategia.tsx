@@ -313,7 +313,7 @@ function StrategyForm() {
 
         {mode && <Panel title="Proteção da posição" collapsible>
           <Label htmlFor="stop-mode">Regra do stop</Label>
-          <select id="stop-mode" className="mt-1 w-full rounded-md border border-input bg-background px-3 py-3 text-base" value={c.stopLossMode ?? "preco"} onChange={(e) => set("stopLossMode", e.target.value as "preco" | "liquido")}>
+          <select id="stop-mode" className="mt-1 w-full rounded-md border border-input bg-background px-3 py-3 text-base" value={c.stopLossMode ?? "preco"} onChange={(e) => { set("stopLossMode", e.target.value as "preco" | "liquido"); set("buyTaxPct", tax.buy); set("sellTaxPct", tax.sell); }}>
             <option value="preco">Queda do preço (regra atual)</option>
             <option value="liquido">Perda líquida (inclui taxas do token)</option>
           </select>

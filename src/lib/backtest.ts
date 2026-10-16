@@ -40,7 +40,7 @@ export function backtest(c: Candle[], cfg: StrategyConfig, capital: number): Bac
       // cost/tokens already includes buy tax and pool fee; do not discount buy tax twice.
       const stop = stopPrice(avg, cfg.stopLossMode === "liquido" ? { ...cfg, buyTaxPct: 0 } : cfg);
       const netStop = stop != null && cfg.stopLossMode === "liquido" ? stop / (1 - FEE) : stop;
-      if (netStop != null && l <= netStop) sell(1, Math.min(cl, netStop));
+      if (netStop != null && l <= netStop) sell(1, cfg.stopLossMode === "liquido" ? Math.min(cl, netStop) : netStop);
       else if (cfg.trailingEnabled && trailHigh >= avg * (1 + cfg.trailingActivatePct / 100) && l <= trailHigh * (1 - cfg.trailingDistancePct / 100)) sell(1, trailHigh * (1 - cfg.trailingDistancePct / 100));
       else {
         while (tokens > 0 && tpDone < cfg.takeProfits.length) {
