@@ -1,9 +1,7 @@
 export type TokenInfo = { address: `0x${string}`; symbol: string; name: string; decimals: number };
 
-/** Built-in tokens, always available. Users can add more (stored per user). */
+/** Built-in tokens for every user (only well-known assets; project/test tokens are added per user). Users can add more (stored per user). */
 export const TOKENS: TokenInfo[] = [
-  { address: "0xA229C797c8e6a275cF5Ee4Cda37f5e619F15AffA", symbol: "GTE", name: "Gold Tech", decimals: 18 },
-  { address: "0xDbb962A6Fa2b9AEAf27Ec2D7fd5e820d479bdb3D", symbol: "BGA", name: "BIGHAIR", decimals: 18 },
   { address: "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c", symbol: "BTCB", name: "Bitcoin (BSC)", decimals: 18 },
   { address: "0x2170Ed0880ac9A755fd29B2688956BD959F933F8", symbol: "ETH", name: "Ethereum (BSC)", decimals: 18 },
   { address: "0x570A5D26f7765Ecb712C0924E4De545B89fD43dF", symbol: "SOL", name: "Solana (BSC)", decimals: 18 },

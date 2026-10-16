@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { findToken, TOKENS, type TokenInfo } from "@/lib/tokens";
 import { supabase } from "@/integrations/supabase/client";
 
-const fallback: TokenInfo = TOKENS.find((token) => token.symbol === "GTE") ?? { address: "0xA229C797c8e6a275cF5Ee4Cda37f5e619F15AffA", symbol: "GTE", name: "Gold Tech", decimals: 18 };
+const fallback: TokenInfo = TOKENS[0]!;
 
 type Ctx = {
   token: TokenInfo;

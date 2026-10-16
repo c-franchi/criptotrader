@@ -17,9 +17,9 @@ export const Route = createFileRoute("/simulacao")({
   head: () => ({
     meta: [
       { title: "Simulação — CryptoBot" },
-      { name: "description", content: "Carteira simulada persistente para testar compras e vendas de GTE sem transações reais." },
+      { name: "description", content: "Carteira simulada persistente para testar compras e vendas de tokens sem transações reais." },
       { property: "og:title", content: "Simulação — CryptoBot" },
-      { property: "og:description", content: "Carteira simulada persistente para testar compras e vendas de GTE sem transações reais." },
+      { property: "og:description", content: "Carteira simulada persistente para testar compras e vendas de tokens sem transações reais." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

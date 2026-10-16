@@ -14,9 +14,9 @@ export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
       { title: "Entrar — CryptoBot" },
-      { name: "description", content: "Acesse sua conta para salvar estratégias e simulações do GTE." },
+      { name: "description", content: "Acesse sua conta para salvar estratégias e simulações de tokens." },
       { property: "og:title", content: "Entrar — CryptoBot" },
-      { property: "og:description", content: "Acesse sua conta para salvar estratégias e simulações do GTE." },
+      { property: "og:description", content: "Acesse sua conta para salvar estratégias e simulações de tokens." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

@@ -29,9 +29,9 @@ export const Route = createFileRoute("/operar")({
   head: () => ({
     meta: [
       { title: "Operar — CryptoBot" },
-      { name: "description", content: "Compre e venda GTE pela PancakeSwap V2 com confirmação na sua carteira via WalletConnect." },
+      { name: "description", content: "Compre e venda tokens BEP-20 pela PancakeSwap V2 com confirmação na sua carteira via WalletConnect." },
       { property: "og:title", content: "Operar — CryptoBot" },
-      { property: "og:description", content: "Compre e venda GTE pela PancakeSwap V2 com confirmação na sua carteira via WalletConnect." },
+      { property: "og:description", content: "Compre e venda tokens BEP-20 pela PancakeSwap V2 com confirmação na sua carteira via WalletConnect." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

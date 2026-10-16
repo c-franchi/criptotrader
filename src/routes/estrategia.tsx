@@ -27,9 +27,9 @@ export const Route = createFileRoute("/estrategia")({
   head: () => ({
     meta: [
       { title: "Estratégia — CryptoBot" },
-      { name: "description", content: "Configure regras de entrada, take-profit, stop-loss e limites de risco para o GTE." },
+      { name: "description", content: "Configure regras de entrada, take-profit, stop-loss e limites de risco para cada token." },
       { property: "og:title", content: "Estratégia — CryptoBot" },
-      { property: "og:description", content: "Configure regras de entrada, take-profit, stop-loss e limites de risco para o GTE." },
+      { property: "og:description", content: "Configure regras de entrada, take-profit, stop-loss e limites de risco para cada token." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

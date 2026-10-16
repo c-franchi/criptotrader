@@ -314,7 +314,7 @@ function Robo() {
       <Panel collapsible title="Dúvidas comuns">
         <div className="space-y-3 text-sm">
           <Faq q="O robô usa a estratégia que eu salvei?">Sim. No modo "Minha estratégia" ele lê a estratégia salva do token a cada minuto. Se você mudar e salvar a estratégia, o robô passa a seguir a nova na próxima verificação.</Faq>
-          <Faq q="Ele considera a taxa do token?">Sim. A taxa medida no contrato (ex.: 8% no GTE) é descontada do valor mínimo que ele aceita receber, e as metas de lucro da estratégia já estão ajustadas para o ganho depois da taxa.</Faq>
+          <Faq q="Ele considera a taxa do token?">Sim. A taxa medida no contrato (ex.: 8% em alguns tokens) é descontada do valor mínimo que ele aceita receber, e as metas de lucro da estratégia já estão ajustadas para o ganho depois da taxa.</Faq>
           <Faq q="Ele pode comprar sem parar?">Não. Ele respeita o máximo de compras, o limite de BNB investido, a pausa entre operações, o limite de operações por dia e o limite de perda do dia. Faz no máximo uma troca por minuto.</Faq>
           <Faq q="E se o preço não puder ser lido?">Ele espera. Sem preço confiável ele não compra nem vende.</Faq>
           <Faq q="A carteira do robô é real?">Sim. É um endereço de verdade na rede BSC, criado só para você. Toque em "Ver na BscScan" para conferir saldo e operações.</Faq>
