@@ -1,4 +1,5 @@
 import { runGridStep } from "./bot.server";
+import { TOKENS } from "./tokens";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function tickBot(admin: any, bot: any) {
@@ -24,7 +25,7 @@ export async function tickBot(admin: any, bot: any) {
     const ok = res.order.status === "confirmada";
     await admin.from("notifications").insert({
       user_id: bot.user_id,
-      title: ok ? `Robô ${res.order.side === "compra" ? "comprou" : "vendeu"} ${t?.symbol ?? "token"}` : `Robô: ${res.order.side} falhou`,
+      title: ok ? `Robô ${res.order.side === "compra" ? "comprou" : "vendeu"} ${TOKENS.find((x) => x.address.toLowerCase() === String(bot.token).toLowerCase())?.symbol ?? t?.symbol ?? "token"}` : `Robô: ${res.order.side} falhou`,
       body: ok ? String(res.patch["last_reason"] ?? "Seguindo sua estratégia.") : String(res.order.error ?? "Nada foi trocado."),
       link: "/grade",
     });
