@@ -52,10 +52,14 @@ export const createBotWallet = createServerFn({ method: "POST" })
 /** Sends all bot tokens and BNB (minus gas) back to the wallet registered in Estratégia. */
 export const withdrawBot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { data: strat } = await context.supabase.from("strategies").select("tracked_wallet").not("tracked_wallet", "is", null).order("updated_at", { ascending: false }).limit(1).maybeSingle();
-    const to = strat?.tracked_wallet;
-    if (!to || !/^0x[0-9a-fA-F]{40}$/.test(to)) throw new Error("Cadastre a carteira acompanhada em Estratégia primeiro");
+  .inputValidator((d: { to?: string } | undefined) => z.object({ to: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional() }).parse(d ?? {}))
+  .handler(async ({ data, context }) => {
+    let to = data.to;
+    if (!to) {
+      const { data: strat } = await context.supabase.from("strategies").select("tracked_wallet").not("tracked_wallet", "is", null).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+      to = strat?.tracked_wallet ?? undefined;
+    }
+    if (!to || !/^0x[0-9a-fA-F]{40}$/.test(to)) throw new Error("Escolha uma carteira sua para receber");
     // Anti-theft: funds only go to a wallet saved in "Minhas carteiras" for at least 24h,
     // so a stolen session cannot redirect withdrawals to a fresh attacker address.
     const { data: saved } = await context.supabase.from("user_wallets").select("address, created_at").ilike("address", to).maybeSingle();
