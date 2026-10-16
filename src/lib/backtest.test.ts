@@ -14,7 +14,7 @@ describe("windowStats", () => {
 describe("backtest", () => {
   it("net stop includes buy and sell taxes once, accounting for simulated pool fees", () => {
     const cfg = { ...buildPreset("segura", 1, null), buyAmount: 0.25, maxEntries: 1, dropPct: 10, stopLossMode: "liquido" as const, stopLossPct: 20, buyTaxPct: 8, sellTaxPct: 8, takeProfits: [] };
-    const result = backtest([[0, 1, 1, 0.9, 0.9], [1, 0.85, 0.86, 0.84, 0.86]], cfg, 1);
+    const result = backtest([[0, 1, 1, 1, 1], [1, 1, 1, 0.9, 0.9], [2, 0.86, 0.86, 0.84, 0.86]], cfg, 1);
     expect(result?.trades).toBe(2);
     expect(result?.finalValue).toBeCloseTo(0.95, 8);
   });
