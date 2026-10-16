@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { getMarket } from "@/lib/chain.functions";
-import { getCandles } from "@/lib/history.functions";
+import { useCandles } from "@/hooks/useCandles";
 import { chartWindow } from "@/lib/chart";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -30,11 +30,7 @@ function PriceChart({ address, symbol }: { address: string; symbol: string }) {
     const chosen = market.data?.pools.find((p) => p.supported) ?? market.data?.pools[0];
     if (chosen) setPool(chosen.pairAddress);
   }, [market.data, pool]);
-  const candles = useQuery({
-    queryKey: ["candles", pool, address], enabled: !!pool,
-    queryFn: () => { if (!pool) throw new Error("Pool indisponível"); return getCandles({ data: { pool, token: address } }); },
-    staleTime: 60_000, gcTime: 30 * 60_000, refetchInterval: 60_000, retry: 1, retryDelay: 5000,
-  });
+  const candles = useCandles(pool, address);
   const ms = PERIODS.find((p) => p.id === period)?.ms ?? 86_400_000;
   const all = candles.data ?? [];
   const { visible, baseline, covered } = chartWindow(all, now, ms);
@@ -77,11 +73,12 @@ function PriceChart({ address, symbol }: { address: string; symbol: string }) {
           {[35, 70, 105].map((y) => <line key={y} x1={0} x2={W} y1={y} y2={y} stroke="currentColor" opacity={0.12} />)}
           {xy.length > 1 && <path d={path} fill="none" stroke="currentColor" strokeWidth={2} vectorEffect="non-scaling-stroke" />}
           {xy.at(-1) && <circle cx={xy.at(-1)?.[0]} cy={xy.at(-1)?.[1]} r={3} fill="currentColor" />}
-        </svg> : <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">{market.isLoading || candles.isLoading ? "Carregando histórico…" : !pool ? "Pool indisponível para este token" : all.length ? "Sem dados de preço neste período" : "Histórico indisponível agora"}</div>}
+        </svg> : <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">{market.isLoading || candles.isLoading ? "Carregando histórico…" : !pool ? "Pool indisponível para este token" : all.length ? "Sem dados de preço neste período" : candles.isFetching ? "Buscando histórico…" : "Histórico ainda não disponível — tentando de novo sozinho"}</div>}
       </div>
       {now > 0 && <div className="mt-1 flex justify-between text-[11px] text-muted-foreground"><span>{new Date(now - ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span><span>Agora</span></div>}
       <div className="mt-3 grid grid-cols-4 gap-1">{PERIODS.map((p) => <Button key={p.id} size="sm" variant={period === p.id ? "secondary" : "ghost"} aria-pressed={period === p.id} onClick={() => setPeriod(p.id)}>{p.id}</Button>)}</div>
       {stale && <p role="status" className="mt-2 text-xs text-warning">Atualização indisponível. Os últimos dados recebidos foram mantidos; tentando novamente.</p>}
+      {last && now - last[0] * 1000 > 20 * 60_000 && <p role="status" className="mt-2 text-xs text-warning">Gráfico com dados até {time(last[0] * 1000)} — buscando atualização. O preço acima continua ao vivo.</p>}
       {path && !covered && <p className="mt-2 text-xs text-muted-foreground">Histórico parcial neste período.</p>}
     </section>
   );

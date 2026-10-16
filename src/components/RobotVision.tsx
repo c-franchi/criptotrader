@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getMarket } from "@/lib/chain.functions";
-import { getCandles } from "@/lib/history.functions";
+import { useCandles } from "@/hooks/useCandles";
 import type { BotState } from "@/lib/autoStrategy";
 import type { StrategyConfig } from "@/lib/strategy";
 import { cn } from "@/lib/utils";
@@ -35,9 +35,10 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
   useEffect(() => { setNow(Date.now()); const t = setInterval(() => setNow(Date.now()), 15_000); return () => clearInterval(t); }, []);
   const market = useQuery({ queryKey: ["market", token], queryFn: () => getMarket({ data: { address: token } }), staleTime: 10_000, refetchInterval: 15_000, retry: 1 });
   const pool = market.data?.pools.find((p) => p.supported) ?? market.data?.pools[0];
-  const candles = useQuery({ queryKey: ["candles", pool?.pairAddress, token], enabled: !!pool, queryFn: () => getCandles({ data: { pool: pool!.pairAddress, token } }), staleTime: 60_000, refetchInterval: 60_000, retry: 1 });
+  const candles = useCandles(pool?.pairAddress, token);
   const ms = 24 * 3_600_000;
   const all = (candles.data ?? []).filter((c) => c[0] * 1000 >= now - ms);
+  const lastAt = candles.data?.length ? candles.data[candles.data.length - 1]![0] * 1000 : null;
   const live = Number(pool?.priceUsd) > 0 ? Number(pool?.priceUsd) : all.at(-1)?.[4] ?? null;
   const high = all.length ? Math.max(...all.map((c) => c[2])) : null;
   const lines: Line[] = mode === "grade" ? grid.map((p, i) => ({ price: p, label: i === 0 ? "Grade (base)" : i === grid.length - 1 ? "Grade (topo)" : "", tone: "grid" as const })) : robotLines(cfg, state, high);
@@ -82,12 +83,13 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
             {live && <circle cx={W} cy={y(live)} r={4} className="fill-warning motion-safe:animate-pulse" />}
           </svg>
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{candles.isLoading || market.isLoading ? "Carregando gráfico…" : "Histórico indisponível agora"}</div>
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{candles.isLoading || market.isLoading ? "Carregando gráfico…" : candles.isFetching ? "Buscando histórico…" : "Histórico ainda não disponível — tentando de novo sozinho"}</div>
         )}
         {path && lines.filter((l) => l.label).map((l, i) => (
           <span key={i} style={{ top: `calc(${(y(l.price) / H) * 100}% - 8px)` }} className={cn("pointer-events-none absolute left-2 rounded bg-card/90 px-1 text-[10px] font-medium", TONE[l.tone])}>{l.label} · {usd(l.price)}</span>
         ))}
       </div>
+      {lastAt != null && now - lastAt > 20 * 60_000 && <p role="status" className="text-xs text-warning">Gráfico com dados até {new Date(lastAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} — buscando atualização. O preço agora continua ao vivo.</p>}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
         <span><span className="text-warning">●</span> Preço agora</span>
         <span><span className="text-success">- -</span> Onde compra</span>

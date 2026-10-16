@@ -284,6 +284,27 @@ export type Database = {
         }
         Relationships: []
       }
+      price_candles: {
+        Row: {
+          candles: Json
+          pool: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          candles?: Json
+          pool: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          candles?: Json
+          pool?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       push_devices: {
         Row: {
           created_at: string

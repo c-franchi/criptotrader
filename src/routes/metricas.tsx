@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AppShell, Panel } from "@/components/AppShell";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { getMarket } from "@/lib/chain.functions";
-import { getCandles } from "@/lib/history.functions";
+import { useCandles } from "@/hooks/useCandles";
 import { backtest, windowStats } from "@/lib/backtest";
 import { PRESETS, buildPreset } from "@/lib/presets";
 import { taxFor } from "@/lib/tokens";
@@ -38,7 +38,7 @@ function Metrics() {
   const [amount, setAmount] = useState("1");
   const market = useQuery({ queryKey: ["market", token.address], queryFn: () => getMarket({ data: { address: token.address } }) });
   const pool = market.data?.pools.find((p) => p.supported)?.pairAddress ?? market.data?.pools[0]?.pairAddress;
-  const candles = useQuery({ queryKey: ["candles", pool, token.address], enabled: !!pool, queryFn: () => { if (!pool) throw new Error("Pool indisponível"); return getCandles({ data: { pool, token: token.address } }); }, staleTime: 60_000, refetchInterval: 60_000, retry: 1, retryDelay: 5000 });
+  const candles = useCandles(pool, token.address);
 
   const now = Date.now() / 1000;
   const win = (candles.data ?? []).filter((c) => c[0] >= now - hours * 3600);

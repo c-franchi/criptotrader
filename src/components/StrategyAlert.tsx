@@ -5,7 +5,7 @@ import { BellRing } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { getCandles } from "@/lib/history.functions";
+import { useCandles } from "@/hooks/useCandles";
 import { monitorState } from "@/lib/monitor";
 import { EMPTY_CONFIG, type StrategyConfig } from "@/lib/strategy";
 import type { PoolInfo } from "@/lib/chain.functions";
@@ -31,14 +31,7 @@ export function StrategyAlert({ address, symbol, pools }: { address: string; sym
   });
   const cfg = strategy.data;
   const pool = pools.find((p) => p.supported) ?? pools[0];
-  const candles = useQuery({
-    queryKey: ["candles", pool?.pairAddress, address],
-    enabled: !!cfg && (cfg.referenceType !== "manual" || cfg.entryType === "medias") && !!pool,
-    queryFn: () => getCandles({ data: { pool: pool!.pairAddress, token: address } }),
-    staleTime: 60_000,
-    refetchInterval: 60_000,
-    retry: 1,
-  });
+  const candles = useCandles(cfg && (cfg.referenceType !== "manual" || cfg.entryType === "medias") ? pool?.pairAddress : undefined, address);
   const rawPrice = Number(pool?.priceUsd);
   const price = rawPrice > 0 && Number.isFinite(rawPrice) ? rawPrice : null;
   const since = Date.now() - (cfg?.windowHours ?? 24) * 3_600_000;
