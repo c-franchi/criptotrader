@@ -14,6 +14,21 @@ type DexPair = {
 const cache = new Map<string, { expires: number; result: Market }>();
 const pending = new Map<string, Promise<Market>>();
 
+const USDT = "0x55d398326f99059fF775485246999027B3197955" as const;
+/** BNB price in USD from the PancakeSwap V2 WBNB/USDT pool (both 18 decimals). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function bnbUsdPrice(client: any): Promise<number | null> {
+  const pair = await client.readContract({ address: PANCAKE_V2_FACTORY, abi: factoryAbi, functionName: "getPair", args: [WBNB, USDT] });
+  if (pair === ZERO) return null;
+  const [[r0, r1], token0] = await Promise.all([
+    client.readContract({ address: pair, abi: pairAbi, functionName: "getReserves" }),
+    client.readContract({ address: pair, abi: pairAbi, functionName: "token0" }),
+  ]);
+  const wbnbIs0 = String(token0).toLowerCase() === WBNB.toLowerCase();
+  const bnb = Number(formatUnits(wbnbIs0 ? r0 : r1, 18)), usd = Number(formatUnits(wbnbIs0 ? r1 : r0, 18));
+  return bnb > 0 ? usd / bnb : null;
+}
+
 async function onChainPool(address: string, rpcUrl: string): Promise<PoolInfo[]> {
   const token = getAddress(address);
   const info = await tokenMeta(address);
@@ -29,9 +44,12 @@ async function onChainPool(address: string, rpcUrl: string): Promise<PoolInfo[]>
   const bnbReserve = isToken0 ? r1 : r0;
   const price = tokenReserve > 0n && bnbReserve > 0n
     ? String(Number(formatUnits(bnbReserve, 18)) / Number(formatUnits(tokenReserve, info.decimals))) : null;
+  const bnbUsd = await bnbUsdPrice(client).catch(() => null);
+  const priceUsd = price && bnbUsd ? String(Number(price) * bnbUsd) : null;
+  const liquidityUsd = bnbUsd ? Number(formatUnits(bnbReserve, 18)) * bnbUsd * 2 : null;
   return [{ pairAddress: pair, dexId: "pancakeswap", version: "v2", supported: true,
     baseSymbol: info.symbol, quoteSymbol: "WBNB", quoteAddress: WBNB, priceNative: price,
-    priceUsd: null, liquidityUsd: null, volume24h: null, priceChange24h: null,
+    priceUsd, liquidityUsd, volume24h: null, priceChange24h: null,
     url: `https://bscscan.com/address/${pair}` }];
 }
 
