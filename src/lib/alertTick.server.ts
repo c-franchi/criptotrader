@@ -54,6 +54,7 @@ export async function runAlertTick() {
     const acao = rule.direction === "queda" ? "compra" : "venda";
     const title = next === "atingiu" ? `${a.symbol}: chegou no ponto de ${acao}!` : `${a.symbol}: chegando perto do ponto de ${acao}`;
     const body = `Preço agora: US$ ${fmt(price)}. Seu ponto: US$ ${fmt(targetPrice(rule))} (${rule.direction === "queda" ? "queda" : "alta"} de ${rule.targetPct}%).`;
+    await db.from("notifications").insert({ user_id: a.user_id, title, body, link: "/estrategia" });
     const { data: devices } = await db.from("push_devices").select("id, token").eq("user_id", a.user_id);
     for (const d of devices ?? []) {
       const r = await sendPush(d.token, title, body);
