@@ -9,8 +9,8 @@ export function movePct(rule: AlertRule, price: number): number {
 
 export function alertState(rule: AlertRule, price: number): AlertState {
   const m = movePct(rule, price);
-  if (m >= rule.targetPct) return "atingiu";
-  if (m >= rule.targetPct - rule.warnBeforePct) return "perto";
+  if (m >= rule.targetPct - 1e-9) return "atingiu";
+  if (m >= rule.targetPct - rule.warnBeforePct - 1e-9) return "perto";
   return "longe";
 }
 
