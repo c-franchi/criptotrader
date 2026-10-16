@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,6 +8,8 @@ import { AppShell, Panel, RequireLogin } from "@/components/AppShell";
 import { EMPTY_CONFIG, describeStrategy, type StrategyConfig } from "@/lib/strategy";
 import { PRESETS, buildPreset, type PresetId } from "@/lib/presets";
 import { breakEvenPct, taxFor } from "@/lib/tokens";
+import { recommendPreset } from "@/lib/recommend";
+import { useCandles } from "@/hooks/useCandles";
 import { TokenAlerts } from "@/components/TokenAlerts";
 import { HelpTip } from "@/components/HelpTip";
 import { Check } from "lucide-react";
@@ -77,6 +79,12 @@ function StrategyForm() {
       if (apply) { set("buyTaxPct", r.tax.buy); set("sellTaxPct", r.tax.sell); }
     }).catch(() => setMeasured("fail"));
   };
+  const [pool, setPool] = useState<string | undefined>(undefined);
+  const candles = useCandles(pool, token.address);
+  const rec = useMemo(() => {
+    const since = Date.now() / 1000 - 86400;
+    return recommendPreset((candles.data ?? []).filter((x) => x[0] >= since).map((x) => x[4]), tax);
+  }, [candles.data, tax.buy, tax.sell]);
   type Mode = "" | PresetId | "manual";
   const [mode, setMode] = useState<Mode>("");
   const preset = PRESETS.find((p) => p.id === mode) ?? null;
@@ -107,8 +115,10 @@ function StrategyForm() {
       setEdited(false);
     });
     measure(false);
+    setPool(undefined);
     getMarket({ data: { address: token.address } }).then((m) => {
-      if (alive) setLiq(m.pools.find((p) => p.supported)?.liquidityUsd ?? null);
+      const sp = m.pools.find((p) => p.supported);
+      if (alive) { setLiq(sp?.liquidityUsd ?? null); setPool(sp?.pairAddress); }
     }).catch(() => {});
     return () => { alive = false; };
   }, [token.address]);
@@ -252,6 +262,18 @@ function StrategyForm() {
               <option value="manual">Manual · eu configuro e recebo avisos</option>
             </optgroup>
           </select>
+
+          {rec && (
+            <div className="mt-3 rounded-md border border-primary/60 bg-primary/5 p-3 text-sm">
+              <p className="font-semibold text-primary">💡 Sugestão do robô para {token.symbol} hoje: {PRESETS.find((p) => p.id === rec.id)?.name}</p>
+              <p className="mt-1 text-muted-foreground">{rec.reason}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Baseado no preço das últimas 24h. É uma sugestão, não garantia de lucro.</p>
+              {c.presetId === rec.id
+                ? <p className="mt-2 text-xs font-medium text-primary">✓ Você já está usando a recomendação.</p>
+                : <Button size="sm" className="mt-2" disabled={!(amountBnb > 0)} onClick={() => { setMode(rec.id); applyPreset(rec.id); }}>Aplicar recomendação</Button>}
+              {!(amountBnb > 0) && <p className="mt-1 text-xs text-destructive">Digite o valor no passo 3 para aplicar.</p>}
+            </div>
+          )}
 
           {!mode && <p className="mt-3 rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">Não sabe qual escolher? Comece pela <b>Entrada segura</b> para ver como funciona, ou pela <b>Manual</b> se quer apenas ser avisado e decidir sozinho.</p>}
 
