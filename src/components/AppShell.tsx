@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/NotificationBell";
 
 const nav = [
   { to: "/", label: "Painel", desc: "Preço, liquidez e transferências", icon: LayoutDashboard },
@@ -67,6 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Link to="/" className="shrink-0 font-mono text-sm font-semibold tracking-wider text-primary">CRYPTO·BOT</Link>
           {current && <span className="min-w-0 truncate text-sm text-muted-foreground">/ {current.label}</span>}
           <div className="ml-auto shrink-0">
+            <NotificationBell />
             {!user && <Button size="sm" asChild><Link to="/login">Entrar</Link></Button>}
           </div>
         </div>
