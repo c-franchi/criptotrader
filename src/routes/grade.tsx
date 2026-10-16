@@ -9,6 +9,7 @@ import { createBotWallet, getBotWallet, runGridNow, withdrawBot } from "@/lib/bo
 import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { HelpTip } from "@/components/HelpTip";
 import { FundBotDialog } from "@/components/FundBotDialog";
+import { requiredBotBnb } from "@/lib/botFunding";
 import { useSavedWallets } from "@/hooks/useSavedWallets";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { Button } from "@/components/ui/button";
@@ -112,6 +113,7 @@ function Robo() {
 
   const bnb = w?.bnb != null ? Number(w.bnb) : null;
   const reserve = mode === "estrategia" ? cfg?.gasReserveBnb || 0.003 : Number(f.gas_reserve_bnb);
+  const need = mode === "estrategia" ? (cfg ? requiredBotBnb({ reserve, sizingMode: cfg.sizingMode, buyAmount: cfg.buyAmount }) : null) : { reserve, trade: Number(f.order_bnb) || 0, total: reserve + (Number(f.order_bnb) || 0) };
   const hasFunds = bnb != null && bnb > reserve;
   const st = normalizeState(bot?.strat_state, Date.now());
   const preset = cfg?.presetId ? PRESETS.find((p) => p.id === cfg.presetId) : undefined;
@@ -168,7 +170,7 @@ function Robo() {
           </Step>
           <Step n={2} done={hasFunds} title="Colocar BNB na carteira do robô">
             Toque em "Enviar BNB da minha carteira" (abaixo), escolha o valor e confirme no app da sua carteira. Ele precisa de BNB para comprar e um pouquinho para o gás ({reserve} BNB fica guardado para isso).
-            {w?.address && <div className="mt-2"><FundBotDialog botAddress={w.address} onDone={load} /></div>}
+            {w?.address && <div className="mt-2"><FundBotDialog botAddress={w.address} onDone={load} botBnb={bnb} need={need} /></div>}
           </Step>
           <Step n={3} done={mode === "grade" || !!cfg} title={`Salvar uma estratégia para ${sym}`}>
             O robô faz exatamente o que a estratégia diz. <Link to="/estrategia" className="text-primary underline">Criar estratégia ›</Link>
@@ -259,12 +261,12 @@ function Robo() {
           <div className="space-y-1 text-sm">
             <p className="break-all font-mono text-xs">{w.address}</p>
             <div className="flex flex-wrap gap-2 py-1">
-              <FundBotDialog botAddress={w.address} onDone={load} />
+              <FundBotDialog botAddress={w.address} onDone={load} botBnb={bnb} need={need} />
               <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(w.address!); toast.success("Endereço copiado"); }}>Copiar endereço</Button>
               <a className="inline-flex items-center text-xs text-primary underline" href={`https://bscscan.com/address/${w.address}`} target="_blank" rel="noreferrer">Ver na BscScan</a>
             </div>
             <p>BNB: {bnb !== null ? <span className="font-mono">{bnb.toLocaleString("pt-BR", { maximumFractionDigits: 6 })}</span> : <Unavailable reason="falha de consulta" />}</p>
-            {bnb !== null && <p className={bnb < reserve ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>{bnb < reserve ? `Saldo abaixo da reserva de gás (${reserve} BNB). Envie BNB para o robô poder operar.` : "Saldo suficiente para o gás."}</p>}
+            {bnb !== null && <p className={bnb < reserve ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>{bnb < reserve ? `O robô tem ${bnb} BNB, mas sua estratégia guarda ${reserve} BNB só para o gás (reserva de segurança). Para operar ele precisa de ~${need ? +need.total.toFixed(6) : reserve} BNB no total. Envie mais ou diminua a "reserva para gás" na estratégia.` : "Saldo suficiente para o gás."}</p>}
             {w.tokens.filter((t) => Number(t.amount) > 0).map((t) => <p key={t.symbol}>{t.symbol}: <span className="font-mono">{Number(t.amount).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</span></p>)}
             <div className="mt-3 rounded-md border border-warning/50 bg-warning/10 p-3">
               <p className="font-semibold">↩️ Me arrependi — quero meu dinheiro de volta</p>
