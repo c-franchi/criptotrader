@@ -40,3 +40,23 @@ describe("compra sempre na baixa", () => {
     expect(decide(t, st, { ...m(0.9), closes: [1.3, 1.2, 1, 0.9, 0.8] }).action).toBe("nenhuma"); // downtrend
   });
 });
+
+describe("estratégia adaptativa", () => {
+  const a = { ...cfg, entryType: "adaptativa" as const, maFast: 3, maSlow: 5, buyTaxPct: 8, sellTaxPct: 8, takeProfits: [] };
+  const flat = Array.from({ length: 20 }, (_, i) => (i % 2 ? 1.25 : 1)); // lateral, faixa 25%? -> not lateral
+  it("never buys when a flat range cannot pay the taxes", () => {
+    const tight = Array.from({ length: 20 }, (_, i) => (i % 2 ? 1.05 : 1));
+    expect(decide(a, st, { ...m(1), closes: tight }).reason).toMatch(/taxas/);
+    expect(decide(a, st, { ...m(1), closes: tight }).action).toBe("nenhuma");
+  });
+  it("sells only above break-even including 8%+8% taxes", () => {
+    const held = afterTrade(st, { action: "compra", reason: "" }, { priceUsd: 1, bnb: 0.01, tokens: 100, now });
+    expect(decide(a, held, { ...m(1.18), closes: [] }).action).toBe("nenhuma");
+    expect(decide(a, held, { ...m(1.23), closes: [] }).action).toBe("venda");
+  });
+  it("does not buy in a downtrend", () => {
+    const down = Array.from({ length: 20 }, (_, i) => 2 - i * 0.05);
+    expect(decide(a, st, { ...m(1), closes: down }).action).toBe("nenhuma");
+    void flat;
+  });
+});

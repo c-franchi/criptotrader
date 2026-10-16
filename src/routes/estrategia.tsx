@@ -304,6 +304,7 @@ function StrategyForm() {
               <select className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={c.entryType} onChange={(e) => set("entryType", e.target.value as "queda")}>
                 <option value="queda">Queda percentual</option>
                 <option value="medias">Tendência + recuo (médias)</option>
+                <option value="adaptativa">Adaptativa (lê o padrão do preço)</option>
               </select>
             </div>
             {c.entryType === "queda" ? (

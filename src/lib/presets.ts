@@ -40,6 +40,18 @@ export const PRESETS: { id: PresetId; name: string; summary: string; how: string
     ],
     forWho: "Para quem acompanha o mercado: compra nos recuos de um token que está subindo e vende rápido. Em tokens com taxa alta (ex.: 8%), muitas operações comem o lucro.",
   },
+  {
+    id: "adaptativa",
+    name: "Adaptativa · Padrões",
+    summary: "Lê o comportamento do preço e muda a forma de operar sozinha.",
+    how: [
+      "Preço parado (variação menor que 8%): compra na parte de baixo da faixa e vende com lucro curto (~1,5% líquido).",
+      "Preço em alta: compra quando recua até a média e busca lucro maior (~4% líquido).",
+      "Preço em queda: não compra. Se já tiver comprado, aceita sair com lucro pequeno (~1% líquido).",
+      "Todas as metas já somam as taxas de compra e venda do token. Se a faixa for pequena demais para pagar as taxas, o robô não entra. Stop-loss em -6%.",
+    ],
+    forWho: "Para quem quer que o robô se adapte ao mercado sem precisar mexer na estratégia. Em tokens com taxa alta, ele opera menos, porque só entra quando dá para lucrar depois das taxas.",
+  },
 ];
 
 const r = (n: number) => Math.floor(n * 1e6) / 1e6;
@@ -59,5 +71,7 @@ function buildRaw(id: PresetId, amount: number, liquidityUsd: number | null): St
     return { ...base, buyAmount: r(amount / 4), entryType: "queda", dropPct: 8, maxEntries: 2, maxTradesPerDay: 2, cooldownMin: 240, maxExposureQuote: r(amount * 0.5), takeProfits: [{ pct: 10, sellPct: 50 }, { pct: 20, sellPct: 100 }], stopLossPct: 10, dailyLossLimit: r(amount * 0.1) };
   if (id === "equilibrada")
     return { ...base, buyAmount: r(amount / 5), entryType: "queda", dropPct: 5, maxEntries: 3, maxTradesPerDay: 4, cooldownMin: 90, maxExposureQuote: r(amount * 0.6), takeProfits: [{ pct: 6, sellPct: 40 }, { pct: 12, sellPct: 100 }], stopLossPct: 8, trailingEnabled: true, trailingActivatePct: 8, trailingDistancePct: 4, dailyLossLimit: r(amount * 0.1) };
+  if (id === "adaptativa")
+    return { ...base, buyAmount: r(amount / 4), entryType: "adaptativa", maFast: 9, maSlow: 21, candleInterval: "15m", maxEntries: 2, maxTradesPerDay: 6, cooldownMin: 45, maxExposureQuote: r(amount * 0.6), takeProfits: [], stopLossPct: 6, dailyLossLimit: r(amount * 0.1) };
   return { ...base, buyAmount: r(amount / 4), entryType: "medias", maFast: 9, maSlow: 21, candleInterval: "15m", maxEntries: 3, maxTradesPerDay: 8, cooldownMin: 30, maxExposureQuote: r(amount * 0.75), takeProfits: [{ pct: 4, sellPct: 50 }, { pct: 8, sellPct: 100 }], stopLossPct: 5, dailyLossLimit: r(amount * 0.15) };
 }

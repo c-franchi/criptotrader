@@ -32,7 +32,7 @@ export function StrategyAlert({ address, symbol, pools }: { address: string; sym
   });
   const cfg = strategy.data;
   const pool = pools.find((p) => p.supported) ?? pools[0];
-  const candles = useCandles(cfg && (cfg.referenceType !== "manual" || cfg.entryType === "medias") ? pool?.pairAddress : undefined, address);
+  const candles = useCandles(cfg && (cfg.referenceType !== "manual" || cfg.entryType !== "queda") ? pool?.pairAddress : undefined, address);
   const rawPrice = Number(pool?.priceUsd);
   const price = rawPrice > 0 && Number.isFinite(rawPrice) ? rawPrice : null;
   const since = Date.now() - (cfg?.windowHours ?? 24) * 3_600_000;

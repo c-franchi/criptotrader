@@ -1,5 +1,6 @@
 import type { StrategyConfig } from "./strategy";
 import type { Candle } from "./backtest";
+import { grossForNet } from "./tokens";
 
 /** Robot memory between ticks, saved per bot. Prices in USD, amounts in BNB / token units. */
 export type BotState = {
@@ -65,6 +66,25 @@ export function referenceHigh(candles: Candle[], sinceSec: number): number | nul
 
 export const intervalMinutes = (s: string) => { const m = /^(\d+)(m|h)$/.exec(s); return m ? Number(m[1]) * (m[2] === "h" ? 60 : 1) : 15; };
 
+export type Regime = { kind: "lateral" | "alta" | "queda"; lo: number; hi: number; rangePct: number; slow: number; targetNetPct: number; targetGrossPct: number };
+
+/** Net profit wanted per regime: short when the price is flat, longer when trending up. */
+const NET_TARGET = { lateral: 1.5, alta: 4, queda: 1 } as const;
+
+/** Reads the market pattern from closed candles (needs maSlow+1 closes). */
+export function readRegime(cfg: StrategyConfig, closes: number[]): Regime | null {
+  const n = Math.max(cfg.maSlow, 20);
+  if (closes.length < n) return null;
+  const w = closes.slice(-n);
+  const lo = Math.min(...w), hi = Math.max(...w);
+  const rangePct = (hi / lo - 1) * 100;
+  const fast = avg(closes.slice(-cfg.maFast)), slow = avg(closes.slice(-cfg.maSlow));
+  const kind = rangePct < 8 ? "lateral" : fast > slow ? "alta" : "queda";
+  const tax = { buy: cfg.buyTaxPct ?? 0, sell: cfg.sellTaxPct ?? 0 };
+  const targetNetPct = NET_TARGET[kind];
+  return { kind, lo, hi, rangePct, slow, targetNetPct, targetGrossPct: grossForNet(targetNetPct, tax) };
+}
+
 /** One decision per tick, following the saved strategy. Never more than one action. */
 export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
   const p = m.priceUsd;
@@ -80,6 +100,12 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
     const peak = Math.max(s.peakUsd, p);
     if (cfg.trailingEnabled && cfg.trailingDistancePct > 0 && peak >= s.avgPriceUsd * (1 + cfg.trailingActivatePct / 100) && p <= peak * (1 - cfg.trailingDistancePct / 100))
       return { action: "venda", reason: `Trailing stop: recuou ${fmt((1 - p / peak) * 100)} do topo`, sellPct: 100, all: true };
+    if (cfg.entryType === "adaptativa") {
+      const r = readRegime(cfg, m.closes);
+      const tax = { buy: cfg.buyTaxPct ?? 0, sell: cfg.sellTaxPct ?? 0 };
+      const gross = r ? r.targetGrossPct : grossForNet(NET_TARGET.alta, tax);
+      if (change >= gross - 1e-9) return { action: "venda", reason: `Meta adaptativa (${r?.kind ?? "sem histórico"}): subiu ${fmt(change)}, lucro líquido ~${r?.targetNetPct ?? NET_TARGET.alta}% já descontando as taxas`, sellPct: 100, all: true };
+    }
     const tps = cfg.takeProfits.map((t, i) => ({ ...t, i })).filter((t) => t.pct > 0 && !s.tpDone.includes(t.i)).sort((a, b) => a.pct - b.pct);
     const hit = tps.find((t) => change >= t.pct - 1e-9);
     if (hit) {
@@ -102,6 +128,19 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
     const at = ref * (1 - cfg.dropPct / 100);
     if (p <= at) return { action: "compra", reason: `Caiu ${fmt((1 - p / ref) * 100)} da referência (gatilho ${cfg.dropPct}%)` };
     return { action: "nenhuma", reason: `Esperando cair até US$ ${at.toPrecision(4)} (faltam ${fmt((p / at - 1) * 100)})` };
+  }
+  if (cfg.entryType === "adaptativa") {
+    const r = readRegime(cfg, m.closes);
+    if (!r) return { action: "nenhuma", reason: "Juntando histórico para reconhecer o padrão do preço" };
+    if (r.kind === "queda") return { action: "nenhuma", reason: "Padrão de queda — o robô não compra enquanto o preço cai" };
+    if (r.kind === "lateral") {
+      if (r.rangePct < r.targetGrossPct) return { action: "nenhuma", reason: `Preço parado, mas a faixa (${fmt(r.rangePct)}) é menor que o necessário para pagar as taxas e lucrar (${fmt(r.targetGrossPct)})` };
+      const at = r.lo + (r.hi - r.lo) * 0.25;
+      if (p <= at) return { action: "compra", reason: `Preço parado: comprando na parte de baixo da faixa, meta curta de +${fmt(r.targetGrossPct)} (já cobre as taxas)` };
+      return { action: "nenhuma", reason: `Preço parado — esperando cair até US$ ${at.toPrecision(4)} (parte de baixo da faixa)` };
+    }
+    if (p <= r.slow) return { action: "compra", reason: `Padrão de alta: preço recuou até a média, meta de +${fmt(r.targetGrossPct)} (já cobre as taxas)` };
+    return { action: "nenhuma", reason: `Padrão de alta — esperando recuar até US$ ${r.slow.toPrecision(4)}` };
   }
   const c = m.closes;
   if (!(cfg.maSlow > cfg.maFast) || c.length < cfg.maSlow + 1) return { action: "nenhuma", reason: "Histórico insuficiente para as médias" };
