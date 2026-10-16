@@ -11,7 +11,7 @@ export function HelpTip({ title, children }: { title: string; children: ReactNod
           <HelpCircle className="h-4 w-4" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 max-w-[90vw] text-sm" align="start">
+      <PopoverContent className="w-[min(20rem,calc(100vw-1.5rem))] max-h-[70vh] overflow-y-auto break-words text-sm" align="center" collisionPadding={12}>
         <p className="mb-1 font-semibold text-primary">{title}</p>
         <div className="space-y-1.5 text-muted-foreground">{children}</div>
       </PopoverContent>

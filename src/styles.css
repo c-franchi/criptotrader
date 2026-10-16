@@ -116,3 +116,16 @@
     font-family: var(--font-sans);
   }
 }
+
+/* Keep every page inside the phone screen: no sideways scroll, no auto-zoom. */
+@layer base {
+  html, body { max-width: 100%; overflow-x: hidden; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  img, svg, video, canvas, table { max-width: 100%; }
+  [data-radix-popper-content-wrapper] { max-width: calc(100vw - 1rem); }
+  [role="dialog"], [role="alertdialog"] { max-width: calc(100vw - 1.5rem); max-height: calc(100dvh - 2rem); overflow-y: auto; }
+}
+@media (max-width: 767px) {
+  /* iPhone zooms in on fields smaller than 16px; keep them at 16px. */
+  input, select, textarea { font-size: 16px !important; }
+}

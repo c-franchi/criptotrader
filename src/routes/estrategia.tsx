@@ -77,6 +77,13 @@ function StrategyForm() {
       if (apply) { set("buyTaxPct", r.tax.buy); set("sellTaxPct", r.tax.sell); }
     }).catch(() => setMeasured("fail"));
   };
+  type Mode = "" | PresetId | "manual";
+  const [mode, setMode] = useState<Mode>("");
+  const preset = PRESETS.find((p) => p.id === mode) ?? null;
+  const pickMode = (m: Mode) => {
+    setMode(m);
+    if (m === "manual" && c.presetId) set("presetId", null);
+  };
   const chosen = PRESETS.find((p) => p.id === c.presetId) ?? null;
   const applyPreset = (id: PresetId) => {
     setC(buildPreset(id, amountBnb, liq, tax));
@@ -93,7 +100,9 @@ function StrategyForm() {
       const rows = data ?? [];
       const own = rows.find((r) => r.token.toLowerCase() === token.address.toLowerCase());
       setWallet(rows.find((r) => r.tracked_wallet)?.tracked_wallet ?? "");
-      setC(own ? { ...EMPTY_CONFIG, ...(own.config as Partial<StrategyConfig>) } : EMPTY_CONFIG);
+      const cfg = own ? { ...EMPTY_CONFIG, ...(own.config as Partial<StrategyConfig>) } : EMPTY_CONFIG;
+      setC(cfg);
+      setMode(cfg.presetId ?? (own ? "manual" : ""));
       setVersion(own?.version ?? 0);
       setEdited(false);
     });
@@ -226,60 +235,60 @@ function StrategyForm() {
           </p>
           {bnbBalance !== null && amountBnb > Number(bnbBalance) && <p className="text-xs text-destructive">Valor maior que o saldo de BNB da carteira.</p>}
 
-          <p className="mt-4 mb-2 text-sm font-semibold">Passo 4 · Escolha um estilo</p>
-          <div className="mb-3 rounded-md border border-border bg-muted/30 p-2.5">
-            {chosen ? (
-              <>
-                <p className="flex items-center gap-1.5 text-sm font-semibold text-primary">
-                  <Check className="h-4 w-4 shrink-0" /> Estilo escolhido: {chosen.name}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {edited
-                    ? `Você ajustou campos à mão — a estratégia continua salva como ${chosen.name}.`
-                    : "Os campos abaixo são exatamente esta estratégia."}
-                </p>
-              </>
-            ) : (
-              <p className="text-xs text-muted-foreground">Nenhum estilo escolhido ainda: toque em “Usar esta” para preencher os campos.</p>
-            )}
+          <p className="mt-2 text-xs text-muted-foreground">Esse valor é usado para montar a estratégia pronta (passo 4).</p>
+        </Panel>
+
+        <Panel title="Passo 4 · Como você quer operar?">
+          <div className="flex items-center gap-1">
+            <Label htmlFor="modo">Escolha o tipo de estratégia</Label>
+            <HelpTip title="Tipos de estratégia"><p><b>Prontas (robô automático):</b> regras já montadas para o robô seguir sozinho. O robô automático ainda está em construção — por enquanto elas servem para aprender e simular.</p><p><b>Manual:</b> você mesmo define quando comprar e vender, e recebe avisos no celular para fazer a operação.</p></HelpTip>
           </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            {PRESETS.map((p) => {
-              const on = c.presetId === p.id;
-              return (
-                <div
-                  key={p.id}
-                  data-selected={on}
-                  className={cn(
-                    "relative flex flex-col rounded-md p-3 transition-colors",
-                    on ? "border-2 border-primary bg-primary/10" : "border border-border hover:border-primary/50",
-                  )}
-                >
-                  {on && (
-                    <span className="absolute -top-2.5 right-3 inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">
-                      <Check className="h-3 w-3" /> Em uso
-                    </span>
-                  )}
-                  <div className="flex items-center gap-1.5"><p className={cn("font-semibold", on && "text-primary")}>{p.name}</p><HelpTip title={p.name}><p>{p.summary}</p><ul className="list-disc space-y-1 pl-4">{p.how.map((h) => <li key={h}>{h}</li>)}</ul><p className="text-foreground">{p.forWho}</p></HelpTip></div>
-                  <p className="mb-2 text-xs text-muted-foreground">{p.summary}</p>
-                  <ul className="mb-3 flex-1 space-y-1 text-xs">{p.how.map((h) => <li key={h}>• {h}</li>)}</ul>
-                  <Button size="sm" variant={on ? "default" : "outline"} disabled={!(amountBnb > 0)} onClick={() => applyPreset(p.id)}>
-                    {on ? (
-                      <>
-                        <Check className="h-4 w-4" /> {edited ? "Reaplicar" : "Selecionada"}
-                      </>
-                    ) : (
-                      "Usar esta"
-                    )}
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">Compras usam BNB para obter {token.symbol}; vendas (lucro ou stop) devolvem BNB. Os campos abaixo são preenchidos sozinhos — revise e salve. Nenhuma estratégia garante lucro.</p>
+          <select id="modo" className="mt-1 w-full rounded-md border border-input bg-background px-3 py-3 text-base" value={mode} onChange={(e) => pickMode(e.target.value as Mode)}>
+            <option value="">Toque para escolher…</option>
+            <optgroup label="Prontas · para o robô automático (em breve)">
+              {PRESETS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </optgroup>
+            <optgroup label="Você no controle">
+              <option value="manual">Manual · eu configuro e recebo avisos</option>
+            </optgroup>
+          </select>
+
+          {!mode && <p className="mt-3 rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">Não sabe qual escolher? Comece pela <b>Entrada segura</b> para ver como funciona, ou pela <b>Manual</b> se quer apenas ser avisado e decidir sozinho.</p>}
+
+          {preset && (
+            <div className="mt-3 space-y-3 rounded-md border-2 border-primary bg-primary/10 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-semibold text-primary">{preset.name}</p>
+                <span className="rounded-full border border-warning/50 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning">Robô automático · em breve</span>
+              </div>
+              <p className="text-sm">{preset.summary}</p>
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Como funciona</p>
+                <ul className="space-y-1.5 text-sm">{preset.how.map((h) => <li key={h} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><span>{h}</span></li>)}</ul>
+              </div>
+              <div className="rounded-md bg-background/60 p-2.5">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Para quem é</p>
+                <p className="text-sm">{preset.forWho}</p>
+              </div>
+              <p className="text-xs text-muted-foreground">Esta estratégia foi feita para o robô seguir sozinho. Enquanto o robô automático não fica pronto, você pode salvá-la, ver o resultado em Métricas e fazer as compras em Operar.</p>
+              <Button className="w-full" variant={c.presetId === preset.id && !edited ? "default" : "outline"} disabled={!(amountBnb > 0)} onClick={() => applyPreset(preset.id)}>
+                {c.presetId === preset.id ? <><Check className="h-4 w-4" /> {edited ? "Reaplicar com este valor" : "✓ Em uso"}</> : "Usar esta estratégia"}
+              </Button>
+              {!(amountBnb > 0) && <p className="text-xs text-destructive">Digite o valor no passo 3 para montar a estratégia.</p>}
+            </div>
+          )}
+
+          {mode === "manual" && (
+            <div className="mt-3 rounded-md border-2 border-primary bg-primary/10 p-3 text-sm">
+              <p className="flex items-center gap-1.5 font-semibold text-primary"><Check className="h-4 w-4" /> Manual: você no controle</p>
+              <p className="mt-1">Abaixo aparecem as regras de compra e venda e os avisos no celular. Toque nos <b>?</b> para entender cada campo. Quando o preço chegar perto do ponto, você recebe o aviso e faz a operação em Operar.</p>
+            </div>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">Nenhuma estratégia garante lucro.</p>
         </Panel>
         </fieldset>
 
+        {mode === "manual" && <>
         <Panel title="Entrada (quando comprar)" collapsible>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -364,6 +373,7 @@ function StrategyForm() {
           </div>
         </Panel>
         <TokenAlerts token={token} tax={tax} />
+        </>}
       </div>
 
       <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
