@@ -1,4 +1,6 @@
 # Correção da seleção e do mercado
+- [x] Adicionar opção de stop por perda líquida às estratégias, gráficos e simulação, preservando estratégias existentes; 29 testes passaram, sem enviar transações.
+- [ ] Verificar salvamento do stop líquido na conta do usuário — sessão indisponível; requer entrada na prévia, sem alterar robôs ativos automaticamente.
 - [x] Estabilizar histórico e gráfico; consultar preço a cada 15s e histórico a cada minuto, mantendo dados nas falhas. Testado logado em celular/computador; seis testes passaram.
 - [x] Compartilhar o token selecionado entre Painel, Operar e Grade.
 - [x] Distinguir fonte indisponível de ausência de pool e consultar PancakeSwap diretamente como alternativa.

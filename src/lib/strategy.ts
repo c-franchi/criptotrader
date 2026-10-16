@@ -22,6 +22,7 @@ export type StrategyConfig = {
   maxTradesPerDay: number;
   takeProfits: { pct: number; sellPct: number }[];
   stopLossPct: number;
+  stopLossMode?: "preco" | "liquido"; // missing preserves existing price-based stops
   trailingEnabled: boolean;
   trailingActivatePct: number;
   trailingDistancePct: number;
@@ -92,7 +93,9 @@ export function describeStrategy(c: StrategyConfig, quote = "WBNB"): string[] {
   );
   lines.push(
     c.stopLossPct > 0
-      ? `Stop-loss: tentar vender todo o restante se o preço cair ${c.stopLossPct}% abaixo do preço médio.`
+      ? c.stopLossMode === "liquido"
+        ? `Stop por perda líquida: tentar vender o restante ao perder ${c.stopLossPct}% sobre o preço médio, incluindo taxas de compra e venda. Estimativa sem gás, slippage e impacto; a perda executada pode ser maior. Não desliga o robô nem bloqueia saques.`
+        : `Stop-loss: tentar vender todo o restante se o preço cair ${c.stopLossPct}% abaixo do preço médio.`
       : "Stop-loss desativado.",
   );
   if (c.trailingEnabled)

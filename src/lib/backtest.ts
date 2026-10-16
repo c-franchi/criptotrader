@@ -1,4 +1,5 @@
 import type { StrategyConfig } from "./strategy";
+import { stopPrice } from "./stopLoss";
 
 /** [time(s), open, high, low, close] in chronological order. */
 export type Candle = [number, number, number, number, number];
@@ -36,7 +37,10 @@ export function backtest(c: Candle[], cfg: StrategyConfig, capital: number): Bac
     if (tokens > 0) {
       const avg = cost / tokens;
       trailHigh = Math.max(trailHigh, h);
-      if (cfg.stopLossPct > 0 && l <= avg * (1 - cfg.stopLossPct / 100)) sell(1, avg * (1 - cfg.stopLossPct / 100));
+      // cost/tokens already includes buy tax and pool fee; do not discount buy tax twice.
+      const stop = stopPrice(avg, cfg.stopLossMode === "liquido" ? { ...cfg, buyTaxPct: 0 } : cfg);
+      const netStop = stop != null && cfg.stopLossMode === "liquido" ? stop / (1 - FEE) : stop;
+      if (netStop != null && l <= netStop) sell(1, cfg.stopLossMode === "liquido" ? Math.min(cl, netStop) : netStop);
       else if (cfg.trailingEnabled && trailHigh >= avg * (1 + cfg.trailingActivatePct / 100) && l <= trailHigh * (1 - cfg.trailingDistancePct / 100)) sell(1, trailHigh * (1 - cfg.trailingDistancePct / 100));
       else {
         while (tokens > 0 && tpDone < cfg.takeProfits.length) {

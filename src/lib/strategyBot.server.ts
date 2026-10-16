@@ -16,7 +16,9 @@ export async function runStrategyStep(admin: any, bot: Bot, enc: string) {
   const now = Date.now();
   const { data: strat } = await admin.from("strategies").select("config").eq("user_id", bot.user_id).ilike("token", bot.token).order("updated_at", { ascending: false }).limit(1).maybeSingle();
   if (!strat) return { patch: { last_error: "Nenhuma estratégia salva para este token", last_reason: null }, order: null };
-  const cfg: StrategyConfig = { ...EMPTY_CONFIG, ...(strat.config as Partial<StrategyConfig>) };
+  const saved: StrategyConfig = { ...EMPTY_CONFIG, ...(strat.config as Partial<StrategyConfig>) };
+  const knownTax = taxFor(bot.token, saved);
+  const cfg: StrategyConfig = { ...saved, buyTaxPct: knownTax.buy, sellTaxPct: knownTax.sell };
   const state = normalizeState(bot.strat_state, now);
   const token = getAddress(bot.token);
   const rpc = process.env["BSC_RPC_URL"] || "https://bsc-dataseed.bnbchain.org";

@@ -149,6 +149,7 @@ function StrategyForm() {
   if (c.sizingMode === "percentual" && c.buyAmount > 100) errors.push("Percentual do saldo não pode passar de 100%.");
   if (c.takeProfits.some((t) => t.sellPct <= 0 || t.sellPct > 100)) errors.push("Percentual vendido deve estar entre 0 e 100.");
   if (c.entryType === "medias" && c.maFast >= c.maSlow) errors.push("A média rápida deve ser menor que a lenta.");
+  if (!Number.isFinite(c.stopLossPct) || c.stopLossPct < 0 || c.stopLossPct >= 100) errors.push("O limite do stop deve ser de 0 (desativado) até menos de 100%.");
 
   const save = async () => {
     if (!user || errors.length) return;
@@ -310,6 +311,20 @@ function StrategyForm() {
         </Panel>
         </fieldset>
 
+        {mode && <Panel title="Proteção da posição" collapsible>
+          <Label htmlFor="stop-mode">Regra do stop</Label>
+          <select id="stop-mode" className="mt-1 w-full rounded-md border border-input bg-background px-3 py-3 text-base" value={c.stopLossMode ?? "preco"} onChange={(e) => { set("stopLossMode", e.target.value as "preco" | "liquido"); set("buyTaxPct", tax.buy); set("sellTaxPct", tax.sell); }}>
+            <option value="preco">Queda do preço (regra atual)</option>
+            <option value="liquido">Perda líquida (inclui taxas do token)</option>
+          </select>
+          <div className="mt-3"><Num label={c.stopLossMode === "liquido" ? "Limite de perda líquida (%)" : "Limite de queda do preço (%)"} hint="0 = desativado" value={c.stopLossPct} onChange={(n) => set("stopLossPct", n)} /></div>
+          <p className="mt-2 text-xs text-muted-foreground">O stop tenta vender a posição, não desliga o robô nem bloqueia saques. Ele pode voltar a comprar conforme os limites da estratégia.</p>
+          {c.stopLossMode === "liquido" && <>
+            <p className="mt-2 text-xs text-muted-foreground">Inclui taxas de compra e venda sobre o preço médio. Não inclui gás, slippage ou impacto de preço; a perda real pode ser maior. Essa regra pode vender antes do stop por preço, não aumenta o espaço para recuperação.</p>
+            {c.stopLossPct > 0 && c.stopLossPct <= (1 - (1 - tax.buy / 100) * (1 - tax.sell / 100)) * 100 && <p role="alert" className="mt-2 text-sm text-destructive">Só as taxas já representam {((1 - (1 - tax.buy / 100) * (1 - tax.sell / 100)) * 100).toFixed(2)}% de perda se vender pelo mesmo preço. Esse limite pode provocar venda na primeira verificação após a compra. Revise antes de salvar.</p>}
+          </>}
+        </Panel>}
+
         {mode === "manual" && <>
         <Panel title="Entrada (quando comprar)" collapsible>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -376,7 +391,6 @@ function StrategyForm() {
               </div>
             ))}
             <div className="grid gap-3 sm:grid-cols-2">
-              <Num label="Stop-loss: queda sobre preço médio (%)" hint="0 = desativado" value={c.stopLossPct} help="Venda de proteção: se o preço cair esse % abaixo do que você pagou, vende tudo para não perder mais. 0 = desligado." onChange={(n) => set("stopLossPct", n)} />
               <Num label="Limite de perda diária (moeda do par)" value={c.dailyLossLimit} help="Se as perdas do dia chegarem a esse valor, o robô para até o dia seguinte." onChange={(n) => set("dailyLossLimit", n)} />
               <Num label="Slippage máximo (%)" value={c.maxSlippagePct} help="Quanto o preço pode mudar entre a cotação e a execução. Tokens com taxa precisam de um valor um pouco maior." onChange={(n) => set("maxSlippagePct", n)} />
               <Num label="Impacto de preço máximo (%)" value={c.maxPriceImpactPct} help="Quanto a sua própria compra/venda move o preço. Alto = você paga mais caro. Evite passar de 3%." onChange={(n) => set("maxPriceImpactPct", n)} />

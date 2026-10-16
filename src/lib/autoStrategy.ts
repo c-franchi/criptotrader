@@ -1,6 +1,7 @@
 import type { StrategyConfig } from "./strategy";
 import type { Candle } from "./backtest";
 import { grossForNet } from "./tokens";
+import { netPositionPct, stopPrice } from "./stopLoss";
 
 /** Robot memory between ticks, saved per bot. Prices in USD, amounts in BNB / token units. */
 export type BotState = {
@@ -96,7 +97,8 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
   const holding = s.tokens > 0 && s.avgPriceUsd > 0;
   if (holding) {
     const change = (p / s.avgPriceUsd - 1) * 100;
-    if (cfg.stopLossPct > 0 && change <= -cfg.stopLossPct + 1e-9) return { action: "venda", reason: `Stop-loss: caiu ${fmt(-change)} do preço médio`, sellPct: 100, all: true };
+    const stop = stopPrice(s.avgPriceUsd, cfg);
+    if (stop != null && p <= stop + stop * 1e-11) return { action: "venda", reason: cfg.stopLossMode === "liquido" ? `Stop por perda líquida: perda estimada ${fmt(-netPositionPct(p, s.avgPriceUsd, cfg))}, incluindo taxas de compra e venda, sem gás e variação da execução` : `Stop-loss: caiu ${fmt(-change)} do preço médio`, sellPct: 100, all: true };
     const peak = Math.max(s.peakUsd, p);
     if (cfg.trailingEnabled && cfg.trailingDistancePct > 0 && peak >= s.avgPriceUsd * (1 + cfg.trailingActivatePct / 100) && p <= peak * (1 - cfg.trailingDistancePct / 100))
       return { action: "venda", reason: `Trailing stop: recuou ${fmt((1 - p / peak) * 100)} do topo`, sellPct: 100, all: true };

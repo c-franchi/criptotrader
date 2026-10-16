@@ -1,4 +1,5 @@
 import type { StrategyConfig } from "./strategy";
+import { stopPrice } from "./stopLoss";
 
 export type MonitorAlert = {
   kind: "compra" | "take" | "stop";
@@ -46,8 +47,8 @@ export function monitorState(cfg: StrategyConfig, price: number | null, high24h:
       }
     });
     if (cfg.stopLossPct > 0) {
-      const at = reference * (1 - cfg.stopLossPct / 100);
-      alerts.push({ kind: "stop", label: `Stop-loss: -${cfg.stopLossPct}% da referência`, triggerAt: at, active: price <= at });
+      const at = stopPrice(reference, cfg);
+      if (at != null) alerts.push({ kind: "stop", label: cfg.stopLossMode === "liquido" ? `Stop: perda líquida estimada de ${cfg.stopLossPct}% (com taxas)` : `Stop-loss: -${cfg.stopLossPct}% da referência`, triggerAt: at, active: price <= at });
     }
   }
   return { reference, referenceLabel, alerts };
