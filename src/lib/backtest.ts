@@ -19,7 +19,7 @@ const FEE = 0.0025; // PancakeSwap V2 fee per swap
 /** Simplified replay of a strategy over candles. Capital and sizes in the quote currency. */
 export function backtest(c: Candle[], cfg: StrategyConfig, capital: number): BacktestResult | null {
   if (c.length < 2 || capital <= 0) return null;
-  let quote = capital, tokens = 0, cost = 0, entries = 0, trades = 0, peak = c[0]![2], tpDone = 0, trailHigh = 0;
+  let quote = capital, tokens = 0, cost = 0, entries = 0, trades = 0, peak = c[0]![4], tpDone = 0, trailHigh = 0;
   const size = cfg.sizingMode === "fixo" ? cfg.buyAmount : (capital * cfg.buyAmount) / 100;
   const closes: number[] = [];
   const ma = (n: number) => (closes.length < n ? null : closes.slice(-n).reduce((a, b) => a + b, 0) / n);
@@ -69,7 +69,7 @@ export function backtest(c: Candle[], cfg: StrategyConfig, capital: number): Bac
       quote -= size; tokens += (size * (1 - FEE) * (1 - (cfg.buyTaxPct ?? 0) / 100)) / price; cost += size; entries++; trades++;
       peak = price; // signal re-arms from the new level
     }
-    peak = Math.max(peak, h);
+    peak = Math.max(peak, cl);
   }
   const last = c[c.length - 1]![4];
   const finalValue = quote + tokens * last;
