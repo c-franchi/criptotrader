@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getMarket } from "@/lib/chain.functions";
 import { useCandles } from "@/hooks/useCandles";
-import { closesAt, intervalMinutes, referenceHigh, type BotState } from "@/lib/autoStrategy";
+import { closesAt, readRegime, intervalMinutes, referenceHigh, type BotState } from "@/lib/autoStrategy";
 import type { StrategyConfig } from "@/lib/strategy";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +48,19 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
     const f = cl.slice(-cfg.maFast).reduce((a, b) => a + b, 0) / cfg.maFast, s = cl.slice(-cfg.maSlow).reduce((a, b) => a + b, 0) / cfg.maSlow;
     return { f, s, up: f > s };
   })();
-  const lines: Line[] = mode === "grade" ? grid.map((p, i) => ({ price: p, label: i === 0 ? "Grade (base)" : i === grid.length - 1 ? "Grade (topo)" : "", tone: "grid" as const })) : [...robotLines(cfg, state, high), ...(slowAvg?.up && state.entries < Math.max(1, cfg?.maxEntries ?? 1) ? [{ price: slowAvg.s, label: `Compra abaixo daqui (média de ${cfg?.maSlow})`, tone: "buy" as const }] : [])];
+  const regime = (() => {
+    if (!cfg || cfg.entryType !== "adaptativa" || !candles.data) return null;
+    return readRegime(cfg, closesAt(candles.data, intervalMinutes(cfg.candleInterval), now || Date.now()));
+  })();
+  const adaptLines: Line[] = [];
+  if (regime && cfg) {
+    if (state.tokens > 0 && state.avgPriceUsd > 0) adaptLines.push({ price: state.avgPriceUsd * (1 + regime.targetGrossPct / 100), label: `Venda (+${regime.targetGrossPct.toFixed(1)}%, já com taxas)`, tone: "sell" });
+    else if (state.entries < Math.max(1, cfg.maxEntries)) {
+      if (regime.kind === "lateral" && regime.rangePct >= regime.targetGrossPct) adaptLines.push({ price: regime.lo + (regime.hi - regime.lo) * 0.25, label: "Compra abaixo daqui (fundo da faixa)", tone: "buy" });
+      if (regime.kind === "alta") adaptLines.push({ price: regime.slow, label: "Compra abaixo daqui (média)", tone: "buy" });
+    }
+  }
+  const lines: Line[] = mode === "grade" ? grid.map((p, i) => ({ price: p, label: i === 0 ? "Grade (base)" : i === grid.length - 1 ? "Grade (topo)" : "", tone: "grid" as const })) : [...robotLines(cfg, state, high), ...adaptLines, ...(slowAvg?.up && state.entries < Math.max(1, cfg?.maxEntries ?? 1) ? [{ price: slowAvg.s, label: `Compra abaixo daqui (média de ${cfg?.maSlow})`, tone: "buy" as const }] : [])];
   const trades = orders.filter((o) => o.status === "confirmada" && o.token.toLowerCase() === token.toLowerCase()).map((o) => {
     const t = Date.parse(o.created_at);
     const c = all.reduce<(typeof all)[number] | undefined>((b, x) => (!b || Math.abs(x[0] * 1000 - t) < Math.abs(b[0] * 1000 - t) ? x : b), undefined);
@@ -112,6 +124,7 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
             : <p className="text-success">Falta {((live / buyLine.price - 1) * 100).toFixed(1)}% de queda para o robô comprar.</p>)}
           {nextSell && <p className="text-primary">Falta {Math.max(0, (nextSell.price / live - 1) * 100).toFixed(1)}% de alta para a próxima venda com lucro.</p>}
           {mode !== "grade" && cfg?.entryType === "medias" && <p className="text-muted-foreground">{slowAvg?.up ? "Tendência de alta: o robô compra quando o preço recuar até a linha verde (a média)." : "Tendência de queda: o robô não compra enquanto o preço cai. A linha de compra aparece quando a tendência virar para alta."}</p>}
+          {mode !== "grade" && cfg?.entryType === "adaptativa" && <p className="text-muted-foreground">{!regime ? "Juntando histórico para reconhecer o padrão do preço…" : regime.kind === "lateral" ? (regime.rangePct >= regime.targetGrossPct ? `Padrão: preço parado (faixa de ${regime.rangePct.toFixed(1)}%). O robô compra no fundo da faixa e vende com ganho curto.` : `Padrão: preço parado, mas a faixa (${regime.rangePct.toFixed(1)}%) não paga as taxas (${regime.targetGrossPct.toFixed(1)}%). O robô não entra.`) : regime.kind === "alta" ? "Padrão: alta. O robô compra quando o preço recuar até a linha verde (a média)." : "Padrão: queda. O robô não compra enquanto o preço cai."}</p>}
           {reason && <p className="text-muted-foreground">O robô está pensando: {reason}</p>}
         </div>
       )}
@@ -133,6 +146,11 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
           if (cfg.entryType === "medias") {
             checks.push({ ok: !!slowAvg?.up, t: slowAvg ? (slowAvg.up ? "Tendência de alta (média rápida acima da lenta)" : "Tendência de queda (média rápida abaixo da lenta)") : "Calculando médias…" });
             if (slowAvg) checks.push({ ok: live <= slowAvg.s, t: live <= slowAvg.s ? "Preço recuou até a média" : `Preço ${pct(slowAvg.s).toFixed(1)}% acima da média lenta` });
+          } else if (cfg.entryType === "adaptativa") {
+            checks.push({ ok: !!regime && regime.kind !== "queda", t: !regime ? "Reconhecendo o padrão…" : regime.kind === "lateral" ? "Padrão: preço parado" : regime.kind === "alta" ? "Padrão: alta" : "Padrão: queda (não compra)" });
+            if (regime?.kind === "lateral") checks.push({ ok: regime.rangePct >= regime.targetGrossPct, t: `Faixa ${regime.rangePct.toFixed(1)}% ${regime.rangePct >= regime.targetGrossPct ? "paga" : "não paga"} as taxas (precisa ${regime.targetGrossPct.toFixed(1)}%)` });
+            if (buyLine) checks.push({ ok: live <= buyLine.price, t: live <= buyLine.price ? "Preço no ponto de compra" : `Faltam ${((live / buyLine.price - 1) * 100).toFixed(1)}% de queda` });
+            if (regime) checks.push({ ok: true, t: `Meta de lucro: ~${regime.targetNetPct}% líquido (preço precisa subir ${regime.targetGrossPct.toFixed(1)}%)` });
           } else if (buyLine) {
             checks.push({ ok: live <= buyLine.price, t: live <= buyLine.price ? "Preço abaixo do ponto de compra" : `Faltam ${((live / buyLine.price - 1) * 100).toFixed(1)}% de queda` });
           }
