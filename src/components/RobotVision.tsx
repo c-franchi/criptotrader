@@ -29,7 +29,7 @@ export function robotLines(cfg: StrategyConfig | null | undefined, s: BotState, 
   return out;
 }
 
-export function RobotVision(props: { token: string; symbol: string; cfg: StrategyConfig | null | undefined; state: BotState; mode: string; grid: number[]; orders: Order[]; armed: boolean; reason?: string | null }) {
+export function RobotVision(props: { token: string; symbol: string; cfg: StrategyConfig | null | undefined; state: BotState; mode: string; grid: number[]; orders: Order[]; armed: boolean; reason?: string | null | undefined }) {
   const { token, symbol, cfg, state, mode, grid, orders, armed, reason } = props;
   const [now, setNow] = useState(0);
   useEffect(() => { setNow(Date.now()); const t = setInterval(() => setNow(Date.now()), 15_000); return () => clearInterval(t); }, []);
