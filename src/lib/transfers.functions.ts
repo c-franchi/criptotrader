@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { rankWallets, type WalletRank } from "./ranking";
 
 const LOGS_RPCS = [
   "https://bsc-rpc.publicnode.com",
@@ -19,6 +20,9 @@ export type TransfersResult = {
   holdersNote: string;
   error: string | null;
   scannedBlocks: number;
+  ranking: WalletRank[];
+  rankedTransfers: number;
+  fetchedAt: string;
 };
 
 const cache = new Map<string, { value: TransfersResult; expires: number }>();
