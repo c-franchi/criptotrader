@@ -23,12 +23,11 @@ export async function tickBot(admin: any, bot: any) {
     await admin.from("orders").insert(res.order);
     const { data: t } = await admin.from("user_tokens").select("symbol").eq("user_id", bot.user_id).ilike("address", bot.token).maybeSingle();
     const ok = res.order.status === "confirmada";
-    await admin.from("notifications").insert({
-      user_id: bot.user_id,
-      title: ok ? `Robô ${res.order.side === "compra" ? "comprou" : "vendeu"} ${TOKENS.find((x) => x.address.toLowerCase() === String(bot.token).toLowerCase())?.symbol ?? t?.symbol ?? "token"}` : `Robô: ${res.order.side} falhou`,
-      body: ok ? String(res.patch["last_reason"] ?? "Seguindo sua estratégia.") : String(res.order.error ?? "Nada foi trocado."),
-      link: "/grade",
-    });
+    const title = ok ? `Robô ${res.order.side === "compra" ? "comprou" : "vendeu"} ${TOKENS.find((x) => x.address.toLowerCase() === String(bot.token).toLowerCase())?.symbol ?? t?.symbol ?? "token"}` : `Robô: ${res.order.side} falhou`;
+    const body = ok ? String(res.patch["last_reason"] ?? "Seguindo sua estratégia.") : String(res.order.error ?? "Nada foi trocado.");
+    await admin.from("notifications").insert({ user_id: bot.user_id, title, body, link: "/grade" });
+    const { pushToUser } = await import("./pushSend.server");
+    await pushToUser(admin, bot.user_id, title, body, "/grade");
   }
   await admin.from("grid_bots").update({ ...res.patch, last_run_at: new Date().toISOString() }).eq("id", bot.id);
   return { ok: !res.patch["last_error"], action: res.order?.side ?? "nenhuma", status: res.order?.status ?? null, error: (res.patch["last_error"] as string | null) ?? null, reason: (res.patch["last_reason"] as string | null) ?? null };
