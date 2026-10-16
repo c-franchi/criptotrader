@@ -1,4 +1,4 @@
-export type PresetId = "segura" | "equilibrada" | "ativa";
+export type PresetId = "segura" | "equilibrada" | "ativa" | "adaptativa";
 
 export type StrategyConfig = {
   presetId?: PresetId | null; // which ready-made style produced this config
@@ -6,7 +6,7 @@ export type StrategyConfig = {
   sellTaxPct?: number; // token tax charged on sells (% of BNB received)
   sizingMode: "fixo" | "percentual";
   buyAmount: number; // quote units when fixo, % of quote balance when percentual
-  entryType: "queda" | "medias";
+  entryType: "queda" | "medias" | "adaptativa";
   dropPct: number;
   referenceType: "manual" | "maxima";
   manualReference: number | null;
@@ -74,6 +74,8 @@ export function describeStrategy(c: StrategyConfig, quote = "WBNB"): string[] {
         ? `o preço de referência definido (${c.manualReference ?? "não informado"})`
         : `a máxima observada nas últimas ${c.windowHours}h`;
     lines.push(`Comprar ${size} quando o preço cair ${c.dropPct}% em relação a ${ref}.`);
+  } else if (c.entryType === "adaptativa") {
+    lines.push(`Comprar ${size} conforme o comportamento do preço: parado (lateral) → compra na parte de baixo da faixa e vende com ganho curto; em alta → compra no recuo até a média; em queda → não compra. As metas de venda sempre cobrem as taxas de compra e venda do token.`);
   } else {
     lines.push(
       `Comprar ${size} quando a tendência estiver de alta (média de ${c.maFast} velas acima da de ${c.maSlow}) e o preço recuar até a média de ${c.maSlow} ou abaixo — compra na baixa, nunca no topo (velas de ${c.candleInterval}, apenas velas fechadas).`,
