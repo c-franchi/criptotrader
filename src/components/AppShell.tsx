@@ -81,7 +81,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 export function Panel({ title, children, right, collapsible, defaultOpen = false }: { title: string; children: ReactNode; right?: ReactNode; collapsible?: boolean; defaultOpen?: boolean }) {
   if (collapsible)
     return (
-      <details open={defaultOpen} className="group min-w-0 rounded-lg border border-border bg-card p-3 sm:p-4">
+      <details open={defaultOpen} onToggle={(e) => { const el = e.currentTarget; requestAnimationFrame(() => el.scrollIntoView({ behavior: "smooth", block: el.open ? "start" : "center" })); }} className="group min-w-0 scroll-mt-16 rounded-lg border border-border bg-card p-3 sm:p-4">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
           <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-widest text-muted-foreground">{title}</h2>
           <span className="flex items-center gap-2">

@@ -9,6 +9,7 @@ import { createBotWallet, getBotWallet, runGridNow, withdrawBot } from "@/lib/bo
 import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { HelpTip } from "@/components/HelpTip";
 import { FundBotDialog } from "@/components/FundBotDialog";
+import { useSavedWallets } from "@/hooks/useSavedWallets";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +69,8 @@ function Robo() {
   const [f, setF] = useState(blank);
   const [orders, setOrders] = useState<Tables<"orders">[]>([]);
   const [busy, setBusy] = useState(false);
+  const { wallets: saved } = useSavedWallets();
+  const [dest, setDest] = useState("");
 
   const load = useCallback(async () => {
     getW().then(setW).catch(() => setW({ address: null, bnb: null, tokens: [] }));
@@ -154,7 +157,7 @@ function Robo() {
           <li>🔒 A chave da carteira do robô é criada no servidor e guardada criptografada. Ninguém a vê — nem você, nem a equipe.</li>
           <li>🔒 O CryptoBot <strong className="text-foreground">nunca</strong> pede sua frase secreta ou chave privada. Se alguém pedir, é golpe.</li>
           <li>🔒 O dinheiro do robô só pode voltar para uma carteira sua salva em Minhas carteiras há mais de 24 horas.</li>
-          <li>💡 Deixe no robô só um valor pequeno que aceita arriscar. Para recuperar tudo, use "Sacar tudo".</li>
+          <li>💡 Deixe no robô só um valor pequeno que aceita arriscar. Para recuperar tudo, use "Desligar e devolver tudo".</li>
         </ul>
       </Panel>
 
@@ -263,8 +266,25 @@ function Robo() {
             <p>BNB: {bnb !== null ? <span className="font-mono">{bnb.toLocaleString("pt-BR", { maximumFractionDigits: 6 })}</span> : <Unavailable reason="falha de consulta" />}</p>
             {bnb !== null && <p className={bnb < reserve ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>{bnb < reserve ? `Saldo abaixo da reserva de gás (${reserve} BNB). Envie BNB para o robô poder operar.` : "Saldo suficiente para o gás."}</p>}
             {w.tokens.filter((t) => Number(t.amount) > 0).map((t) => <p key={t.symbol}>{t.symbol}: <span className="font-mono">{Number(t.amount).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</span></p>)}
-            <p className="text-xs text-muted-foreground">Para devolver tudo para você, use "Sacar tudo": o robô é desligado e o saldo vai para sua carteira salva em Minhas carteiras há pelo menos 24 horas.</p>
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => confirm("Desligar e enviar todo o saldo para sua carteira?") && act(() => withdraw(), "Saque enviado")}>Sacar tudo</Button>
+            <div className="mt-3 rounded-md border border-warning/50 bg-warning/10 p-3">
+              <p className="font-semibold">↩️ Me arrependi — quero meu dinheiro de volta</p>
+              <p className="mt-1 text-xs text-muted-foreground">A qualquer momento: o robô é <strong className="text-foreground">desligado na hora</strong>, os tokens que ele comprou e todo o BNB voltam para a carteira que você escolher abaixo (só fica o necessário para a taxa da rede). Os tokens voltam como tokens — se quiser BNB, venda-os depois em Operar.</p>
+              {(() => {
+                const ok = (c: { created_at?: string }) => !!c.created_at && Date.now() - new Date(c.created_at).getTime() >= 24 * 3600 * 1000;
+                const eligible = saved.filter(ok);
+                if (saved.length === 0) return <p className="mt-2 text-xs">Primeiro salve sua carteira em <Link to="/carteiras" className="text-primary underline">Minhas carteiras</Link>. Por segurança, ela poderá receber 24 horas depois.</p>;
+                return (
+                  <div className="mt-2 space-y-2">
+                    <select className="w-full rounded-md border border-border bg-background p-2 text-sm" value={dest} onChange={(e) => setDest(e.target.value)}>
+                      <option value="">Escolha para onde devolver…</option>
+                      {saved.map((c) => <option key={c.id} value={c.address} disabled={!ok(c)}>{c.label || "Carteira"} · {c.address.slice(0, 6)}…{c.address.slice(-4)}{ok(c) ? "" : " (liberada 24h após salvar)"}</option>)}
+                    </select>
+                    {eligible.length === 0 && <p className="text-xs">Sua carteira foi salva há menos de 24 horas. Essa espera protege seu dinheiro caso alguém invada sua conta.</p>}
+                    <Button className="w-full" variant="destructive" disabled={busy || !dest} onClick={() => confirm("Desligar o robô e devolver todo o saldo para a carteira escolhida?") && act(() => withdraw({ data: { to: dest } }), "Devolução enviada. Confira na sua carteira em alguns segundos.")}>Desligar e devolver tudo</Button>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         ) : (
           <Button disabled={busy} onClick={() => act(() => createW(), "Carteira do robô criada")}>Criar carteira do robô</Button>
@@ -293,7 +313,7 @@ function Robo() {
           <Faq q="E se o preço não puder ser lido?">Ele espera. Sem preço confiável ele não compra nem vende.</Faq>
           <Faq q="A carteira do robô é real?">Sim. É um endereço de verdade na rede BSC, criado só para você. Toque em "Ver na BscScan" para conferir saldo e operações.</Faq>
           <Faq q="O robô pode mexer na minha carteira pessoal?">Não. Ele só usa o BNB que você enviar para a carteira dele. Sua carteira pessoal continua 100% sua.</Faq>
-          <Faq q="Como paro tudo?">Toque em "Desligar robô". Para pegar o dinheiro de volta, use "Sacar tudo".</Faq>
+          <Faq q="Como paro tudo?">Toque em "Desligar robô". Para pegar o dinheiro de volta, use "Desligar e devolver tudo" na área Carteira do robô — dá para fazer a qualquer momento, até logo depois de enviar.</Faq>
         </div>
       </Panel>
     </div>

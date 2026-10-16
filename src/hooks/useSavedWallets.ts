@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type SavedWallet = { id: string; label: string; address: string };
+export type SavedWallet = { id: string; label: string; address: string; created_at: string };
 
 export const isWallet = (a: string) => /^0x[0-9a-fA-F]{40}$/.test(a);
 
@@ -9,7 +9,7 @@ export const isWallet = (a: string) => /^0x[0-9a-fA-F]{40}$/.test(a);
 export function useSavedWallets() {
   const [wallets, setWallets] = useState<SavedWallet[]>([]);
   const load = useCallback(async () => {
-    const { data } = await supabase.from("user_wallets").select("id,label,address").order("created_at");
+    const { data } = await supabase.from("user_wallets").select("id,label,address,created_at").order("created_at");
     setWallets(data ?? []);
   }, []);
   useEffect(() => { void load(); }, [load]);
