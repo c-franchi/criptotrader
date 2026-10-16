@@ -64,6 +64,13 @@
       "when": 1792156826163,
       "tag": "0008_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792156995599,
+      "tag": "0009_bot_follow_strategy",
+      "breakpoints": true
     }
   ]
 }

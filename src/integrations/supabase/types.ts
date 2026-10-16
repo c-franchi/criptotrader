@@ -67,12 +67,15 @@ export type Database = {
           last_error: string | null
           last_level: number | null
           last_price: number | null
+          last_reason: string | null
           last_run_at: string | null
           levels: number
           lower_price: number
           max_impact_pct: number
           max_slippage_pct: number
+          mode: string
           order_bnb: number
+          strat_state: Json
           token: string
           updated_at: string
           upper_price: number
@@ -85,15 +88,18 @@ export type Database = {
           last_error?: string | null
           last_level?: number | null
           last_price?: number | null
+          last_reason?: string | null
           last_run_at?: string | null
           levels?: number
-          lower_price: number
+          lower_price?: number
           max_impact_pct?: number
           max_slippage_pct?: number
-          order_bnb: number
+          mode?: string
+          order_bnb?: number
+          strat_state?: Json
           token: string
           updated_at?: string
-          upper_price: number
+          upper_price?: number
           user_id: string
         }
         Update: {
@@ -103,12 +109,15 @@ export type Database = {
           last_error?: string | null
           last_level?: number | null
           last_price?: number | null
+          last_reason?: string | null
           last_run_at?: string | null
           levels?: number
           lower_price?: number
           max_impact_pct?: number
           max_slippage_pct?: number
+          mode?: string
           order_bnb?: number
+          strat_state?: Json
           token?: string
           updated_at?: string
           upper_price?: number
