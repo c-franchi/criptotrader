@@ -60,12 +60,12 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
   const holding = s.tokens > 0 && s.avgPriceUsd > 0;
   if (holding) {
     const change = (p / s.avgPriceUsd - 1) * 100;
-    if (cfg.stopLossPct > 0 && change <= -cfg.stopLossPct) return { action: "venda", reason: `Stop-loss: caiu ${fmt(-change)} do preço médio`, sellPct: 100, all: true };
+    if (cfg.stopLossPct > 0 && change <= -cfg.stopLossPct + 1e-9) return { action: "venda", reason: `Stop-loss: caiu ${fmt(-change)} do preço médio`, sellPct: 100, all: true };
     const peak = Math.max(s.peakUsd, p);
     if (cfg.trailingEnabled && cfg.trailingDistancePct > 0 && peak >= s.avgPriceUsd * (1 + cfg.trailingActivatePct / 100) && p <= peak * (1 - cfg.trailingDistancePct / 100))
       return { action: "venda", reason: `Trailing stop: recuou ${fmt((1 - p / peak) * 100)} do topo`, sellPct: 100, all: true };
     const tps = cfg.takeProfits.map((t, i) => ({ ...t, i })).filter((t) => t.pct > 0 && !s.tpDone.includes(t.i)).sort((a, b) => a.pct - b.pct);
-    const hit = tps.find((t) => change >= t.pct);
+    const hit = tps.find((t) => change >= t.pct - 1e-9);
     if (hit) {
       const last = tps.length === 1 || hit.sellPct >= 100;
       return { action: "venda", reason: `Take-profit ${hit.i + 1}: subiu ${fmt(change)} (meta +${hit.pct}%)`, sellPct: last ? 100 : hit.sellPct, tpIndex: hit.i, all: last };
