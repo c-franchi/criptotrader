@@ -25,3 +25,18 @@ describe("decide (robô segue a estratégia)", () => {
     expect(normalizeState({ ...EMPTY_STATE, day: "2026-10-15", tradesToday: 4 }, now).tradesToday).toBe(0);
   });
 });
+
+import { referenceHigh } from "./autoStrategy";
+describe("compra sempre na baixa", () => {
+  it("ignores a one-candle spike when finding the 24h top", () => {
+    const c = [[1, 1, 1, 1, 1], [2, 1, 9, 1, 3], [3, 1, 1, 1, 1], [4, 1, 1.1, 1, 1.1]] as [number, number, number, number, number][];
+    expect(referenceHigh(c, 0)).toBe(1.1);
+  });
+  it("trend strategy buys only when the price dips to the long average, never above it", () => {
+    const t = { ...cfg, entryType: "medias" as const, maFast: 2, maSlow: 4 };
+    const closes = [1, 1, 1.2, 1.2, 1.3]; // uptrend: fast 1.25 > slow 1.175
+    expect(decide(t, st, { ...m(1.3), closes }).action).toBe("nenhuma");
+    expect(decide(t, st, { ...m(1.15), closes }).action).toBe("compra");
+    expect(decide(t, st, { ...m(0.9), closes: [1.3, 1.2, 1, 0.9, 0.8] }).action).toBe("nenhuma"); // downtrend
+  });
+});

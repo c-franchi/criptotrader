@@ -30,7 +30,7 @@ export function monitorState(cfg: StrategyConfig, price: number | null, high24h:
   if (cfg.entryType === "medias" && price != null && price > 0 && cfg.maFast > 0 && cfg.maSlow > cfg.maFast && closes.length >= cfg.maSlow) {
     const fast = avg(closes.slice(-cfg.maFast));
     const slow = avg(closes.slice(-cfg.maSlow));
-    alerts.push({ kind: "compra", label: `Compra: média de ${cfg.maFast} velas acima da média de ${cfg.maSlow} (velas de ${cfg.candleInterval})`, triggerAt: slow, active: fast > slow });
+    alerts.push({ kind: "compra", label: `Compra: tendência de alta e preço recuando até a média de ${cfg.maSlow} velas (velas de ${cfg.candleInterval})`, triggerAt: slow, active: fast > slow && price <= slow });
   }
   if (reference == null || !(reference > 0) || price == null || !(price > 0)) return { reference, referenceLabel, alerts };
 

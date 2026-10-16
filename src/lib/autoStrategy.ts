@@ -47,6 +47,22 @@ export function closesAt(candles: Candle[], minutes: number, now: number): numbe
   return [...map.entries()].sort((a, b) => a[0] - b[0]).map((x) => x[1]);
 }
 
+/**
+ * Reference "top" of the window ignoring one-candle spikes: each close is replaced by the
+ * median of itself and its neighbours, so a single odd trade cannot pull the buy line up.
+ */
+export function referenceHigh(candles: Candle[], sinceSec: number): number | null {
+  const c = candles.filter((x) => x[0] >= sinceSec).map((x) => x[4]);
+  if (!c.length) return null;
+  if (c.length < 3) return Math.max(...c);
+  let top = 0;
+  for (let i = 0; i < c.length; i++) {
+    const w = [c[Math.max(0, i - 1)]!, c[i]!, c[Math.min(c.length - 1, i + 1)]!].sort((a, b) => a - b);
+    top = Math.max(top, w[1]!);
+  }
+  return top;
+}
+
 export const intervalMinutes = (s: string) => { const m = /^(\d+)(m|h)$/.exec(s); return m ? Number(m[1]) * (m[2] === "h" ? 60 : 1) : 15; };
 
 /** One decision per tick, following the saved strategy. Never more than one action. */
@@ -91,8 +107,10 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
   if (!(cfg.maSlow > cfg.maFast) || c.length < cfg.maSlow + 1) return { action: "nenhuma", reason: "Histórico insuficiente para as médias" };
   const fast = avg(c.slice(-cfg.maFast)), slow = avg(c.slice(-cfg.maSlow));
   const pf = avg(c.slice(-cfg.maFast - 1, -1)), ps = avg(c.slice(-cfg.maSlow - 1, -1));
-  if (fast > slow && pf <= ps) return { action: "compra", reason: `Média de ${cfg.maFast} cruzou acima da de ${cfg.maSlow}` };
-  return { action: "nenhuma", reason: fast > slow ? "Médias já cruzadas — esperando novo cruzamento" : "Esperando a média curta cruzar acima da longa" };
+  void pf; void ps;
+  // Buy low inside an uptrend: trend is up (short avg above long) AND the price dipped to the long average or below.
+  if (fast > slow && p <= slow) return { action: "compra", reason: `Tendência de alta e o preço recuou até a média de ${cfg.maSlow} (comprando na baixa)` };
+  return { action: "nenhuma", reason: fast > slow ? `Tendência de alta — esperando o preço recuar até US$ ${slow.toPrecision(4)} para comprar barato` : "Tendência de queda — o robô não compra enquanto o preço cai" };
 }
 
 /** Applies a confirmed trade to the robot memory. */

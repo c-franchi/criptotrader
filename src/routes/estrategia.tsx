@@ -303,7 +303,7 @@ function StrategyForm() {
               <div className="flex items-center gap-1"><Label>Tipo de sinal</Label><HelpTip title="Tipo de sinal"><p><b>Queda percentual:</b> compra quando o preço cai X% — bom para comprar barato.</p><p><b>Cruzamento de médias:</b> compra quando o preço começa a subir — segue a tendência.</p></HelpTip></div>
               <select className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={c.entryType} onChange={(e) => set("entryType", e.target.value as "queda")}>
                 <option value="queda">Queda percentual</option>
-                <option value="medias">Cruzamento de médias</option>
+                <option value="medias">Tendência + recuo (médias)</option>
               </select>
             </div>
             {c.entryType === "queda" ? (

@@ -31,14 +31,14 @@ export const PRESETS: { id: PresetId; name: string; summary: string; how: string
   {
     id: "ativa",
     name: "Ativa",
-    summary: "Segue a tendência com médias e faz várias operações curtas.",
+    summary: "Em tendência de alta, compra nos recuos e faz várias operações curtas.",
     how: [
-      "Compra 1/4 do valor quando a média de 9 velas de 15 min cruza acima da de 21.",
+      "Só compra em tendência de alta (média de 9 velas de 15 min acima da de 21) e quando o preço recua até a média de 21 — compra na baixa.",
       "Até 3 compras por posição e 8 operações por dia, com 30 min entre compras.",
       "Vende metade com +4% e o resto com +8%. Stop-loss em -5%.",
       "Usa no máximo 75% do valor. Mais operações = mais taxas e mais risco.",
     ],
-    forWho: "Para quem acompanha o mercado: compra quando o preço começa a subir e vende rápido. Em tokens com taxa alta (ex.: 8%), muitas operações comem o lucro.",
+    forWho: "Para quem acompanha o mercado: compra nos recuos de um token que está subindo e vende rápido. Em tokens com taxa alta (ex.: 8%), muitas operações comem o lucro.",
   },
 ];
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getMarket } from "@/lib/chain.functions";
 import { useCandles } from "@/hooks/useCandles";
-import type { BotState } from "@/lib/autoStrategy";
+import { closesAt, intervalMinutes, referenceHigh, type BotState } from "@/lib/autoStrategy";
 import type { StrategyConfig } from "@/lib/strategy";
 import { cn } from "@/lib/utils";
 
@@ -40,8 +40,15 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
   const all = (candles.data ?? []).filter((c) => c[0] * 1000 >= now - ms);
   const lastAt = candles.data?.length ? candles.data[candles.data.length - 1]![0] * 1000 : null;
   const live = Number(pool?.priceUsd) > 0 ? Number(pool?.priceUsd) : all.at(-1)?.[4] ?? null;
-  const high = all.length ? Math.max(...all.map((c) => c[2])) : null;
-  const lines: Line[] = mode === "grade" ? grid.map((p, i) => ({ price: p, label: i === 0 ? "Grade (base)" : i === grid.length - 1 ? "Grade (topo)" : "", tone: "grid" as const })) : robotLines(cfg, state, high);
+  const high = candles.data?.length ? referenceHigh(candles.data, (now - (cfg?.windowHours ?? 24) * 3_600_000) / 1000) : null;
+  const slowAvg = (() => {
+    if (!cfg || cfg.entryType !== "medias" || !candles.data) return null;
+    const cl = closesAt(candles.data, intervalMinutes(cfg.candleInterval), now || Date.now());
+    if (cl.length < cfg.maSlow) return null;
+    const f = cl.slice(-cfg.maFast).reduce((a, b) => a + b, 0) / cfg.maFast, s = cl.slice(-cfg.maSlow).reduce((a, b) => a + b, 0) / cfg.maSlow;
+    return { s, up: f > s };
+  })();
+  const lines: Line[] = mode === "grade" ? grid.map((p, i) => ({ price: p, label: i === 0 ? "Grade (base)" : i === grid.length - 1 ? "Grade (topo)" : "", tone: "grid" as const })) : [...robotLines(cfg, state, high), ...(slowAvg?.up && state.entries < Math.max(1, cfg?.maxEntries ?? 1) ? [{ price: slowAvg.s, label: `Compra abaixo daqui (média de ${cfg?.maSlow})`, tone: "buy" as const }] : [])];
   const trades = orders.filter((o) => o.status === "confirmada" && o.token.toLowerCase() === token.toLowerCase()).map((o) => {
     const t = Date.parse(o.created_at);
     const c = all.reduce<(typeof all)[number] | undefined>((b, x) => (!b || Math.abs(x[0] * 1000 - t) < Math.abs(b[0] * 1000 - t) ? x : b), undefined);
@@ -104,7 +111,7 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
             ? <p className="text-success">O preço já está <strong>abaixo</strong> do ponto de compra: para o robô, ele está "barato". A compra acontece na próxima verificação, se houver BNB suficiente.</p>
             : <p className="text-success">Falta {((live / buyLine.price - 1) * 100).toFixed(1)}% de queda para o robô comprar.</p>)}
           {nextSell && <p className="text-primary">Falta {Math.max(0, (nextSell.price / live - 1) * 100).toFixed(1)}% de alta para a próxima venda com lucro.</p>}
-          {mode !== "grade" && cfg?.entryType === "medias" && <p className="text-muted-foreground">Esta estratégia compra quando a média curta cruza acima da longa — não existe um preço fixo; o robô avisa quando acontecer.</p>}
+          {mode !== "grade" && cfg?.entryType === "medias" && <p className="text-muted-foreground">{slowAvg?.up ? "Tendência de alta: o robô compra quando o preço recuar até a linha verde (a média)." : "Tendência de queda: o robô não compra enquanto o preço cai. A linha de compra aparece quando a tendência virar para alta."}</p>}
           {reason && <p className="text-muted-foreground">O robô está pensando: {reason}</p>}
         </div>
       )}

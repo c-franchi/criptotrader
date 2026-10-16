@@ -76,7 +76,7 @@ export function describeStrategy(c: StrategyConfig, quote = "WBNB"): string[] {
     lines.push(`Comprar ${size} quando o preço cair ${c.dropPct}% em relação a ${ref}.`);
   } else {
     lines.push(
-      `Comprar ${size} quando a média de ${c.maFast} velas cruzar acima da média de ${c.maSlow} velas (velas de ${c.candleInterval}, apenas velas fechadas).`,
+      `Comprar ${size} quando a tendência estiver de alta (média de ${c.maFast} velas acima da de ${c.maSlow}) e o preço recuar até a média de ${c.maSlow} ou abaixo — compra na baixa, nunca no topo (velas de ${c.candleInterval}, apenas velas fechadas).`,
     );
   }
   lines.push(
