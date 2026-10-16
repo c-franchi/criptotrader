@@ -4,6 +4,7 @@ import { bsc } from "viem/chains";
 import { PANCAKE_V2_FACTORY, PANCAKE_V2_ROUTER, WBNB, ZERO, erc20Abi, factoryAbi, minOut, pairAbi, priceImpactPct, routerAbi } from "./pancake";
 import { gridDecision } from "./grid";
 import { tokenMeta } from "./tokenMeta.server";
+import { taxFor } from "./tokens";
 
 const RPC = () => process.env["BSC_RPC_URL"] || "https://bsc-dataseed.bnbchain.org";
 export const pubClient = () => createPublicClient({ chain: bsc, transport: http(RPC()) });
@@ -93,29 +94,42 @@ export async function runGridStep(bot: Bot, enc: string) {
       await pub.waitForTransactionReceipt({ hash: ah });
     }
   }
+  const tax = taxFor(token);
+  const res = await sendSwap({ pub, wallet, me, token, side: d.action, amountIn, path, slippagePct: Number(bot.max_slippage_pct), taxPct: d.action === "compra" ? tax.buy : tax.sell, userId: bot.user_id, pair: pool.pair, source: "grade" });
+  if (res.order.status !== "confirmada") { patch.last_level = bot.last_level; if (res.order.error) patch.last_error = res.order.error; }
+  const order = res.order;
+  return { patch, order };
+}
+
+type Pub = ReturnType<typeof pubClient>;
+type Wal = Awaited<ReturnType<typeof botSigner>>["wallet"];
+
+/** Sends one swap with the robot wallet. Min out discounts the token tax and slippage. */
+export async function sendSwap(o: { pub: Pub; wallet: Wal; me: `0x${string}`; token: `0x${string}`; side: "compra" | "venda"; amountIn: bigint; path: `0x${string}`[]; slippagePct: number; taxPct: number; userId: string; pair: string; source: string }) {
+  const { pub, wallet, me, token, path, amountIn } = o;
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
   const amounts = await pub.readContract({ address: PANCAKE_V2_ROUTER, abi: routerAbi, functionName: "getAmountsOut", args: [amountIn, path] });
-  const quoted = amounts[amounts.length - 1]!;
-  const min = minOut(quoted, Number(bot.max_slippage_pct));
+  const gross = amounts[amounts.length - 1]!;
+  const net = (gross * BigInt(Math.round((100 - Math.min(Math.max(o.taxPct, 0), 50)) * 100))) / 10000n;
+  const min = minOut(net, o.slippagePct + (o.taxPct > 0 ? 1 : 0));
   const order = {
-    user_id: bot.user_id, side: d.action, wallet: me, pair_address: pool.pair, token, source: "grade",
-    amount_in: amountIn.toString(), amount_out_min: min.toString(), quoted_out: quoted.toString(),
-    slippage_pct: Number(bot.max_slippage_pct), deadline: Number(deadline), status: "enviada",
+    user_id: o.userId, side: o.side, wallet: me, pair_address: o.pair, token, source: o.source,
+    amount_in: amountIn.toString(), amount_out_min: min.toString(), quoted_out: net.toString(),
+    slippage_pct: o.slippagePct, deadline: Number(deadline), status: "enviada",
     tx_hash: null as string | null, block_number: null as number | null, error: null as string | null,
   };
   try {
-    const hash = d.action === "compra"
+    const hash = o.side === "compra"
       ? await wallet.writeContract({ address: PANCAKE_V2_ROUTER, abi: routerAbi, functionName: "swapExactETHForTokensSupportingFeeOnTransferTokens", args: [min, path, me, deadline], value: amountIn })
       : await wallet.writeContract({ address: PANCAKE_V2_ROUTER, abi: routerAbi, functionName: "swapExactTokensForETHSupportingFeeOnTransferTokens", args: [amountIn, min, path, me, deadline] });
     order.tx_hash = hash;
     const r = await pub.waitForTransactionReceipt({ hash, timeout: 45_000 });
     order.status = r.status === "success" ? "confirmada" : "falhou";
     order.block_number = Number(r.blockNumber);
-    if (r.status !== "success") patch.last_level = bot.last_level;
+    if (r.status !== "success") order.error = "Transação revertida na rede";
   } catch (e) {
     order.status = "falhou";
     order.error = ((e as Error).message ?? "erro").split("\n")[0]!.slice(0, 300);
-    patch.last_level = bot.last_level;
-    patch.last_error = order.error;
   }
-  return { patch, order };
+  return { order, net };
 }

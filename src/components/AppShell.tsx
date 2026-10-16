@@ -14,7 +14,7 @@ const nav = [
   { to: "/estrategia", label: "Estratégia", desc: "Regras de compra, venda e risco", icon: Target },
   { to: "/simulacao", label: "Simulação", desc: "Treine sem dinheiro real", icon: FlaskConical },
   { to: "/operar", label: "Operar", desc: "Trade real com sua carteira", icon: ArrowLeftRight },
-  { to: "/grade", label: "Grade automática", desc: "Robô que compra e vende sozinho", icon: Bot },
+  { to: "/grade", label: "Robô automático", desc: "Compra e vende sozinho seguindo sua estratégia", icon: Bot },
   { to: "/carteiras", label: "Minhas carteiras", desc: "Endereços salvos e perfil", icon: Wallet },
   { to: "/integracoes", label: "Integrações", desc: "Fontes de dados e status", icon: Settings },
   { to: "/instalar", label: "Instalar o app", desc: "Ícone na tela inicial do celular", icon: Download },

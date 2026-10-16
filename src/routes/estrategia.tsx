@@ -245,7 +245,7 @@ function StrategyForm() {
           </div>
           <select id="modo" className="mt-1 w-full rounded-md border border-input bg-background px-3 py-3 text-base" value={mode} onChange={(e) => pickMode(e.target.value as Mode)}>
             <option value="">Toque para escolher…</option>
-            <optgroup label="Prontas · para o robô automático (em breve)">
+            <optgroup label="Prontas · também usadas pelo Robô automático">
               {PRESETS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </optgroup>
             <optgroup label="Você no controle">
@@ -259,7 +259,7 @@ function StrategyForm() {
             <div className="mt-3 space-y-3 rounded-md border-2 border-primary bg-primary/10 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-semibold text-primary">{preset.name}</p>
-                <span className="rounded-full border border-warning/50 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning">Robô automático · em breve</span>
+                <span className="rounded-full border border-warning/50 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning">Funciona no Robô automático</span>
               </div>
               <p className="text-sm">{preset.summary}</p>
               <div>
