@@ -5,6 +5,7 @@ import Decimal from "decimal.js";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { AppShell, Panel, RequireLogin, Unavailable } from "@/components/AppShell";
 import { getMarket } from "@/lib/chain.functions";
 import { DEFAULT_ASSUMPTIONS, avgPrice, simBuy, simSell, type SimState } from "@/lib/sim";
@@ -42,7 +43,8 @@ const toState = (a: Account): SimState => ({
 
 function Sim() {
   const { user } = useAuth();
-  const market = useQuery({ queryKey: ["market"], queryFn: () => getMarket({ data: {} }), refetchInterval: 30_000 });
+  const { token } = useSelectedToken();
+  const market = useQuery({ queryKey: ["market", token.address], queryFn: () => getMarket({ data: { address: token.address } }), refetchInterval: 30_000 });
   const pool = market.data?.pools.find((p) => p.supported);
   const price = pool?.priceNative ? D(pool.priceNative) : null;
 
