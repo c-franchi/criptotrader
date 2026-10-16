@@ -1,29 +1,8 @@
 import { readMarket } from "./market.server";
 import { alertState, shouldNotify, targetPrice, type AlertState } from "./alerts";
+import { pushToUser } from "./pushSend.server";
 
-const GATEWAY = "https://connector-gateway.lovable.dev/firebase_messaging";
 const fmt = (n: number) => (n < 0.01 ? n.toPrecision(4) : n.toFixed(4)).replace(".", ",");
-
-async function sendPush(token: string, title: string, body: string): Promise<"ok" | "stale" | "fail"> {
-  const lk = process.env["LOVABLE_API_KEY"];
-  const ck = process.env["FIREBASE_MESSAGING_API_KEY"];
-  if (!lk || !ck) return "fail";
-  const res = await fetch(`${GATEWAY}/v1/projects/_/messages:send`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${lk}`, "X-Connection-Api-Key": ck, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      message: {
-        token,
-        notification: { title, body },
-        webpush: { fcm_options: { link: "/alertas" }, notification: { icon: "/icon-192.png" } },
-      },
-    }),
-  });
-  if (res.ok) return "ok";
-  const t = await res.text();
-  console.error(`FCM send failed [${res.status}]: ${t}`);
-  return res.status === 404 || (res.status === 400 && t.includes("INVALID_ARGUMENT")) ? "stale" : "fail";
-}
 
 export async function runAlertTick() {
   const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
@@ -55,12 +34,7 @@ export async function runAlertTick() {
     const title = next === "atingiu" ? `${a.symbol}: chegou no ponto de ${acao}!` : `${a.symbol}: chegando perto do ponto de ${acao}`;
     const body = `Preço agora: US$ ${fmt(price)}. Seu ponto: US$ ${fmt(targetPrice(rule))} (${rule.direction === "queda" ? "queda" : "alta"} de ${rule.targetPct}%).`;
     await db.from("notifications").insert({ user_id: a.user_id, title, body, link: "/estrategia" });
-    const { data: devices } = await db.from("push_devices").select("id, token").eq("user_id", a.user_id);
-    for (const d of devices ?? []) {
-      const r = await sendPush(d.token, title, body);
-      if (r === "ok") sent++;
-      if (r === "stale") await db.from("push_devices").delete().eq("id", d.id);
-    }
+    sent += await pushToUser(db, a.user_id, title, body, "/alertas");
   }
   return { ok: true, checked: alerts.length, sent };
 }
