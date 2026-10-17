@@ -1,0 +1,10 @@
+import { expect, it } from "vitest";
+import { aggregateCandles, closedTail, engineSeries } from "./candleSeries";
+import { closesAt } from "./autoStrategy";
+import type { Candle } from "./backtest";
+const list: Candle[] = [[0, 1, 3, 1, 2, 10], [300, 2, 4, 1, 3, 20], [600, 3, 5, 2, 4, 30], [900, 4, 6, 3, 5]];
+it("aggregates three 5m slots into 15m OHLC and sums only known volume", () => { expect(aggregateCandles([...list].reverse(), 15, 900_000)[0]).toEqual({ candle: [0, 1, 5, 1, 4, 60], complete: true, forming: false }); });
+it("excludes forming 15m bars and rejects missing slots", () => { expect(closedTail(list, 15, 850_000)).toEqual([]); expect(closedTail([list[0], list[2]].filter((c): c is Candle => c != null), 15, 900_000)).toEqual([]); });
+it("does not invent missing volume", () => { expect(aggregateCandles([[0,1,1,1,1]], 5, 300_000)[0]?.candle[5]).toBeUndefined(); });
+it("chart legacy closes agree with the live motor at the same interval", () => { expect(engineSeries(list, 15, 1_800_000).map(s => s.close)).toEqual(closesAt(list, 15, 1_800_000)); });
+it("resets candidate history across a time gap", () => { expect(closedTail([[0,1,1,1,1], [600,2,2,2,2]], 5, 900_000)).toEqual([[600,2,2,2,2, undefined]]); });

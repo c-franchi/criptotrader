@@ -10,6 +10,10 @@
 <!-- LOVABLE:END -->
 
 ## Rules
+- Candidate rules and normalized financial replay live in candidateStrategy.ts/costLedger.ts and are simulation-only; execution must never import them, preserving active cycle behavior.
+- Shared OHLC charts aggregate five-minute pool history in candleSeries.ts; legacy SMA remains explicitly identified while candidate signals require contiguous complete closes.
+- All bot signing paths acquire the persistent wallet-wide execution mutex; unresolved submissions retain it until reconciliation to prevent duplicate orders and withdrawals racing swaps.
+- Audit observations are append-only and distinguish receipt token transfers/gas from native proceeds requiring traces; never label router outputs or legacy quote accounting as confirmed wallet results.
 - Strategy stop mode is optional for backward compatibility; use the shared stopLoss helpers for robot, chart and monitoring, avoiding double-counted buy tax in simulations that track net token cost.
 - Built-in tokens live in src/lib/tokens.ts; users add more into user_tokens (RLS own), exposed via SelectedTokenProvider.tokens — pages never hardcode the list. Server reads unknown token metadata on-chain via tokenMeta.server.ts.
 - Wallet scan checks balances of POPULAR_BSC_TOKENS + saved tokens by multicall — free BSC RPCs/BscScan cannot list all tokens of a wallet.

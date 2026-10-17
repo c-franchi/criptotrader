@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export type ChartLevel = { price: number; label: string; tone: "buy" | "sell" | "stop" | "avg" | "grid" };
-export type ChartTrade = { time: number; side: string; hash?: string | null; price?: number | null; details: string[] };
+export type ChartTrade = { time: number; side: string; hash?: string | null | undefined; price?: number | null; details: string[] };
 const tones = { buy: "text-success", sell: "text-primary", stop: "text-destructive", avg: "text-chart-4", grid: "text-muted-foreground" };
 const windows = [{ id: "1h", hours: 1 }, { id: "4h", hours: 4 }, { id: "12h", hours: 12 }, { id: "1 dia", hours: 24 }];
 const usd = (n: number) => n.toLocaleString("pt-BR", { maximumSignificantDigits: 5 });

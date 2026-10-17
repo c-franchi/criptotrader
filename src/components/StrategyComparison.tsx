@@ -13,7 +13,8 @@ export function StrategyComparison({ candles, cfg, budget, liquidity }: { candle
   const [now, setNow] = useState(0);
   useEffect(() => { setNow(Date.now()); }, [candles]);
   const actualCosts = { ...costs, buyTaxPct: cfg.buyTaxPct ?? 0, sellTaxPct: cfg.sellTaxPct ?? 0 };
-  const results = [{ label: "Entrada anterior · replay normalizado", legacy: true, rebuys: 0 as const }, { label: "Candidata · sem recompra", legacy: false, rebuys: 0 as const }, { label: "Candidata · uma recompra", legacy: false, rebuys: 1 as const }].map(row => ({ ...row, result: replayCandidate(candles, cfg, budget, actualCosts, { ...policy, maxRebuys: row.rebuys }, now, row.legacy) }));
+  const normalizedPolicy = { ...policy, slopeBars: Math.max(1, Math.floor(policy.slopeBars)), recoveryBars: Math.max(2, Math.floor(policy.recoveryBars)), regimeBars: Math.max(1, Math.floor(policy.regimeBars)) };
+  const results = [{ label: "Entrada anterior · replay normalizado", legacy: true, rebuys: 0 as const }, { label: "Candidata · sem recompra", legacy: false, rebuys: 0 as const }, { label: "Candidata · uma recompra", legacy: false, rebuys: 1 as const }].map(row => ({ ...row, result: replayCandidate(candles, cfg, budget, actualCosts, { ...normalizedPolicy, maxRebuys: row.rebuys }, now, row.legacy) }));
   const field = (key: keyof CandidatePolicy, text: string, min = 0) => <div key={key}><Label>{text}</Label><Input type="number" min={min} step="any" value={Number(policy[key])} onChange={e => setPolicy(p => ({ ...p, [key]: Math.max(min, Number(e.target.value)) }))} /></div>;
   const costField = (key: keyof CostAssumptions, text: string) => <div key={key}><Label>{text}</Label><Input type="number" min={0} step="any" value={costs[key]} onChange={e => setCosts(p => ({ ...p, [key]: Math.max(0, Number(e.target.value)) }))} /></div>;
   return <Panel collapsible title="Comparar regras candidatas · só simulação">
