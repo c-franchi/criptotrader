@@ -6,8 +6,11 @@ import { closesAt, readRegime, intervalMinutes, referenceHigh, type BotState } f
 import type { StrategyConfig } from "@/lib/strategy";
 import { cn } from "@/lib/utils";
 import { stopPrice, netPositionPct } from "@/lib/stopLoss";
+import { CandleChart } from "@/components/CandleChart";
+import { OrderAudit } from "@/components/OrderAudit";
+import { decide } from "@/lib/autoStrategy";
 
-type Order = { side: string; status: string; token: string; created_at: string };
+type Order = { side: string; status: string; token: string; created_at: string; tx_hash?: string | null; amount_in?: string; quoted_out?: string };
 type Line = { price: number; label: string; tone: "buy" | "sell" | "stop" | "avg" | "grid" };
 
 const TONE: Record<Line["tone"], string> = { buy: "text-success", sell: "text-primary", stop: "text-destructive", avg: "text-muted-foreground", grid: "text-muted-foreground" };
@@ -40,7 +43,7 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
   const candles = useCandles(pool?.pairAddress, token);
   const ms = 24 * 3_600_000;
   const all = (candles.data ?? []).filter((c) => c[0] * 1000 >= now - ms);
-  const lastAt = candles.data?.length ? candles.data[candles.data.length - 1]![0] * 1000 : null;
+  const lastAt = candles.data?.at(-1)?.[0] != null ? (candles.data.at(-1)?.[0] ?? 0) * 1000 : null;
   const live = Number(pool?.priceUsd) > 0 ? Number(pool?.priceUsd) : all.at(-1)?.[4] ?? null;
   const high = candles.data?.length ? referenceHigh(candles.data, (now - (cfg?.windowHours ?? 24) * 3_600_000) / 1000) : null;
   const slowAvg = (() => {
@@ -89,27 +92,9 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
           {armed ? "Robô vigiando" : "Robô desligado"}
         </span>
       </div>
-      <div className="relative h-52 rounded-md border border-border bg-background/40 p-1">
-        {path ? (
-          <svg role="img" aria-label="Gráfico com os pontos do robô" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-full w-full overflow-visible">
-            {lines.map((l, i) => (
-              <g key={i} className={TONE[l.tone]}>
-                <line x1={0} x2={W} y1={y(l.price)} y2={y(l.price)} stroke="currentColor" strokeDasharray="4 3" strokeWidth={1} vectorEffect="non-scaling-stroke" opacity={l.tone === "grid" ? 0.35 : 0.9} />
-              </g>
-            ))}
-            <path d={path} fill="none" stroke="currentColor" className="text-foreground" strokeWidth={1.75} vectorEffect="non-scaling-stroke" />
-            {trades.map((t, i) => (
-              <circle key={i} cx={x(t.t)} cy={y(t.price)} r={4} className={t.buy ? "fill-success" : "fill-primary"} stroke="currentColor" />
-            ))}
-            {live && <circle cx={W} cy={y(live)} r={4} className="fill-warning motion-safe:animate-pulse" />}
-          </svg>
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{candles.isLoading || market.isLoading ? "Carregando gráfico…" : candles.isFetching ? "Buscando histórico…" : "Histórico ainda não disponível — tentando de novo sozinho"}</div>
-        )}
-        {path && lines.filter((l) => l.label).map((l, i) => (
-          <span key={i} style={{ top: `calc(${(y(l.price) / H) * 100}% - 8px)` }} className={cn("pointer-events-none absolute left-2 rounded bg-card/90 px-1 text-[10px] font-medium", TONE[l.tone])}>{l.label} · {usd(l.price)}</span>
-        ))}
-      </div>
+      <CandleChart candles={candles.data ?? []} now={now} strategyMinutes={intervalMinutes(cfg?.candleInterval ?? "15m")} levels={lines} trades={orders.filter(o => o.status === "confirmada" && o.token.toLowerCase() === token.toLowerCase()).map(o => ({ time: Date.parse(o.created_at), side: o.side, hash: o.tx_hash, details: ["Reconstruído: horário do registro; consulte o comprovante para horário da transação e quantidades efetivas.", `Valor de entrada registrado (unidades mínimas): ${o.amount_in ?? "indisponível"}`, "Preço vertical aproximado pelo histórico; não é preço efetivo de execução.", "Sinal, versão e parâmetros antigos não foram registrados; não são reconstruídos a partir da estratégia atual."] }))} />
+      <OrderAudit hashes={orders.filter(o => o.token.toLowerCase() === token.toLowerCase()).flatMap(o => o.tx_hash ? [o.tx_hash] : [])} />
+      {cfg && live != null && <div className="border-t border-border pt-3 text-xs"><p className="font-semibold">Por que o bot está esperando?</p><p>{armed ? decide(cfg, state, { priceUsd: live, liquidityUsd: pool?.liquidityUsd ?? null, high, closes: closesAt(candles.data ?? [], intervalMinutes(cfg.candleInterval), now), now }).reason : "Robô desligado"}</p><p className="text-muted-foreground">Prévia atual às {new Date(now).toLocaleTimeString("pt-BR")} · {cfg.candleInterval}. Última avaliação do servidor: {reason ?? "indisponível"}. Cooldown restante: {Math.max(0, Math.ceil((state.lastTradeAt + cfg.cooldownMin * 60_000 - now) / 60_000))} min.</p><p className="text-warning">A condição visual não garante execução. Recuperação e rearme novos estão disponíveis somente na simulação.</p></div>}
       {lastAt != null && now - lastAt > 20 * 60_000 && <p role="status" className="text-xs text-warning">Gráfico com dados até {new Date(lastAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} — buscando atualização. O preço agora continua ao vivo.</p>}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
         <span><span className="text-warning">●</span> Preço agora</span>
