@@ -20,7 +20,8 @@ export function recoverySignal(candles: Candle[], cfg: StrategyConfig, policy: C
   const slope = (slow / previousSlow - 1) * 100;
   if (last[0] <= state.evaluatedAt) return { signal: false, state, reason: "Aguardando fechamento de nova vela", fast, slow, slope };
   state.evaluatedAt = last[0];
-  if (cfg.entryType !== "queda" && !(fast > slow && slope > 0)) { state.armedAt = null; return { signal: false, state, reason: "Tendência não confirmada (SMA 21 sem inclinação positiva)", fast, slow, slope }; }
+  if (cfg.entryType === "medias" && !(fast > slow && slope > 0)) { state.armedAt = null; return { signal: false, state, reason: "Tendência não confirmada (SMA 21 sem inclinação positiva)", fast, slow, slope }; }
+  if (cfg.entryType === "adaptativa" && confirmedRegime(values, cfg, policy) === "queda") { state.armedAt = null; return { signal: false, state, reason: "Regime de queda: sem entrada candidata", fast, slow, slope }; }
   const recovery = bars.slice(-policy.recoveryBars);
   const rising = recovery.length === policy.recoveryBars && recovery.every((c, i) => i === 0 || c[4] > (recovery[i - 1]?.[4] ?? Infinity));
   const reclaimed = cfg.entryType === "queda" ? rising : rising && last[4] > slow;
@@ -28,7 +29,9 @@ export function recoverySignal(candles: Candle[], cfg: StrategyConfig, policy: C
     state.armedAt = null; state.consumedAt = last[0];
     return { signal: true, state, reason: "Novo recuo e recuperação confirmados por velas fechadas", fast, slow, slope };
   }
-  const threshold = cfg.entryType === "queda" ? (cfg.referenceType === "manual" ? cfg.manualReference : referenceHigh(bars, now / 1000 - cfg.windowHours * 3600)) : slow * (1 + policy.tolerancePct / 100);
+  const range = values.slice(-Math.max(20, cfg.maSlow));
+  const lateral = cfg.entryType === "adaptativa" && confirmedRegime(values, cfg, policy) === "lateral";
+  const threshold = cfg.entryType === "queda" ? (cfg.referenceType === "manual" ? cfg.manualReference : referenceHigh(bars, now / 1000 - cfg.windowHours * 3600)) : lateral ? Math.min(...range) + (Math.max(...range) - Math.min(...range)) * .25 : slow * (1 + policy.tolerancePct / 100);
   const pullback = cfg.entryType === "queda" ? threshold != null && last[3] <= threshold * retained(cfg.dropPct) : last[3] <= (threshold ?? 0);
   if (pullback && state.armedAt == null && last[0] > state.consumedAt) state.armedAt = last[0];
   return { signal: false, state, reason: state.armedAt == null ? "Recuo ainda não ocorreu" : "Recuperação ainda não confirmada", fast, slow, slope };
