@@ -16,6 +16,8 @@ it("blocks a candidate buy when 8%/8% exceeds the configured 10% liquid loss sto
   const data = candles([100,95,90,85,80,79,81,82,83,84]);
   const r = replayCandidate(data,{...cfg,stopLossMode:"liquido",stopLossPct:10},100,{...COST_DEFAULTS,buyTaxPct:8,sellTaxPct:8,dexFeePct:0},CANDIDATE_DEFAULTS,3_600_000);
   expect(r).not.toBeNull(); expect(r?.events.filter(e => e.action === "compra")).toHaveLength(0);
+  const allowed = replayCandidate(data,{...cfg,stopLossMode:"liquido",stopLossPct:30},100,{...COST_DEFAULTS,buyTaxPct:8,sellTaxPct:8,dexFeePct:0},CANDIDATE_DEFAULTS,3_600_000);
+  expect(allowed?.events.filter(e => e.action === "compra").length).toBeGreaterThan(0);
 });
 it("a falling SMA trend never emits an Active candidate entry", () => {
   const data = candles([100,99,98,97,96,95,96]);

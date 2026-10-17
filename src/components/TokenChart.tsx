@@ -15,11 +15,11 @@ const PERIODS = [
 const usd = (n: number) => `US$ ${n.toLocaleString("pt-BR", { maximumSignificantDigits: 6 })}`;
 const time = (n: number) => new Date(n).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-export function TokenChart(props: { address: string; symbol: string }) {
+export function TokenChart(props: { address: string; symbol: string; strategyMinutes?: number }) {
   return <PriceChart key={props.address} {...props} />;
 }
 
-function PriceChart({ address, symbol }: { address: string; symbol: string }) {
+function PriceChart({ address, symbol, strategyMinutes = 15 }: { address: string; symbol: string; strategyMinutes?: number }) {
   const [period, setPeriod] = useState<(typeof PERIODS)[number]["id"]>("1D");
   const [now, setNow] = useState(0);
   const [pool, setPool] = useState<string>();
@@ -34,7 +34,7 @@ function PriceChart({ address, symbol }: { address: string; symbol: string }) {
   const candles = useCandles(pool, address);
   const ms = PERIODS.find((p) => p.id === period)?.ms ?? 86_400_000;
   const all = candles.data ?? [];
-  const { visible, baseline, covered } = chartWindow(all, now, ms);
+  const { baseline, covered } = chartWindow(all, now, ms);
   const currentPool = pools.find((p) => p.pairAddress.toLowerCase() === pool?.toLowerCase());
   const rawPrice = Number(currentPool?.priceUsd);
   const live = rawPrice > 0 && Number.isFinite(rawPrice) ? rawPrice : null;
@@ -42,13 +42,6 @@ function PriceChart({ address, symbol }: { address: string; symbol: string }) {
   const price = live ?? last?.[4] ?? null;
   const change = covered && baseline != null && price != null ? (price / baseline - 1) * 100 : null;
   const up = (change ?? 0) >= 0;
-  const W = 320, H = 140;
-  const values = visible.map((c) => c[4]);
-  const min = values.length ? Math.min(...values) : 0;
-  const max = values.length ? Math.max(...values) : 0;
-  const span = max - min;
-  const xy = visible.map((c) => [((c[0] * 1000 - (now - ms)) / ms) * W, span ? H - 8 - ((c[4] - min) / span) * (H - 16) : H / 2] as const);
-  const path = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const fetching = market.isFetching || candles.isFetching;
   const stale = market.isError || !!market.data?.error || candles.isError;
   const refresh = () => { void market.refetch(); if (pool) void candles.refetch(); };
@@ -69,11 +62,11 @@ function PriceChart({ address, symbol }: { address: string; symbol: string }) {
         <Button aria-label="Atualizar preço e gráfico" title="Atualizar preço e gráfico" variant="ghost" size="icon" disabled={fetching} onClick={refresh} className="h-7 w-7"><RefreshCw className={cn("h-3.5 w-3.5", fetching && "motion-safe:animate-spin")} /></Button>
       </div>
       <p className="text-[11px] text-muted-foreground">Preço: consulta a cada 15s · Histórico: a cada 1 min</p>
-      <div className="mt-3"><CandleChart candles={all} now={now} /></div>
-      <div className="mt-3 grid grid-cols-4 gap-1">{PERIODS.map((p) => <Button key={p.id} size="sm" variant={period === p.id ? "secondary" : "ghost"} aria-pressed={period === p.id} onClick={() => setPeriod(p.id)}>{p.id}</Button>)}</div>
+      <div className="mt-3"><CandleChart candles={all} now={now} strategyMinutes={strategyMinutes} /></div>
+      <p className="mt-3 text-xs text-muted-foreground">Variação da cotação</p><div className="mt-1 grid grid-cols-4 gap-1">{PERIODS.map((p) => <Button key={p.id} size="sm" variant={period === p.id ? "secondary" : "ghost"} aria-pressed={period === p.id} onClick={() => setPeriod(p.id)}>{p.id}</Button>)}</div>
       {stale && <p role="status" className="mt-2 text-xs text-warning">Atualização indisponível. Os últimos dados recebidos foram mantidos; tentando novamente.</p>}
       {last && now - last[0] * 1000 > 20 * 60_000 && <p role="status" className="mt-2 text-xs text-warning">Gráfico com dados até {time(last[0] * 1000)} — buscando atualização. O preço acima continua ao vivo.</p>}
-      {path && !covered && <p className="mt-2 text-xs text-muted-foreground">Histórico parcial neste período.</p>}
+      {all.length > 0 && !covered && <p className="mt-2 text-xs text-muted-foreground">Histórico parcial neste período.</p>}
     </section>
   );
 }

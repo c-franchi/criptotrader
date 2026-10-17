@@ -24,7 +24,8 @@ export function recoverySignal(candles: Candle[], cfg: StrategyConfig, policy: C
   if (cfg.entryType === "adaptativa" && confirmedRegime(values, cfg, policy) === "queda") { state.armedAt = null; return { signal: false, state, reason: "Regime de queda: sem entrada candidata", fast, slow, slope }; }
   const recovery = bars.slice(-policy.recoveryBars);
   const rising = recovery.length === policy.recoveryBars && recovery.every((c, i) => i === 0 || c[4] > (recovery[i - 1]?.[4] ?? Infinity));
-  const reclaimed = cfg.entryType === "queda" ? rising : rising && last[4] > slow;
+  const isLateral = cfg.entryType === "adaptativa" && confirmedRegime(values, cfg, policy) === "lateral";
+  const reclaimed = cfg.entryType === "queda" || isLateral ? rising : rising && last[4] > slow;
   if (state.armedAt != null && last[0] > state.armedAt && reclaimed) {
     state.armedAt = null; state.consumedAt = last[0];
     return { signal: true, state, reason: "Novo recuo e recuperação confirmados por velas fechadas", fast, slow, slope };
