@@ -66,7 +66,12 @@ export const withdrawBot = createServerFn({ method: "POST" })
     if (!saved) throw new Error("Por segurança, o destino precisa estar salvo em Minhas carteiras");
     if (Date.now() - new Date(saved.created_at).getTime() < 24 * 3600 * 1000) throw new Error("Por segurança, carteiras novas só podem receber saques 24 horas depois de salvas");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("grid_bots").update({ armed: false }).eq("user_id", context.userId);
+    const { acquireExecution, releaseExecution } = await import("./executionLock.server");
+    const owner = await acquireExecution(supabaseAdmin, context.userId);
+    let unresolved = false;
+    try {
+    const { error: disarmError } = await supabaseAdmin.from("grid_bots").update({ armed: false }).eq("user_id", context.userId);
+    if (disarmError) throw disarmError;
     const { data: bw } = await supabaseAdmin.from("bot_wallets").select("enc_key").eq("user_id", context.userId).maybeSingle();
     if (!bw) throw new Error("Sem carteira do robô");
     const { botSigner, pubClient } = await import("./bot.server");
@@ -78,17 +83,21 @@ export const withdrawBot = createServerFn({ method: "POST" })
     for (const t of await allTokens(context.userId)) {
       const b = await pub.readContract({ address: t.address, abi: erc20Abi, functionName: "balanceOf", args: [account.address] });
       if (b > 0n) {
+        unresolved = true;
         const h = await wallet.writeContract({ address: t.address, abi: erc20Abi, functionName: "transfer", args: [dest, b] });
-        await pub.waitForTransactionReceipt({ hash: h });
+        const receipt = await pub.waitForTransactionReceipt({ hash: h });
+        unresolved = false;
+        if (receipt.status !== "success") throw new Error("Transferência revertida; consulte o histórico");
         hashes.push(h);
       }
     }
     const gasPrice = await pub.getGasPrice();
     const fee = gasPrice * 21000n * 2n;
     const bal = await pub.getBalance({ address: account.address });
-    if (bal > fee) hashes.push(await wallet.sendTransaction({ to: dest, value: bal - fee }));
+    if (bal > fee) { unresolved = true; const hash = await wallet.sendTransaction({ to: dest, value: bal - fee }); hashes.push(hash); await pub.waitForTransactionReceipt({ hash }); unresolved = false; }
     await supabaseAdmin.from("audit_log").insert({ user_id: context.userId, action: "bot_withdraw", details: { to, hashes } });
     return { hashes };
+    } finally { if (!unresolved) await releaseExecution(supabaseAdmin, context.userId, owner); }
   });
 
 /** Runs one grid step immediately for the caller's bot on the chosen token. */
