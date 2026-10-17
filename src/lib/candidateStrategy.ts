@@ -69,7 +69,7 @@ export function replayCandidate(input: Candle[], cfg: StrategyConfig, budget: nu
     const at = (bar[0] + minutes * 60) * 1000;
     const today = new Date(at).toISOString().slice(0, 10);
     if (day !== today) { day = today; tradesToday = 0; lossToday = 0; }
-    const history = bars.slice(0, i + 1), closes = history.map(c => c[4]);
+    const history = input.filter(c => (c[0] + 300) * 1000 <= at), closes = bars.slice(0, i + 1).map(c => c[4]);
     // Closed-bar fills only: no using a future close to fill an earlier intrabar low/high.
     if (tokens > 0) {
       const value = liquidation(tokens, bar[4], costs), netPct = (value / cost - 1) * 100;
