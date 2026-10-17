@@ -5,10 +5,10 @@ export function walletTokenDelta(logs: AuditLog[], token: string, wallet: string
   let delta = 0n;
   for (const log of logs) {
     if (log.address.toLowerCase() !== token.toLowerCase()) continue;
-    try { const event = decodeEventLog({ abi, data: log.data, topics: log.topics }); if (event.eventName !== "Transfer") continue; if (event.args.to.toLowerCase() === wallet.toLowerCase()) delta += event.args.value; if (event.args.from.toLowerCase() === wallet.toLowerCase()) delta -= event.args.value; } catch { /* other event */ }
+    try { const event = decodeEventLog({ abi, data: log.data, topics: [...log.topics] as [] | [`0x${string}`, ...`0x${string}`[]] }); if (event.eventName !== "Transfer") continue; if (event.args.to.toLowerCase() === wallet.toLowerCase()) delta += event.args.value; if (event.args.from.toLowerCase() === wallet.toLowerCase()) delta -= event.args.value; } catch { /* other event */ }
   }
   return delta;
 }
 export function receiptEvents(logs: AuditLog[]) {
-  return logs.flatMap(log => { try { const e = decodeEventLog({ abi, data: log.data, topics: log.topics }); return [{ contract: log.address, index: log.logIndex, event: e.eventName, args: Object.fromEntries(Object.entries(e.args).map(([k, v]) => [k, typeof v === "bigint" ? v.toString() : v])) }]; } catch { return []; } });
+  return logs.flatMap(log => { try { const e = decodeEventLog({ abi, data: log.data, topics: [...log.topics] as [] | [`0x${string}`, ...`0x${string}`[]] }); return [{ contract: log.address, index: log.logIndex, event: e.eventName, args: Object.fromEntries(Object.entries(e.args).map(([k, v]) => [k, typeof v === "bigint" ? v.toString() : v])) }]; } catch { return []; } });
 }

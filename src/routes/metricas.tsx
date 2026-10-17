@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell, Panel } from "@/components/AppShell";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { getMarket } from "@/lib/chain.functions";
@@ -11,6 +11,11 @@ import { taxFor } from "@/lib/tokens";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CandleChart } from "@/components/CandleChart";
+import { StrategyComparison } from "@/components/StrategyComparison";
+import { getFxQuote } from "@/lib/fx.functions";
+import type { Candle } from "@/lib/backtest";
+import type { PresetId } from "@/lib/strategy";
 
 export const Route = createFileRoute("/metricas")({
   head: () => ({
@@ -36,11 +41,15 @@ function Metrics() {
   const tax = taxFor(token.address);
   const [hours, setHours] = useState(24);
   const [amount, setAmount] = useState("1");
+  const [preset, setPreset] = useState<PresetId>("ativa");
+  const [clock, setClock] = useState(0);
+  useEffect(() => { setClock(Date.now()); const timer = setInterval(() => setClock(Date.now()), 15_000); return () => clearInterval(timer); }, []);
+  const fx = useQuery({ queryKey: ["fx"], queryFn: () => getFxQuote(), staleTime: 60_000 });
   const market = useQuery({ queryKey: ["market", token.address], queryFn: () => getMarket({ data: { address: token.address } }) });
   const pool = market.data?.pools.find((p) => p.supported)?.pairAddress ?? market.data?.pools[0]?.pairAddress;
   const candles = useCandles(pool, token.address);
 
-  const now = Date.now() / 1000;
+  const now = clock / 1000;
   const win = (candles.data ?? []).filter((c) => c[0] >= now - hours * 3600);
   const stats = windowStats(win);
   const cap = Number(amount) || 0;
@@ -87,20 +96,17 @@ function Metrics() {
             </div>
           </Panel>
 
-          <Panel title="Quanto teria ganho">
+          <Panel title="Comparação simulada">
             <Label>Valor aplicado (BNB)</Label>
             <Input type="number" step="any" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} />
-            <div className="mt-3 space-y-2">
-              <Row name="Só comprar e segurar" pnlPct={((1 + stats.changePct / 100) * (1 - tax.buy / 100) * (1 - tax.sell / 100) - 1) * 100} cap={cap} trades={1} />
-              {PRESETS.map((p) => {
-                const r = backtest(win, buildPreset(p.id, cap, liq, tax), cap);
-                return r ? <Row key={p.id} name={p.name} pnlPct={r.pnlPct} cap={cap} trades={r.trades} /> : null;
-              })}
-            </div>
+            <div className="mt-3 flex flex-wrap gap-2">{PRESETS.map(p => <Button key={p.id} variant={preset === p.id ? "secondary" : "outline"} size="sm" aria-pressed={preset === p.id} onClick={() => setPreset(p.id)}>{p.name}</Button>)}</div>
             <p className="mt-3 text-xs text-muted-foreground">
               Estimativa feita com o histórico de preço (velas de 5 min) e taxa de 0,25% por troca e a taxa do token ({tax.buy}% na compra, {tax.sell}% na venda). Não inclui gás, slippage nem impacto de preço. Resultado passado não garante resultado futuro.
             </p>
           </Panel>
+          <CandleChart candles={candles.data ?? []} now={clock} strategyMinutes={15} />
+          {fx.data?.bnbUsd && fx.data.bnbUsd > 0 ? <StrategyComparison candles={win.map((c): Candle => [c[0], c[1] / (fx.data?.bnbUsd ?? 1), c[2] / (fx.data?.bnbUsd ?? 1), c[3] / (fx.data?.bnbUsd ?? 1), c[4] / (fx.data?.bnbUsd ?? 1), c[5]])} cfg={buildPreset(preset, cap, liq, tax)} budget={cap} liquidity={liq} /> : <p className="text-xs text-warning">Conversão BNB indisponível: comparação financeira aguardando cotação.</p>}
+          <p className="text-xs text-warning">Histórico original em USD; comparação usa a cotação atual de BNB como aproximação constante. Não representa a variação histórica USD/BNB.</p>
         </>
       )}
     </div>

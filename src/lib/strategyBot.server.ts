@@ -34,6 +34,11 @@ export async function runStrategyStep(admin: any, bot: Bot, enc: string) {
   if (state.tokens > 0) state.peakUsd = Math.max(state.peakUsd, priceUsd);
 
   const d = decide(cfg, state, { priceUsd, liquidityUsd: best.liquidityUsd, high, closes, now });
+  const snapshot = { version: "live-v1-observed", at: now, token, pool: best.pairAddress, config: cfg, state: { ...state }, priceUsd, high, closes, decision: d, source: market.source, historyThrough: candles.at(-1)?.[0] ?? null, indicator: "SMA; legacy bucket closes", stopFormula: cfg.stopLossMode === "liquido" ? "(price / avgPriceUsd × (1-buyTax/100) × (1-sellTax/100) - 1) × 100" : "(price / avgPriceUsd - 1) × 100", proceedsAccounting: "legacy quote estimate; not confirmed native wallet proceeds" };
+  if (d.action !== "nenhuma") {
+    const { error } = await admin.from("audit_log").insert({ user_id: bot.user_id, action: "robot_signal", details: snapshot });
+    if (error) throw new Error("Não foi possível registrar a decisão; ordem não enviada");
+  }
   const patch: Record<string, unknown> = { last_price: priceUsd, last_error: null, last_reason: d.reason, strat_state: state };
   if (d.action === "nenhuma") return { patch, order: null };
 
@@ -59,6 +64,7 @@ export async function runStrategyStep(admin: any, bot: Bot, enc: string) {
     if (cfg.maxPriceImpactPct > 0 && priceImpactPct(amountIn, pool.bnb) > cfg.maxPriceImpactPct) return { patch: { ...patch, last_error: "Impacto de preço acima do limite da estratégia" }, order: null };
     const before = await pub.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [me] });
     const r = await sendSwap({ pub, wallet, me, token, side: "compra", amountIn, path: [WBNB, token], slippagePct: cfg.maxSlippagePct, taxPct: tax.buy, userId: bot.user_id, pair: pool.pair, source: "robo" });
+    if (r.order.tx_hash) await admin.from("audit_log").insert({ user_id: bot.user_id, action: "robot_decision", details: { ...snapshot, hash: r.order.tx_hash, amountIn: amountIn.toString(), quotedOut: r.net.toString(), status: r.order.status } });
     if (r.order.status !== "confirmada") return { patch: { ...patch, last_error: r.order.error }, order: r.order };
     const after = await pub.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [me] });
     const got = Number(formatUnits(after - before, dec));
@@ -75,6 +81,7 @@ export async function runStrategyStep(admin: any, bot: Bot, enc: string) {
   const allowance = await pub.readContract({ address: token, abi: erc20Abi, functionName: "allowance", args: [me, PANCAKE_V2_ROUTER] });
   if (allowance < amountIn) await pub.waitForTransactionReceipt({ hash: await wallet.writeContract({ address: token, abi: erc20Abi, functionName: "approve", args: [PANCAKE_V2_ROUTER, amountIn] }) });
   const r = await sendSwap({ pub, wallet, me, token, side: "venda", amountIn, path: [token, WBNB], slippagePct: cfg.maxSlippagePct, taxPct: tax.sell, userId: bot.user_id, pair: pool.pair, source: "robo" });
+  if (r.order.tx_hash) await admin.from("audit_log").insert({ user_id: bot.user_id, action: "robot_decision", details: { ...snapshot, hash: r.order.tx_hash, amountIn: amountIn.toString(), quotedOut: r.net.toString(), status: r.order.status } });
   if (r.order.status !== "confirmada") return { patch: { ...patch, last_error: r.order.error }, order: r.order };
   return { patch: { ...patch, strat_state: afterTrade(state, d, { priceUsd, bnb: Number(formatEther(r.net)), tokens: Number(formatUnits(amountIn, dec)), now }) }, order: r.order };
 }

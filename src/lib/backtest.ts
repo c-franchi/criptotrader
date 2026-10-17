@@ -2,7 +2,7 @@ import type { StrategyConfig } from "./strategy";
 import { stopPrice } from "./stopLoss";
 
 /** [time(s), open, high, low, close] in chronological order. */
-export type Candle = [number, number, number, number, number, number?];
+export type Candle = [number, number, number, number, number, (number | undefined)?];
 
 export type WindowStats = { changePct: number; high: number; low: number; open: number; close: number; maxRisePct: number; maxDropPct: number };
 

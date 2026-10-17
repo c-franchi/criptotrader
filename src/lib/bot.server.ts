@@ -27,7 +27,8 @@ export async function newEncryptedWallet() {
 
 async function decryptKey(enc: string) {
   const [iv, ct] = enc.split(".");
-  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(iv!) }, await aesKey(), unb64(ct!));
+  if (!iv || !ct) throw new Error("Carteira criptografada inválida");
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(iv) }, await aesKey(), unb64(ct));
   return new TextDecoder().decode(pt) as `0x${string}`;
 }
 
@@ -109,7 +110,8 @@ export async function sendSwap(o: { pub: Pub; wallet: Wal; me: `0x${string}`; to
   const { pub, wallet, me, token, path, amountIn } = o;
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
   const amounts = await pub.readContract({ address: PANCAKE_V2_ROUTER, abi: routerAbi, functionName: "getAmountsOut", args: [amountIn, path] });
-  const gross = amounts[amounts.length - 1]!;
+  const gross = amounts.at(-1);
+  if (gross == null) throw new Error("Cotação indisponível");
   const net = (gross * BigInt(Math.round((100 - Math.min(Math.max(o.taxPct, 0), 50)) * 100))) / 10000n;
   const min = minOut(net, o.slippagePct + (o.taxPct > 0 ? 1 : 0));
   const order = {
@@ -128,8 +130,8 @@ export async function sendSwap(o: { pub: Pub; wallet: Wal; me: `0x${string}`; to
     order.block_number = Number(r.blockNumber);
     if (r.status !== "success") order.error = "Transação revertida na rede";
   } catch (e) {
-    order.status = "falhou";
-    order.error = ((e as Error).message ?? "erro").split("\n")[0]!.slice(0, 300);
+    order.status = order.tx_hash ? "enviada" : "falhou";
+    order.error = order.tx_hash ? "Confirmação pendente — não repetir a ordem até conciliar o hash" : (((e as Error).message ?? "erro").split("\n")[0] ?? "erro").slice(0, 300);
   }
   return { order, net };
 }

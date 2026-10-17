@@ -3,7 +3,7 @@ import type { Candle } from "./backtest";
 export type Bar = { candle: Candle; complete: boolean; forming: boolean };
 export function normalizedCandles(input: Candle[]): Candle[] {
   const map = new Map<number, Candle>();
-  for (const c of input) if (c.length >= 5 && c.slice(0, 5).every(Number.isFinite) && c.slice(1, 5).every(n => n > 0)) map.set(c[0], c);
+  for (const c of input) if (c.length >= 5 && c.slice(0, 5).every(Number.isFinite) && c.slice(1, 5).every(n => n != null && n > 0)) map.set(c[0], c);
   return [...map.values()].sort((a, b) => a[0] - b[0]);
 }
 

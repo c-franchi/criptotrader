@@ -92,6 +92,13 @@
       "when": 1792193100016,
       "tag": "0012_robot_execution_audit_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792199383341,
+      "tag": "0013_guard_wallet_execution_configuration",
+      "breakpoints": true
     }
   ]
 }
