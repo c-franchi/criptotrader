@@ -128,9 +128,8 @@ function ChartBody({ candles, now, strategyMinutes = 15, fastLength = 9, slowLen
       const [a, b] = [...pointers.current.values()];
       const factor = pinch.current.dist / (Math.abs(a.x - b.x) || 1);
       const p = pinch.current;
-      const ns = clampView({ start: p.anchorT - (p.anchorT - (p.anchorT - p.span / 2)) * factor, end: p.anchorT + p.span / 2 * factor });
       setView(clampView({ start: p.anchorT - p.span * factor / 2, end: p.anchorT + p.span * factor / 2 }));
-      void ns; setFollow(false);
+      setFollow(false);
       return;
     }
     if (prev && pointers.current.size === 1 && e.pointerType === "touch") {
