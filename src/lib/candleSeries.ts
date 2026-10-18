@@ -41,12 +41,12 @@ export function sma(values: number[], length: number): number | null {
 }
 
 /** Legacy engine bucket rule, explicit so chart and the unchanged live engine agree. */
-export function engineSeries(input: Candle[], minutes: number, now: number) {
+export function engineSeries(input: Candle[], minutes: number, now: number, fastLength = 9, slowLength = 21) {
   const map = new Map<number, number>();
   for (const c of input) {
     const bucket = Math.floor(c[0] / (minutes * 60));
     if (bucket < Math.floor(now / 1000 / (minutes * 60))) map.set(bucket, c[4]);
   }
   const entries = [...map].sort((a, b) => a[0] - b[0]);
-  return entries.map(([bucket, close], i) => ({ time: (bucket + 1) * minutes * 60 * 1000, close, fast: sma(entries.slice(0, i + 1).map(e => e[1]), 9), slow: sma(entries.slice(0, i + 1).map(e => e[1]), 21) }));
+  return entries.map(([bucket, close], i) => ({ time: (bucket + 1) * minutes * 60 * 1000, close, fast: sma(entries.slice(0, i + 1).map(e => e[1]), fastLength), slow: sma(entries.slice(0, i + 1).map(e => e[1]), slowLength) }));
 }

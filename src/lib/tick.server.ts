@@ -33,6 +33,8 @@ export async function tickBot(admin: any, bot: any) {
     retain = true;
     const { error: orderError } = await admin.from("orders").insert(res.order);
     if (orderError) throw orderError;
+    const { error: stateError } = await admin.from("grid_bots").update({ ...res.patch, last_run_at: new Date().toISOString() }).eq("id", bot.id);
+    if (stateError) throw stateError;
     retain = res.order.status === "enviada";
     const { data: t } = await admin.from("user_tokens").select("symbol").eq("user_id", bot.user_id).ilike("address", bot.token).maybeSingle();
     const ok = res.order.status === "confirmada";
@@ -40,7 +42,7 @@ export async function tickBot(admin: any, bot: any) {
     const body = ok ? String(res.patch["last_reason"] ?? "Seguindo sua estratégia.") : String(res.order.error ?? "Nada foi trocado.");
     await admin.from("notifications").insert({ user_id: bot.user_id, title, body, link: "/grade" });
     const { pushToUser } = await import("./pushSend.server");
-    await pushToUser(admin, bot.user_id, title, body, "/grade");
+    try { await pushToUser(admin, bot.user_id, title, body, "/grade"); } catch { /* Notification delivery must never roll back a confirmed execution. */ }
   }
   const { error: patchError } = await admin.from("grid_bots").update({ ...res.patch, last_run_at: new Date().toISOString() }).eq("id", bot.id);
   if (patchError) { retain = true; throw patchError; }

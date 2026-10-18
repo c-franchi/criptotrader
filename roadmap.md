@@ -1,10 +1,14 @@
 # Correção da seleção e do mercado
 ## Melhorias pontuais e auditoria (16/10/2026)
-- [ ] Gráfico compartilhado OHLCV, períodos visuais persistentes, SMA e marcadores rastreáveis.
-- [ ] Auditoria de receitas/custos e registro de decisões sem reescrever históricos/posições.
-- [ ] Motor candidato exclusivamente simulado: recuperação, rearme, orçamento, custos, saídas e regimes confirmados.
-- [ ] Comparação justa sem recompra/uma recompra e relatório curto com testes e limitações.
-- [ ] Verificar fluxo visual autenticado e testes, sem enviar transações.
+- [x] Gráfico compartilhado OHLCV, períodos visuais persistentes, SMA e marcadores identificados como reconstruídos; auditoria consultada atualiza timestamps pelo receipt.
+- [x] Auditoria read-only de receipts/eventos/gás e observações append-only das decisões; históricos e posições não reescritos.
+- [x] Motor candidato exclusivamente simulado: recuperação, rearme, orçamento, custos, saídas e regimes confirmados; sem presets novos.
+- [x] Comparação sem recompra/uma recompra com mesmo orçamento máximo; relatório com 36 testes passando e limitações.
+- [x] Fluxo público de Métricas com OHLCV real, abertura da comparação e preferência 15m persistente; sem erros de execução.
+- [ ] Verificar auditoria e gráfico do robô com sessão autenticada — mint da conta solicitante indisponível; requer login na prévia.
+- [ ] Conciliar BNB nativo recebido no ciclo e aprovações antigas — exige trace isolado/serviço de archive; saídas do router não confirmam receita da carteira.
+- [ ] Trocar contabilidade e regras live — deliberadamente desativado para preservar posições abertas; depende de comparação e ativação explícita do usuário.
+- [x] Mutex persistente por carteira nos ticks e saques, confirmação pendente não vira falha, alterações concorrentes bloqueadas; mutex retido em resultado indeterminado exige conciliação, sem expiração automática.
 - [x] Adicionar opção de stop por perda líquida às estratégias, gráficos e simulação, preservando estratégias existentes; 29 testes passaram, sem enviar transações.
 - [ ] Verificar salvamento do stop líquido na conta do usuário — sessão indisponível; requer entrada na prévia, sem alterar robôs ativos automaticamente.
 - [x] Estabilizar histórico e gráfico; consultar preço a cada 15s e histórico a cada minuto, mantendo dados nas falhas. Testado logado em celular/computador; seis testes passaram.

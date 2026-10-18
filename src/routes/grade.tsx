@@ -306,7 +306,7 @@ function Robo() {
       <Panel title="Ver o robô em ação">
         <p className="mb-2 text-xs text-muted-foreground">Veja no gráfico onde o robô vai comprar e vender, e cada operação que ele já fez.</p>
         <Button variant={vision ? "secondary" : "default"} onClick={() => setVision(!vision)}>{vision ? "Esconder gráfico" : "✨ Ver o robô em ação"}</Button>
-        {vision && <div className="mt-3"><RobotVision token={token} symbol={sym} cfg={cfg} state={st} mode={mode} grid={lines} orders={orders} armed={armed} reason={bot?.last_reason} /></div>}
+        {vision && <div className="mt-3"><RobotVision token={token} symbol={sym} cfg={cfg} state={st} mode={mode} grid={lines} orders={orders} armed={armed} reason={bot?.last_reason} evaluatedAt={bot?.last_run_at} /></div>}
       </Panel>
 
       <Panel title="Carteira do robô">

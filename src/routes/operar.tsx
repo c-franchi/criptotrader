@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import type { Tables } from "@/integrations/supabase/types";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
+import { intervalMinutes } from "@/lib/autoStrategy";
 
 export const Route = createFileRoute("/operar")({
   validateSearch: (s: Record<string, unknown>): { entrada?: string } =>
@@ -317,7 +318,7 @@ function Operar() {
         <AddTokenDialog wallet={account} />
       </div>
 
-      <TokenChart address={GTE} symbol={sym} />
+      <TokenChart address={GTE} symbol={sym} strategyMinutes={intervalMinutes(cfg.candleInterval)} />
       {bal && (
         <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
           <span className="font-semibold">Seu saldo</span>
