@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/AppShell";
 
 const cycle = ["0x05961252f4227be9851aadb67e6cc5f71f51ac52dd2fce95a557a6b33cfadb38", "0x77d6d4b79eb657ff0a06039f8c47a6ce1581421af979ffdc8d952c00bddb619e", "0x3f6e27ebe3f655cd5321546ce2ecb7ccd1dbede9ccc1a1f2342b862bc698b2d4"];
-export function OrderAudit({ hashes }: { hashes: string[] }) {
+export function OrderAudit({ hashes, onAudited }: { hashes: string[]; onAudited?: (rows: Awaited<ReturnType<typeof auditOrder>>[]) => void }) {
   const inspect = useServerFn(auditOrder);
   const [rows, setRows] = useState<Awaited<ReturnType<typeof auditOrder>>[]>([]);
   const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
-  const load = async (list: string[]) => { setBusy(true); setError(""); try { const results = await Promise.all(list.map(hash => inspect({ data: { hash } }))); setRows(results); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } };
+  const load = async (list: string[]) => { setBusy(true); setError(""); try { const results = []; for (const hash of list) results.push(await inspect({ data: { hash } })); setRows(results); onAudited?.(results); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } };
   return <Panel collapsible title="Auditoria das transações">
     <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy || !hashes.length} onClick={() => load(hashes.slice(0, 10))}>Consultar últimas transações</Button><Button variant="secondary" disabled={busy} onClick={() => load(cycle)}>Auditar ciclo informado</Button></div>
     {busy && <p className="mt-2 text-xs">Consultando comprovantes na BSC…</p>}{error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}

@@ -10,7 +10,7 @@ const tones = { buy: "text-success", sell: "text-primary", stop: "text-destructi
 const windows = [{ id: "1h", hours: 1 }, { id: "4h", hours: 4 }, { id: "12h", hours: 12 }, { id: "1 dia", hours: 24 }];
 const usd = (n: number) => n.toLocaleString("pt-BR", { maximumSignificantDigits: 5 });
 
-export function CandleChart({ candles, now, strategyMinutes = 15, levels = [], trades = [] }: { candles: Candle[]; now: number; strategyMinutes?: number; levels?: ChartLevel[]; trades?: ChartTrade[] }) {
+export function CandleChart({ candles, now, strategyMinutes = 15, fastLength = 9, slowLength = 21, levels = [], trades = [] }: { candles: Candle[]; now: number; strategyMinutes?: number; fastLength?: number; slowLength?: number; levels?: ChartLevel[]; trades?: ChartTrade[] }) {
   const [minutes, setMinutes] = useState(5);
   const [hours, setHours] = useState(24);
   const [ready, setReady] = useState(false);
@@ -22,7 +22,7 @@ export function CandleChart({ candles, now, strategyMinutes = 15, levels = [], t
   useEffect(() => { if (ready) try { localStorage.setItem("cryptobot:chart-view", JSON.stringify({ minutes, hours })); } catch { /* unavailable */ } }, [minutes, hours, ready]);
   const start = now - hours * 3_600_000;
   const bars = aggregateCandles(candles, minutes, now).filter(b => b.candle[0] * 1000 >= start);
-  const series = engineSeries(candles, strategyMinutes, now).filter(s => s.time >= start);
+  const series = engineSeries(candles, strategyMinutes, now, fastLength, slowLength).filter(s => s.time >= start);
   const points = [...bars.flatMap(b => [b.candle[2], b.candle[3]]), ...levels.map(l => l.price), ...series.flatMap(s => [s.fast, s.slow].filter((v): v is number => v != null))];
   const low = points.length ? Math.min(...points) : 0, high = points.length ? Math.max(...points) : 1;
   const pad = (high - low || high || 1) * .08;
@@ -48,7 +48,7 @@ export function CandleChart({ candles, now, strategyMinutes = 15, levels = [], t
       {visibleTrades.map((t, i) => { const nearby = bars.find(b => b.candle[0] * 1000 <= t.time && (b.candle[0] + minutes * 60) * 1000 > t.time); const price = t.price ?? nearby?.candle[4]; return price == null ? null : <g key={t.hash ?? i} className={t.side === "compra" ? "text-success" : "text-destructive"}><title>{t.side} · {t.hash} · {t.price == null ? "Posição vertical aproximada pelo histórico" : "Preço registrado"}</title><circle cx={x(t.time)} cy={y(price)} r={5} fill="currentColor" /><text x={x(t.time)} y={y(price) + (t.side === "compra" ? 17 : -10)} fill="currentColor" fontSize={10}>{t.side === "compra" ? "C" : "V"}</text></g>; })}
       <text x={0} y={328} fill="currentColor" fontSize={10} className="text-muted-foreground">{new Date(start).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</text><text x={plot - 40} y={328} fill="currentColor" fontSize={10} className="text-muted-foreground">Agora</text>
     </svg> : <p className="flex h-48 items-center justify-center text-sm text-muted-foreground">Histórico indisponível neste período.</p>}
-    <p className="text-[11px] text-muted-foreground"><span className="text-primary">SMA 9</span> · <span className="text-chart-4">SMA 21</span> · USD · OHLCV do pool / GeckoTerminal · {bars.some(b => b.forming) ? "Última vela em formação" : "Sem vela atual"} · {volumeMax ? "Volume em USD" : "Volume indisponível"}</p>
+    <p className="text-[11px] text-muted-foreground"><span className="text-primary">SMA {fastLength}</span> · <span className="text-chart-4">SMA {slowLength}</span> · USD · OHLCV do pool / GeckoTerminal · {bars.some(b => b.forming) ? "Última vela em formação" : "Sem vela atual"} · {volumeMax ? "Volume em USD" : "Volume indisponível"}</p>
     <p className="text-[11px] text-warning">Médias da regra real: fechamentos agrupados em {strategyMinutes}m; a regra antiga pode aceitar grupos incompletos. A candidata exige sequência completa e não comprime lacunas.</p>
     {levels.length > 0 && <ul className="grid gap-1 text-xs sm:grid-cols-2">{levels.filter(l => l.label).map((l, i) => <li key={i} className={tones[l.tone]}>{l.label}: US$ {usd(l.price)}</li>)}</ul>}
     {visibleTrades.length > 0 && <div className="flex flex-wrap gap-2">{visibleTrades.map((t, i) => <Button key={t.hash ?? i} size="sm" variant="outline" onClick={() => setSelected(t)} className={cn(t.side === "compra" ? "text-success" : "text-destructive")}>{t.side} · {new Date(t.time).toLocaleTimeString("pt-BR")}</Button>)}</div>}
