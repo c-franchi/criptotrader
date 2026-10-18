@@ -9,6 +9,7 @@ import { stopPrice, netPositionPct } from "@/lib/stopLoss";
 import { CandleChart } from "@/components/CandleChart";
 import { OrderAudit } from "@/components/OrderAudit";
 import { decide } from "@/lib/autoStrategy";
+import type { auditOrder } from "@/lib/audit.functions";
 
 type Order = { side: string; status: string; token: string; created_at: string; tx_hash?: string | null; amount_in?: string; quoted_out?: string };
 type Line = { price: number; label: string; tone: "buy" | "sell" | "stop" | "avg" | "grid" };
@@ -37,6 +38,7 @@ export function robotLines(cfg: StrategyConfig | null | undefined, s: BotState, 
 export function RobotVision(props: { token: string; symbol: string; cfg: StrategyConfig | null | undefined; state: BotState; mode: string; grid: number[]; orders: Order[]; armed: boolean; reason?: string | null | undefined; evaluatedAt?: string | null | undefined }) {
   const { token, symbol, cfg, state, mode, grid, orders, armed, reason, evaluatedAt } = props;
   const [now, setNow] = useState(0);
+  const [audited, setAudited] = useState<Awaited<ReturnType<typeof auditOrder>>[]>([]);
   useEffect(() => { setNow(Date.now()); const t = setInterval(() => setNow(Date.now()), 15_000); return () => clearInterval(t); }, []);
   const market = useQuery({ queryKey: ["market", token], queryFn: () => getMarket({ data: { address: token } }), staleTime: 10_000, refetchInterval: 15_000, retry: 1 });
   const pool = market.data?.pools.find((p) => p.supported) ?? market.data?.pools[0];
@@ -78,8 +80,12 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
           {armed ? "Robô vigiando" : "Robô desligado"}
         </span>
       </div>
-      <CandleChart candles={candles.data ?? []} now={now} strategyMinutes={intervalMinutes(cfg?.candleInterval ?? "15m")} levels={lines} trades={orders.filter(o => o.status === "confirmada" && o.token.toLowerCase() === token.toLowerCase()).map(o => ({ time: Date.parse(o.created_at), side: o.side, hash: o.tx_hash, details: ["Reconstruído: horário do registro; consulte o comprovante para horário da transação e quantidades efetivas.", `Valor de entrada registrado (unidades mínimas): ${o.amount_in ?? "indisponível"}`, "Preço vertical aproximado pelo histórico; não é preço efetivo de execução.", "Sinal, versão e parâmetros antigos não foram registrados; não são reconstruídos a partir da estratégia atual."] }))} />
-      <OrderAudit hashes={orders.filter(o => o.token.toLowerCase() === token.toLowerCase()).flatMap(o => o.tx_hash ? [o.tx_hash] : [])} />
+      <CandleChart candles={candles.data ?? []} now={now} strategyMinutes={intervalMinutes(cfg?.candleInterval ?? "15m")} fastLength={cfg?.maFast ?? 9} slowLength={cfg?.maSlow ?? 21} levels={lines} trades={orders.filter(o => o.status === "confirmada" && o.token.toLowerCase() === token.toLowerCase()).map(o => {
+        const evidence = audited.find(r => r.hash === o.tx_hash && r.token.toLowerCase() === token.toLowerCase());
+        return { time: evidence?.timestamp ?? Date.parse(o.created_at), side: o.side, hash: o.tx_hash, details: evidence ? [`Comprovante BSC: ${evidence.symbol}, quantidade efetiva ${evidence.tokenDelta}.`, `BNB enviado ${evidence.bnbSpent ?? "indisponível"}; gás confirmado ${evidence.gasBnb} BNB.`, evidence.nativeReceivedStatus, evidence.snapshot ? `Decisão registrada: ${JSON.stringify(evidence.snapshot)}` : "Sinal/versão/parâmetros antigos indisponíveis; não reconstruídos da configuração atual.", "Posição vertical aproximada pelo histórico, não preço de execução."] : ["Reconstruído: horário do registro; consulte a auditoria para horário da transação e quantidades efetivas.", `Valor de entrada registrado (unidades mínimas): ${o.amount_in ?? "indisponível"}`, "Preço vertical aproximado pelo histórico; não é preço efetivo de execução.", "Sinal, versão e parâmetros antigos não foram registrados; não são reconstruídos a partir da estratégia atual."] };
+      })} />
+      <OrderAudit hashes={orders.filter(o => o.token.toLowerCase() === token.toLowerCase()).flatMap(o => o.tx_hash ? [o.tx_hash] : [])} onAudited={setAudited} />
+      {cfg && state.tokens > 0 && <p className="text-xs text-warning">Preço médio do motor: referência de mercado ponderada, não custo efetivo por token. Custo gerenciado: {state.costBnb.toFixed(8)} BNB / {state.tokens.toFixed(6)} tokens = {(state.costBnb / state.tokens).toPrecision(6)} BNB/token; gás não incluído. Equilíbrio estimado após venda: {(state.costBnb / state.tokens / Math.max(.000001, 1 - (cfg.sellTaxPct ?? 0) / 100)).toPrecision(6)} BNB/token (sem DEX, impacto e gás). Trailing: {cfg.trailingEnabled ? `pico US$ ${state.peakUsd.toPrecision(6)}; regra real por preço, ativa em +${cfg.trailingActivatePct}%, distância ${cfg.trailingDistancePct}%` : "desativado"}.</p>}
       {cfg && live != null && <div className="border-t border-border pt-3 text-xs"><p className="font-semibold">Por que o bot está esperando?</p><p>{armed ? decide(cfg, state, { priceUsd: live, liquidityUsd: pool?.liquidityUsd ?? null, high, closes: closesAt(candles.data ?? [], intervalMinutes(cfg.candleInterval), now), now }).reason : "Robô desligado"}</p><p className="text-muted-foreground">Prévia atual às {new Date(now).toLocaleTimeString("pt-BR")} · {cfg.candleInterval}. Última avaliação do servidor: {evaluatedAt ? new Date(evaluatedAt).toLocaleString("pt-BR") : "indisponível"} · {reason ?? "sem motivo registrado"}. Cooldown restante: {Math.max(0, Math.ceil((state.lastTradeAt + cfg.cooldownMin * 60_000 - now) / 60_000))} min.</p><p className="text-warning">A condição visual não garante execução. Recuperação e rearme novos estão disponíveis somente na simulação.</p></div>}
       {lastAt != null && now - lastAt > 20 * 60_000 && <p role="status" className="text-xs text-warning">Gráfico com dados até {new Date(lastAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} — buscando atualização. O preço agora continua ao vivo.</p>}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
