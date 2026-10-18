@@ -34,8 +34,8 @@ export function robotLines(cfg: StrategyConfig | null | undefined, s: BotState, 
   return out;
 }
 
-export function RobotVision(props: { token: string; symbol: string; cfg: StrategyConfig | null | undefined; state: BotState; mode: string; grid: number[]; orders: Order[]; armed: boolean; reason?: string | null | undefined }) {
-  const { token, symbol, cfg, state, mode, grid, orders, armed, reason } = props;
+export function RobotVision(props: { token: string; symbol: string; cfg: StrategyConfig | null | undefined; state: BotState; mode: string; grid: number[]; orders: Order[]; armed: boolean; reason?: string | null | undefined; evaluatedAt?: string | null | undefined }) {
+  const { token, symbol, cfg, state, mode, grid, orders, armed, reason, evaluatedAt } = props;
   const [now, setNow] = useState(0);
   useEffect(() => { setNow(Date.now()); const t = setInterval(() => setNow(Date.now()), 15_000); return () => clearInterval(t); }, []);
   const market = useQuery({ queryKey: ["market", token], queryFn: () => getMarket({ data: { address: token } }), staleTime: 10_000, refetchInterval: 15_000, retry: 1 });
@@ -66,20 +66,6 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
     }
   }
   const lines: Line[] = mode === "grade" ? grid.map((p, i) => ({ price: p, label: i === 0 ? "Grade (base)" : i === grid.length - 1 ? "Grade (topo)" : "", tone: "grid" as const })) : [...robotLines(cfg, state, high), ...adaptLines, ...(slowAvg?.up && state.entries < Math.max(1, cfg?.maxEntries ?? 1) ? [{ price: slowAvg.s, label: `Compra abaixo daqui (média de ${cfg?.maSlow})`, tone: "buy" as const }] : [])];
-  const trades = orders.filter((o) => o.status === "confirmada" && o.token.toLowerCase() === token.toLowerCase()).map((o) => {
-    const t = Date.parse(o.created_at);
-    const c = all.reduce<(typeof all)[number] | undefined>((b, x) => (!b || Math.abs(x[0] * 1000 - t) < Math.abs(b[0] * 1000 - t) ? x : b), undefined);
-    return c && t >= now - ms ? { t, price: c[4], buy: o.side === "compra" } : null;
-  }).filter((x): x is { t: number; price: number; buy: boolean } => !!x);
-
-  const W = 320, H = 180;
-  const vals = [...all.map((c) => c[4]), ...lines.map((l) => l.price), ...(live ? [live] : [])];
-  const lo = vals.length ? Math.min(...vals) : 0, hi = vals.length ? Math.max(...vals) : 1;
-  const pad = (hi - lo || hi || 1) * 0.08;
-  const min = lo - pad, max = hi + pad;
-  const y = (p: number) => H - ((p - min) / (max - min)) * H;
-  const x = (t: number) => ((t - (now - ms)) / ms) * W;
-  const path = all.map((c, i) => `${i ? "L" : "M"}${x(c[0] * 1000).toFixed(1)},${y(c[4]).toFixed(1)}`).join(" ");
   const buyLine = lines.find((l) => l.tone === "buy");
   const nextSell = lines.filter((l) => l.tone === "sell").sort((a, b) => a.price - b.price)[0];
 
@@ -94,7 +80,7 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
       </div>
       <CandleChart candles={candles.data ?? []} now={now} strategyMinutes={intervalMinutes(cfg?.candleInterval ?? "15m")} levels={lines} trades={orders.filter(o => o.status === "confirmada" && o.token.toLowerCase() === token.toLowerCase()).map(o => ({ time: Date.parse(o.created_at), side: o.side, hash: o.tx_hash, details: ["Reconstruído: horário do registro; consulte o comprovante para horário da transação e quantidades efetivas.", `Valor de entrada registrado (unidades mínimas): ${o.amount_in ?? "indisponível"}`, "Preço vertical aproximado pelo histórico; não é preço efetivo de execução.", "Sinal, versão e parâmetros antigos não foram registrados; não são reconstruídos a partir da estratégia atual."] }))} />
       <OrderAudit hashes={orders.filter(o => o.token.toLowerCase() === token.toLowerCase()).flatMap(o => o.tx_hash ? [o.tx_hash] : [])} />
-      {cfg && live != null && <div className="border-t border-border pt-3 text-xs"><p className="font-semibold">Por que o bot está esperando?</p><p>{armed ? decide(cfg, state, { priceUsd: live, liquidityUsd: pool?.liquidityUsd ?? null, high, closes: closesAt(candles.data ?? [], intervalMinutes(cfg.candleInterval), now), now }).reason : "Robô desligado"}</p><p className="text-muted-foreground">Prévia atual às {new Date(now).toLocaleTimeString("pt-BR")} · {cfg.candleInterval}. Última avaliação do servidor: {reason ?? "indisponível"}. Cooldown restante: {Math.max(0, Math.ceil((state.lastTradeAt + cfg.cooldownMin * 60_000 - now) / 60_000))} min.</p><p className="text-warning">A condição visual não garante execução. Recuperação e rearme novos estão disponíveis somente na simulação.</p></div>}
+      {cfg && live != null && <div className="border-t border-border pt-3 text-xs"><p className="font-semibold">Por que o bot está esperando?</p><p>{armed ? decide(cfg, state, { priceUsd: live, liquidityUsd: pool?.liquidityUsd ?? null, high, closes: closesAt(candles.data ?? [], intervalMinutes(cfg.candleInterval), now), now }).reason : "Robô desligado"}</p><p className="text-muted-foreground">Prévia atual às {new Date(now).toLocaleTimeString("pt-BR")} · {cfg.candleInterval}. Última avaliação do servidor: {evaluatedAt ? new Date(evaluatedAt).toLocaleString("pt-BR") : "indisponível"} · {reason ?? "sem motivo registrado"}. Cooldown restante: {Math.max(0, Math.ceil((state.lastTradeAt + cfg.cooldownMin * 60_000 - now) / 60_000))} min.</p><p className="text-warning">A condição visual não garante execução. Recuperação e rearme novos estão disponíveis somente na simulação.</p></div>}
       {lastAt != null && now - lastAt > 20 * 60_000 && <p role="status" className="text-xs text-warning">Gráfico com dados até {new Date(lastAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} — buscando atualização. O preço agora continua ao vivo.</p>}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
         <span><span className="text-warning">●</span> Preço agora</span>
@@ -108,7 +94,7 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
           <p>Preço agora: <strong>{usd(live)}</strong></p>
           {mode !== "grade" && cfg?.stopLossMode === "liquido" && state.tokens > 0 && state.avgPriceUsd > 0 && <p className="text-warning">Resultado líquido estimado: {netPositionPct(live, state.avgPriceUsd, cfg).toFixed(1)}% · limite de perda: {cfg.stopLossPct}%. Inclui taxas do token; não inclui gás nem variação da execução. O stop vende a posição, mas o robô continua ligado e os saques continuam disponíveis.</p>}
           {buyLine && (live <= buyLine.price
-            ? <p className="text-success">O preço já está <strong>abaixo</strong> do ponto de compra: para o robô, ele está "barato". A compra acontece na próxima verificação, se houver BNB suficiente.</p>
+            ? <p className="text-success">O preço está abaixo do limite de compra. O robô ainda confere liquidez, cooldown, saldo e limites; isso não garante uma ordem.</p>
             : <p className="text-success">Falta {((live / buyLine.price - 1) * 100).toFixed(1)}% de queda para o robô comprar.</p>)}
           {nextSell && <p className="text-primary">Falta {Math.max(0, (nextSell.price / live - 1) * 100).toFixed(1)}% de alta para a próxima venda com lucro.</p>}
           {mode !== "grade" && cfg?.entryType === "medias" && <p className="text-muted-foreground">{slowAvg?.up ? "Tendência de alta: o robô compra quando o preço recuar até a linha verde (a média)." : "Tendência de queda: o robô não compra enquanto o preço cai. A linha de compra aparece quando a tendência virar para alta."}</p>}
@@ -175,7 +161,7 @@ export function RobotVision(props: { token: string; symbol: string; cfg: Strateg
                 <ul className="space-y-0.5">
                   {checks.map((c, i) => <li key={i} className={c.ok ? "text-success" : "text-muted-foreground"}>{c.ok ? "✓" : "○"} {c.t}</li>)}
                 </ul>
-                <p className="mt-1 font-medium">{checks.every((c) => c.ok) ? "Tudo certo: o robô compra na próxima verificação." : "Ainda não: o robô espera todas as condições ficarem ✓."}</p>
+                <p className="mt-1 font-medium">{checks.every((c) => c.ok) ? "Condições visuais atendidas; aguardando avaliação completa no servidor." : "Ainda existem condições pendentes."}</p>
               </div>
             )}
           </div>
