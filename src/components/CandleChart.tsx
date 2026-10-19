@@ -94,7 +94,7 @@ function ChartBody({ candles, now, strategyMinutes = 15, fastLength = 9, slowLen
   const width = Math.max(1.5, Math.min(22, minutes * 60_000 / (span || 1) * plot * .7));
   const volumeMax = Math.max(0, ...visibleBars.map(b => b.candle[5] ?? 0));
   const volBase = H + 56;
-  const historyStart = bars.length ? bars[0].candle[0] * 1000 : null;
+  const historyStart = bars.length ? (bars[0]?.candle[0] ?? 0) * 1000 : null;
   const atHistoryLimit = historyStart != null && v.start <= historyStart + 1;
 
   const indicatorPath = (key: "fast" | "slow") => {
@@ -112,7 +112,9 @@ function ChartBody({ candles, now, strategyMinutes = 15, fastLength = 9, slowLen
     (e.target as Element).setPointerCapture?.(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 2) {
-      const [a, b] = [...pointers.current.values()];
+      const pts = [...pointers.current.values()];
+      const a = pts[0], b = pts[1];
+      if (!a || !b) return;
       const cur = stateRef.current.view ?? frame(stateRef.current.hours);
       pinch.current = { dist: Math.abs(a.x - b.x) || 1, span: cur.end - cur.start, anchorT: tFromEvent((a.x + b.x) / 2) ?? (cur.start + cur.end) / 2 };
       if (longPress.current) clearTimeout(longPress.current);
@@ -125,7 +127,9 @@ function ChartBody({ candles, now, strategyMinutes = 15, fastLength = 9, slowLen
     const prev = pointers.current.get(e.pointerId);
     if (prev) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pinch.current && pointers.current.size === 2) {
-      const [a, b] = [...pointers.current.values()];
+      const pts = [...pointers.current.values()];
+      const a = pts[0], b = pts[1];
+      if (!a || !b) return;
       const factor = pinch.current.dist / (Math.abs(a.x - b.x) || 1);
       const p = pinch.current;
       setView(clampView({ start: p.anchorT - p.span * factor / 2, end: p.anchorT + p.span * factor / 2 }));
