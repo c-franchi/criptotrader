@@ -6,6 +6,7 @@ import { findToken, TOKENS } from "@/lib/tokens";
 import { inspectToken, scanWallet, type WalletToken } from "@/lib/userTokens.functions";
 import { WalletPicker } from "@/components/WalletPicker";
 import { Button } from "@/components/ui/button";
+import { ContractRisk } from "@/components/ContractRisk";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -102,6 +103,7 @@ export function AddTokenDialog({ wallet: initialWallet }: { wallet?: string | nu
             <Input placeholder="0x… (contrato do token)" value={addr} onChange={(e) => setAddr(e.target.value.trim())} />
             <Button onClick={byAddress} disabled={busy === "addr"}>{busy === "addr" ? "Conferindo…" : "Adicionar"}</Button>
           </div>
+          {/^0x[0-9a-fA-F]{40}$/.test(addr) && <ContractRisk address={addr} />}
         </div>
 
         {tokens.length > TOKENS.length && (

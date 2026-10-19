@@ -23,6 +23,8 @@ import type { Tables } from "@/integrations/supabase/types";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { intervalMinutes } from "@/lib/autoStrategy";
+import { slippageLevel } from "@/lib/safety";
+import { ContractRisk } from "@/components/ContractRisk";
 
 export const Route = createFileRoute("/operar")({
   validateSearch: (s: Record<string, unknown>): { entrada?: string } =>
@@ -319,6 +321,7 @@ function Operar() {
       </div>
 
       <TokenChart address={GTE} symbol={sym} strategyMinutes={intervalMinutes(cfg.candleInterval)} />
+      <ContractRisk address={GTE} />
       {bal && (
         <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
           <span className="font-semibold">Seu saldo</span>
@@ -451,6 +454,13 @@ function Operar() {
               return <li className={res >= 0 ? "text-success" : "text-destructive"}>Pelo seu preço médio, esta venda dá {res >= 0 ? "lucro" : "prejuízo"} de ~{n6(Math.abs(res))} BNB.</li>;
             })()}
             <li>Mínimo aceito (slippage {cfg.maxSlippagePct}%): {quote.side === "compra" ? `${fmtGte(quote.min)} ${sym}` : `${fmtBnb(quote.min)} BNB`}</li>
+            {slippageLevel(cfg.maxSlippagePct) !== "ok" && (
+              <li className={cn("rounded-md border p-2 font-medium", slippageLevel(cfg.maxSlippagePct) === "critico" ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-warning/50 bg-warning/10 text-warning")}>
+                {slippageLevel(cfg.maxSlippagePct) === "critico"
+                  ? `Perigo: slippage de ${cfg.maxSlippagePct}% é muito alto. Robôs de mineradores podem "espremer" sua ordem (ataque sanduíche) e você receber bem menos. Reduza na estratégia, se a taxa do token permitir.`
+                  : `Cautela: slippage de ${cfg.maxSlippagePct}% acima de 5%. Você pode receber menos que o previsto.`}
+              </li>
+            )}
             <li>Impacto de preço estimado: {quote.impact.toFixed(2)}%</li>
             <li>Validade: 5 minutos. {quote.side === "venda" && "Pode exigir uma aprovação limitada a esta quantidade."}</li>
           </ul>
