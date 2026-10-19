@@ -112,7 +112,9 @@ function ChartBody({ candles, now, strategyMinutes = 15, fastLength = 9, slowLen
     (e.target as Element).setPointerCapture?.(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 2) {
-      const [a, b] = [...pointers.current.values()];
+      const pts = [...pointers.current.values()];
+      const a = pts[0], b = pts[1];
+      if (!a || !b) return;
       const cur = stateRef.current.view ?? frame(stateRef.current.hours);
       pinch.current = { dist: Math.abs(a.x - b.x) || 1, span: cur.end - cur.start, anchorT: tFromEvent((a.x + b.x) / 2) ?? (cur.start + cur.end) / 2 };
       if (longPress.current) clearTimeout(longPress.current);
