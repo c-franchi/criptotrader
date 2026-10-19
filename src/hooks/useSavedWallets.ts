@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { notifyWalletSaved } from "@/lib/security.functions";
 
 export type SavedWallet = { id: string; label: string; address: string; created_at: string };
 
@@ -20,6 +21,7 @@ export function useSavedWallets() {
     if (!u.user) return "Entre na sua conta primeiro";
     const { error } = await supabase.from("user_wallets").insert({ user_id: u.user.id, address, label: label.trim() });
     if (error) return error.code === "23505" ? "Essa carteira já está salva" : error.message;
+    void notifyWalletSaved({ data: { address } }).catch(() => {});
     await load();
     return null;
   };

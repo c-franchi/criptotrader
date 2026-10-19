@@ -54,6 +54,9 @@ export async function runStrategyStep(admin: any, bot: Bot, enc: string) {
   let amountIn: bigint;
 
   if (d.action === "compra") {
+    const { liquidityBlock } = await import("./safety");
+    const liq = liquidityBlock(best.liquidityUsd, cfg.minLiquidityUsd);
+    if (liq) return { patch: { ...patch, last_error: liq }, order: null };
     const free = bnbBal > reserve ? bnbBal - reserve : 0n;
     amountIn = cfg.sizingMode === "fixo" ? parseEther(String(cfg.buyAmount)) : (free * BigInt(Math.round(Math.min(cfg.buyAmount, 100) * 100))) / 10000n;
     if (cfg.maxExposureQuote > 0) {
