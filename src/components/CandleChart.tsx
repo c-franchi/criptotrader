@@ -125,7 +125,9 @@ function ChartBody({ candles, now, strategyMinutes = 15, fastLength = 9, slowLen
     const prev = pointers.current.get(e.pointerId);
     if (prev) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pinch.current && pointers.current.size === 2) {
-      const [a, b] = [...pointers.current.values()];
+      const pts = [...pointers.current.values()];
+      const a = pts[0], b = pts[1];
+      if (!a || !b) return;
       const factor = pinch.current.dist / (Math.abs(a.x - b.x) || 1);
       const p = pinch.current;
       setView(clampView({ start: p.anchorT - p.span * factor / 2, end: p.anchorT + p.span * factor / 2 }));
