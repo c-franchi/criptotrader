@@ -30,4 +30,4 @@
 
 - In-app notifications live in the notifications table (users read/delete own; only service_role inserts) — alert and robot ticks write them alongside push.
 
-- On-chain market fallback converts to USD through the PancakeSwap V2 WBNB/USDT pool so the robot keeps a USD price when DexScreener is rate-limited.
+- On-chain market fallback converts to USD through the PancakeSwap V2 WBNB/USDT pool so the robot keeps a USD price when DexScreener is rate-limited.- Security guards (robot liquidity floor, slippage levels, contract bytecode risk scan) are pure helpers in src/lib/safety.ts (tested); wallet-saved alerts go through security.functions.ts so bell+push fire server-side.
