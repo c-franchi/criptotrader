@@ -8,6 +8,7 @@ import { AppShell, Panel, RequireLogin } from "@/components/AppShell";
 import { EMPTY_CONFIG, describeStrategy, type StrategyConfig } from "@/lib/strategy";
 import { PRESETS, buildPreset, type PresetId } from "@/lib/presets";
 import { breakEvenPct, taxFor } from "@/lib/tokens";
+import { hasTokenTax, stopRealLossPct } from "@/lib/stopLoss";
 import { recommendPreset } from "@/lib/recommend";
 import { useCandles } from "@/hooks/useCandles";
 import { TokenAlerts } from "@/components/TokenAlerts";
@@ -44,6 +45,24 @@ export const Route = createFileRoute("/estrategia")({
     </AppShell>
   ),
 });
+
+function StopPreview({ c, amount, symbol }: { c: StrategyConfig; amount: number; symbol: string }) {
+  const tax = { buy: c.buyTaxPct ?? 0, sell: c.sellTaxPct ?? 0 };
+  const loss = stopRealLossPct(c);
+  const taxed = hasTokenTax(tax);
+  return (
+    <div className={cn("mt-2 rounded-md border p-2.5 text-sm", loss != null && taxed ? "border-destructive/60 bg-destructive/10" : "border-border bg-muted/30")}>
+      <p>Taxas de {symbol}: <b>compra {tax.buy}%</b> · <b>venda {tax.sell}%</b>{!taxed && " (sem taxa)"}</p>
+      {loss == null ? (
+        <p className="mt-1 text-primary">Stop desativado: o robô nunca vende com prejuízo. Em quedas, faz as recompras previstas (preço médio) dentro do valor liberado e espera o preço voltar.</p>
+      ) : (
+        <p className="mt-1">Se o stop disparar, a perda estimada é de <b className="text-destructive">{loss.toFixed(2)}%</b>
+          {amount > 0 && <> ≈ <b className="text-destructive">{(amount * loss / 100).toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB</b> sobre {amount.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB aplicados</>}
+          {c.stopLossMode !== "liquido" && taxed && <> (queda de {c.stopLossPct}% + taxas)</>}. Não inclui gás nem slippage.</p>
+      )}
+    </div>
+  );
+}
 
 function Num({ label, hint, help, value, onChange }: { label: string; hint?: string; help?: string; value: number | null; onChange: (n: number) => void }) {
   return (
