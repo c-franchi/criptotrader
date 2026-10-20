@@ -151,6 +151,12 @@ function StrategyForm() {
   if (c.entryType === "medias" && c.maFast >= c.maSlow) errors.push("A média rápida deve ser menor que a lenta.");
   if (!Number.isFinite(c.stopLossPct) || c.stopLossPct < 0 || c.stopLossPct >= 100) errors.push("O limite do stop deve ser de 0 (desativado) até menos de 100%.");
 
+  const [askStop, setAskStop] = useState(false);
+  const requestSave = () => {
+    if (errors.length) return;
+    if (c.stopLossPct > 0) setAskStop(true);
+    else void save();
+  };
   const save = async () => {
     if (!user || errors.length) return;
     const { error } = await supabase.from("strategies").upsert(
@@ -317,7 +323,8 @@ function StrategyForm() {
             <option value="preco">Queda do preço (regra atual)</option>
             <option value="liquido">Perda líquida (inclui taxas do token)</option>
           </select>
-          <div className="mt-3"><Num label={c.stopLossMode === "liquido" ? "Limite de perda líquida (%)" : "Limite de queda do preço (%)"} hint="0 = desativado" value={c.stopLossPct} onChange={(n) => set("stopLossPct", n)} /></div>
+          <div className="mt-3"><Num label={c.stopLossMode === "liquido" ? "Limite de perda líquida (%)" : "Limite de queda do preço (%)"} hint="0 = desativado (recomendado para tokens com taxa)" value={c.stopLossPct} onChange={(n) => set("stopLossPct", n)} /></div>
+          <StopPreview c={{ ...c, buyTaxPct: tax.buy, sellTaxPct: tax.sell }} amount={c.maxExposureQuote || amountBnb} symbol={token.symbol} />
           <p className="mt-2 text-xs text-muted-foreground">O stop tenta vender a posição, não desliga o robô nem bloqueia saques. Ele pode voltar a comprar conforme os limites da estratégia.</p>
           {c.stopLossMode === "liquido" && <>
             <p className="mt-2 text-xs text-muted-foreground">Inclui taxas de compra e venda sobre o preço médio. Não inclui gás, slippage ou impacto de preço; a perda real pode ser maior. Essa regra pode vender antes do stop por preço, não aumenta o espaço para recuperação.</p>
@@ -445,7 +452,24 @@ function StrategyForm() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          <Button className="mt-4 w-full" onClick={save} disabled={errors.length > 0}>
+          <AlertDialog open={askStop} onOpenChange={setAskStop}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirmar stop loss de {c.stopLossPct}%?</AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-2 text-sm">
+                    <p>Se o stop disparar, o robô <b>vende os {token.symbol} com prejuízo</b> e você não fica com os tokens para esperar a recuperação.</p>
+                    <StopPreview c={{ ...c, buyTaxPct: tax.buy, sellTaxPct: tax.sell }} amount={c.maxExposureQuote || amountBnb} symbol={token.symbol} />
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => { set("stopLossPct", 0); }}>Desativar stop</AlertDialogCancel>
+                <AlertDialogAction onClick={() => void save()}>Entendi, salvar com stop</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button className="mt-4 w-full" onClick={requestSave} disabled={errors.length > 0}>
             Salvar estratégia{chosen ? ` · ${chosen.name}` : ""}{version ? ` (atual v${version})` : ""}
           </Button>
           <p className="mt-2 text-xs text-muted-foreground">
