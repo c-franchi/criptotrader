@@ -99,6 +99,7 @@ function StrategyForm() {
     }).catch(() => setMeasured("fail"));
   };
   const [pool, setPool] = useState<string | undefined>(undefined);
+  const [botRunning, setBotRunning] = useState(false);
   const candles = useCandles(pool, token.address);
   const rec = useMemo(() => {
     const since = Date.now() / 1000 - 86400;
@@ -135,6 +136,10 @@ function StrategyForm() {
     });
     measure(false);
     setPool(undefined);
+    setBotRunning(false);
+    supabase.from("grid_bots").select("id").eq("armed", true).ilike("token", token.address).limit(1).then(({ data }) => {
+      if (alive) setBotRunning((data ?? []).length > 0);
+    });
     getMarket({ data: { address: token.address } }).then((m) => {
       const sp = m.pools.find((p) => p.supported);
       if (alive) { setLiq(sp?.liquidityUsd ?? null); setPool(sp?.pairAddress); }
@@ -187,7 +192,11 @@ function StrategyForm() {
     await supabase.from("strategies").update({ tracked_wallet: wallet || null }).eq("user_id", user.id);
     await supabase.from("audit_log").insert({ user_id: user.id, action: "estrategia_salva", details: { token: token.symbol, version: version + 1, config: c } });
     setVersion(version + 1);
-    toast.success(`Estratégia de ${token.symbol} salva (versão ${version + 1})`);
+    toast.success(
+      botRunning
+        ? `Estratégia de ${token.symbol} salva (versão ${version + 1}). O robô ligado passa a usar as novas regras na próxima verificação (até 1 min), sem desligar.`
+        : `Estratégia de ${token.symbol} salva (versão ${version + 1})`,
+    );
     setAskTrade(true);
   };
   const [askTrade, setAskTrade] = useState(false);
@@ -197,6 +206,14 @@ function StrategyForm() {
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
       <div className="space-y-4">
+        {botRunning && (
+          <div className="rounded-md border border-primary/50 bg-primary/10 p-3 text-sm">
+            <p className="font-semibold">Robô ligado para {token.symbol} — você pode ajustar sem desligar</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Altere o que quiser (metas de venda, stop, valores, recompras) e salve. O robô continua em execução e passa a seguir as novas regras na próxima verificação (até 1 minuto). A posição atual, o preço médio e as compras já feitas são mantidos.
+            </p>
+          </div>
+        )}
         <Panel title="Passo 1 · Escolha sua carteira">
           <p className="mb-2 text-xs text-muted-foreground">Comece por aqui: é dessa carteira que sai o BNB para comprar e para onde volta o BNB das vendas.</p>
           <WalletPicker value={wallet} onPick={setWallet} />
