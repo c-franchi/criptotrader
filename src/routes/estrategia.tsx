@@ -192,7 +192,11 @@ function StrategyForm() {
     await supabase.from("strategies").update({ tracked_wallet: wallet || null }).eq("user_id", user.id);
     await supabase.from("audit_log").insert({ user_id: user.id, action: "estrategia_salva", details: { token: token.symbol, version: version + 1, config: c } });
     setVersion(version + 1);
-    toast.success(`Estratégia de ${token.symbol} salva (versão ${version + 1})`);
+    toast.success(
+      botRunning
+        ? `Estratégia de ${token.symbol} salva (versão ${version + 1}). O robô ligado passa a usar as novas regras na próxima verificação (até 1 min), sem desligar.`
+        : `Estratégia de ${token.symbol} salva (versão ${version + 1})`,
+    );
     setAskTrade(true);
   };
   const [askTrade, setAskTrade] = useState(false);
