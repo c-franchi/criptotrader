@@ -99,6 +99,7 @@ function StrategyForm() {
     }).catch(() => setMeasured("fail"));
   };
   const [pool, setPool] = useState<string | undefined>(undefined);
+  const [botRunning, setBotRunning] = useState(false);
   const candles = useCandles(pool, token.address);
   const rec = useMemo(() => {
     const since = Date.now() / 1000 - 86400;
