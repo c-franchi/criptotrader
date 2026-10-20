@@ -206,6 +206,14 @@ function StrategyForm() {
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
       <div className="space-y-4">
+        {botRunning && (
+          <div className="rounded-md border border-primary/50 bg-primary/10 p-3 text-sm">
+            <p className="font-semibold">Robô ligado para {token.symbol} — você pode ajustar sem desligar</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Altere o que quiser (metas de venda, stop, valores, recompras) e salve. O robô continua em execução e passa a seguir as novas regras na próxima verificação (até 1 minuto). A posição atual, o preço médio e as compras já feitas são mantidos.
+            </p>
+          </div>
+        )}
         <Panel title="Passo 1 · Escolha sua carteira">
           <p className="mb-2 text-xs text-muted-foreground">Comece por aqui: é dessa carteira que sai o BNB para comprar e para onde volta o BNB das vendas.</p>
           <WalletPicker value={wallet} onPick={setWallet} />
