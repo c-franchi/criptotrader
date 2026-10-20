@@ -61,7 +61,9 @@ export function buildPreset(id: PresetId, amount: number, liquidityUsd: number |
   const c = buildRaw(id, amount, liquidityUsd);
   // Take-profit targets are the NET gain wanted; raise the price target so token taxes are covered.
   const tp = c.takeProfits.map((t) => ({ ...t, pct: Math.round(grossForNet(t.pct, tax) * 10) / 10 }));
-  return { ...c, takeProfits: tp, buyTaxPct: tax.buy, sellTaxPct: tax.sell };
+  // Taxed tokens: selling at a loss pays both taxes, so the stop starts disabled (DCA + wait for recovery).
+  const stopLossPct = tax.buy > 0 || tax.sell > 0 ? 0 : c.stopLossPct;
+  return { ...c, takeProfits: tp, stopLossPct, buyTaxPct: tax.buy, sellTaxPct: tax.sell };
 }
 
 function buildRaw(id: PresetId, amount: number, liquidityUsd: number | null): StrategyConfig {

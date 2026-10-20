@@ -13,3 +13,15 @@ export function stopPrice(entry: number, cfg: StopConfig): number | null {
   if (!(retained > 0)) return null;
   return entry * (1 - cfg.stopLossPct / 100) / retained;
 }
+
+/** Token has a buy or sell tax: ready-made strategies start with stop disabled. */
+export function hasTokenTax(tax: { buy: number; sell: number }): boolean {
+  return tax.buy > 0 || tax.sell > 0;
+}
+
+/** Loss (% of BNB spent) if the stop fires, including buy+sell taxes. Not gas/slippage. */
+export function stopRealLossPct(cfg: StopConfig): number | null {
+  const p = stopPrice(1, cfg);
+  if (p == null) return null;
+  return -netPositionPct(p, 1, cfg);
+}
