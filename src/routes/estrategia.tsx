@@ -136,6 +136,10 @@ function StrategyForm() {
     });
     measure(false);
     setPool(undefined);
+    setBotRunning(false);
+    supabase.from("grid_bots").select("id").eq("armed", true).ilike("token", token.address).limit(1).then(({ data }) => {
+      if (alive) setBotRunning((data ?? []).length > 0);
+    });
     getMarket({ data: { address: token.address } }).then((m) => {
       const sp = m.pools.find((p) => p.supported);
       if (alive) { setLiq(sp?.liquidityUsd ?? null); setPool(sp?.pairAddress); }
