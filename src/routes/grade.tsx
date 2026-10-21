@@ -105,8 +105,11 @@ function Robo() {
       row = { ...row, lower_price: lo, upper_price: hi, levels: lv, order_bnb: ob, max_slippage_pct: Number(f.max_slippage_pct), max_impact_pct: Number(f.max_impact_pct), gas_reserve_bnb: Number(f.gas_reserve_bnb),
         ...(bot && (bot.lower_price !== lo || bot.upper_price !== hi || bot.levels !== lv) ? { last_level: null } : {}) };
     }
-    const { error } = await supabase.from("grid_bots").upsert(row as never, { onConflict: "user_id,token" });
-    if (error) return void toast.error("Não foi possível salvar");
+    // Desligar nunca pode ser bloqueado: atualiza só o campo "armed" (upsert dispara a trava de configuração).
+    const { error } = armed === false && bot
+      ? await supabase.from("grid_bots").update({ armed: false, updated_at: new Date().toISOString() }).eq("id", bot.id)
+      : await supabase.from("grid_bots").upsert(row as never, { onConflict: "user_id,token" });
+    if (error) return void toast.error(armed === false ? `Não foi possível desligar: ${error.message}` : `Não foi possível salvar: ${error.message}`);
     await supabase.from("audit_log").insert({ user_id: user.id, action: armed === undefined ? "bot_saved" : armed ? "bot_armed" : "bot_disarmed", details: row as never });
     toast.success(armed === undefined ? "Configuração salva" : armed ? "Robô LIGADO" : "Robô desligado");
     load();
