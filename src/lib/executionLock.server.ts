@@ -37,7 +37,7 @@ export async function reconcileLocks(admin: any, getReceipt: (hash: `0x${string}
     const { data: orders } = await admin.from("orders").select("id, tx_hash, deadline").eq("user_id", l.user_id).eq("status", "enviada");
     const pending: { deadline: number; resolved: boolean }[] = [];
     for (const o of orders ?? []) {
-      let resolved = false;
+      let resolved = false, rpcFailed = false;
       if (o.tx_hash) {
         try {
           const r = await getReceipt(o.tx_hash);
@@ -45,9 +45,9 @@ export async function reconcileLocks(admin: any, getReceipt: (hash: `0x${string}
             resolved = true;
             await admin.from("orders").update({ status: r.status === "success" ? "confirmada" : "falhou", block_number: Number(r.blockNumber), error: r.status === "success" ? null : "Transação revertida na rede", updated_at: new Date(nowMs).toISOString() }).eq("id", o.id);
           }
-        } catch { /* receipt not found yet */ }
+        } catch { rpcFailed = true; /* network unreachable: cannot prove anything, keep the lock */ }
       }
-      if (!resolved && nowMs / 1000 > Number(o.deadline) + 60) {
+      if (!resolved && !rpcFailed && nowMs / 1000 > Number(o.deadline) + 60) {
         // Deadline passed without a receipt: the swap can no longer execute.
         await admin.from("orders").update({ status: "falhou", error: "Não confirmada antes do prazo; nada foi trocado", updated_at: new Date(nowMs).toISOString() }).eq("id", o.id);
         resolved = true;

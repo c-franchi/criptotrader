@@ -1,6 +1,6 @@
 import { runGridStep } from "./bot.server";
 import { TOKENS } from "./tokens";
-import { acquireExecution, releaseExecution } from "./executionLock.server";
+import { acquireExecution, reconcileLocks, releaseExecution } from "./executionLock.server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function tickBot(admin: any, bot: any) {
@@ -52,6 +52,14 @@ export async function tickBot(admin: any, bot: any) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function tickAll(admin: any) {
+  try {
+    const { pubClient } = await import("./bot.server");
+    const pub = pubClient();
+    await reconcileLocks(admin, async (hash) => {
+      try { return await pub.getTransactionReceipt({ hash }); }
+      catch (e) { if ((e as Error).name === "TransactionReceiptNotFoundError") return null; throw e; }
+    });
+  } catch { /* reconciliation is best-effort; ticks continue */ }
   const { data: bots } = await admin.from("grid_bots").select("*").eq("armed", true).limit(200);
   const out = [];
   for (const b of bots ?? []) out.push(await tickBot(admin, b));
