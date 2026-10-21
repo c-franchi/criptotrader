@@ -185,6 +185,8 @@ function ChartBody({
   const points = [
     ...visibleBars.flatMap((b) => [b.candle[2], b.candle[3]]),
     ...levels.filter((l) => l.price > 0).map((l) => l.price),
+    ...marks.map((m) => m.price),
+    ...measure.map((m) => m.price),
     ...(technical
       ? studies
           .filter((s) => s.time >= v.start && s.time <= v.end)
@@ -490,6 +492,9 @@ function ChartBody({
             >
               <option value="inspect">Inspecionar / arrastar</option>
               <option value="measure">Medir dois pontos</option>
+              <option value="support">Suporte · tocar no gráfico</option>
+              <option value="resistance">Resistência · tocar no gráfico</option>
+              <option value="horizontal">Linha horizontal · tocar no gráfico</option>
             </select>
           </label>
           <label>
@@ -529,8 +534,9 @@ function ChartBody({
           </Button>
         </div>
         <p className="mt-2 text-muted-foreground">
-          Marcações temporárias em USD; não enviam ordens. Na medição, clique em duas velas para
-          comparar seus fechamentos.
+          Marcações temporárias em USD; não enviam ordens. Na medição, toque ou clique em dois
+          pontos da área de preços. Para desenhar suporte, resistência ou linha, selecione a
+          ferramenta e toque no gráfico.
         </p>
         {marks.map((m, i) => (
           <p key={i}>
@@ -544,7 +550,7 @@ function ChartBody({
           </p>
         ))}
         {measure.length === 1 && (
-          <p role="status">Primeiro ponto selecionado. Clique na segunda vela.</p>
+          <p role="status">Primeiro ponto selecionado. Toque no segundo ponto do gráfico.</p>
         )}
         {measure.length === 2 && (
           <p role="status">
@@ -558,27 +564,63 @@ function ChartBody({
         {strategyMinutes === 60 ? "1h" : `${strategyMinutes}m`}
       </p>
       {atHistoryLimit && <p className="text-xs text-warning">Limite do histórico disponível.</p>}
+      {tool !== "inspect" && (
+        <div
+          role="status"
+          className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm"
+        >
+          {tool === "measure"
+            ? measure.length === 0
+              ? "Medição ativa: toque ou clique no primeiro ponto do gráfico."
+              : measure.length === 1
+                ? "Ponto 1 marcado. Toque ou clique no segundo ponto."
+                : `Medição concluída: ${((measure[1]!.price / measure[0]!.price - 1) * 100).toFixed(2)}% · ${Math.abs(measure[1]!.time - measure[0]!.time) / 60000 < 1 ? "menos de 1" : Math.round(Math.abs(measure[1]!.time - measure[0]!.time) / 60000)} min. Toque para iniciar outra medição.`
+            : "Desenho ativo: toque ou clique na altura do preço desejado."}
+        </div>
+      )}
       {bars.length ? (
         <svg
           ref={svgRef}
           role="img"
           aria-label="Velas OHLCV, escala de preços e médias SMA do robô"
           viewBox={`0 0 ${W} ${volBase + 20}`}
-          className="w-full touch-pan-y select-none overflow-hidden"
-          onPointerDown={tool === "measure" ? undefined : onPointerDown}
+          className={cn(
+            "w-full touch-pan-y select-none overflow-hidden",
+            tool !== "inspect" && "cursor-crosshair",
+          )}
+          onPointerDown={tool === "inspect" ? onPointerDown : undefined}
           onClick={(e) => {
-            if (tool !== "measure") return;
-            const t = tFromEvent(e.clientX);
-            const b = visibleBars.find(
-              (b) =>
-                t != null && b.candle[0] * 1000 <= t && (b.candle[0] + minutes * 60) * 1000 > t,
-            );
-            if (b)
-              setMeasure((a) =>
-                a.length === 1
-                  ? [a[0]!, { time: b.candle[0] * 1000, price: b.candle[4] }]
-                  : [{ time: b.candle[0] * 1000, price: b.candle[4] }],
-              );
+            if (tool === "inspect") return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const px = ((e.clientX - rect.left) * W) / rect.width;
+            const py = ((e.clientY - rect.top) * (volBase + 20)) / rect.height;
+            if (
+              !Number.isFinite(px) ||
+              !Number.isFinite(py) ||
+              px < 0 ||
+              px > plot ||
+              py < 12 ||
+              py > H - 12
+            )
+              return;
+            const point = {
+              time: v.start + (px / plot) * span,
+              price: max - ((py - 12) / (H - 24)) * (max - min),
+            };
+            if (tool === "measure") setMeasure((a) => (a.length === 1 ? [a[0]!, point] : [point]));
+            else
+              setMarks((a) => [
+                ...a.slice(-9),
+                {
+                  price: point.price,
+                  label:
+                    tool === "support"
+                      ? "Suporte"
+                      : tool === "resistance"
+                        ? "Resistência"
+                        : "Linha horizontal",
+                },
+              ]);
           }}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -986,31 +1028,22 @@ export function CandleChart(props: {
     }
   };
   return (
-    <div className="min-w-0 space-y-2">
-      <div className="flex justify-end">
-        <Button size="sm" variant="outline" onClick={openExpanded}>
-          <Maximize2 className="mr-1 h-4 w-4" />
-          Ampliar gráfico
+    <div
+      ref={overlayRef}
+      className={
+        expanded ? "fixed inset-0 z-50 overflow-auto bg-background p-3 sm:p-6" : "min-w-0 space-y-2"
+      }
+      role={expanded ? "dialog" : undefined}
+      aria-modal={expanded ? true : undefined}
+      aria-label={expanded ? "Gráfico ampliado" : undefined}
+    >
+      <div className="mb-2 flex justify-end">
+        <Button size="sm" variant="outline" onClick={expanded ? closeExpanded : openExpanded}>
+          {expanded ? <X className="mr-1 h-4 w-4" /> : <Maximize2 className="mr-1 h-4 w-4" />}
+          {expanded ? "Fechar" : "Ampliar gráfico"}
         </Button>
       </div>
       <ChartBody {...props} />
-      {expanded && (
-        <div
-          ref={overlayRef}
-          className="fixed inset-0 z-50 overflow-auto bg-background p-3 sm:p-6"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Gráfico ampliado"
-        >
-          <div className="mb-2 flex justify-end">
-            <Button size="sm" variant="secondary" onClick={closeExpanded}>
-              <X className="mr-1 h-4 w-4" />
-              Fechar
-            </Button>
-          </div>
-          <ChartBody {...props} tall />
-        </div>
-      )}
     </div>
   );
 }
