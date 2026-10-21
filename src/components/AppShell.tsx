@@ -39,7 +39,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {user && <p className="truncate text-xs text-muted-foreground">{user.email}</p>}
               </SheetHeader>
               <nav className="flex flex-col gap-1 p-2">
-                {nav.map((n) => (
+                {nav.filter((n) => n.to !== "/integracoes" || user?.email?.toLowerCase() === "neifranchi@gmail.com").map((n) => (
                   <Link
                     key={n.to}
                     to={n.to}
