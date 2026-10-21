@@ -1,3 +1,4 @@
+import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import {
@@ -184,7 +185,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               / {current.label}
             </span>
           )}
-          <div className="ml-auto shrink-0">
+          <div className="ml-auto flex shrink-0 items-center">
+            <AppUpdateNotice />
             <NotificationBell />
             {!user && (
               <Button size="sm" asChild>

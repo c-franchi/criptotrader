@@ -263,3 +263,39 @@ export const getExecutionStatus = createServerFn({ method: "GET" })
       pending: (pending ?? []) as { tx_hash: string; created_at: string }[],
     };
   });
+
+/** Read-only observation; never acquires/releases locks, signs or changes bot state. */
+export const getBotAnalysis = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { token: string }) =>
+    z.object({ token: z.string().regex(/^0x[0-9a-fA-F]{40}$/) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
+    const { data: bot, error } = await admin
+      .from("grid_bots")
+      .select("*")
+      .eq("user_id", context.userId)
+      .ilike("token", data.token)
+      .maybeSingle();
+    if (error) throw new Error("Não foi possível consultar o robô");
+    if (!bot)
+      return {
+        at: new Date().toISOString(),
+        reason: "Nenhum robô configurado para este ativo.",
+        error: null as string | null,
+      };
+    const result =
+      bot.mode === "grade"
+        ? await (await import("./bot.server")).runGridStep(bot, "", admin, "", true)
+        : await (await import("./strategyBot.server")).runStrategyStep(admin, bot, "", "", true);
+    const patch = result.patch as Record<string, unknown>;
+    return {
+      at: new Date().toISOString(),
+      reason:
+        typeof patch["last_reason"] === "string"
+          ? patch["last_reason"]
+          : "Aguardando dados para analisar.",
+      error: typeof patch["last_error"] === "string" ? patch["last_error"] : null,
+    };
+  });

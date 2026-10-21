@@ -14,6 +14,7 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
+    define: { __APP_BUILD_ID__: JSON.stringify(new Date().toISOString()) },
     // WalletConnect expects Node's `events`/`buffer` in the browser; use the npm polyfills.
     plugins: [
       {

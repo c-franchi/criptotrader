@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin, Unavailable } from "@/components/AppShell";
 import {
   getExecutionStatus,
+  getBotAnalysis,
   createBotWallet,
   getBotWallet,
   runGridNow,
@@ -115,6 +116,35 @@ function Robo() {
   const [f, setF] = useState(blank);
   const [orderLimit, setOrderLimit] = useState(20);
   const [orders, setOrders] = useState<Tables<"orders">[]>([]);
+  const [analysis, setAnalysis] = useState<Awaited<ReturnType<typeof getBotAnalysis>> | null>(null);
+  const [analysisError, setAnalysisError] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    let busy = false;
+    setAnalysis(null);
+    setAnalysisError(false);
+    const refresh = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const result = await getBotAnalysis({ data: { token } });
+        if (alive) {
+          setAnalysis(result);
+          setAnalysisError(false);
+        }
+      } catch {
+        if (alive) setAnalysisError(true);
+      } finally {
+        busy = false;
+      }
+    };
+    void refresh();
+    const timer = setInterval(refresh, 60000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [token]);
   const [execution, setExecution] = useState<Awaited<ReturnType<typeof getExecutionStatus>> | null>(
     null,
   );
@@ -261,6 +291,26 @@ function Robo() {
 
   return (
     <div className="space-y-4">
+      <Panel title="Análise atual · sem executar operações">
+        <p role="status" className="text-sm">
+          {analysisError
+            ? "Não foi possível atualizar a análise. Tente novamente em instantes."
+            : (analysis?.error ?? analysis?.reason ?? "Consultando mercado e estratégia…")}
+        </p>
+        {analysis && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Consulta: {new Date(analysis.at).toLocaleString("pt-BR")} · prévia atualizada a cada
+            minuto enquanto esta tela está aberta. Considera as regras e dados disponíveis; não
+            garante saldo, gás ou execução.
+          </p>
+        )}
+        {execution?.locked && (
+          <p className="mt-2 text-xs text-warning">
+            Análise disponível; operações bloqueadas pela carteira em uso ou com execução a revisar.
+            Esta consulta não libera a trava.
+          </p>
+        )}
+      </Panel>
       <Panel title="Estado de operação">
         <p
           role="status"
@@ -301,7 +351,7 @@ function Robo() {
           {cfg?.rulesVersion === 2 ? "v2" : "legadas"}
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          Última verificação:{" "}
+          Última passagem pelo executor:{" "}
           {bot?.last_run_at ? new Date(bot.last_run_at).toLocaleString("pt-BR") : "aguardando"}
         </p>
         <p role="status" className="mt-2 text-sm">
@@ -641,7 +691,7 @@ function Robo() {
                 </p>
               )}
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Última verificação:{" "}
+                Última passagem pelo executor:{" "}
                 {bot?.last_run_at
                   ? new Date(bot.last_run_at).toLocaleString("pt-BR")
                   : "ainda não verificou"}

@@ -1,3 +1,4 @@
+import { versionResponse } from "./lib/appVersion";
 import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
@@ -46,10 +47,23 @@ function isH3SwallowedErrorBody(body: string): boolean {
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    if (new URL(request.url).pathname === "/api/public/app-version" && request.method === "GET")
+      return versionResponse();
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      const normalized = await normalizeCatastrophicSsrResponse(response);
+      if (normalized.headers.get("content-type")?.includes("text/html")) {
+        const headers = new Headers(normalized.headers);
+        headers.set("Cache-Control", "no-store");
+        headers.set("CDN-Cache-Control", "no-store");
+        return new Response(normalized.body, {
+          status: normalized.status,
+          statusText: normalized.statusText,
+          headers,
+        });
+      }
+      return normalized;
     } catch (error) {
       console.error(error);
       return new Response(renderErrorPage(), {

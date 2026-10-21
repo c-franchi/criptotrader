@@ -113,7 +113,13 @@ type Bot = {
 
 /** Runs one grid step for a bot. Executes at most one swap; returns a patch for grid_bots plus an order row (if any). */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export async function runGridStep(bot: Bot, enc: string, admin: any, owner: string) {
+export async function runGridStep(
+  bot: Bot,
+  enc: string,
+  admin: any,
+  owner: string,
+  analysisOnly = false,
+) {
   const token = getAddress(bot.token);
   const pool = await poolState(token);
   if (!pool) return { patch: { last_error: "Pool inexistente" }, order: null };
@@ -132,6 +138,18 @@ export async function runGridStep(bot: Bot, enc: string, admin: any, owner: stri
         : (bot.last_level ?? d.level) + (d.action === "compra" ? -1 : 1),
     last_error: null,
   };
+  if (analysisOnly)
+    return {
+      patch: {
+        last_price: pool.price,
+        last_reason:
+          pool.price < Number(bot.lower_price) || pool.price > Number(bot.upper_price)
+            ? "Preço fora da faixa: grade pausada até retornar"
+            : `Grade: ${d.action} · nível ${d.level}. Prévia sem envio de ordem.`,
+        last_error: null,
+      },
+      order: null,
+    };
   if (d.action === "nenhuma") return { patch, order: null };
 
   const pub = pubClient();

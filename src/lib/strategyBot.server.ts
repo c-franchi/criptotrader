@@ -22,7 +22,13 @@ import { EMPTY_CONFIG, type StrategyConfig } from "./strategy";
 type Bot = { id: string; user_id: string; token: string; strat_state: unknown };
 
 /** Runs one tick of the robot following the user's saved strategy for this token. At most one swap. */
-export async function runStrategyStep(admin: any, bot: Bot, enc: string, owner: string) {
+export async function runStrategyStep(
+  admin: any,
+  bot: Bot,
+  enc: string,
+  owner: string,
+  analysisOnly = false,
+) {
   const now = Date.now();
   const { data: strat } = await admin
     .from("strategies")
@@ -123,6 +129,11 @@ export async function runStrategyStep(admin: any, bot: Bot, enc: string, owner: 
         : "(price / avgPriceUsd - 1) × 100",
     proceedsAccounting: "legacy quote estimate; not confirmed native wallet proceeds",
   };
+  if (analysisOnly)
+    return {
+      patch: { last_price: priceUsd, last_reason: d.reason, last_error: null },
+      order: null,
+    };
   if (d.action !== "nenhuma") {
     const { error } = await admin
       .from("audit_log")
