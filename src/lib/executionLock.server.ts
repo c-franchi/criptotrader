@@ -36,6 +36,7 @@ export async function reconcileLocks(admin: any, getReceipt: (hash: `0x${string}
     if (nowMs - acquired < STALE_LOCK_MS) continue;
     const { data: orders } = await admin.from("orders").select("id, tx_hash, deadline").eq("user_id", l.user_id).eq("status", "enviada");
     const pending: { deadline: number; resolved: boolean }[] = [];
+    let blocked = false;
     for (const o of orders ?? []) {
       let resolved = false, rpcFailed = false;
       if (o.tx_hash) {
@@ -52,9 +53,10 @@ export async function reconcileLocks(admin: any, getReceipt: (hash: `0x${string}
         await admin.from("orders").update({ status: "falhou", error: "Não confirmada antes do prazo; nada foi trocado", updated_at: new Date(nowMs).toISOString() }).eq("id", o.id);
         resolved = true;
       }
+      if (rpcFailed) { blocked = true; break; }
       pending.push({ deadline: Number(o.deadline), resolved });
     }
-    if (!canReleaseLock(acquired, nowMs, pending)) continue;
+    if (blocked || !canReleaseLock(acquired, nowMs, pending)) continue;
     await releaseExecution(admin, l.user_id, l.owner);
     await admin.from("audit_log").insert({ user_id: l.user_id, action: "execution_lock_reconciled", details: { acquired_at: l.acquired_at, orders_checked: pending.length } });
     released++;
