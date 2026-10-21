@@ -10,7 +10,9 @@ describe("stop padrão por taxa", () => {
     expect(buildPreset("segura", 1, null, { buy: 0, sell: 0 }).stopLossPct).toBe(10);
   });
   it("stop de 8% por preço com taxas 8/8 perde ~22,1%", () => {
-    expect(stopRealLossPct({ stopLossPct: 8, stopLossMode: "preco", buyTaxPct: 8, sellTaxPct: 8 })).toBeCloseTo(22.13, 1);
+    expect(
+      stopRealLossPct({ stopLossPct: 8, stopLossMode: "preco", buyTaxPct: 8, sellTaxPct: 8 }),
+    ).toBeCloseTo(22.13, 1);
   });
   it("stop desativado não calcula perda", () => {
     expect(stopRealLossPct({ stopLossPct: 0, buyTaxPct: 8, sellTaxPct: 8 })).toBeNull();

@@ -1,5 +1,10 @@
 export type AlertState = "longe" | "perto" | "atingiu";
-export type AlertRule = { direction: "queda" | "alta"; basePrice: number; targetPct: number; warnBeforePct: number };
+export type AlertRule = {
+  direction: "queda" | "alta";
+  basePrice: number;
+  targetPct: number;
+  warnBeforePct: number;
+};
 
 /** How far the price moved from the base in the alert direction, in %. */
 export function movePct(rule: AlertRule, price: number): number {

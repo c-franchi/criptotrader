@@ -45,7 +45,14 @@ type Field = { value: string | null; error?: string };
 
 export const validateToken = createServerFn({ method: "GET" })
   .inputValidator((d: { address?: string }) =>
-    z.object({ address: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional() }).parse(d),
+    z
+      .object({
+        address: z
+          .string()
+          .regex(/^0x[0-9a-fA-F]{40}$/)
+          .optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data }) => {
     const url = process.env["BSC_RPC_URL"] || DEFAULT_RPC;
@@ -82,7 +89,9 @@ export const validateToken = createServerFn({ method: "GET" })
     await Promise.all([
       run("chainId", async () => String(parseInt(await rpc(url, "eth_chainId", []), 16))),
       run("block", async () => String(parseInt(await rpc(url, "eth_blockNumber", []), 16))),
-      run("hasCode", async () => String((await rpc(url, "eth_getCode", [address, "latest"])).length > 2)),
+      run("hasCode", async () =>
+        String((await rpc(url, "eth_getCode", [address, "latest"])).length > 2),
+      ),
       run("name", async () => decodeString(await call("0x06fdde03"))),
       run("symbol", async () => decodeString(await call("0x95d89b41"))),
       run("decimals", async () => BigInt(await call("0x313ce567")).toString()),
@@ -109,7 +118,14 @@ export type PoolInfo = {
 
 export const getMarket = createServerFn({ method: "GET" })
   .inputValidator((d: { address?: string } | undefined) =>
-    z.object({ address: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional() }).parse(d ?? {}),
+    z
+      .object({
+        address: z
+          .string()
+          .regex(/^0x[0-9a-fA-F]{40}$/)
+          .optional(),
+      })
+      .parse(d ?? {}),
   )
   .handler(async ({ data }) => {
     const { readMarket } = await import("./market.server");

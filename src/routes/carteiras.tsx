@@ -14,9 +14,17 @@ export const Route = createFileRoute("/carteiras")({
   head: () => ({
     meta: [
       { title: "Minhas carteiras — CryptoBot" },
-      { name: "description", content: "Salve os endereços das suas carteiras BSC e selecione-os rapidamente em qualquer função." },
+      {
+        name: "description",
+        content:
+          "Salve os endereços das suas carteiras BSC e selecione-os rapidamente em qualquer função.",
+      },
       { property: "og:title", content: "Minhas carteiras — CryptoBot" },
-      { property: "og:description", content: "Salve os endereços das suas carteiras BSC e selecione-os rapidamente em qualquer função." },
+      {
+        property: "og:description",
+        content:
+          "Salve os endereços das suas carteiras BSC e selecione-os rapidamente em qualquer função.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -50,7 +58,9 @@ function Wallets() {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <Panel title="Perfil">
-        <p className="text-sm">Conta: <strong>{user?.email}</strong></p>
+        <p className="text-sm">
+          Conta: <strong>{user?.email}</strong>
+        </p>
       </Panel>
 
       <BotWallet />
@@ -59,28 +69,74 @@ function Wallets() {
         <div className="space-y-3">
           <div>
             <Label>Nome (opcional)</Label>
-            <Input placeholder="Ex.: Principal, Trust Wallet…" value={label} maxLength={40} onChange={(e) => setLabel(e.target.value)} />
+            <Input
+              placeholder="Ex.: Principal, Trust Wallet…"
+              value={label}
+              maxLength={40}
+              onChange={(e) => setLabel(e.target.value)}
+            />
           </div>
           <div>
             <Label>Endereço</Label>
-            <Input placeholder="0x…" value={address} onChange={(e) => setAddress(e.target.value.trim())} />
+            <Input
+              placeholder="0x…"
+              value={address}
+              onChange={(e) => setAddress(e.target.value.trim())}
+            />
           </div>
-          <Button className="w-full sm:w-auto" onClick={submit} disabled={busy}>Salvar carteira</Button>
-          <p className="text-xs text-muted-foreground">Salve só o endereço público. Nunca digite aqui sua frase de recuperação ou chave privada.</p>
+          <Button className="w-full sm:w-auto" onClick={submit} disabled={busy}>
+            Salvar carteira
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Salve só o endereço público. Nunca digite aqui sua frase de recuperação ou chave
+            privada.
+          </p>
         </div>
       </Panel>
 
       <Panel title={`Carteiras salvas (${wallets.length})`}>
-        {wallets.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma carteira salva ainda.</p>}
+        {wallets.length === 0 && (
+          <p className="text-sm text-muted-foreground">Nenhuma carteira salva ainda.</p>
+        )}
         <ul className="space-y-3">
           {wallets.map((w) => (
             <li key={w.id} className="rounded border border-border p-3">
-              <Input className="mb-2" defaultValue={w.label} placeholder="Sem nome" maxLength={40} onBlur={(e) => e.target.value !== w.label && rename(w.id, e.target.value)} />
+              <Input
+                className="mb-2"
+                defaultValue={w.label}
+                placeholder="Sem nome"
+                maxLength={40}
+                onBlur={(e) => e.target.value !== w.label && rename(w.id, e.target.value)}
+              />
               <p className="break-all font-mono text-xs text-muted-foreground">{w.address}</p>
               <div className="mt-2 flex gap-2">
-                <Button size="sm" variant="secondary" onClick={() => { void navigator.clipboard?.writeText(w.address); toast.success("Endereço copiado"); }}>Copiar</Button>
-                <Button size="sm" variant="ghost" asChild><a href={`https://bscscan.com/address/${w.address}`} target="_blank" rel="noreferrer">BscScan</a></Button>
-                <Button size="sm" variant="ghost" className="ml-auto text-destructive" onClick={() => remove(w.id)}>Remover</Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(w.address);
+                    toast.success("Endereço copiado");
+                  }}
+                >
+                  Copiar
+                </Button>
+                <Button size="sm" variant="ghost" asChild>
+                  <a
+                    href={`https://bscscan.com/address/${w.address}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    BscScan
+                  </a>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="ml-auto text-destructive"
+                  onClick={() => remove(w.id)}
+                >
+                  Remover
+                </Button>
               </div>
             </li>
           ))}
@@ -95,7 +151,9 @@ function BotWallet() {
   const getW = useServerFn(getBotWallet);
   const [w, setW] = useState<Awaited<ReturnType<typeof getBotWallet>> | null>(null);
   useEffect(() => {
-    void getW().then(setW).catch(() => setW({ address: null, bnb: null, tokens: [] }));
+    void getW()
+      .then(setW)
+      .catch(() => setW({ address: null, bnb: null, tokens: [] }));
   }, [getW]);
 
   const bnb = w?.bnb === null || w?.bnb === undefined ? null : Number(w.bnb);
@@ -108,33 +166,83 @@ function BotWallet() {
       ) : w.address ? (
         <div className="rounded-md border border-primary/40 bg-primary/5 p-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span aria-hidden className="text-base">🤖</span>
-            <p className="min-w-0 text-sm font-semibold text-primary">Carteira do robô automático</p>
+            <span aria-hidden className="text-base">
+              🤖
+            </span>
+            <p className="min-w-0 text-sm font-semibold text-primary">
+              Carteira do robô automático
+            </p>
             <span className="ml-auto rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
               Não é sua carteira pessoal
             </span>
           </div>
           <p className="mt-2 break-all font-mono text-xs">{w.address}</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" onClick={() => { void navigator.clipboard?.writeText(w.address!); toast.success("Endereço copiado"); }}>Copiar</Button>
-            <Button size="sm" variant="ghost" asChild><a href={`https://bscscan.com/address/${w.address}`} target="_blank" rel="noreferrer">BscScan</a></Button>
-            <Button size="sm" variant="outline" asChild><Link to="/grade">Abrir o robô</Link></Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                void navigator.clipboard?.writeText(w.address!);
+                toast.success("Endereço copiado");
+              }}
+            >
+              Copiar
+            </Button>
+            <Button size="sm" variant="ghost" asChild>
+              <a href={`https://bscscan.com/address/${w.address}`} target="_blank" rel="noreferrer">
+                BscScan
+              </a>
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/grade">Abrir o robô</Link>
+            </Button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            BNB no robô: {bnb === null ? "indisponível agora" : <span className="font-mono">{bnb.toLocaleString("pt-BR", { maximumFractionDigits: 6 })}</span>}
-            {held.length > 0 && <> · {held.map((t) => `${t.symbol}: ${Number(t.amount).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}`).join(" · ")}</>}
+            BNB no robô:{" "}
+            {bnb === null ? (
+              "indisponível agora"
+            ) : (
+              <span className="font-mono">
+                {bnb.toLocaleString("pt-BR", { maximumFractionDigits: 6 })}
+              </span>
+            )}
+            {held.length > 0 && (
+              <>
+                {" "}
+                ·{" "}
+                {held
+                  .map(
+                    (t) =>
+                      `${t.symbol}: ${Number(t.amount).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}`,
+                  )
+                  .join(" · ")}
+              </>
+            )}
           </p>
           <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-            <li>🔒 O robô compra e vende só com o que está nesta carteira. Ela não mexe na sua carteira pessoal.</li>
-            <li>🔒 A chave desta carteira fica guardada criptografada no servidor e nunca é mostrada.</li>
-            <li>💡 Para pegar o dinheiro de volta, use <strong className="text-foreground">"Desligar e devolver tudo"</strong> na página do robô.</li>
+            <li>
+              🔒 O robô compra e vende só com o que está nesta carteira. Ela não mexe na sua
+              carteira pessoal.
+            </li>
+            <li>
+              🔒 A chave desta carteira fica guardada criptografada no servidor e nunca é mostrada.
+            </li>
+            <li>
+              💡 Para pegar o dinheiro de volta, use{" "}
+              <strong className="text-foreground">"Desligar e devolver tudo"</strong> na página do
+              robô.
+            </li>
             <li>Esta carteira não entra na lista de baixo e não pode ser apagada daqui.</li>
           </ul>
         </div>
       ) : (
         <div className="rounded-md border border-border p-3 text-sm">
-          <p className="text-muted-foreground">Você ainda não tem carteira do robô. Ela é criada com um toque, na página do robô.</p>
-          <Button size="sm" variant="outline" className="mt-2" asChild><Link to="/grade">Criar carteira do robô</Link></Button>
+          <p className="text-muted-foreground">
+            Você ainda não tem carteira do robô. Ela é criada com um toque, na página do robô.
+          </p>
+          <Button size="sm" variant="outline" className="mt-2" asChild>
+            <Link to="/grade">Criar carteira do robô</Link>
+          </Button>
         </div>
       )}
     </Panel>

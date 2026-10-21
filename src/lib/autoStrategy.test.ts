@@ -3,7 +3,21 @@ import { afterTrade, decide, EMPTY_STATE, normalizeState } from "./autoStrategy"
 import { EMPTY_CONFIG, type StrategyConfig } from "./strategy";
 
 const now = Date.UTC(2026, 9, 16, 12);
-const cfg: StrategyConfig = { ...EMPTY_CONFIG, buyAmount: 0.01, sizingMode: "fixo", entryType: "queda", dropPct: 8, maxEntries: 2, cooldownMin: 0, maxTradesPerDay: 5, takeProfits: [{ pct: 10, sellPct: 50 }, { pct: 20, sellPct: 100 }], stopLossPct: 10 };
+const cfg: StrategyConfig = {
+  ...EMPTY_CONFIG,
+  buyAmount: 0.01,
+  sizingMode: "fixo",
+  entryType: "queda",
+  dropPct: 8,
+  maxEntries: 2,
+  cooldownMin: 0,
+  maxTradesPerDay: 5,
+  takeProfits: [
+    { pct: 10, sellPct: 50 },
+    { pct: 20, sellPct: 100 },
+  ],
+  stopLossPct: 10,
+};
 const m = (priceUsd: number, high = 1) => ({ priceUsd, liquidityUsd: 1e6, high, closes: [], now });
 const st = normalizeState({}, now);
 
@@ -13,23 +27,36 @@ describe("decide (robô segue a estratégia)", () => {
     expect(decide(cfg, st, m(0.92)).action).toBe("compra");
   });
   it("sells half at +10% and everything at stop-loss -10%", () => {
-    const held = afterTrade(st, { action: "compra", reason: "" }, { priceUsd: 1, bnb: 0.01, tokens: 100, now });
+    const held = afterTrade(
+      st,
+      { action: "compra", reason: "" },
+      { priceUsd: 1, bnb: 0.01, tokens: 100, now },
+    );
     const tp = decide(cfg, held, m(1.1, 2));
     expect(tp).toMatchObject({ action: "venda", sellPct: 50, tpIndex: 0 });
     expect(decide(cfg, held, m(0.9, 2))).toMatchObject({ action: "venda", sellPct: 100 });
   });
   it("respects the daily trade limit", () => {
-    expect(decide({ ...cfg, maxTradesPerDay: 1 }, { ...st, tradesToday: 1 }, m(0.5)).action).toBe("nenhuma");
+    expect(decide({ ...cfg, maxTradesPerDay: 1 }, { ...st, tradesToday: 1 }, m(0.5)).action).toBe(
+      "nenhuma",
+    );
   });
   it("resets daily counters on a new day", () => {
-    expect(normalizeState({ ...EMPTY_STATE, day: "2026-10-15", tradesToday: 4 }, now).tradesToday).toBe(0);
+    expect(
+      normalizeState({ ...EMPTY_STATE, day: "2026-10-15", tradesToday: 4 }, now).tradesToday,
+    ).toBe(0);
   });
 });
 
 import { referenceHigh } from "./autoStrategy";
 describe("compra sempre na baixa", () => {
   it("ignores a one-candle spike when finding the 24h top", () => {
-    const c = [[1, 1, 1, 1, 1], [2, 1, 9, 1, 3], [3, 1, 1, 1, 1], [4, 1, 1.1, 1, 1.1]] as [number, number, number, number, number][];
+    const c = [
+      [1, 1, 1, 1, 1],
+      [2, 1, 9, 1, 3],
+      [3, 1, 1, 1, 1],
+      [4, 1, 1.1, 1, 1.1],
+    ] as [number, number, number, number, number][];
     expect(referenceHigh(c, 0)).toBe(1.1);
   });
   it("trend strategy buys only when the price dips to the long average, never above it", () => {
@@ -42,7 +69,15 @@ describe("compra sempre na baixa", () => {
 });
 
 describe("estratégia adaptativa", () => {
-  const a = { ...cfg, entryType: "adaptativa" as const, maFast: 3, maSlow: 5, buyTaxPct: 8, sellTaxPct: 8, takeProfits: [] };
+  const a = {
+    ...cfg,
+    entryType: "adaptativa" as const,
+    maFast: 3,
+    maSlow: 5,
+    buyTaxPct: 8,
+    sellTaxPct: 8,
+    takeProfits: [],
+  };
   const flat = Array.from({ length: 20 }, (_, i) => (i % 2 ? 1.25 : 1)); // lateral, faixa 25%? -> not lateral
   it("never buys when a flat range cannot pay the taxes", () => {
     const tight = Array.from({ length: 20 }, (_, i) => (i % 2 ? 1.05 : 1));
@@ -50,7 +85,11 @@ describe("estratégia adaptativa", () => {
     expect(decide(a, st, { ...m(1), closes: tight }).action).toBe("nenhuma");
   });
   it("sells only above break-even including 8%+8% taxes", () => {
-    const held = afterTrade(st, { action: "compra", reason: "" }, { priceUsd: 1, bnb: 0.01, tokens: 100, now });
+    const held = afterTrade(
+      st,
+      { action: "compra", reason: "" },
+      { priceUsd: 1, bnb: 0.01, tokens: 100, now },
+    );
     expect(decide(a, held, { ...m(1.18), closes: [] }).action).toBe("nenhuma");
     expect(decide(a, held, { ...m(1.23), closes: [] }).action).toBe("venda");
   });
@@ -58,5 +97,41 @@ describe("estratégia adaptativa", () => {
     const down = Array.from({ length: 20 }, (_, i) => 2 - i * 0.05);
     expect(decide(a, st, { ...m(1), closes: down }).action).toBe("nenhuma");
     void flat;
+  });
+});
+
+import { updateEntryLatch } from "./autoStrategy";
+describe("exit priority and rule versions", () => {
+  const held = { ...st, tokens: 100, avgPriceUsd: 1, costBnb: 1, tradesToday: 999 };
+  it("daily entry limit and low liquidity never suppress stop-loss", () => {
+    expect(decide(cfg, held, { ...m(0.8), liquidityUsd: 0 }).action).toBe("venda");
+    expect(
+      decide({ ...cfg, minLiquidityUsd: 10000 }, held, { ...m(0.8), liquidityUsd: null }).action,
+    ).toBe("venda");
+  });
+  it("entry limits still block a purchase", () => {
+    expect(decide(cfg, { ...st, tradesToday: 99 }, m(0.8)).action).toBe("nenhuma");
+  });
+  it("v2 respects partial last target; v1 preserves full exit", () => {
+    const c = { ...cfg, takeProfits: [{ pct: 10, sellPct: 20 }] };
+    expect(decide({ ...c, rulesVersion: 2 }, held, m(1.2))).toMatchObject({
+      sellPct: 20,
+      all: false,
+    });
+    expect(decide(c, held, m(1.2))).toMatchObject({ sellPct: 100, all: true });
+  });
+  it("v2 consumes the mean signal until the market leaves the entry condition", () => {
+    const c = {
+      ...cfg,
+      rulesVersion: 2 as const,
+      entryType: "medias" as const,
+      maFast: 2,
+      maSlow: 4,
+    };
+    const market = { ...m(1.15), closes: [1, 1, 1.2, 1.2, 1.3] };
+    const consumed = { ...st, entryConsumed: true };
+    expect(decide(c, consumed, market).action).toBe("nenhuma");
+    expect(updateEntryLatch(c, consumed, market).entryConsumed).toBe(true);
+    expect(updateEntryLatch(c, consumed, { ...market, priceUsd: 1.5 }).entryConsumed).toBe(false);
   });
 });

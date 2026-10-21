@@ -11,7 +11,14 @@ it("uses opening price and reports partial history without a full-hour percentag
   expect(result.covered).toBe(false);
 });
 it("uses the price immediately before the interval as baseline", () => {
-  const result = chartWindow([[6300, 1, 1, 1, 1], [6500, 2, 2, 2, 2]], 10_000_000, 3_600_000);
+  const result = chartWindow(
+    [
+      [6300, 1, 1, 1, 1],
+      [6500, 2, 2, 2, 2],
+    ],
+    10_000_000,
+    3_600_000,
+  );
   expect(result.baseline).toBe(1);
   expect(result.covered).toBe(true);
 });

@@ -52,55 +52,95 @@ async function rpc<T>(method: string, params: unknown[]): Promise<T> {
       const out = await rpcOnce<T>(LOGS_RPCS[idx]!, method, params);
       preferred = idx;
       return out;
-    } catch (e) { last = e; }
+    } catch (e) {
+      last = e;
+    }
   }
-  throw new Error(`Todos os servidores públicos falharam (${last instanceof Error ? last.message : "falha"})`);
+  throw new Error(
+    `Todos os servidores públicos falharam (${last instanceof Error ? last.message : "falha"})`,
+  );
 }
 
-async function fromBscScan(address: string, key: string): Promise<{ list: Transfer[] | null; holders: number | null; note: string }> {
+async function fromBscScan(
+  address: string,
+  key: string,
+): Promise<{ list: Transfer[] | null; holders: number | null; note: string }> {
   const base = `https://api.etherscan.io/v2/api?chainid=56&apikey=${key}`;
-  const tx = (await (await fetch(`${base}&module=account&action=tokentx&contractaddress=${address}&page=1&offset=15&sort=desc`, { signal: AbortSignal.timeout(8000) })).json()) as {
-    status: string; result: unknown;
+  const tx = (await (
+    await fetch(
+      `${base}&module=account&action=tokentx&contractaddress=${address}&page=1&offset=15&sort=desc`,
+      { signal: AbortSignal.timeout(8000) },
+    )
+  ).json()) as {
+    status: string;
+    result: unknown;
   };
   if (tx.status !== "1" || !Array.isArray(tx.result)) {
     const msg = typeof tx.result === "string" ? tx.result : "sem resposta";
-    return { list: null, holders: null, note: msg.includes("Free API") ? "plano gratuito da BscScan não cobre a BSC" : msg };
+    return {
+      list: null,
+      holders: null,
+      note: msg.includes("Free API") ? "plano gratuito da BscScan não cobre a BSC" : msg,
+    };
   }
-  const list = (tx.result as { hash: string; blockNumber: string; from: string; to: string; value: string }[]).map((t) => ({
-    hash: t.hash, block: Number(t.blockNumber), from: t.from, to: t.to, amountRaw: t.value,
+  const list = (
+    tx.result as { hash: string; blockNumber: string; from: string; to: string; value: string }[]
+  ).map((t) => ({
+    hash: t.hash,
+    block: Number(t.blockNumber),
+    from: t.from,
+    to: t.to,
+    amountRaw: t.value,
   }));
   let holders: number | null = null;
   try {
-    const h = (await (await fetch(`${base}&module=token&action=tokenholdercount&contractaddress=${address}`)).json()) as { status: string; result: string };
+    const h = (await (
+      await fetch(`${base}&module=token&action=tokenholdercount&contractaddress=${address}`)
+    ).json()) as { status: string; result: string };
     if (h.status === "1") holders = Number(h.result);
-  } catch { /* indisponível */ }
+  } catch {
+    /* indisponível */
+  }
   return { list, holders, note: holders === null ? "contagem exige plano pago da BscScan" : "" };
 }
 
 export const getTransfers = createServerFn({ method: "GET" })
   .inputValidator((d: { address: string; pool?: string }) =>
-    z.object({ address: z.string().regex(/^0x[0-9a-fA-F]{40}$/), pool: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional() }).parse(d))
+    z
+      .object({
+        address: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+        pool: z
+          .string()
+          .regex(/^0x[0-9a-fA-F]{40}$/)
+          .optional(),
+      })
+      .parse(d),
+  )
   .handler(async ({ data }): Promise<TransfersResult> => {
     const k = `${data.address.toLowerCase()}:${data.pool?.toLowerCase() ?? ""}`;
     const saved = cache.get(k);
     if (saved && saved.expires > Date.now()) return saved.value;
     const active = pending.get(k);
     if (active) return active;
-    const req = load(data.address, data.pool).then((value) => {
-      if (!value.error) {
-        if (cache.size >= 200) cache.clear();
-        cache.set(k, { value, expires: Date.now() + 45_000 });
-        return value;
-      }
-      // Keep the last good list instead of showing an error.
-      return saved ? saved.value : value;
-    }).finally(() => pending.delete(k));
+    const req = load(data.address, data.pool)
+      .then((value) => {
+        if (!value.error) {
+          if (cache.size >= 200) cache.clear();
+          cache.set(k, { value, expires: Date.now() + 45_000 });
+          return value;
+        }
+        // Keep the last good list instead of showing an error.
+        return saved ? saved.value : value;
+      })
+      .finally(() => pending.delete(k));
     pending.set(k, req);
     return req;
   });
 
 async function load(address: string, pool?: string): Promise<TransfersResult> {
-  const holdersNote = process.env["BSCSCAN_API_KEY"] ? "plano gratuito da BscScan não cobre a BSC" : "chave da BscScan não configurada";
+  const holdersNote = process.env["BSCSCAN_API_KEY"]
+    ? "plano gratuito da BscScan não cobre a BSC"
+    : "chave da BscScan não configurada";
   const fetchedAt = new Date().toISOString();
   try {
     const latest = parseInt(await rpc<string>("eth_blockNumber", []), 16);
@@ -111,7 +151,14 @@ async function load(address: string, pool?: string): Promise<TransfersResult> {
       const from = to - CHUNK + 1;
       let logs: { transactionHash: string; blockNumber: string; topics: string[]; data: string }[];
       try {
-        logs = await rpc("eth_getLogs", [{ fromBlock: `0x${from.toString(16)}`, toBlock: `0x${to.toString(16)}`, address, topics: [TRANSFER] }]);
+        logs = await rpc("eth_getLogs", [
+          {
+            fromBlock: `0x${from.toString(16)}`,
+            toBlock: `0x${to.toString(16)}`,
+            address,
+            topics: [TRANSFER],
+          },
+        ]);
       } catch (e) {
         if (i === 0) throw e;
         break; // keep what was already read
@@ -129,8 +176,28 @@ async function load(address: string, pool?: string): Promise<TransfersResult> {
       scanned += CHUNK;
       to = from - 1;
     }
-    return { transfers: out.slice(0, 15), source: "rpc", holders: null, holdersNote, error: null, scannedBlocks: scanned, ranking: rankWallets(out, pool), rankedTransfers: out.length, fetchedAt };
+    return {
+      transfers: out.slice(0, 15),
+      source: "rpc",
+      holders: null,
+      holdersNote,
+      error: null,
+      scannedBlocks: scanned,
+      ranking: rankWallets(out, pool),
+      rankedTransfers: out.length,
+      fetchedAt,
+    };
   } catch (e) {
-    return { transfers: [], source: null, holders: null, holdersNote, error: e instanceof Error ? e.message : "falha", scannedBlocks: 0, ranking: [], rankedTransfers: 0, fetchedAt };
+    return {
+      transfers: [],
+      source: null,
+      holders: null,
+      holdersNote,
+      error: e instanceof Error ? e.message : "falha",
+      scannedBlocks: 0,
+      ranking: [],
+      rankedTransfers: 0,
+      fetchedAt,
+    };
   }
 }

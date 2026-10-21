@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { monitorState } from "./monitor";
 import { EMPTY_CONFIG } from "./strategy";
 
-const cfg = { ...EMPTY_CONFIG, entryType: "queda" as const, dropPct: 8, referenceType: "maxima" as const, windowHours: 24 };
+const cfg = {
+  ...EMPTY_CONFIG,
+  entryType: "queda" as const,
+  dropPct: 8,
+  referenceType: "maxima" as const,
+  windowHours: 24,
+};
 
 describe("monitoramento da estratégia", () => {
   it("compra dispara quando o preço cai 8% da máxima de 24h", () => {
@@ -18,7 +24,13 @@ describe("monitoramento da estratégia", () => {
     expect(monitorState(cfg, 1, null).alerts).toHaveLength(0);
   });
   it("take-profit e stop-loss só com referência manual", () => {
-    const manual = { ...cfg, referenceType: "manual" as const, manualReference: 1, takeProfits: [{ pct: 10, sellPct: 50 }], stopLossPct: 10 };
+    const manual = {
+      ...cfg,
+      referenceType: "manual" as const,
+      manualReference: 1,
+      takeProfits: [{ pct: 10, sellPct: 50 }],
+      stopLossPct: 10,
+    };
     const up = monitorState(manual, 1.1, 5);
     expect(up.alerts.find((a) => a.kind === "take")?.active).toBe(true);
     const down = monitorState(manual, 0.9, 5);

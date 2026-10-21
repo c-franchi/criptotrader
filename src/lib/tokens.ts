@@ -2,9 +2,24 @@ export type TokenInfo = { address: `0x${string}`; symbol: string; name: string; 
 
 /** Built-in tokens for every user (only well-known assets; project/test tokens are added per user). Users can add more (stored per user). */
 export const TOKENS: TokenInfo[] = [
-  { address: "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c", symbol: "BTCB", name: "Bitcoin (BSC)", decimals: 18 },
-  { address: "0x2170Ed0880ac9A755fd29B2688956BD959F933F8", symbol: "ETH", name: "Ethereum (BSC)", decimals: 18 },
-  { address: "0x570A5D26f7765Ecb712C0924E4De545B89fD43dF", symbol: "SOL", name: "Solana (BSC)", decimals: 18 },
+  {
+    address: "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",
+    symbol: "BTCB",
+    name: "Bitcoin (BSC)",
+    decimals: 18,
+  },
+  {
+    address: "0x2170Ed0880ac9A755fd29B2688956BD959F933F8",
+    symbol: "ETH",
+    name: "Ethereum (BSC)",
+    decimals: 18,
+  },
+  {
+    address: "0x570A5D26f7765Ecb712C0924E4De545B89fD43dF",
+    symbol: "SOL",
+    name: "Solana (BSC)",
+    decimals: 18,
+  },
 ];
 
 /** Widely held BEP-20 tokens checked when scanning a wallet (metadata is read on-chain). */
@@ -31,14 +46,31 @@ export const KNOWN_TAX: Record<string, { buy: number; sell: number }> = {
   "0xa229c797c8e6a275cf5ee4cda37f5e619f15affa": { buy: 8, sell: 8 }, // GTE
 };
 export type TokenTax = { buy: number; sell: number };
-export const taxFor = (addr: string, cfg?: { buyTaxPct?: number | undefined; sellTaxPct?: number | undefined }): TokenTax => {
+export const taxFor = (
+  addr: string,
+  cfg?: { buyTaxPct?: number | undefined; sellTaxPct?: number | undefined },
+): TokenTax => {
   const k = KNOWN_TAX[addr.toLowerCase()] ?? { buy: 0, sell: 0 };
   return { buy: cfg?.buyTaxPct ?? k.buy, sell: cfg?.sellTaxPct ?? k.sell };
 };
 /** % the price must rise just to break even after paying both taxes. */
-export const breakEvenPct = (t: TokenTax) => (1 / ((1 - t.buy / 100) * (1 - t.sell / 100)) - 1) * 100;
+export const breakEvenPct = (t: TokenTax) =>
+  (1 / ((1 - t.buy / 100) * (1 - t.sell / 100)) - 1) * 100;
 /** Gross price rise needed so the trade nets `netPct` after taxes. */
-export const grossForNet = (netPct: number, t: TokenTax) => ((1 + netPct / 100) / ((1 - t.buy / 100) * (1 - t.sell / 100)) - 1) * 100;
+export const grossForNet = (netPct: number, t: TokenTax) =>
+  ((1 + netPct / 100) / ((1 - t.buy / 100) * (1 - t.sell / 100)) - 1) * 100;
 
 export const findToken = (addr: string, extra: TokenInfo[] = []) =>
   [...TOKENS, ...extra].find((t) => t.address.toLowerCase() === addr.toLowerCase());
+
+/** Unknown is not zero. Common tokens are explicit known-zero entries. */
+export function hasVerifiedTax(
+  addr: string,
+  cfg?: { taxVerified?: boolean; buyTaxPct?: number; sellTaxPct?: number },
+) {
+  return (
+    cfg?.taxVerified === true ||
+    !!KNOWN_TAX[addr.toLowerCase()] ||
+    TOKENS.some((t) => t.address.toLowerCase() === addr.toLowerCase())
+  );
+}

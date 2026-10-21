@@ -1,65 +1,83 @@
-/** Persistent wallet-wide mutex; no expiry can race a still-pending chain transaction. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+/** Persistent wallet-wide mutex. Age alone is never evidence of a failed transaction. */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export async function acquireExecution(admin: any, userId: string) {
   const owner = crypto.randomUUID();
   const { error } = await admin.from("bot_execution_locks").insert({ user_id: userId, owner });
-  if (error) throw new Error("Carteira em execução ou confirmação pendente; aguarde antes de repetir");
+  if (error)
+    throw new Error("Carteira em execução ou confirmação pendente; aguarde antes de repetir");
   return owner;
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function releaseExecution(admin: any, userId: string, owner: string) {
-  const { error } = await admin.from("bot_execution_locks").delete().eq("user_id", userId).eq("owner", owner);
-  if (error) throw new Error("Não foi possível liberar a execução; verifique o histórico antes de repetir");
+  const { error } = await admin
+    .from("bot_execution_locks")
+    .delete()
+    .eq("user_id", userId)
+    .eq("owner", owner);
+  if (error)
+    throw new Error("Não foi possível liberar a execução; verifique o histórico antes de repetir");
 }
-
-/** Swaps carry a 5-minute deadline, so after this a transaction can no longer execute on-chain. */
 export const STALE_LOCK_MS = 15 * 60 * 1000;
-
 type Receipt = { status: "success" | "reverted"; blockNumber: bigint } | null;
-
-/**
- * Pure decision: a lock may be released only when it is old enough that any swap deadline has
- * passed AND every submitted order ("enviada" with hash) has a receipt or is past its deadline.
- */
-export function canReleaseLock(acquiredAtMs: number, nowMs: number, pending: { deadline: number; resolved: boolean }[]) {
-  if (nowMs - acquiredAtMs < STALE_LOCK_MS) return false;
-  return pending.every((p) => p.resolved || nowMs / 1000 > p.deadline + 60);
+export function canReleaseLock(
+  _acquired: number,
+  _now: number,
+  pending: { deadline: number; resolved: boolean }[],
+) {
+  return pending.length > 0 && pending.every((p) => p.resolved);
 }
-
-/** Reconciles stuck locks: records receipts of pending orders, then releases locks no transaction can still use. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function reconcileLocks(admin: any, getReceipt: (hash: `0x${string}`) => Promise<Receipt>, nowMs = Date.now()) {
-  const { data: locks } = await admin.from("bot_execution_locks").select("user_id, owner, acquired_at");
-  let released = 0;
+/** Legacy orders cannot restore strategy memory safely: stop the bot and require explicit reconciliation. */
+export async function reconcileLocks(
+  admin: any,
+  getReceipt: (hash: `0x${string}`) => Promise<Receipt>,
+  now = Date.now(),
+) {
+  const { data: locks, error } = await admin
+    .from("bot_execution_locks")
+    .select("user_id, owner, acquired_at");
+  if (error) throw error;
+  const released = 0;
   for (const l of locks ?? []) {
-    const acquired = new Date(l.acquired_at).getTime();
-    if (nowMs - acquired < STALE_LOCK_MS) continue;
-    const { data: orders } = await admin.from("orders").select("id, tx_hash, deadline").eq("user_id", l.user_id).eq("status", "enviada");
-    const pending: { deadline: number; resolved: boolean }[] = [];
-    let blocked = false;
+    const { data: journal, error: journalError } = await admin
+      .from("execution_submissions")
+      .select("id")
+      .eq("lock_owner", l.owner)
+      .limit(1);
+    if (journalError) throw journalError;
+    if (journal?.length) continue; // new journal reconciliation owns these locks
+    if (now - new Date(l.acquired_at).getTime() < STALE_LOCK_MS) continue;
+    const { data: orders, error: ordersError } = await admin
+      .from("orders")
+      .select("id,tx_hash,source")
+      .eq("user_id", l.user_id)
+      .eq("status", "enviada");
+    if (ordersError) continue;
+    // Do not release unknown submissions, approvals or withdrawals, even if no order was saved.
     for (const o of orders ?? []) {
-      let resolved = false, rpcFailed = false;
-      if (o.tx_hash) {
-        try {
-          const r = await getReceipt(o.tx_hash);
-          if (r) {
-            resolved = true;
-            await admin.from("orders").update({ status: r.status === "success" ? "confirmada" : "falhou", block_number: Number(r.blockNumber), error: r.status === "success" ? null : "Transação revertida na rede", updated_at: new Date(nowMs).toISOString() }).eq("id", o.id);
-          }
-        } catch { rpcFailed = true; /* network unreachable: cannot prove anything, keep the lock */ }
+      if (!o.tx_hash) continue;
+      try {
+        const r = await getReceipt(o.tx_hash);
+        if (!r) continue;
+        const { error: updateError } = await admin
+          .from("orders")
+          .update({
+            status: r.status === "success" ? "confirmada" : "falhou",
+            block_number: Number(r.blockNumber),
+            error: "Ordem legada conciliada; estado do robô requer revisão",
+            updated_at: new Date(now).toISOString(),
+          })
+          .eq("id", o.id);
+        if (updateError) continue;
+        await admin
+          .from("grid_bots")
+          .update({
+            armed: false,
+            last_error: "Execução legada pendente: concilie o saldo e a posição antes de religar",
+          })
+          .eq("user_id", l.user_id);
+      } catch {
+        /* retain the lock until there is positive evidence */
       }
-      if (!resolved && !rpcFailed && nowMs / 1000 > Number(o.deadline) + 60) {
-        // Deadline passed without a receipt: the swap can no longer execute.
-        await admin.from("orders").update({ status: "falhou", error: "Não confirmada antes do prazo; nada foi trocado", updated_at: new Date(nowMs).toISOString() }).eq("id", o.id);
-        resolved = true;
-      }
-      if (rpcFailed) { blocked = true; break; }
-      pending.push({ deadline: Number(o.deadline), resolved });
     }
-    if (blocked || !canReleaseLock(acquired, nowMs, pending)) continue;
-    await releaseExecution(admin, l.user_id, l.owner);
-    await admin.from("audit_log").insert({ user_id: l.user_id, action: "execution_lock_reconciled", details: { acquired_at: l.acquired_at, orders_checked: pending.length } });
-    released++;
   }
   return released;
 }

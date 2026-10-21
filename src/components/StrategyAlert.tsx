@@ -19,20 +19,40 @@ const fmt = (n: number) => n.toLocaleString("pt-BR", { maximumSignificantDigits:
  * Shows a persistent banner and fires a toast once per crossing when the
  * price enters a buy/sell trigger zone.
  */
-export function StrategyAlert({ address, symbol, pools }: { address: string; symbol: string; pools: PoolInfo[] }) {
+export function StrategyAlert({
+  address,
+  symbol,
+  pools,
+}: {
+  address: string;
+  symbol: string;
+  pools: PoolInfo[];
+}) {
   const { user } = useAuth();
   const strategy = useQuery({
     queryKey: ["strategy", user?.id, address],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase.from("strategies").select("config").eq("user_id", user!.id).eq("token", address).maybeSingle();
-      return data ? ({ ...EMPTY_CONFIG, ...(data.config as Partial<StrategyConfig>) } as StrategyConfig) : null;
+      const { data } = await supabase
+        .from("strategies")
+        .select("config")
+        .eq("user_id", user!.id)
+        .eq("token", address)
+        .maybeSingle();
+      return data
+        ? ({ ...EMPTY_CONFIG, ...(data.config as Partial<StrategyConfig>) } as StrategyConfig)
+        : null;
     },
     staleTime: 30_000,
   });
   const cfg = strategy.data;
   const pool = pools.find((p) => p.supported) ?? pools[0];
-  const candles = useCandles(cfg && (cfg.referenceType !== "manual" || cfg.entryType !== "queda") ? pool?.pairAddress : undefined, address);
+  const candles = useCandles(
+    cfg && (cfg.referenceType !== "manual" || cfg.entryType !== "queda")
+      ? pool?.pairAddress
+      : undefined,
+    address,
+  );
   const rawPrice = Number(pool?.priceUsd);
   const price = rawPrice > 0 && Number.isFinite(rawPrice) ? rawPrice : null;
   const since = Date.now() - (cfg?.windowHours ?? 24) * 3_600_000;
@@ -65,20 +85,32 @@ export function StrategyAlert({ address, symbol, pools }: { address: string; sym
   if (!cfg) {
     return (
       <p className="mb-4 rounded-lg border border-border bg-card p-3 text-xs text-muted-foreground">
-        Nenhuma estratégia salva para {symbol}. <Link to="/estrategia" className="text-primary underline">Criar estratégia</Link> para receber avisos de compra e venda.
+        Nenhuma estratégia salva para {symbol}.{" "}
+        <Link to="/estrategia" className="text-primary underline">
+          Criar estratégia
+        </Link>{" "}
+        para receber avisos de compra e venda.
       </p>
     );
   }
   if (!state || state.alerts.length === 0) {
     return (
       <p className="mb-4 rounded-lg border border-border bg-card p-3 text-xs text-muted-foreground">
-        Monitoramento de {symbol}: {state?.reference == null ? "aguardando preço de referência (máxima de 24h ou referência manual)." : cfg.entryType === "medias" ? "aguardando histórico de preços para calcular as médias." : "esta estratégia não tem gatilhos de preço para monitorar."}
+        Monitoramento de {symbol}:{" "}
+        {state?.reference == null
+          ? "aguardando preço de referência (máxima de 24h ou referência manual)."
+          : cfg.entryType === "medias"
+            ? "aguardando histórico de preços para calcular as médias."
+            : "esta estratégia não tem gatilhos de preço para monitorar."}
       </p>
     );
   }
 
   return (
-    <section aria-label={`Monitoramento da estratégia de ${symbol}`} className="mb-4 rounded-lg border border-border bg-card p-3">
+    <section
+      aria-label={`Monitoramento da estratégia de ${symbol}`}
+      className="mb-4 rounded-lg border border-border bg-card p-3"
+    >
       <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         <BellRing className="h-3.5 w-3.5" /> Monitoramento da estratégia · {symbol}
       </p>
@@ -96,13 +128,18 @@ export function StrategyAlert({ address, symbol, pools }: { address: string; sym
                 : "border-border/60 text-muted-foreground",
             )}
           >
-            <span className="font-medium">{a.active ? "● DENTRO DA FAIXA — " : "○ "}{a.label}</span>
+            <span className="font-medium">
+              {a.active ? "● DENTRO DA FAIXA — " : "○ "}
+              {a.label}
+            </span>
             <span className="ml-1 font-mono text-xs">dispara em {fmt(a.triggerAt)}</span>
           </li>
         ))}
       </ul>
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Preço atual {price != null ? `US$ ${fmt(price)}` : "indisponível"} · referência: {state.reference != null ? fmt(state.reference) : "—"} ({state.referenceLabel}) · verificado a cada 30s com o preço do painel.
+        Preço atual {price != null ? `US$ ${fmt(price)}` : "indisponível"} · referência:{" "}
+        {state.reference != null ? fmt(state.reference) : "—"} ({state.referenceLabel}) · verificado
+        a cada 30s com o preço do painel.
       </p>
     </section>
   );

@@ -13,7 +13,11 @@ export const Route = createFileRoute("/api/public/hooks/grid-tick")({
         let ok = !!cron && timingSafeEqual(h(token), h(cron));
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         if (!ok) {
-          const { data } = await supabaseAdmin.from("internal_tokens").select("token").eq("name", "grid_tick").maybeSingle();
+          const { data } = await supabaseAdmin
+            .from("internal_tokens")
+            .select("token")
+            .eq("name", "grid_tick")
+            .maybeSingle();
           ok = !!data && timingSafeEqual(h(token), h(data.token));
         }
         if (!ok) return new Response("Unauthorized", { status: 401 });

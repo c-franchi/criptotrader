@@ -10,7 +10,9 @@ describe("Shared token selection", () => {
     expect(TOKENS.map((t) => t.symbol)).toEqual(["BTCB", "ETH", "SOL"]);
   });
   it("keeps ETH selected for another page and after remount", async () => {
-    const first = renderHook(() => [useSelectedToken(), useSelectedToken()], { wrapper: SelectedTokenProvider });
+    const first = renderHook(() => [useSelectedToken(), useSelectedToken()], {
+      wrapper: SelectedTokenProvider,
+    });
     act(() => first.result.current[0]?.selectToken(ETH));
     expect(first.result.current[1]?.token.address).toBe(ETH);
     first.unmount();

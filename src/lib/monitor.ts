@@ -24,31 +24,69 @@ export type MonitorState = {
 const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 
 /** closes: closed candle closes at the strategy interval, oldest first. */
-export function monitorState(cfg: StrategyConfig, price: number | null, high24h: number | null, closes: number[] = []): MonitorState {
+export function monitorState(
+  cfg: StrategyConfig,
+  price: number | null,
+  high24h: number | null,
+  closes: number[] = [],
+): MonitorState {
   const reference = cfg.referenceType === "manual" ? cfg.manualReference : high24h;
-  const referenceLabel = cfg.referenceType === "manual" ? "referência definida" : `máxima de ${cfg.windowHours}h`;
+  const referenceLabel =
+    cfg.referenceType === "manual" ? "referência definida" : `máxima de ${cfg.windowHours}h`;
   const alerts: MonitorAlert[] = [];
-  if (cfg.entryType === "medias" && price != null && price > 0 && cfg.maFast > 0 && cfg.maSlow > cfg.maFast && closes.length >= cfg.maSlow) {
+  if (
+    cfg.entryType === "medias" &&
+    price != null &&
+    price > 0 &&
+    cfg.maFast > 0 &&
+    cfg.maSlow > cfg.maFast &&
+    closes.length >= cfg.maSlow
+  ) {
     const fast = avg(closes.slice(-cfg.maFast));
     const slow = avg(closes.slice(-cfg.maSlow));
-    alerts.push({ kind: "compra", label: `Compra: tendência de alta e preço recuando até a média de ${cfg.maSlow} velas (velas de ${cfg.candleInterval})`, triggerAt: slow, active: fast > slow && price <= slow });
+    alerts.push({
+      kind: "compra",
+      label: `Compra: tendência de alta e preço recuando até a média de ${cfg.maSlow} velas (velas de ${cfg.candleInterval})`,
+      triggerAt: slow,
+      active: fast > slow && price <= slow,
+    });
   }
-  if (reference == null || !(reference > 0) || price == null || !(price > 0)) return { reference, referenceLabel, alerts };
+  if (reference == null || !(reference > 0) || price == null || !(price > 0))
+    return { reference, referenceLabel, alerts };
 
   if (cfg.entryType === "queda" && cfg.dropPct > 0) {
     const at = reference * (1 - cfg.dropPct / 100);
-    alerts.push({ kind: "compra", label: `Compra: cair ${cfg.dropPct}% da ${referenceLabel}`, triggerAt: at, active: price <= at });
+    alerts.push({
+      kind: "compra",
+      label: `Compra: cair ${cfg.dropPct}% da ${referenceLabel}`,
+      triggerAt: at,
+      active: price <= at,
+    });
   }
   if (cfg.referenceType === "manual") {
     cfg.takeProfits.forEach((t, i) => {
       if (t.pct > 0) {
         const at = reference * (1 + t.pct / 100);
-        alerts.push({ kind: "take", label: `Take-profit ${i + 1}: +${t.pct}% sobre a referência`, triggerAt: at, active: price >= at });
+        alerts.push({
+          kind: "take",
+          label: `Take-profit ${i + 1}: +${t.pct}% sobre a referência`,
+          triggerAt: at,
+          active: price >= at,
+        });
       }
     });
     if (cfg.stopLossPct > 0) {
       const at = stopPrice(reference, cfg);
-      if (at != null) alerts.push({ kind: "stop", label: cfg.stopLossMode === "liquido" ? `Stop: perda líquida estimada de ${cfg.stopLossPct}% (com taxas)` : `Stop-loss: -${cfg.stopLossPct}% da referência`, triggerAt: at, active: price <= at });
+      if (at != null)
+        alerts.push({
+          kind: "stop",
+          label:
+            cfg.stopLossMode === "liquido"
+              ? `Stop: perda líquida estimada de ${cfg.stopLossPct}% (com taxas)`
+              : `Stop-loss: -${cfg.stopLossPct}% da referência`,
+          triggerAt: at,
+          active: price <= at,
+        });
     }
   }
   return { reference, referenceLabel, alerts };

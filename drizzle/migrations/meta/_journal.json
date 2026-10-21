@@ -99,6 +99,13 @@
       "when": 1792199383341,
       "tag": "0013_guard_wallet_execution_configuration",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792589366102,
+      "tag": "0014_execution_and_simulation_safety",
+      "breakpoints": true
     }
   ]
 }

@@ -2,34 +2,61 @@
 export type Fill = { side: "compra" | "venda"; bnb: number; tokens: number; at: string };
 
 export type Pnl = {
-  buys: number; sells: number;
-  bnbSpent: number; bnbReceived: number;
-  tokensBought: number; tokensSold: number;
-  position: number;         // tokens still held from these trades
-  avgCost: number | null;   // BNB per token of the open position
-  realized: number;         // BNB gained (+) or lost (-) on sales
+  buys: number;
+  sells: number;
+  bnbSpent: number;
+  bnbReceived: number;
+  tokensBought: number;
+  tokensSold: number;
+  position: number; // tokens still held from these trades
+  avgCost: number | null; // BNB per token of the open position
+  realized: number; // BNB gained (+) or lost (-) on sales
   lastSell: Fill | null;
   lastBuy: Fill | null;
 };
 
 export function computePnl(fills: Fill[]): Pnl {
   const sorted = [...fills].sort((a, b) => a.at.localeCompare(b.at));
-  let pos = 0, cost = 0, realized = 0;
-  const r: Pnl = { buys: 0, sells: 0, bnbSpent: 0, bnbReceived: 0, tokensBought: 0, tokensSold: 0, position: 0, avgCost: null, realized: 0, lastSell: null, lastBuy: null };
+  let pos = 0,
+    cost = 0,
+    realized = 0;
+  const r: Pnl = {
+    buys: 0,
+    sells: 0,
+    bnbSpent: 0,
+    bnbReceived: 0,
+    tokensBought: 0,
+    tokensSold: 0,
+    position: 0,
+    avgCost: null,
+    realized: 0,
+    lastSell: null,
+    lastBuy: null,
+  };
   for (const f of sorted) {
     if (f.side === "compra") {
-      r.buys++; r.bnbSpent += f.bnb; r.tokensBought += f.tokens; r.lastBuy = f;
-      pos += f.tokens; cost += f.bnb;
+      r.buys++;
+      r.bnbSpent += f.bnb;
+      r.tokensBought += f.tokens;
+      r.lastBuy = f;
+      pos += f.tokens;
+      cost += f.bnb;
     } else {
-      r.sells++; r.bnbReceived += f.bnb; r.tokensSold += f.tokens; r.lastSell = f;
+      r.sells++;
+      r.bnbReceived += f.bnb;
+      r.tokensSold += f.tokens;
+      r.lastSell = f;
       // Tokens sold that were not bought here (already in the wallet) have unknown cost: count only the covered part.
       const covered = Math.min(f.tokens, pos);
       const avg = pos > 0 ? cost / pos : 0;
       if (covered > 0) realized += f.bnb * (covered / f.tokens) - avg * covered;
-      cost -= avg * covered; pos -= covered;
+      cost -= avg * covered;
+      pos -= covered;
     }
   }
-  r.position = pos; r.avgCost = pos > 0 ? cost / pos : null; r.realized = realized;
+  r.position = pos;
+  r.avgCost = pos > 0 ? cost / pos : null;
+  r.realized = realized;
   return r;
 }
 
