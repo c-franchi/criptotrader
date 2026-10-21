@@ -128,4 +128,9 @@
 @media (max-width: 767px) {
   /* iPhone zooms in on fields smaller than 16px; keep them at 16px. */
   input, select, textarea { font-size: 16px !important; }
+  /* Bigger small text on phones for readability (unlayered, so it wins over utilities). */
+  .text-\[9px\] { font-size: 12px; }
+  .text-\[10px\], .text-\[11px\] { font-size: 13px; line-height: 1.4; }
+  .text-xs { font-size: 14px; line-height: 1.45; }
+  .text-sm { font-size: 15px; line-height: 1.5; }
 }
