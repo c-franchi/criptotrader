@@ -1,3 +1,4 @@
+import { formatPrice } from "@/lib/display";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { PRESETS } from "@/lib/presets";
 import { reconcileUserOrders } from "@/lib/audit.functions";
@@ -126,6 +127,18 @@ function Operar() {
   const [gasPrice, setGasPrice] = useState<bigint | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderLimit, setOrderLimit] = useState(50);
+  const [historyToken, setHistoryToken] = useState("all");
+  const [historyStatus, setHistoryStatus] = useState("all");
+  const [historySide, setHistorySide] = useState("all");
+  const [historyDays, setHistoryDays] = useState("all");
+  const historyOrders = orders.filter(
+    (o) =>
+      (historyToken === "all" || o.token?.toLowerCase() === historyToken.toLowerCase()) &&
+      (historyStatus === "all" || o.status === historyStatus) &&
+      (historySide === "all" || o.side === historySide) &&
+      (historyDays === "all" ||
+        Date.now() - Date.parse(o.created_at) <= Number(historyDays) * 86400000),
+  );
   const [buyAmt, setBuyAmt] = useState("");
   const [sellAmt, setSellAmt] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -1087,11 +1100,79 @@ function Operar() {
       </Panel>
 
       <Panel title={`Histórico de operações (${orders.length})`} collapsible>
-        {orders.length === 0 ? (
+        <div className="mb-3 flex flex-wrap gap-2 text-xs">
+          <label>
+            Ativo{" "}
+            <select
+              aria-label="Filtrar histórico por ativo"
+              className="rounded border border-border bg-background p-2"
+              value={historyToken}
+              onChange={(e) => setHistoryToken(e.target.value)}
+            >
+              <option value="all">Todos</option>
+              {Array.from(new Set(orders.map((o) => o.token).filter((t): t is string => !!t))).map(
+                (t) => (
+                  <option key={t} value={t}>
+                    {tokens.find((x) => x.address.toLowerCase() === t.toLowerCase())?.symbol ??
+                      `${t.slice(0, 6)}…${t.slice(-4)}`}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
+          <label>
+            Situação{" "}
+            <select
+              aria-label="Filtrar histórico por situação"
+              className="rounded border border-border bg-background p-2"
+              value={historyStatus}
+              onChange={(e) => setHistoryStatus(e.target.value)}
+            >
+              <option value="all">Todas</option>
+              {Array.from(new Set(orders.map((o) => o.status))).map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Operação{" "}
+            <select
+              aria-label="Filtrar histórico por operação"
+              className="rounded border border-border bg-background p-2"
+              value={historySide}
+              onChange={(e) => setHistorySide(e.target.value)}
+            >
+              <option value="all">Todas</option>
+              <option value="compra">Compra</option>
+              <option value="venda">Venda</option>
+            </select>
+          </label>
+          <label>
+            Período{" "}
+            <select
+              aria-label="Filtrar histórico por período"
+              className="rounded border border-border bg-background p-2"
+              value={historyDays}
+              onChange={(e) => setHistoryDays(e.target.value)}
+            >
+              <option value="all">Todo o histórico carregado</option>
+              <option value="1">24 horas</option>
+              <option value="7">7 dias</option>
+              <option value="30">30 dias</option>
+            </select>
+          </label>
+        </div>
+        <p className="mb-2 text-xs text-muted-foreground">
+          {historyOrders.length} resultados nas {orders.length} operações carregadas. Use “Carregar
+          mais” para pesquisar registros anteriores.
+        </p>
+        {historyOrders.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhuma ordem.</p>
         ) : (
           <div className="space-y-2">
-            {orders.map((o) => (
+            {historyOrders.map((o) => (
               <div key={o.id} className="rounded border border-border p-2 text-xs">
                 <div className="flex flex-wrap justify-between gap-2">
                   <span className={o.side === "compra" ? "text-success" : "text-destructive"}>
@@ -1112,6 +1193,43 @@ function Operar() {
                     {o.tx_hash}
                   </a>
                 )}
+                <details className="mt-2 rounded border border-border p-2">
+                  <summary className="cursor-pointer">
+                    Detalhes ·{" "}
+                    {o.accounting_status === "confirmado"
+                      ? "Valores confirmados"
+                      : "Valores estimados ou ainda não conciliados"}
+                  </summary>
+                  <p className="mt-2 break-all">
+                    Ativo:{" "}
+                    {tokens.find((t) => t.address.toLowerCase() === o.token?.toLowerCase())
+                      ?.symbol ??
+                      o.token ??
+                      "Não identificado"}
+                  </p>
+                  <p>
+                    Gás: {o.gas_bnb == null ? "Não disponível" : `${formatPrice(o.gas_bnb)} BNB`}
+                  </p>
+                  <p>
+                    BNB recebido:{" "}
+                    {o.actual_bnb_received == null
+                      ? "Não confirmado pelo recibo/trace"
+                      : formatPrice(o.actual_bnb_received)}
+                  </p>
+                  <p>
+                    Taxas do token e da DEX: não registradas separadamente neste histórico; não
+                    representam o gás acima.
+                  </p>
+                  <p>Slippage configurado: {o.slippage_pct}%</p>
+                  <p className="break-all">
+                    Variação de tokens no recibo (unidades mínimas):{" "}
+                    {o.actual_token_delta ?? "Não disponível"}
+                  </p>
+                  <p>
+                    Resultado líquido: consulte o resumo do ativo acima; ordens isoladas não
+                    representam um ciclo completo.
+                  </p>
+                </details>
                 {o.error && <p className="text-destructive">{o.error}</p>}
               </div>
             ))}

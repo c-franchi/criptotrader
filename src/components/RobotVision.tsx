@@ -189,6 +189,7 @@ export function RobotVision(props: {
         </span>
       </div>
       <CandleChart
+        key={token}
         candles={candles.data ?? []}
         now={now}
         strategyMinutes={intervalMinutes(cfg?.candleInterval ?? "15m")}

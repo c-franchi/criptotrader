@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { formatPrice, formatUsd } from "@/lib/display";
 import { TokenChart } from "@/components/TokenChart";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { queryOptions, useQuery } from "@tanstack/react-query";
@@ -82,6 +84,24 @@ function fmtUsd(n: number | null) {
 }
 
 function Dashboard() {
+  const [advanced, setAdvanced] = useState(false);
+  useEffect(() => {
+    try {
+      setAdvanced(localStorage.getItem("cryptobot:dashboard-advanced") === "1");
+    } catch {
+      /* disabled */
+    }
+  }, []);
+  const toggleAdvanced = () => {
+    setAdvanced((v) => {
+      try {
+        localStorage.setItem("cryptobot:dashboard-advanced", v ? "0" : "1");
+      } catch {
+        /* disabled */
+      }
+      return !v;
+    });
+  };
   const { token: info, selectToken: setAddr, ready, tokens } = useSelectedToken();
   const addr = info.address;
   const EXPECTED = {
@@ -134,6 +154,14 @@ function Dashboard() {
         <AddTokenDialog />
       </div>
 
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          Preço e gráfico em destaque · detalhes do mercado abaixo
+        </p>
+        <Button variant="outline" size="sm" aria-pressed={advanced} onClick={toggleAdvanced}>
+          {advanced ? "Modo avançado · voltar ao básico" : "Modo básico · abrir detalhes avançados"}
+        </Button>
+      </div>
       <StrategyAlert address={addr} symbol={info.symbol} pools={market.data?.pools ?? []} />
 
       <section className="mb-4 rounded-lg border border-primary/30 bg-card p-4">
@@ -152,8 +180,11 @@ function Dashboard() {
         </div>
         <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">{addr}</p>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Preço USD" value={best?.priceUsd ? `US$ ${best.priceUsd}` : null} />
-          <Stat label={`Preço ${best?.quoteSymbol ?? "BNB"}`} value={best?.priceNative ?? null} />
+          <Stat label="Preço USD" value={best?.priceUsd ? formatUsd(best.priceUsd) : null} />
+          <Stat
+            label={`Preço ${best?.quoteSymbol ?? "BNB"}`}
+            value={best?.priceNative ? formatPrice(best.priceNative) : null}
+          />
           <Stat label="Liquidez" value={fmtUsd(best?.liquidityUsd ?? null)} />
           <Stat
             label="Variação 24h"
@@ -200,10 +231,15 @@ function Dashboard() {
           <Link to="/grade">Acompanhar robô</Link>
         </Button>
       </div>
+      {!advanced && (
+        <p className="mb-3 text-xs text-muted-foreground">
+          Transferências, validação do contrato e pools estão no modo avançado.
+        </p>
+      )}
       <div className="mb-4">
         <TokenChart address={addr} symbol={info.symbol} />
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className={advanced ? "grid gap-4 md:grid-cols-2" : "hidden"}>
         <Panel
           collapsible
           title={`Transferências recentes (${transfers.data?.transfers.length ?? 0})`}
@@ -215,7 +251,9 @@ function Dashboard() {
         >
           {transfers.isLoading && <p className="text-sm text-muted-foreground">Buscando…</p>}
           {transfers.data?.error && (
-            <p className="text-sm text-muted-foreground">Indisponível: {transfers.data.error}</p>
+            <p className="text-sm text-muted-foreground">
+              Falha na consulta de transferências. Tente atualizar em instantes.
+            </p>
           )}
           {transfers.data && !transfers.data.error && transfers.data.transfers.length === 0 && (
             <p className="text-sm text-muted-foreground">

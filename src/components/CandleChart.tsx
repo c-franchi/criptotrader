@@ -1,3 +1,5 @@
+import { formatPrice } from "@/lib/display";
+import { technicalSeries } from "@/lib/technicalSeries";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Candle } from "@/lib/backtest";
 import { aggregateCandles, engineSeries, completeEngineSeries } from "@/lib/candleSeries";
@@ -31,7 +33,7 @@ const windows = [
   { id: "12h", hours: 12 },
   { id: "1 dia", hours: 24 },
 ];
-const usd = (n: number) => n.toLocaleString("pt-BR", { maximumSignificantDigits: 5 });
+const usd = formatPrice;
 const MIN_SPAN = 30 * 60_000; // 30 min — velas continuam legíveis
 const MAX_SPAN = 26 * 3_600_000; // limite do histórico (~25h) com folga
 
@@ -63,6 +65,13 @@ function ChartBody({
   const [mode, setMode] = useState("candles");
   const [showSma, setShowSma] = useState(true);
   const [technical, setTechnical] = useState(false);
+  const [showEma, setShowEma] = useState(true);
+  const [showBands, setShowBands] = useState(true);
+  const [tool, setTool] = useState("inspect");
+  const [drawingPrice, setDrawingPrice] = useState("");
+  const [marks, setMarks] = useState<{ price: number; label: string }[]>([]);
+  const [measure, setMeasure] = useState<{ time: number; price: number }[]>([]);
+  const studies = useMemo(() => technicalSeries(candles, minutes, now), [candles, minutes, now]);
   const indicators = useMemo(() => chartIndicators(candles, minutes, now), [candles, minutes, now]);
   const [hours, setHours] = useState(24);
   const [ready, setReady] = useState(false);
@@ -82,6 +91,12 @@ function ChartBody({
       const saved = JSON.parse(localStorage.getItem("cryptobot:chart-view") ?? "null");
       if ([5, 15, 60].includes(saved?.minutes)) setMinutes(saved.minutes);
       if ([1, 4, 12, 24].includes(saved?.hours)) setHours(saved.hours);
+      if ([260, 320, 420, 560].includes(saved?.height)) setHeight(saved.height);
+      if (["candles", "line"].includes(saved?.mode)) setMode(saved.mode);
+      if (typeof saved?.showSma === "boolean") setShowSma(saved.showSma);
+      if (typeof saved?.technical === "boolean") setTechnical(saved.technical);
+      if (typeof saved?.showEma === "boolean") setShowEma(saved.showEma);
+      if (typeof saved?.showBands === "boolean") setShowBands(saved.showBands);
     } catch {
       /* default */
     }
@@ -90,11 +105,14 @@ function ChartBody({
   useEffect(() => {
     if (ready)
       try {
-        localStorage.setItem("cryptobot:chart-view", JSON.stringify({ minutes, hours }));
+        localStorage.setItem(
+          "cryptobot:chart-view",
+          JSON.stringify({ minutes, hours, height, mode, showSma, technical, showEma, showBands }),
+        );
       } catch {
         /* unavailable */
       }
-  }, [minutes, hours, ready]);
+  }, [minutes, hours, ready, height, mode, showSma, technical, showEma, showBands]);
 
   // Enquadramento previsível: seguir o presente dentro da janela escolhida.
   const frame = useCallback(
@@ -109,9 +127,8 @@ function ChartBody({
   const span = v.end - v.start;
   const clampView = (next: View): View => {
     const s = Math.min(MAX_SPAN, Math.max(MIN_SPAN, next.end - next.start));
-    const k = s / (next.end - next.start || 1);
     const mid = (next.start + next.end) / 2;
-    return { start: mid - (s / 2) * (k || 1), end: mid + (s / 2) * (k || 1) };
+    return { start: mid - s / 2, end: mid + s / 2 };
   };
   const zoomAt = (anchorT: number, factor: number) => {
     const cur = stateRef.current.view ?? frame(stateRef.current.hours);
@@ -137,13 +154,14 @@ function ChartBody({
       e.preventDefault();
       const rect = el.getBoundingClientRect();
       const cur = stateRef.current.view ?? frame(stateRef.current.hours);
-      const anchorT = cur.start + ((e.clientX - rect.left) / rect.width) * (cur.end - cur.start);
+      const anchorT =
+        cur.start + ((e.clientX - rect.left) / ((rect.width * 640) / 760)) * (cur.end - cur.start);
       const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1);
       zoomAt(anchorT, Math.exp(dy * 0.0015));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [frame]);
+  }, [frame, candles.length]);
 
   const bars = useMemo(() => aggregateCandles(candles, minutes, now), [candles, minutes, now]);
   const series = useMemo(
@@ -167,6 +185,15 @@ function ChartBody({
   const points = [
     ...visibleBars.flatMap((b) => [b.candle[2], b.candle[3]]),
     ...levels.filter((l) => l.price > 0).map((l) => l.price),
+    ...(technical
+      ? studies
+          .filter((s) => s.time >= v.start && s.time <= v.end)
+          .flatMap((s) =>
+            [showEma ? s.ema : null, showBands ? s.upper : null, showBands ? s.lower : null].filter(
+              (n): n is number => n != null,
+            ),
+          )
+      : []),
     ...visibleSeries.flatMap((s) => [s.fast, s.slow].filter((x): x is number => x != null)),
   ];
   const low = points.length ? Math.min(...points) : 0,
@@ -206,7 +233,7 @@ function ChartBody({
   const tFromEvent = (clientX: number) => {
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return null;
-    return v.start + ((clientX - rect.left) / rect.width) * span;
+    return v.start + ((clientX - rect.left) / ((rect.width * plot) / W)) * span;
   };
 
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -408,7 +435,7 @@ function ChartBody({
           aria-pressed={technical}
           onClick={() => setTechnical(!technical)}
         >
-          Indicadores técnicos
+          {technical ? "Modo avançado · indicadores" : "Indicadores técnicos · modo avançado"}
         </Button>
       </div>
       {technical && (
@@ -447,6 +474,85 @@ function ChartBody({
           </p>
         </section>
       )}
+      <details className="rounded-md border border-border p-3 text-xs">
+        <summary className="cursor-pointer font-medium">Ferramentas de marcação e medição</summary>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <label>
+            Ferramenta{" "}
+            <select
+              aria-label="Ferramenta do gráfico"
+              value={tool}
+              onChange={(e) => {
+                setTool(e.target.value);
+                setMeasure([]);
+              }}
+              className="rounded border border-border bg-background p-2"
+            >
+              <option value="inspect">Inspecionar / arrastar</option>
+              <option value="measure">Medir dois pontos</option>
+            </select>
+          </label>
+          <label>
+            Preço USD{" "}
+            <input
+              aria-label="Preço da marcação"
+              type="number"
+              min="0"
+              step="any"
+              value={drawingPrice}
+              onChange={(e) => setDrawingPrice(e.target.value)}
+              className="w-32 rounded border border-border bg-background p-2"
+            />
+          </label>
+          {["Linha horizontal", "Suporte", "Resistência"].map((label) => (
+            <Button
+              key={label}
+              size="sm"
+              variant="outline"
+              disabled={!(Number(drawingPrice) > 0 && Number.isFinite(Number(drawingPrice)))}
+              onClick={() =>
+                setMarks((m) => [...m.slice(-9), { price: Number(drawingPrice), label }])
+              }
+            >
+              {label}
+            </Button>
+          ))}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setMarks([]);
+              setMeasure([]);
+            }}
+          >
+            Limpar marcações
+          </Button>
+        </div>
+        <p className="mt-2 text-muted-foreground">
+          Marcações temporárias em USD; não enviam ordens. Na medição, clique em duas velas para
+          comparar seus fechamentos.
+        </p>
+        {marks.map((m, i) => (
+          <p key={i}>
+            {m.label}: US$ {usd(m.price)}{" "}
+            <button
+              aria-label={`Excluir marcação ${i + 1}`}
+              onClick={() => setMarks((a) => a.filter((_, j) => j !== i))}
+            >
+              ×
+            </button>
+          </p>
+        ))}
+        {measure.length === 1 && (
+          <p role="status">Primeiro ponto selecionado. Clique na segunda vela.</p>
+        )}
+        {measure.length === 2 && (
+          <p role="status">
+            Variação: {((measure[1]!.price / measure[0]!.price - 1) * 100).toFixed(2)}% · Intervalo:{" "}
+            {Math.abs(measure[1]!.time - measure[0]!.time) / 60000} min
+          </p>
+        )}
+      </details>
       <p className="text-xs font-semibold">
         Gráfico: {minutes === 60 ? "1h" : `${minutes}m`} | Estratégia:{" "}
         {strategyMinutes === 60 ? "1h" : `${strategyMinutes}m`}
@@ -459,7 +565,21 @@ function ChartBody({
           aria-label="Velas OHLCV, escala de preços e médias SMA do robô"
           viewBox={`0 0 ${W} ${volBase + 20}`}
           className="w-full touch-pan-y select-none overflow-hidden"
-          onPointerDown={onPointerDown}
+          onPointerDown={tool === "measure" ? undefined : onPointerDown}
+          onClick={(e) => {
+            if (tool !== "measure") return;
+            const t = tFromEvent(e.clientX);
+            const b = visibleBars.find(
+              (b) =>
+                t != null && b.candle[0] * 1000 <= t && (b.candle[0] + minutes * 60) * 1000 > t,
+            );
+            if (b)
+              setMeasure((a) =>
+                a.length === 1
+                  ? [a[0]!, { time: b.candle[0] * 1000, price: b.candle[4] }]
+                  : [{ time: b.candle[0] * 1000, price: b.candle[4] }],
+              );
+          }}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
@@ -478,6 +598,53 @@ function ChartBody({
               </g>
             );
           })}
+          {marks
+            .filter((m) => m.price >= min && m.price <= max)
+            .map((m, i) => (
+              <g key={`mark-${i}`} className="text-chart-4">
+                <line
+                  x1={0}
+                  x2={plot}
+                  y1={y(m.price)}
+                  y2={y(m.price)}
+                  stroke="currentColor"
+                  strokeDasharray="6 4"
+                />
+                <text x={8} y={y(m.price) - 5} fill="currentColor" fontSize={11}>
+                  {m.label} · {usd(m.price)}
+                </text>
+              </g>
+            ))}
+          {technical &&
+            (["ema", "upper", "lower"] as const)
+              .filter((key) => (key === "ema" ? showEma : showBands))
+              .map((key) => {
+                let prev = 0;
+                const d = studies
+                  .filter((s) => s.time >= v.start && s.time <= v.end)
+                  .map((s) => {
+                    const value = s[key];
+                    if (value == null) {
+                      prev = 0;
+                      return "";
+                    }
+                    const cmd = !prev || s.time - prev > minutes * 60000 ? "M" : "L";
+                    prev = s.time;
+                    return `${cmd}${x(s.time)},${y(value)}`;
+                  })
+                  .join(" ");
+                return (
+                  <path
+                    key={key}
+                    d={d}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    strokeDasharray={key === "ema" ? undefined : "4 3"}
+                    className={key === "ema" ? "text-chart-4" : "text-muted-foreground"}
+                  />
+                );
+              })}
           {levels.map((l, i) => (
             <line
               key={i}
@@ -588,6 +755,25 @@ function ChartBody({
               </g>
             );
           })}
+          {measure.map((m, i) => (
+            <g key={`measure-${i}`} className="text-primary">
+              <circle cx={x(m.time)} cy={y(m.price)} r={5} fill="currentColor" />
+              <text x={x(m.time) + 8} y={y(m.price) - 8} fill="currentColor" fontSize={12}>
+                {i + 1}
+              </text>
+            </g>
+          ))}
+          {measure.length === 2 && (
+            <line
+              x1={x(measure[0]!.time)}
+              x2={x(measure[1]!.time)}
+              y1={y(measure[0]!.price)}
+              y2={y(measure[1]!.price)}
+              stroke="currentColor"
+              strokeDasharray="4 4"
+              className="text-primary"
+            />
+          )}
           {probe && (
             <line
               x1={x(probe.t)}
@@ -625,6 +811,74 @@ function ChartBody({
           Histórico indisponível neste período.
         </p>
       )}
+      {technical && (
+        <div className="rounded-md border border-border p-2">
+          <div className="flex flex-wrap gap-4 text-xs">
+            <label>
+              <input
+                type="checkbox"
+                checked={showEma}
+                onChange={(e) => setShowEma(e.target.checked)}
+              />{" "}
+              EMA 20
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={showBands}
+                onChange={(e) => setShowBands(e.target.checked)}
+              />{" "}
+              Bollinger 20 · 2 desvios
+            </label>
+          </div>
+          <svg
+            role="img"
+            aria-label="RSI 14, níveis 30 e 70"
+            viewBox={`0 0 ${W} 120`}
+            className="w-full"
+          >
+            {[30, 70].map((n) => (
+              <g key={n} className="text-muted-foreground">
+                <line
+                  x1={0}
+                  x2={plot}
+                  y1={100 - n * 0.8}
+                  y2={100 - n * 0.8}
+                  stroke="currentColor"
+                  strokeDasharray="4 4"
+                />
+                <text x={plot + 8} y={104 - n * 0.8} fill="currentColor" fontSize={12}>
+                  {n}
+                </text>
+              </g>
+            ))}
+            <path
+              d={(() => {
+                let prev = 0;
+                return studies
+                  .filter((s) => s.time >= v.start && s.time <= v.end)
+                  .map((s) => {
+                    if (s.rsi == null) {
+                      prev = 0;
+                      return "";
+                    }
+                    const cmd = !prev || s.time - prev > minutes * 60000 ? "M" : "L";
+                    prev = s.time;
+                    return `${cmd}${x(s.time)},${100 - s.rsi * 0.8}`;
+                  })
+                  .join(" ");
+              })()}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              className="text-primary"
+            />
+            <text x={8} y={14} fill="currentColor" fontSize={12}>
+              RSI 14 · {minutes}m
+            </text>
+          </svg>
+        </div>
+      )}
       {probe && probeBar && (
         <div className="rounded-md border border-border p-2 text-xs">
           <p className="font-semibold">{fmtTime(probeBar.candle[0] * 1000)}</p>
@@ -645,10 +899,12 @@ function ChartBody({
         · {bars.some((b) => b.forming) ? "Última vela em formação" : "Sem vela atual"} ·{" "}
         {volumeMax ? "Volume em USD" : "Volume indisponível"}
       </p>
-      <p className="text-[11px] text-warning">
-        Médias da regra real: fechamentos agrupados em {strategyMinutes}m; a regra antiga pode
-        aceitar grupos incompletos. A candidata exige sequência completa e não comprime lacunas.
-      </p>
+      {technical && (
+        <p className="text-[11px] text-warning">
+          Médias da regra real: fechamentos agrupados em {strategyMinutes}m; a regra antiga pode
+          aceitar grupos incompletos. A candidata exige sequência completa e não comprime lacunas.
+        </p>
+      )}
       {levels.length > 0 && (
         <ul className="grid gap-1 text-xs sm:grid-cols-2">
           {levels

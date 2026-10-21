@@ -262,6 +262,24 @@ function Robo() {
   return (
     <div className="space-y-4">
       <Panel title="Estado de operação">
+        <p
+          role="status"
+          className="mb-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-base font-semibold"
+        >
+          {execution?.pending?.length
+            ? "Aguardando confirmação na rede"
+            : execution?.locked
+              ? "Conferindo execução anterior"
+              : bot?.last_error
+                ? "Atenção: última verificação encontrou um problema"
+                : !armed
+                  ? "Robô pausado"
+                  : "Robô ligado · acompanhando condições da estratégia"}
+        </p>
+        <p className="mb-2 text-xs text-muted-foreground">
+          O motivo abaixo vem da última verificação. Robô ligado não significa que uma compra será
+          feita imediatamente.
+        </p>
         {execution?.locked && (
           <p className="mb-2 text-sm text-warning">
             Carteira bloqueada durante execução ou conciliação. Novas ordens e saques aguardam.
