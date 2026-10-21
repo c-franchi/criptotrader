@@ -1,3 +1,4 @@
+import { formatUsd } from "@/lib/display";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
@@ -14,7 +15,7 @@ const PERIODS = [
   { id: "12H", ms: 12 * 3_600_000 },
   { id: "1D", ms: 24 * 3_600_000 },
 ] as const;
-const usd = (n: number) => `US$ ${n.toLocaleString("pt-BR", { maximumSignificantDigits: 6 })}`;
+const usd = formatUsd;
 const time = (n: number) =>
   new Date(n).toLocaleTimeString("pt-BR", {
     hour: "2-digit",
@@ -74,6 +75,7 @@ function PriceChart({
   const stale =
     market.isError ||
     !!market.data?.error ||
+    (!!market.data?.fetchedAt && now - Date.parse(market.data.fetchedAt) > 120_000) ||
     candles.isError ||
     (!!last && now - (last[0] + 300) * 1000 > 600000);
   const refresh = () => {
@@ -125,6 +127,20 @@ function PriceChart({
         >
           <RefreshCw className={cn("h-3.5 w-3.5", fetching && "motion-safe:animate-spin")} />
         </Button>
+      </div>
+      <div role="status" className="mt-2 flex flex-wrap gap-2 text-xs">
+        <span
+          className={stale ? "text-warning" : fetching ? "text-muted-foreground" : "text-success"}
+        >
+          {stale
+            ? "Dados antigos ou fonte indisponível"
+            : fetching
+              ? "Atualizando"
+              : last
+                ? "Atualizado"
+                : "Aguardando dados"}
+        </span>
+        {last && <span>Última vela: {time(last[0] * 1000)} · abertura da vela de 5m</span>}
       </div>
       <p className="text-[11px] text-muted-foreground">
         Preço: consulta a cada 15s · Histórico: a cada 1 min

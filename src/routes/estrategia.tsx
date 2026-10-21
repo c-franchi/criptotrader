@@ -150,6 +150,16 @@ function StrategyForm() {
   const [c, setC] = useState<StrategyConfig>(EMPTY_CONFIG);
   const [wallet, setWallet] = useState("");
   const [version, setVersion] = useState(0);
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
+  const dirty = savedSnapshot != null && savedSnapshot !== JSON.stringify({ c, wallet });
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
   const [liq, setLiq] = useState<number | null>(null);
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState<"BRL" | "BNB">("BRL");
@@ -224,6 +234,12 @@ function StrategyForm() {
           ? { ...EMPTY_CONFIG, ...(own.config as Partial<StrategyConfig>) }
           : EMPTY_CONFIG;
         setC(cfg);
+        setSavedSnapshot(
+          JSON.stringify({
+            c: cfg,
+            wallet: rows.find((r) => r.tracked_wallet)?.tracked_wallet ?? "",
+          }),
+        );
         setMode(cfg.presetId ?? (own ? "manual" : ""));
         setVersion(own?.version ?? 0);
         setEdited(false);
@@ -314,6 +330,7 @@ function StrategyForm() {
       return;
     }
     setVersion(version + 1);
+    setSavedSnapshot(JSON.stringify({ c, wallet }));
     toast.success(
       botRunning
         ? `Estratégia de ${token.symbol} salva (versão ${version + 1}). O robô ligado passa a usar as novas regras na próxima verificação (até 1 min), sem desligar.`
@@ -328,6 +345,30 @@ function StrategyForm() {
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
       <div className="space-y-4">
+        <nav
+          onClick={(e) => {
+            const a = (e.target as HTMLElement).closest("a");
+            if (!a) return;
+            const target = document.getElementById(a.hash.slice(1));
+            const details = target?.closest("details");
+            if (details) details.open = true;
+          }}
+          aria-label="Seções da estratégia"
+          className="flex flex-wrap gap-3 rounded-md border border-border p-3 text-sm"
+        >
+          <a href="#strategy-entry" className="text-primary underline">
+            Entrada
+          </a>
+          <a href="#strategy-exit" className="text-primary underline">
+            Saída
+          </a>
+          <a href="#strategy-protection" className="text-primary underline">
+            Proteções
+          </a>
+          <a href="#strategy-summary" className="text-primary underline">
+            Resumo e salvar
+          </a>
+        </nav>
         {botRunning && (
           <div className="rounded-md border border-primary/50 bg-primary/10 p-3 text-sm">
             <p className="font-semibold">
@@ -672,7 +713,8 @@ function StrategyForm() {
         </fieldset>
 
         {mode && (
-          <Panel title="Proteção da posição" collapsible>
+          <Panel title="Proteções · limite de perda da posição" collapsible>
+            <div id="strategy-protection" className="scroll-mt-24" />
             <Label htmlFor="stop-mode">Regra do stop</Label>
             <select
               id="stop-mode"
@@ -731,7 +773,8 @@ function StrategyForm() {
 
         {mode === "manual" && (
           <>
-            <Panel title="Entrada (quando comprar)" collapsible>
+            <div id="strategy-entry" className="scroll-mt-24" />
+            <Panel title="Entrada · quando comprar" collapsible>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <div className="flex items-center gap-1">
@@ -933,8 +976,9 @@ function StrategyForm() {
                 token; gás, DEX e execução ainda precisam ser considerados.
               </p>
             </Panel>
+            <div id="strategy-exit" className="scroll-mt-24" />
             <Panel
-              title="Saídas e risco (quando vender)"
+              title="Saída · metas de venda e stop móvel"
               collapsible
               right={
                 <Button
@@ -1051,7 +1095,27 @@ function StrategyForm() {
         )}
       </div>
 
-      <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+      <div
+        id="strategy-summary"
+        className="scroll-mt-24 space-y-4 lg:sticky lg:top-20 lg:self-start"
+      >
+        <div
+          role="status"
+          className={`rounded-md border p-3 text-sm ${dirty ? "border-warning/40 text-warning" : "border-border text-muted-foreground"}`}
+        >
+          {savedSnapshot == null
+            ? "Carregando estratégia…"
+            : dirty
+              ? "Alterações ainda não salvas"
+              : `Estratégia sem alterações pendentes · versão ${version}`}
+          <Button
+            className="mt-2 w-full"
+            disabled={!dirty || errors.length > 0}
+            onClick={requestSave}
+          >
+            Salvar alterações
+          </Button>
+        </div>
         <Panel title="Prévia em linguagem simples">
           {chosen && (
             <p className="mb-3 flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 p-2 text-sm font-semibold text-primary">

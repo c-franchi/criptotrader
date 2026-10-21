@@ -1,3 +1,4 @@
+import { formatUsd } from "@/lib/display";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -48,7 +49,7 @@ const WINDOWS = [
 ];
 const pct = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
 const tone = (n: number) => (n > 0 ? "text-primary" : n < 0 ? "text-destructive" : "");
-const usd = (n: number) => `US$ ${n < 0.01 ? n.toPrecision(4) : n.toFixed(4)}`;
+const usd = formatUsd;
 
 function Metrics() {
   const { token, tokens, selectToken } = useSelectedToken();
@@ -199,7 +200,12 @@ function Metrics() {
               nem impacto de preço. Resultado passado não garante resultado futuro.
             </p>
           </Panel>
-          <CandleChart candles={candles.data ?? []} now={clock} strategyMinutes={15} />
+          <CandleChart
+            key={token.address}
+            candles={candles.data ?? []}
+            now={clock}
+            strategyMinutes={15}
+          />
           {fx.data?.bnbUsd && fx.data.bnbUsd > 0 ? (
             <StrategyComparison
               candles={win.map((c): Candle => [
