@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell, Panel } from "@/components/AppShell";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/integracoes")({
   head: () => ({
@@ -26,6 +27,9 @@ const items: { name: string; status: "ok" | "falta" | "futuro"; text: string }[]
 ];
 
 function Integrations() {
+  const { user, loading } = useAuth();
+  if (loading) return <AppShell><p className="text-sm text-muted-foreground">Carregando…</p></AppShell>;
+  if (user?.email?.toLowerCase() !== "neifranchi@gmail.com") return <AppShell><p className="text-sm text-muted-foreground">Página não disponível.</p></AppShell>;
   return (
     <AppShell>
       <h1 className="mb-4 text-2xl font-semibold">Integrações</h1>
