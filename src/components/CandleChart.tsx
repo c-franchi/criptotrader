@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Candle } from "@/lib/backtest";
 import { aggregateCandles, engineSeries, completeEngineSeries } from "@/lib/candleSeries";
 import { Button } from "@/components/ui/button";
+import { chartIndicators } from "@/lib/chartIndicators";
 import { cn } from "@/lib/utils";
 import { Maximize2, Minus, Plus, RotateCcw, X } from "lucide-react";
 
@@ -58,6 +59,11 @@ function ChartBody({
   tall?: boolean;
 }) {
   const [minutes, setMinutes] = useState(5);
+  const [height, setHeight] = useState(tall ? 420 : 320);
+  const [mode, setMode] = useState("candles");
+  const [showSma, setShowSma] = useState(true);
+  const [technical, setTechnical] = useState(false);
+  const indicators = useMemo(() => chartIndicators(candles, minutes, now), [candles, minutes, now]);
   const [hours, setHours] = useState(24);
   const [ready, setReady] = useState(false);
   const [selected, setSelected] = useState<ChartTrade | null>(null);
@@ -170,7 +176,7 @@ function ChartBody({
     max = high + pad;
 
   const W = 760,
-    H = tall ? 420 : 260,
+    H = height,
     plot = 640,
     labelW = W - plot;
   const x = (t: number) => ((t - v.start) / (span || 1)) * plot;
@@ -365,6 +371,82 @@ function ChartBody({
           </Button>
         )}
       </div>
+      <div className="flex flex-wrap items-center gap-3 text-xs">
+        <label>
+          Visualização{" "}
+          <select
+            aria-label="Visualização do gráfico"
+            className="rounded border border-border bg-background p-2"
+            value={mode}
+            onChange={(e) => setMode(e.target.value)}
+          >
+            <option value="candles">Velas</option>
+            <option value="line">Linha de fechamento</option>
+          </select>
+        </label>
+        <label>
+          Altura{" "}
+          <select
+            aria-label="Altura do gráfico"
+            className="rounded border border-border bg-background p-2"
+            value={height}
+            onChange={(e) => setHeight(Number(e.target.value))}
+          >
+            <option value={260}>Compacto</option>
+            <option value={320}>Padrão</option>
+            <option value={420}>Grande</option>
+            <option value={560}>Extra grande</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={showSma} onChange={(e) => setShowSma(e.target.checked)} />{" "}
+          Médias do robô
+        </label>
+        <Button
+          size="sm"
+          variant={technical ? "secondary" : "outline"}
+          aria-pressed={technical}
+          onClick={() => setTechnical(!technical)}
+        >
+          Indicadores técnicos
+        </Button>
+      </div>
+      {technical && (
+        <section
+          aria-label="Indicadores técnicos"
+          className="rounded-md border border-border p-3 text-xs"
+        >
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div>
+              RSI (14)
+              <p className="mt-1 font-mono text-base">
+                {indicators.rsi == null ? "—" : indicators.rsi.toFixed(2)}
+              </p>
+            </div>
+            <div>
+              EMA (20)
+              <p className="mt-1 font-mono text-base">
+                {indicators.ema == null ? "—" : `US$ ${usd(indicators.ema)}`}
+              </p>
+            </div>
+            <div>
+              ATR (14)
+              <p className="mt-1 font-mono text-base">
+                {indicators.atr == null ? "—" : `US$ ${usd(indicators.atr)}`}
+              </p>
+            </div>
+            <div>
+              Velas válidas<p className="mt-1 font-mono text-base">{indicators.count}</p>
+            </div>
+          </div>
+          <p className="mt-2 text-muted-foreground">
+            Intervalo {minutes}m · apenas velas fechadas e completas desde a última lacuna. RSI/ATR
+            exigem 15 velas; EMA exige 20. RSI: força relativa; EMA: tendência; ATR: amplitude de
+            oscilação. Indicadores visuais não alteram o robô e não são sinais automáticos de compra
+            ou venda.
+          </p>
+        </section>
+      )}
       <p className="text-xs font-semibold">
         Gráfico: {minutes === 60 ? "1h" : `${minutes}m`} | Estratégia:{" "}
         {strategyMinutes === 60 ? "1h" : `${strategyMinutes}m`}
@@ -408,6 +490,20 @@ function ChartBody({
               className={tones[l.tone]}
             />
           ))}
+          {mode === "line" && (
+            <path
+              d={visibleBars
+                .map(
+                  (b, i) =>
+                    `${i === 0 || b.candle[0] !== (visibleBars[i - 1]?.candle[0] ?? 0) + minutes * 60 ? "M" : "L"}${x(b.candle[0] * 1000)},${y(b.candle[4])}`,
+                )
+                .join(" ")}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              className="text-primary"
+            />
+          )}
           {visibleBars.map(({ candle: c, forming, complete }) => (
             <g
               key={c[0]}
@@ -421,6 +517,7 @@ function ChartBody({
                 {c[5] == null ? "indisponível" : usd(c[5])}
               </title>
               <line
+                visibility={mode === "candles" ? "visible" : "hidden"}
                 x1={x(c[0] * 1000) + width / 2}
                 x2={x(c[0] * 1000) + width / 2}
                 y1={y(c[2])}
@@ -428,6 +525,7 @@ function ChartBody({
                 stroke="currentColor"
               />
               <rect
+                visibility={mode === "candles" ? "visible" : "hidden"}
                 x={x(c[0] * 1000)}
                 y={Math.min(y(c[1]), y(c[4]))}
                 width={width}
@@ -447,6 +545,7 @@ function ChartBody({
             </g>
           ))}
           <path
+            visibility={showSma ? "visible" : "hidden"}
             d={indicatorPath("fast")}
             fill="none"
             stroke="currentColor"
@@ -454,6 +553,7 @@ function ChartBody({
             className="text-primary"
           />
           <path
+            visibility={showSma ? "visible" : "hidden"}
             d={indicatorPath("slow")}
             fill="none"
             stroke="currentColor"
