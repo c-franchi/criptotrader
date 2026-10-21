@@ -1,6 +1,9 @@
 export type PresetId = "segura" | "equilibrada" | "ativa" | "adaptativa";
 
 export type StrategyConfig = {
+  rulesVersion?: 1 | 2;
+  taxVerified?: boolean;
+  allocationBnb?: number; // optional hard capital cap for this bot
   presetId?: PresetId | null; // which ready-made style produced this config
   buyTaxPct?: number; // token tax charged on buys (% of tokens received)
   sellTaxPct?: number; // token tax charged on sells (% of BNB received)
@@ -76,19 +79,21 @@ export function describeStrategy(c: StrategyConfig, quote = "WBNB"): string[] {
         : `a máxima observada nas últimas ${c.windowHours}h`;
     lines.push(`Comprar ${size} quando o preço cair ${c.dropPct}% em relação a ${ref}.`);
   } else if (c.entryType === "adaptativa") {
-    lines.push(`Comprar ${size} conforme o comportamento do preço: parado (lateral) → compra na parte de baixo da faixa e vende com ganho curto; em alta → compra no recuo até a média; em queda → não compra. As metas de venda sempre cobrem as taxas de compra e venda do token.`);
+    lines.push(
+      `Comprar ${size} conforme o comportamento do preço: parado (lateral) → compra na parte de baixo da faixa e vende com ganho curto; em alta → compra no recuo até a média; em queda → não compra. As metas de venda sempre cobrem as taxas de compra e venda do token.`,
+    );
   } else {
     lines.push(
       `Comprar ${size} quando a tendência estiver de alta (média de ${c.maFast} velas acima da de ${c.maSlow}) e o preço recuar até a média de ${c.maSlow} ou abaixo — compra na baixa, nunca no topo (velas de ${c.candleInterval}, apenas velas fechadas).`,
     );
   }
   lines.push(
-    `Todas as condições precisam ser satisfeitas. Liquidez mínima: US$ ${c.minLiquidityUsd}. Máximo de ${c.maxEntries} entrada(s) por posição, intervalo mínimo de ${c.cooldownMin} min, até ${c.maxTradesPerDay} operações/dia. O sinal só é rearmado depois que a condição deixar de ser verdadeira.`,
+    `Todas as condições precisam ser satisfeitas. Liquidez mínima: US$ ${c.minLiquidityUsd}. Máximo de ${c.maxEntries} entrada(s) por posição, intervalo mínimo de ${c.cooldownMin} min, limite de ${c.maxTradesPerDay} operações/dia para novas entradas; saídas continuam. ${c.rulesVersion === 2 ? "Entradas por médias exigem novo sinal após rearme." : "Ciclo legado: pode repetir entradas após o intervalo."}`,
   );
   if (c.takeProfits.length === 0) lines.push("Nenhum nível de take-profit configurado.");
   c.takeProfits.forEach((t, i) =>
     lines.push(
-      `Take-profit ${i + 1}: ao valorizar ${t.pct}% sobre o preço médio, vender ${t.sellPct}% do saldo remanescente da posição (no máximo uma vez por ciclo).`,
+      `Take-profit ${i + 1}: ao valorizar ${t.pct}% sobre o preço médio, vender ${t.sellPct}% do saldo remanescente da posição (no máximo uma vez por ciclo).${c.rulesVersion !== 2 && i === c.takeProfits.length - 1 ? " No ciclo legado, o último alvo encerra toda a posição." : ""}`,
     ),
   );
   lines.push(
@@ -103,9 +108,13 @@ export function describeStrategy(c: StrategyConfig, quote = "WBNB"): string[] {
       `Trailing stop: ativa após ${c.trailingActivatePct}% de lucro; vende se cair ${c.trailingDistancePct}% da máxima após a ativação.`,
     );
   lines.push(
-    `Limites: slippage máx. ${c.maxSlippagePct}%, impacto de preço máx. ${c.maxPriceImpactPct}%, gas máx. ${c.maxGasGwei} gwei, ${c.maxRetries} tentativa(s) após falha, reserva de ${c.gasReserveBnb} BNB para gas.`,
+    `Limites: slippage máx. ${c.maxSlippagePct}%, impacto de preço máx. ${c.maxPriceImpactPct}%, gas máx. ${c.maxGasGwei} gwei, sem repetição automática de transação pendente, reserva de ${c.gasReserveBnb} BNB para gas.`,
   );
-  lines.push("Prioridade em gatilhos simultâneos: stop-loss > trailing stop > take-profit > nova entrada.");
-  lines.push("Gatilhos tentam executar uma operação; não garantem preço, lucro nem capacidade de venda.");
+  lines.push(
+    "Prioridade em gatilhos simultâneos: stop-loss > trailing stop > take-profit > nova entrada.",
+  );
+  lines.push(
+    "Gatilhos tentam executar uma operação; não garantem preço, lucro nem capacidade de venda.",
+  );
   return lines;
 }

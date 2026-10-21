@@ -3,7 +3,7 @@ import { createPublicClient, formatEther, http, isAddress } from "viem";
 import { bsc } from "viem/chains";
 
 const WBNB = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c";
-const RPC = process.env['BSC_RPC_URL'] || "https://bsc-rpc.publicnode.com";
+const RPC = process.env["BSC_RPC_URL"] || "https://bsc-rpc.publicnode.com";
 
 export type FxQuote = { bnbUsd: number | null; usdBrl: number | null; at: number };
 
@@ -12,17 +12,25 @@ let pending: Promise<FxQuote> | null = null;
 
 async function fetchQuote(): Promise<FxQuote> {
   const [bnbRes, brlRes] = await Promise.allSettled([
-    fetch(`https://api.dexscreener.com/latest/dex/tokens/${WBNB}`, { headers: { accept: "application/json" } })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
-    fetch("https://open.er-api.com/v6/latest/USD", { headers: { accept: "application/json" } })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
+    fetch(`https://api.dexscreener.com/latest/dex/tokens/${WBNB}`, {
+      headers: { accept: "application/json" },
+    }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
+    fetch("https://open.er-api.com/v6/latest/USD", {
+      headers: { accept: "application/json" },
+    }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
   ]);
   const bnbUsd =
     bnbRes.status === "fulfilled"
-      ? (bnbRes.value?.pairs?.find((p: { chainId?: string; priceUsd?: string }) => p.chainId === "bsc" && p.priceUsd)?.priceUsd ?? null)
+      ? (bnbRes.value?.pairs?.find(
+          (p: { chainId?: string; priceUsd?: string }) => p.chainId === "bsc" && p.priceUsd,
+        )?.priceUsd ?? null)
       : null;
   const usdBrl = brlRes.status === "fulfilled" ? (brlRes.value?.rates?.BRL ?? null) : null;
-  return { bnbUsd: bnbUsd === null ? null : Number(bnbUsd), usdBrl: usdBrl === null ? null : Number(usdBrl), at: Date.now() };
+  return {
+    bnbUsd: bnbUsd === null ? null : Number(bnbUsd),
+    usdBrl: usdBrl === null ? null : Number(usdBrl),
+    at: Date.now(),
+  };
 }
 
 /** Cotação BNB→USD e USD→BRL, com cache de 60s. Métricas indisponíveis voltam null. */

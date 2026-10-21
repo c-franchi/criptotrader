@@ -3,10 +3,14 @@ import { missingBnb, requiredBotBnb } from "./botFunding";
 
 describe("bot funding", () => {
   it("fixed size strategy needs reserve + buy amount", () => {
-    expect(requiredBotBnb({ reserve: 0.005, sizingMode: "fixo", buyAmount: 0.01 }).total).toBeCloseTo(0.015);
+    expect(
+      requiredBotBnb({ reserve: 0.005, sizingMode: "fixo", buyAmount: 0.01 }).total,
+    ).toBeCloseTo(0.015);
   });
   it("percent strategy needs reserve + minimum trade", () => {
-    expect(requiredBotBnb({ reserve: 0.005, sizingMode: "percentual", buyAmount: 50 }).total).toBeCloseTo(0.006);
+    expect(
+      requiredBotBnb({ reserve: 0.005, sizingMode: "percentual", buyAmount: 50 }).total,
+    ).toBeCloseTo(0.006);
   });
   it("R$12 (~0.0033 BNB) is not enough for a 0.005 reserve", () => {
     expect(missingBnb(0.006, 0, 0.0033)).toBeCloseTo(0.0027);

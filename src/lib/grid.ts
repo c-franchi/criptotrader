@@ -10,7 +10,11 @@ export type GridDecision = { level: number; action: "nenhuma" | "compra" | "vend
 
 /** Price dropped N bands → buy N orders; rose N bands → sell N orders. First run only records the band. */
 export function gridDecision(
-  price: number, lower: number, upper: number, levels: number, lastLevel: number | null,
+  price: number,
+  lower: number,
+  upper: number,
+  levels: number,
+  lastLevel: number | null,
 ): GridDecision {
   const level = gridLevel(price, lower, upper, levels);
   if (lastLevel === null || lastLevel === level) return { level, action: "nenhuma", steps: 0 };

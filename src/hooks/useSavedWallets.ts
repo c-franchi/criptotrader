@@ -10,16 +10,23 @@ export const isWallet = (a: string) => /^0x[0-9a-fA-F]{40}$/.test(a);
 export function useSavedWallets() {
   const [wallets, setWallets] = useState<SavedWallet[]>([]);
   const load = useCallback(async () => {
-    const { data } = await supabase.from("user_wallets").select("id,label,address,created_at").order("created_at");
+    const { data } = await supabase
+      .from("user_wallets")
+      .select("id,label,address,created_at")
+      .order("created_at");
     setWallets(data ?? []);
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const add = async (address: string, label: string) => {
     if (!isWallet(address)) return "Endereço inválido";
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return "Entre na sua conta primeiro";
-    const { error } = await supabase.from("user_wallets").insert({ user_id: u.user.id, address, label: label.trim() });
+    const { error } = await supabase
+      .from("user_wallets")
+      .insert({ user_id: u.user.id, address, label: label.trim() });
     if (error) return error.code === "23505" ? "Essa carteira já está salva" : error.message;
     void notifyWalletSaved({ data: { address } }).catch(() => {});
     await load();

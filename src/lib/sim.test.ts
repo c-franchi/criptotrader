@@ -3,7 +3,13 @@ import Decimal from "decimal.js";
 import { simBuy, simSell, avgPrice } from "./sim";
 
 const a = { dexFeePct: 0.25, slippagePct: 1, gasQuote: 0 };
-const s0 = { quote: new Decimal(1), tokens: new Decimal(0), costBasis: new Decimal(0), realized: new Decimal(0), fees: new Decimal(0) };
+const s0 = {
+  quote: new Decimal(1),
+  tokens: new Decimal(0),
+  costBasis: new Decimal(0),
+  realized: new Decimal(0),
+  fees: new Decimal(0),
+};
 
 describe("simulação", () => {
   it("compra aplica taxa de 0,25% e slippage de 1%", () => {

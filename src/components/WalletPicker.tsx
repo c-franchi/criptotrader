@@ -4,7 +4,13 @@ import { useSavedWallets } from "@/hooks/useSavedWallets";
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 /** Quick-fill buttons for the user's saved wallets, shown under a wallet field. */
-export function WalletPicker({ value, onPick }: { value?: string; onPick: (address: string) => void }) {
+export function WalletPicker({
+  value,
+  onPick,
+}: {
+  value?: string;
+  onPick: (address: string) => void;
+}) {
   const { wallets } = useSavedWallets();
   return (
     <div className="mt-2 flex flex-wrap items-center gap-1.5">

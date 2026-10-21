@@ -21,8 +21,10 @@ export default defineConfig({
         enforce: "pre",
         resolveId(id) {
           if (this.environment?.name !== "client") return null;
-          if (id === "events" || id === "node:events") return fileURLToPath(new URL("./node_modules/events/events.js", import.meta.url));
-          if (id === "buffer" || id === "node:buffer") return fileURLToPath(new URL("./node_modules/buffer/index.js", import.meta.url));
+          if (id === "events" || id === "node:events")
+            return fileURLToPath(new URL("./node_modules/events/events.js", import.meta.url));
+          if (id === "buffer" || id === "node:buffer")
+            return fileURLToPath(new URL("./node_modules/buffer/index.js", import.meta.url));
           return null;
         },
       },

@@ -10,9 +10,15 @@ export const Route = createFileRoute("/instalar")({
   head: () => ({
     meta: [
       { title: "Instalar o app — CryptoBot" },
-      { name: "description", content: "Instale o CryptoBot na tela inicial do seu celular ou computador." },
+      {
+        name: "description",
+        content: "Instale o CryptoBot na tela inicial do seu celular ou computador.",
+      },
       { property: "og:title", content: "Instalar o app — CryptoBot" },
-      { property: "og:description", content: "Instale o CryptoBot na tela inicial do seu celular ou computador." },
+      {
+        property: "og:description",
+        content: "Instale o CryptoBot na tela inicial do seu celular ou computador.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -29,20 +35,34 @@ function Instalar() {
   useEffect(() => {
     setIos(/iphone|ipad|ipod/i.test(navigator.userAgent));
     setInFrame(window.self !== window.top);
-    const sync = () => { const s = getInstallState(); setEvt(s.canInstall); setInstalled(s.installed); };
+    const sync = () => {
+      const s = getInstallState();
+      setEvt(s.canInstall);
+      setInstalled(s.installed);
+    };
     sync();
     return subscribeInstall(sync);
   }, []);
 
-  const install = async () => { if (await runInstall()) setInstalled(true); };
+  const install = async () => {
+    if (await runInstall()) setInstalled(true);
+  };
 
   return (
     <AppShell>
       <div className="mx-auto max-w-md space-y-6">
         <div className="flex flex-col items-center text-center">
-          <img src={icon} alt="Ícone do CryptoBot" width={1024} height={1024} className="h-28 w-28 rounded-3xl border border-primary/40 shadow-lg shadow-primary/20" />
+          <img
+            src={icon}
+            alt="Ícone do CryptoBot"
+            width={1024}
+            height={1024}
+            className="h-28 w-28 rounded-3xl border border-primary/40 shadow-lg shadow-primary/20"
+          />
           <h1 className="mt-4 text-2xl font-semibold">Instale o CryptoBot</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Abra direto pelo ícone na tela inicial, em tela cheia, como um aplicativo.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Abra direto pelo ícone na tela inicial, em tela cheia, como um aplicativo.
+          </p>
         </div>
 
         {installed ? (
@@ -57,7 +77,8 @@ function Instalar() {
 
         {inFrame && (
           <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-            A instalação funciona no site publicado (criptotrader.lovable.app), aberto direto no navegador.
+            A instalação funciona no site publicado (criptotrader.lovable.app), aberto direto no
+            navegador.
           </p>
         )}
 
@@ -65,19 +86,39 @@ function Instalar() {
           <h2 className="font-semibold">{ios ? "No iPhone (Safari)" : "No Android (Chrome)"}</h2>
           {ios ? (
             <ol className="space-y-3 text-sm">
-              <li className="flex gap-3"><Share className="h-5 w-5 shrink-0 text-primary" /> Toque no botão Compartilhar, embaixo da tela.</li>
-              <li className="flex gap-3"><PlusSquare className="h-5 w-5 shrink-0 text-primary" /> Escolha "Adicionar à Tela de Início".</li>
-              <li className="flex gap-3"><CheckCircle2 className="h-5 w-5 shrink-0 text-primary" /> Toque em "Adicionar". O ícone aparece na sua tela.</li>
+              <li className="flex gap-3">
+                <Share className="h-5 w-5 shrink-0 text-primary" /> Toque no botão Compartilhar,
+                embaixo da tela.
+              </li>
+              <li className="flex gap-3">
+                <PlusSquare className="h-5 w-5 shrink-0 text-primary" /> Escolha "Adicionar à Tela
+                de Início".
+              </li>
+              <li className="flex gap-3">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" /> Toque em "Adicionar". O
+                ícone aparece na sua tela.
+              </li>
             </ol>
           ) : (
             <ol className="space-y-3 text-sm">
-              <li className="flex gap-3"><MoreVertical className="h-5 w-5 shrink-0 text-primary" /> Toque nos três pontinhos, no canto de cima.</li>
-              <li className="flex gap-3"><Download className="h-5 w-5 shrink-0 text-primary" /> Escolha "Instalar app" ou "Adicionar à tela inicial".</li>
-              <li className="flex gap-3"><CheckCircle2 className="h-5 w-5 shrink-0 text-primary" /> Confirme. O ícone aparece na sua tela.</li>
+              <li className="flex gap-3">
+                <MoreVertical className="h-5 w-5 shrink-0 text-primary" /> Toque nos três pontinhos,
+                no canto de cima.
+              </li>
+              <li className="flex gap-3">
+                <Download className="h-5 w-5 shrink-0 text-primary" /> Escolha "Instalar app" ou
+                "Adicionar à tela inicial".
+              </li>
+              <li className="flex gap-3">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" /> Confirme. O ícone aparece
+                na sua tela.
+              </li>
             </ol>
           )}
         </div>
-        <p className="text-center text-xs text-muted-foreground">O app precisa de internet para mostrar preços e fazer trocas.</p>
+        <p className="text-center text-xs text-muted-foreground">
+          O app precisa de internet para mostrar preços e fazer trocas.
+        </p>
       </div>
     </AppShell>
   );

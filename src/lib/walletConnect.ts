@@ -1,6 +1,8 @@
 import { getWalletConfig } from "./wallet.functions";
 
-type Provider = Awaited<ReturnType<typeof import("@walletconnect/ethereum-provider").EthereumProvider.init>>;
+type Provider = Awaited<
+  ReturnType<typeof import("@walletconnect/ethereum-provider").EthereumProvider.init>
+>;
 
 // One WalletConnect client for the whole app: two clients sharing the same storage
 // make the wallet reject requests ("Unknown method(s) requested").
@@ -12,17 +14,30 @@ export function getWalletProvider(): Promise<Provider> {
       const { projectId } = await getWalletConfig();
       if (!projectId) throw new Error("Conexão de carteira não configurada");
       const { Buffer } = await import("buffer");
-      (globalThis as any).Buffer ??= Buffer;
+      (globalThis as typeof globalThis & { Buffer?: typeof Buffer }).Buffer ??= Buffer;
       const { EthereumProvider } = await import("@walletconnect/ethereum-provider");
       return EthereumProvider.init({
-        projectId, chains: [56], showQrModal: true,
-        optionalMethods: ["eth_sendTransaction", "personal_sign", "eth_signTypedData_v4", "wallet_switchEthereumChain"],
+        projectId,
+        chains: [56],
+        showQrModal: true,
+        optionalMethods: [
+          "eth_sendTransaction",
+          "personal_sign",
+          "eth_signTypedData_v4",
+          "wallet_switchEthereumChain",
+        ],
         metadata: {
-          name: "CryptoBot", description: "Robô e operações na BSC", url: window.location.origin,
-          icons: [`${window.location.origin}/icon-192.png`], redirect: { universal: window.location.href },
+          name: "CryptoBot",
+          description: "Robô e operações na BSC",
+          url: window.location.origin,
+          icons: [`${window.location.origin}/icon-192.png`],
+          redirect: { universal: window.location.href },
         },
       });
-    })().catch((e) => { providerPromise = null; throw e; });
+    })().catch((e) => {
+      providerPromise = null;
+      throw e;
+    });
   }
   return providerPromise;
 }
@@ -44,4 +59,5 @@ export async function resetWallet() {
   await p?.disconnect().catch(() => {});
 }
 
-export const isUnknownMethod = (e: unknown) => /unknown method|unsupported method|not authorized/i.test((e as Error)?.message ?? "");
+export const isUnknownMethod = (e: unknown) =>
+  /unknown method|unsupported method|not authorized/i.test((e as Error)?.message ?? "");

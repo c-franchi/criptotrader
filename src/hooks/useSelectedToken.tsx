@@ -22,29 +22,44 @@ export function SelectedTokenProvider({ children }: { children: ReactNode }) {
   // Restore the saved selection after hydration; user-added tokens load once signed in.
   useEffect(() => {
     let saved = "";
-    try { saved = localStorage.getItem("selected-token") ?? ""; } catch { /* Storage may be disabled. */ }
+    try {
+      saved = localStorage.getItem("selected-token") ?? "";
+    } catch {
+      /* Storage may be disabled. */
+    }
     const builtIn = findToken(saved);
     if (builtIn) setToken(builtIn);
     setReady(true);
     const load = async () => {
-      const { data } = await supabase.from("user_tokens").select("address,symbol,name,decimals").order("created_at");
+      const { data } = await supabase
+        .from("user_tokens")
+        .select("address,symbol,name,decimals")
+        .order("created_at");
       const list = ((data ?? []) as TokenInfo[]).filter((t) => !findToken(t.address));
       setExtra(list);
       const custom = findToken(saved, list);
       if (!builtIn && custom) setToken(custom);
     };
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session) void load(); else setExtra([]);
+      if (session) void load();
+      else setExtra([]);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const selectToken = useCallback((address: string) => {
-    const next = findToken(address, extra);
-    if (!next) return;
-    setToken(next);
-    try { localStorage.setItem("selected-token", next.address); } catch { /* Keep in-memory selection. */ }
-  }, [extra]);
+  const selectToken = useCallback(
+    (address: string) => {
+      const next = findToken(address, extra);
+      if (!next) return;
+      setToken(next);
+      try {
+        localStorage.setItem("selected-token", next.address);
+      } catch {
+        /* Keep in-memory selection. */
+      }
+    },
+    [extra],
+  );
 
   const addToken = async (t: TokenInfo) => {
     if (findToken(t.address, extra)) return null;
@@ -63,7 +78,9 @@ export function SelectedTokenProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <SelectedTokenContext.Provider value={{ token, tokens: [...TOKENS, ...extra], selectToken, addToken, removeToken, ready }}>
+    <SelectedTokenContext.Provider
+      value={{ token, tokens: [...TOKENS, ...extra], selectToken, addToken, removeToken, ready }}
+    >
       {children}
     </SelectedTokenContext.Provider>
   );

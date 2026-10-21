@@ -8,12 +8,25 @@ const emit = () => subs.forEach((f) => f());
 
 if (typeof window !== "undefined") {
   installed = window.matchMedia("(display-mode: standalone)").matches;
-  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e as BIP; emit(); });
-  window.addEventListener("appinstalled", () => { installed = true; deferred = null; emit(); });
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferred = e as BIP;
+    emit();
+  });
+  window.addEventListener("appinstalled", () => {
+    installed = true;
+    deferred = null;
+    emit();
+  });
 }
 
 export const getInstallState = () => ({ canInstall: !!deferred, installed });
-export function subscribeInstall(f: () => void) { subs.add(f); return () => { subs.delete(f); }; }
+export function subscribeInstall(f: () => void) {
+  subs.add(f);
+  return () => {
+    subs.delete(f);
+  };
+}
 
 /** Opens the browser's own install window. Returns true if the user accepted. */
 export async function runInstall(): Promise<boolean> {

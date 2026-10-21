@@ -19,3 +19,23 @@
 - [x] Estratégia: seleção do estilo visível (selo "Em uso", borda dourada, botão "Selecionada", aviso de ajustes manuais) e persistente após salvar e recarregar; testado logado em neifranchi@gmail.com.
 - [ ] Verificar Operar e Grade com sessão autenticada — falta um swap real de valor mínimo; nenhuma transação enviada.
 - [ ] Simulação continua só com GTE (contas simuladas não são por token).
+
+## Revisão de confiabilidade e experiência (21/10/2026)
+
+- [x] Priorizar saídas de proteção antes dos limites de novas entradas.
+- [x] Diário persistente antes da transmissão para swaps, aprovações e saques; confirmação e estado atômicos e idempotentes.
+- [x] Impedir liberação de trava por prazo/idade; preservar submissões sem evidência conclusiva.
+- [x] Conciliar confirmações manuais tardias e distinguir contabilidade estimada de evidência de receipt/trace.
+- [x] Restringir análise/executor ao mesmo pool V2 WBNB e pausar compras com histórico antigo ou incompleto.
+- [x] Validar parâmetros, gás e taxas; capital por robô, reservas e teto de uma parcela por tick de grade.
+- [x] Versionar rearme e saídas parciais, preservando ciclos existentes.
+- [x] Separar simulações por token, salvar fill/saldo atomicamente e preservar histórico legado somente leitura.
+- [x] Salvar estratégia com revisão e carteira compartilhada em uma transação.
+- [x] Proteger campos operacionais, evidência financeira e idade de carteiras de saque no banco.
+- [x] Deduplicar transições de alertas atomicamente e usar fila persistente de notificações.
+- [x] Menu desktop/mobile, gráfico no painel, precisão adaptativa, login/recuperação e saúde real de integrações.
+- [x] Acrescentar queda máxima, exposição, ciclos e referência comprar/manter às comparações simuladas.
+- [x] Declarar decimal.js diretamente, fixar cliente Supabase e adicionar verificações no GitHub Actions.
+- [ ] Validar compras, vendas e saques reais pelo titular: não executados durante desenvolvimento.
+- [ ] Confirmar recuperação de senha com recebimento de e-mail e entrega push no dispositivo do titular.
+- [ ] Histórico de longo prazo e USD/BNB histórico: fonte atual continua limitada; não apresentar a aproximação como resultado comprovado.
