@@ -9,7 +9,6 @@ import {
   ArrowLeftRight,
   Bot,
   LineChart,
-  FlaskConical,
   LayoutDashboard,
   Menu,
   Settings,
@@ -33,11 +32,10 @@ const nav = [
   {
     to: "/metricas",
     label: "Métricas",
-    desc: "Evolução em 1h, 12h, 24h e resultado das estratégias",
+    desc: "Evolução em 1h, 12h, 24h e histórico de preços",
     icon: LineChart,
   },
   { to: "/estrategia", label: "Estratégia", desc: "Regras de compra, venda e risco", icon: Target },
-  { to: "/simulacao", label: "Simulação", desc: "Treine sem dinheiro real", icon: FlaskConical },
   { to: "/operar", label: "Operar", desc: "Trade real com sua carteira", icon: ArrowLeftRight },
   {
     to: "/grade",
@@ -100,7 +98,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
       >
         {nav
-          .filter((n) => ["/", "/estrategia", "/simulacao", "/grade"].includes(n.to))
+          .filter((n) => ["/", "/estrategia", "/grade"].includes(n.to))
           .map((n) => (
             <Link
               key={n.to}
@@ -286,7 +284,7 @@ export function RequireLogin({ children }: { children: ReactNode }) {
   if (!user)
     return (
       <div className="rounded-lg border border-border bg-card p-6 text-center">
-        <p className="mb-4">Entre na sua conta para salvar estratégia e simulações.</p>
+        <p className="mb-4">Entre na sua conta para salvar suas estratégias.</p>
         <Button asChild>
           <Link to="/login">Entrar</Link>
         </Button>

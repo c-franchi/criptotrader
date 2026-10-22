@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { aggregateCandles, closedTail, engineSeries } from "./candleSeries";
 import { closesAt } from "./autoStrategy";
-import type { Candle } from "./backtest";
+import type { Candle } from "./marketStats";
 const list: Candle[] = [
   [0, 1, 3, 1, 2, 10],
   [300, 2, 4, 1, 3, 20],

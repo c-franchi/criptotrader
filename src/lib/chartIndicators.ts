@@ -1,5 +1,5 @@
 import { closedTail } from "./candleSeries";
-import type { Candle } from "./backtest";
+import type { Candle } from "./marketStats";
 
 /** Display-only indicators, using complete closed candles after the last gap. */
 export function chartIndicators(candles: Candle[], minutes: number, now: number) {

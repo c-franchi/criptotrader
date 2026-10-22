@@ -18,6 +18,7 @@ import { AppShell, Panel, RequireLogin } from "@/components/AppShell";
 import { getStrategyDraft, saveUserStrategy } from "@/lib/strategy.functions";
 import { strategySchema } from "@/lib/strategyValidation";
 import { EMPTY_CONFIG, describeStrategy, type StrategyConfig } from "@/lib/strategy";
+import { StrategyApplicationStatus } from "@/components/StrategyApplicationStatus";
 import { StrategyPresetCard } from "@/components/StrategyPresetCard";
 import { PRESETS, buildPreset, type PresetId } from "@/lib/presets";
 import { breakEvenPct, taxFor } from "@/lib/tokens";
@@ -168,8 +169,9 @@ function StrategyForm() {
   const [draftRevision, setDraftRevision] = useState(0);
   const [draftNotice, setDraftNotice] = useState("");
   const [saving, setSaving] = useState(false);
-  const tokenRef = useRef(token.address);
-  tokenRef.current = token.address;
+  const selectionKey = `${walletScope}:${token.address}`;
+  const tokenRef = useRef(selectionKey);
+  tokenRef.current = selectionKey;
   const savingRef = useRef(false);
   const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const dirty = savedSnapshot != null && savedSnapshot !== JSON.stringify({ c, wallet });
@@ -388,7 +390,7 @@ function StrategyForm() {
           walletScope,
         },
       });
-      if (tokenRef.current !== token.address) return;
+      if (tokenRef.current !== selectionKey) return;
       setVersion(result.version);
       setDraftRevision(result.draftRevision);
       setSavedSnapshot(JSON.stringify({ c, wallet }));
@@ -400,12 +402,12 @@ function StrategyForm() {
           .eq("wallet_scope", walletScope)
           .ilike("token", token.address)
           .maybeSingle();
-        if (tokenRef.current !== token.address) return;
+        if (tokenRef.current !== selectionKey) return;
         if (latest) {
           setActiveVersion(latest.version);
           setActiveConfig({ ...EMPTY_CONFIG, ...(latest.config as Partial<StrategyConfig>) });
         }
-        toast.success("Rascunho salvo. A estratégia real permanece sem alterações.");
+        toast.warning(`A estratégia ainda não foi aplicada. ${result.message}`);
         return;
       }
       setActiveVersion(result.version);
@@ -1234,18 +1236,24 @@ function StrategyForm() {
                 : `Estratégia sem alterações pendentes · versão ${activeVersion}`}
           {draftNotice && (
             <p className="mt-2 text-warning">
-              {draftNotice} A configuração real só muda quando a aplicação for permitida e
-              confirmada.
+              {draftNotice} Confira o motivo abaixo. Depois de resolver o bloqueio, clique em
+              Aplicar rascunho.
             </p>
           )}
-          {draftRevision > 0 && version !== activeVersion && activeConfig && (
+          {draftRevision > 0 && (
+            <StrategyApplicationStatus walletScope={walletScope} token={token.address} />
+          )}
+          {draftRevision > 0 && version !== activeVersion && (
             <div className="mt-3 space-y-2">
               <details>
                 <summary className="cursor-pointer underline">
                   Comparar com a estratégia real v{activeVersion}
                 </summary>
                 <ul className="mt-2 space-y-2">
-                  {describeStrategy(activeConfig).map((line, i) => (
+                  {(activeConfig
+                    ? describeStrategy(activeConfig)
+                    : ["Nenhuma estratégia real salva para este token."]
+                  ).map((line, i) => (
                     <li key={i}>• {line}</li>
                   ))}
                 </ul>

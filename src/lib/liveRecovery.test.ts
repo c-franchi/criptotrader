@@ -3,7 +3,7 @@ import { afterTrade, decide, EMPTY_STATE, readRegime } from "./autoStrategy";
 import { EMPTY_CONFIG, type StrategyConfig } from "./strategy";
 import { strategySchema } from "./strategyValidation";
 import { strategyObservation } from "./strategyObservation";
-import type { Candle } from "./backtest";
+import type { Candle } from "./marketStats";
 const now = 1_800_000_000_000;
 const cfg: StrategyConfig = {
   ...EMPTY_CONFIG,

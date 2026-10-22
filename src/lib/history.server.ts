@@ -1,4 +1,4 @@
-import type { Candle } from "./backtest";
+import type { Candle } from "./marketStats";
 
 const cache = new Map<string, { candles: Candle[]; expires: number }>();
 const pending = new Map<string, Promise<Candle[]>>();

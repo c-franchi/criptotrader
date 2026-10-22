@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, it, expect, vi } from "vitest";
 import { CandleChart } from "./CandleChart";
-import type { Candle } from "@/lib/backtest";
+import type { Candle } from "@/lib/marketStats";
 const candles: Candle[] = Array.from({ length: 30 }, (_, i) => [i * 300, 100, 101, 99, 100, 10]);
 afterEach(() => {
   cleanup();

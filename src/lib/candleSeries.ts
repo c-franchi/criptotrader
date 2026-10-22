@@ -1,4 +1,4 @@
-import type { Candle } from "./backtest";
+import type { Candle } from "./marketStats";
 
 export type Bar = { candle: Candle; complete: boolean; forming: boolean };
 export function normalizedCandles(input: Candle[]): Candle[] {

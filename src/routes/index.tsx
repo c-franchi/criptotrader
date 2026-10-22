@@ -225,9 +225,6 @@ function Dashboard() {
           <Link to="/estrategia">Configurar estratégia</Link>
         </Button>
         <Button asChild size="sm" variant="outline">
-          <Link to="/simulacao">Testar sem dinheiro real</Link>
-        </Button>
-        <Button asChild size="sm" variant="outline">
           <Link to="/grade">Acompanhar robô</Link>
         </Button>
       </div>

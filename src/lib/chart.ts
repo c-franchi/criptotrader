@@ -1,4 +1,4 @@
-import type { Candle } from "./backtest";
+import type { Candle } from "./marketStats";
 
 export function chartWindow(candles: Candle[], now: number, duration: number) {
   const start = now - duration;

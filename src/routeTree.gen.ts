@@ -19,7 +19,6 @@ import { Route as IntegracoesRouteImport } from './routes/integracoes'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MetricasRouteImport } from './routes/metricas'
 import { Route as OperarRouteImport } from './routes/operar'
-import { Route as SimulacaoRouteImport } from './routes/simulacao'
 import { Route as ApiPublicHooksAlertTickRouteImport } from './routes/api/public/hooks/alert-tick'
 import { Route as ApiPublicHooksGridTickRouteImport } from './routes/api/public/hooks/grid-tick'
 
@@ -73,11 +72,6 @@ const OperarRoute = OperarRouteImport.update({
   path: '/operar',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SimulacaoRoute = SimulacaoRouteImport.update({
-  id: '/simulacao',
-  path: '/simulacao',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiPublicHooksAlertTickRoute = ApiPublicHooksAlertTickRouteImport.update({
   id: '/api/public/hooks/alert-tick',
   path: '/api/public/hooks/alert-tick',
@@ -100,7 +94,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/metricas': typeof MetricasRoute
   '/operar': typeof OperarRoute
-  '/simulacao': typeof SimulacaoRoute
   '/api/public/hooks/alert-tick': typeof ApiPublicHooksAlertTickRoute
   '/api/public/hooks/grid-tick': typeof ApiPublicHooksGridTickRoute
 }
@@ -115,7 +108,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/metricas': typeof MetricasRoute
   '/operar': typeof OperarRoute
-  '/simulacao': typeof SimulacaoRoute
   '/api/public/hooks/alert-tick': typeof ApiPublicHooksAlertTickRoute
   '/api/public/hooks/grid-tick': typeof ApiPublicHooksGridTickRoute
 }
@@ -131,7 +123,6 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/metricas': typeof MetricasRoute
   '/operar': typeof OperarRoute
-  '/simulacao': typeof SimulacaoRoute
   '/api/public/hooks/alert-tick': typeof ApiPublicHooksAlertTickRoute
   '/api/public/hooks/grid-tick': typeof ApiPublicHooksGridTickRoute
 }
@@ -148,7 +139,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/metricas'
     | '/operar'
-    | '/simulacao'
     | '/api/public/hooks/alert-tick'
     | '/api/public/hooks/grid-tick'
   fileRoutesByTo: FileRoutesByTo
@@ -163,7 +153,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/metricas'
     | '/operar'
-    | '/simulacao'
     | '/api/public/hooks/alert-tick'
     | '/api/public/hooks/grid-tick'
   id:
@@ -178,7 +167,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/metricas'
     | '/operar'
-    | '/simulacao'
     | '/api/public/hooks/alert-tick'
     | '/api/public/hooks/grid-tick'
   fileRoutesById: FileRoutesById
@@ -194,7 +182,6 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MetricasRoute: typeof MetricasRoute
   OperarRoute: typeof OperarRoute
-  SimulacaoRoute: typeof SimulacaoRoute
   ApiPublicHooksAlertTickRoute: typeof ApiPublicHooksAlertTickRoute
   ApiPublicHooksGridTickRoute: typeof ApiPublicHooksGridTickRoute
 }
@@ -271,13 +258,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OperarRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/simulacao': {
-      id: '/simulacao'
-      path: '/simulacao'
-      fullPath: '/simulacao'
-      preLoaderRoute: typeof SimulacaoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/hooks/alert-tick': {
       id: '/api/public/hooks/alert-tick'
       path: '/api/public/hooks/alert-tick'
@@ -306,7 +286,6 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MetricasRoute: MetricasRoute,
   OperarRoute: OperarRoute,
-  SimulacaoRoute: SimulacaoRoute,
   ApiPublicHooksAlertTickRoute: ApiPublicHooksAlertTickRoute,
   ApiPublicHooksGridTickRoute: ApiPublicHooksGridTickRoute,
 }

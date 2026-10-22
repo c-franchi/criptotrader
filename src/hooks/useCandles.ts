@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getCandles } from "@/lib/history.functions";
-import type { Candle } from "@/lib/backtest";
+import type { Candle } from "@/lib/marketStats";
 
 const keyOf = (pool: string, token: string) =>
   `candles:${pool.toLowerCase()}:${token.toLowerCase()}`;
