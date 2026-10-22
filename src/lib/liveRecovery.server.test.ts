@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- server query-chain test doubles */
 import { afterEach, expect, it, vi } from "vitest";
+import { BeforeSigningError } from "./executionPhase";
 import { EMPTY_CONFIG } from "./strategy";
 import { EMPTY_STATE } from "./autoStrategy";
 const mock = vi.hoisted(() => ({ send: vi.fn(), signer: vi.fn(), now: 1_800_000_000_000 }));
@@ -63,6 +64,7 @@ it("routes confirmed recovery through the real swap executor with the decision p
       minNetPct: 1.5,
     },
   };
+  let capitalError = false;
   const admin = {
     from: (table: string) => {
       const q: any = {
@@ -77,7 +79,27 @@ it("routes confirmed recovery through the real swap executor with the decision p
           data: table === "strategies" ? { config } : null,
           error: null,
         }),
-        then: (resolve: any) => resolve({ data: [], error: null }),
+        then: (resolve: any) =>
+          resolve({
+            data:
+              table === "grid_bots"
+                ? [
+                    {
+                      id: "b",
+                      token: "0x1111111111111111111111111111111111111111",
+                      armed: true,
+                      mode: "estrategia",
+                      order_bnb: 0,
+                      gas_reserve_bnb: 0.005,
+                      strat_state: EMPTY_STATE,
+                    },
+                  ]
+                : table === "strategies"
+                  ? [{ token: "0x1111111111111111111111111111111111111111", config }]
+                  : [],
+            error:
+              capitalError && table === "grid_bots" ? { message: "capital read failed" } : null,
+          }),
       };
       return q;
     },
@@ -104,4 +126,10 @@ it("routes confirmed recovery through the real swap executor with the decision p
     }),
   );
   expect(bot.strat_state).toEqual(EMPTY_STATE);
+  mock.send.mockClear();
+  capitalError = true;
+  await expect(runStrategyStep(admin, bot, "encrypted", "lock-owner")).rejects.toBeInstanceOf(
+    BeforeSigningError,
+  );
+  expect(mock.send).not.toHaveBeenCalled();
 });

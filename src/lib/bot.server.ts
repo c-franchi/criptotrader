@@ -1,3 +1,4 @@
+import { readWalletCapital } from "./walletCapital.server";
 import { LEGACY_WALLET_SCOPE } from "./walletScope";
 import { withExecutionPhase } from "./executionPhase";
 import {
@@ -168,7 +169,6 @@ async function runGridStepImpl(
   if (d.action === "nenhuma") return { patch, order: null };
 
   const pub = pubClient();
-  beginSigning();
   const { account, wallet } = await botSigner(enc);
   const me = account.address;
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
@@ -214,12 +214,19 @@ async function runGridStepImpl(
     if (blocked || market.error)
       return { patch: { last_error: blocked ?? "Mercado indisponível" }, order: null };
     amountIn = bnbWanted;
-    if (amountIn + reserve > bnbBal)
+    const capital = await readWalletCapital(
+      admin,
+      bot.user_id,
+      bot.wallet_scope ?? LEGACY_WALLET_SCOPE,
+      formatEther(bnbBal),
+    );
+    const ownCapital = capital.rows.find((b) => b.id === bot.id);
+    if (!ownCapital || amountIn > parseEther(ownCapital.available))
       return {
         patch: {
           ...patch,
           last_level: bot.last_level,
-          last_error: "BNB insuficiente para comprar",
+          last_error: `Saldo livre insuficiente: ${ownCapital?.available ?? "0"} BNB para este robô, após as reservas da carteira`,
         },
         order: null,
       };
@@ -264,6 +271,7 @@ async function runGridStepImpl(
       };
     if (
       !(await approveForSwap({
+        beginSigning,
         admin,
         owner,
         pub,
@@ -281,6 +289,7 @@ async function runGridStepImpl(
   }
   const tax = taxFor(token, strategy?.config);
   const res = await sendSwap({
+    beginSigning,
     pub,
     wallet,
     me,
@@ -330,6 +339,7 @@ export async function approveForSwap(o: {
   amountIn: bigint;
   userId: string;
   maxGasGwei?: number;
+  beginSigning?: () => void;
 }) {
   const allowance = await o.pub.readContract({
     address: o.token,
@@ -338,6 +348,7 @@ export async function approveForSwap(o: {
     args: [o.me, PANCAKE_V2_ROUTER],
   });
   if (allowance >= o.amountIn) return true;
+  o.beginSigning?.();
   const r = await contractTransaction({
     ...o,
     to: o.token,
@@ -374,6 +385,7 @@ export async function sendSwap(o: {
   owner: string;
   intent: Record<string, any>;
   maxGasGwei?: number;
+  beginSigning?: () => void;
 }) {
   const { pub, wallet, me, token, path, amountIn } = o;
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
@@ -429,6 +441,7 @@ export async function sendSwap(o: {
     quotedOut: net.toString(),
     order,
   };
+  o.beginSigning?.();
   const r = await contractTransaction({
     admin: o.admin,
     owner: o.owner,

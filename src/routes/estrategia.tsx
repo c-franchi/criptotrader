@@ -18,6 +18,7 @@ import { AppShell, Panel, RequireLogin } from "@/components/AppShell";
 import { getStrategyDraft, saveUserStrategy } from "@/lib/strategy.functions";
 import { strategySchema } from "@/lib/strategyValidation";
 import { EMPTY_CONFIG, describeStrategy, type StrategyConfig } from "@/lib/strategy";
+import { ResetStrategiesButton } from "@/components/ResetStrategiesButton";
 import { StrategyApplicationStatus } from "@/components/StrategyApplicationStatus";
 import { StrategyPresetCard } from "@/components/StrategyPresetCard";
 import { PRESETS, buildPreset, type PresetId } from "@/lib/presets";
@@ -1281,6 +1282,7 @@ function StrategyForm() {
             {saving ? "Salvando…" : draftRevision > 0 ? "Aplicar rascunho" : "Salvar alterações"}
           </Button>
         </div>
+        <ResetStrategiesButton key={walletScope} walletScope={walletScope} />
         <Panel title="Prévia em linguagem simples">
           {chosen && (
             <p className="mb-3 flex flex-wrap items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 p-2 text-sm font-semibold text-primary">

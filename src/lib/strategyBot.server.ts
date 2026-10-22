@@ -1,3 +1,5 @@
+import { strategyBuyAmount } from "./walletCapital";
+import { readWalletCapital } from "./walletCapital.server";
 import { LEGACY_WALLET_SCOPE } from "./walletScope";
 import { withExecutionPhase } from "./executionPhase";
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -160,7 +162,6 @@ async function runStrategyStepImpl(
 
   if (!pool) return { patch: { ...patch, last_error: "Pool inexistente" }, order: null };
   const pub = pubClient();
-  beginSigning();
   const { account, wallet } = await botSigner(enc);
   const me = account.address;
   const reserve = parseEther(String(cfg.gasReserveBnb ?? 0.005));
@@ -173,52 +174,16 @@ async function runStrategyStepImpl(
     const { liquidityBlock } = await import("./safety");
     const liq = liquidityBlock(best.liquidityUsd, cfg.minLiquidityUsd);
     if (liq) return { patch: { ...patch, last_error: liq }, order: null };
-    const { data: otherBots, error: budgetError } = await admin
-      .from("grid_bots")
-      .select("token,mode,gas_reserve_bnb")
-      .eq("user_id", bot.user_id)
-      .eq("wallet_scope", bot.wallet_scope ?? LEGACY_WALLET_SCOPE)
-      .eq("armed", true)
-      .neq("id", bot.id);
-    if (budgetError) throw budgetError;
-    let otherStrategies: { token: string; config: { gasReserveBnb?: number } }[] = [];
-    if (otherBots?.some((b: any) => b.mode !== "grade")) {
-      const { data, error } = await admin
-        .from("strategies")
-        .select("token,config")
-        .eq("user_id", bot.user_id)
-        .eq("wallet_scope", bot.wallet_scope ?? LEGACY_WALLET_SCOPE);
-      if (error)
-        return {
-          patch: {
-            ...patch,
-            last_error: "Não foi possível conferir as reservas dos outros robôs desta carteira",
-          },
-          order: null,
-        };
-      otherStrategies = data ?? [];
-    }
-    const otherReserve = (otherBots ?? []).reduce((sum: bigint, b: any) => {
-      const configured =
-        b.mode === "grade"
-          ? b.gas_reserve_bnb
-          : otherStrategies.find((s) => s.token.toLowerCase() === b.token.toLowerCase())?.config
-              ?.gasReserveBnb;
-      const value =
-        typeof configured === "number" && Number.isFinite(configured) && configured >= 0
-          ? configured
-          : 0.005;
-      return sum + parseEther(value.toFixed(18));
-    }, 0n);
-    let free = bnbBal > reserve + otherReserve ? bnbBal - reserve - otherReserve : 0n;
-    if (cfg.allocationBnb && cfg.allocationBnb > 0) {
-      const room = parseEther(Math.max(0, cfg.allocationBnb - state.costBnb).toFixed(18));
-      if (free > room) free = room;
-    }
-    amountIn =
-      cfg.sizingMode === "fixo"
-        ? parseEther(String(cfg.buyAmount))
-        : (free * BigInt(Math.round(Math.min(cfg.buyAmount, 100) * 100))) / 10000n;
+    const capital = await readWalletCapital(
+      admin,
+      bot.user_id,
+      bot.wallet_scope ?? LEGACY_WALLET_SCOPE,
+      formatEther(bnbBal),
+    );
+    const own = capital.rows.find((b) => b.id === bot.id);
+    if (!own) throw new Error("Robô não encontrado no orçamento desta carteira");
+    const free = parseEther(own.available);
+    amountIn = strategyBuyAmount(cfg, own.available, own.reserved);
     if (cfg.maxExposureQuote > 0) {
       const room = parseEther(
         String(Math.max(0, cfg.maxExposureQuote - state.costBnb).toFixed(18)),
@@ -229,7 +194,7 @@ async function runStrategyStepImpl(
       return {
         patch: {
           ...patch,
-          last_error: `BNB insuficiente: deposite mais BNB na carteira do robô (reserva desta estratégia ${formatEther(reserve)} BNB; reservas dos outros robôs ${formatEther(otherReserve)} BNB)`,
+          last_error: `BNB insuficiente: deposite mais BNB na carteira do robô (reserva desta estratégia ${formatEther(reserve)} BNB; capital reservado pelos robôs ${capital.reserved} BNB; saldo liberado para este robô ${own.available} BNB)`,
         },
         order: null,
       };
@@ -239,6 +204,7 @@ async function runStrategyStepImpl(
         order: null,
       };
     const r = await sendSwap({
+      beginSigning,
       pub,
       wallet,
       me,
@@ -308,6 +274,7 @@ async function runStrategyStepImpl(
     };
   if (
     !(await approveForSwap({
+      beginSigning,
       admin,
       owner,
       pub,
@@ -324,6 +291,7 @@ async function runStrategyStepImpl(
       order: { status: "enviada", side: "venda" },
     };
   const r = await sendSwap({
+    beginSigning,
     pub,
     wallet,
     me,

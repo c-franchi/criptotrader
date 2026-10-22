@@ -120,6 +120,13 @@
       "when": 1792678690000,
       "tag": "0016_multiple_wallet_bots",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792696500000,
+      "tag": "0017_reset_strategy_configuration",
+      "breakpoints": true
     }
   ]
 }
