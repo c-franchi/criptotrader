@@ -1,13 +1,11 @@
 /** Minimum BNB the robot wallet needs to do one buy under the saved strategy. Pure. */
-export const MIN_TRADE_BNB = 0.001; // smallest sensible swap when sizing is a percentage
 
 export function requiredBotBnb(opts: {
   reserve: number;
   sizingMode?: "fixo" | "percentual";
   buyAmount?: number;
 }) {
-  const trade =
-    opts.sizingMode === "fixo" && (opts.buyAmount ?? 0) > 0 ? opts.buyAmount! : MIN_TRADE_BNB;
+  const trade = opts.sizingMode === "fixo" && (opts.buyAmount ?? 0) > 0 ? opts.buyAmount! : 0;
   return { reserve: opts.reserve, trade, total: opts.reserve + trade };
 }
 

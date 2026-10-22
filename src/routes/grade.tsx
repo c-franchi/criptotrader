@@ -300,7 +300,7 @@ function Robo() {
   };
 
   const bnb = w?.bnb != null ? Number(w.bnb) : null;
-  const reserve = mode === "estrategia" ? cfg?.gasReserveBnb || 0.003 : Number(f.gas_reserve_bnb);
+  const reserve = mode === "estrategia" ? (cfg?.gasReserveBnb ?? 0.005) : Number(f.gas_reserve_bnb);
   const need =
     mode === "estrategia"
       ? cfg

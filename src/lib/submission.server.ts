@@ -32,6 +32,14 @@ export async function submitTransaction(o: {
       value: o.value ?? 0n,
       ...(o.data ? { data: o.data } : {}),
     });
+    const feePerGas = request.maxFeePerGas ?? request.gasPrice ?? (await o.pub.getGasPrice());
+    if (!request.gas || feePerGas == null)
+      throw new Error("Não foi possível estimar o gás; operação não enviada");
+    if (o.maxGasGwei && feePerGas > BigInt(Math.round(o.maxGasGwei * 1e9)))
+      throw new Error("Gás estimado acima do limite configurado");
+    const available = await o.pub.getBalance({ address: o.wallet.account.address });
+    if (available < (o.value ?? 0n) + BigInt(request.gas) * BigInt(feePerGas))
+      throw new Error("BNB insuficiente para o valor da operação e sua taxa estimada de rede");
     signed = await o.wallet.signTransaction(request);
     hash = keccak256(signed);
 

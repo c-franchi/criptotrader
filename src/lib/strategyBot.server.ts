@@ -163,7 +163,7 @@ async function runStrategyStepImpl(
   beginSigning();
   const { account, wallet } = await botSigner(enc);
   const me = account.address;
-  const reserve = parseEther(String(cfg.gasReserveBnb || 0.003));
+  const reserve = parseEther(String(cfg.gasReserveBnb ?? 0.005));
   const bnbBal = await pub.getBalance({ address: me });
   const dec = (await tokenMeta(token)).decimals;
   const tax = taxFor(token, cfg);
@@ -181,11 +181,35 @@ async function runStrategyStepImpl(
       .eq("armed", true)
       .neq("id", bot.id);
     if (budgetError) throw budgetError;
-    const otherReserve = (otherBots ?? []).reduce(
-      (sum: bigint, b: any) =>
-        sum + parseEther(Number(b.mode === "grade" ? b.gas_reserve_bnb : 0.005).toFixed(18)),
-      0n,
-    );
+    let otherStrategies: { token: string; config: { gasReserveBnb?: number } }[] = [];
+    if (otherBots?.some((b: any) => b.mode !== "grade")) {
+      const { data, error } = await admin
+        .from("strategies")
+        .select("token,config")
+        .eq("user_id", bot.user_id)
+        .eq("wallet_scope", bot.wallet_scope ?? LEGACY_WALLET_SCOPE);
+      if (error)
+        return {
+          patch: {
+            ...patch,
+            last_error: "Não foi possível conferir as reservas dos outros robôs desta carteira",
+          },
+          order: null,
+        };
+      otherStrategies = data ?? [];
+    }
+    const otherReserve = (otherBots ?? []).reduce((sum: bigint, b: any) => {
+      const configured =
+        b.mode === "grade"
+          ? b.gas_reserve_bnb
+          : otherStrategies.find((s) => s.token.toLowerCase() === b.token.toLowerCase())?.config
+              ?.gasReserveBnb;
+      const value =
+        typeof configured === "number" && Number.isFinite(configured) && configured >= 0
+          ? configured
+          : 0.005;
+      return sum + parseEther(value.toFixed(18));
+    }, 0n);
     let free = bnbBal > reserve + otherReserve ? bnbBal - reserve - otherReserve : 0n;
     if (cfg.allocationBnb && cfg.allocationBnb > 0) {
       const room = parseEther(Math.max(0, cfg.allocationBnb - state.costBnb).toFixed(18));
@@ -205,7 +229,7 @@ async function runStrategyStepImpl(
       return {
         patch: {
           ...patch,
-          last_error: `BNB insuficiente: deposite mais BNB na carteira do robô (reserva de gás ${formatEther(reserve)} BNB)`,
+          last_error: `BNB insuficiente: deposite mais BNB na carteira do robô (reserva desta estratégia ${formatEther(reserve)} BNB; reservas dos outros robôs ${formatEther(otherReserve)} BNB)`,
         },
         order: null,
       };
@@ -257,8 +281,9 @@ async function runStrategyStepImpl(
     return { patch, order: r.order };
   }
 
-  if (bnbBal < reserve)
-    return { patch: { ...patch, last_error: "BNB insuficiente para o gás da venda" }, order: null };
+  // The configured reserve is for buying budgets; actual transaction fees gate exits.
+  if (bnbBal <= 0n)
+    return { patch: { ...patch, last_error: "Sem BNB para pagar a taxa da venda" }, order: null };
   const bal = await pub.readContract({
     address: token,
     abi: erc20Abi,

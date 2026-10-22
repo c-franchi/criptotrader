@@ -113,12 +113,14 @@ function StopPreview({ c, amount, symbol }: { c: StrategyConfig; amount: number;
 
 function Num({
   label,
+  id,
   hint,
   help,
   value,
   onChange,
 }: {
   label: string;
+  id?: string;
   hint?: string;
   help?: string;
   value: number | null;
@@ -127,7 +129,9 @@ function Num({
   return (
     <div>
       <div className="flex items-center gap-1">
-        <Label className="text-sm">{label}</Label>
+        <Label htmlFor={id} className="text-sm">
+          {label}
+        </Label>
         {help && (
           <HelpTip title={label}>
             <p>{help}</p>
@@ -135,6 +139,7 @@ function Num({
         )}
       </div>
       <Input
+        id={id}
         type="number"
         step="any"
         min={0}
@@ -803,6 +808,32 @@ function StrategyForm() {
           </Panel>
         )}
 
+        <section id="strategy-gas" className="scroll-mt-28">
+          <Panel title="Reserva para taxas da rede">
+            <p className="mb-3 text-sm text-muted-foreground">
+              A reserva é BNB que fica disponível para pagar operações futuras; não é uma taxa
+              cobrada por transação. O gás efetivo depende da rede e da operação.
+            </p>
+            <Num
+              id="strategy-gas-reserve"
+              label="Reserva do robô (BNB)"
+              value={c.gasReserveBnb}
+              onChange={(n) => set("gasReserveBnb", n)}
+              hint="Você pode reduzir este valor. O robô ainda precisa de BNB suficiente para a taxa estimada de cada transação."
+            />
+            {c.gasReserveBnb === 0 && (
+              <p className="mt-2 text-xs text-warning">
+                Sem reserva configurada. Compras ainda precisam deixar BNB para a taxa; as vendas
+                dependem do custo estimado, não desta reserva.
+              </p>
+            )}
+            <p className="mt-2 text-xs text-muted-foreground">
+              Depois de editar, use Salvar alterações ou Aplicar rascunho. A mudança vale somente
+              para a estratégia e carteira selecionadas.
+            </p>
+          </Panel>
+        </section>
+
         {mode === "manual" && (
           <>
             <div id="strategy-entry" className="scroll-mt-24" />
@@ -1020,12 +1051,6 @@ function StrategyForm() {
                   value={c.maxExposureQuote}
                   help="Teto total de BNB aplicado neste token. Protege para não colocar tudo num só lugar."
                   onChange={(n) => set("maxExposureQuote", n)}
-                />
-                <Num
-                  label="Reserva de BNB para gas"
-                  value={c.gasReserveBnb}
-                  help="BNB guardado para pagar as taxas da rede. Sem ele, você não consegue nem vender."
-                  onChange={(n) => set("gasReserveBnb", n)}
                 />
                 <Num
                   label="Máx. operações por dia"

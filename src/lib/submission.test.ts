@@ -20,6 +20,7 @@ function setup(failInsert = false) {
   };
   const pub = {
     getGasPrice: vi.fn(async () => 1n),
+    getBalance: vi.fn(async () => 1000000000000000000n),
     sendRawTransaction: vi.fn(async (_transaction: unknown) => {
       events.push("broadcast");
       throw new Error("response lost");
@@ -30,7 +31,7 @@ function setup(failInsert = false) {
   };
   const wallet = {
     account: { address: me },
-    prepareTransactionRequest: vi.fn(async () => ({ nonce: 4 })),
+    prepareTransactionRequest: vi.fn(async () => ({ nonce: 4, gas: 21000n, gasPrice: 1n })),
     signTransaction: vi.fn(async () => "0x1234" as const),
   };
   return {
@@ -67,6 +68,17 @@ describe("journal before broadcast", () => {
       await expect(submitTransaction(f)).rejects.toBeInstanceOf(BeforeBroadcastError);
       expect(f.pub.sendRawTransaction).not.toHaveBeenCalled();
     }
+  });
+  it("checks the actual estimated fee before signing even with a small balance", async () => {
+    const f = setup();
+    f.pub.getBalance.mockResolvedValue(21000n);
+    await expect(submitTransaction({ ...f, value: 1n })).rejects.toBeInstanceOf(
+      BeforeBroadcastError,
+    );
+    expect(f.wallet.signTransaction).not.toHaveBeenCalled();
+    expect(f.pub.sendRawTransaction).not.toHaveBeenCalled();
+    const r = await submitTransaction(f);
+    expect(r.hash).toMatch(/^0x/);
   });
   it("checks gas before signing", async () => {
     const f = setup();

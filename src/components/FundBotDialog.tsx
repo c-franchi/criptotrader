@@ -31,7 +31,6 @@ import { missingBnb } from "@/lib/botFunding";
 
 const pub = () =>
   createPublicClient({ chain: bsc, transport: http("https://bsc-dataseed.bnbchain.org") });
-const GAS_KEEP = 0.001; // fica na carteira pessoal para pagar o gás desta transferência
 const BIG_BRL = 200,
   BIG_BNB = 0.5; // acima disso mostramos um aviso de prudência
 const hex = (v: bigint) => `0x${v.toString(16)}`;
@@ -60,6 +59,9 @@ export function FundBotDialog({
   const [tokBal, setTokBal] = useState<number | null>(null);
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [feeBnb, setFeeBnb] = useState<number | null>(null);
+  const [quoteRevision, setQuoteRevision] = useState(0);
+  const [feeError, setFeeError] = useState(false);
   const [hash, setHash] = useState<string | null>(null);
   const [unit, setUnit] = useState<"BRL" | "BNB">("BRL");
   const [brlPerBnb, setBrlPerBnb] = useState<number | null>(null);
@@ -114,20 +116,59 @@ export function FundBotDialog({
     toast.success("Carteira desconectada do CryptoBot");
   };
 
-  const floor6 = (v: number) => Math.floor(v * 1e6) / 1e6;
+  const floor6 = (v: number) => Math.floor(v * 1e9) / 1e9;
   const useBrl = isBnb && unit === "BRL";
+  const typed = Number(amount.replace(",", "."));
+  const n = floor6(useBrl ? (brlPerBnb ? typed / brlPerBnb : 0) : typed);
+  useEffect(() => {
+    setFeeBnb(null);
+    setFeeError(false);
+    if (!open || !account || (!isBnb && !(n > 0))) return;
+    let alive = true;
+    const timer = setTimeout(async () => {
+      try {
+        const p = pub();
+        const [gasPrice, balance] = await Promise.all([
+          p.getGasPrice(),
+          p.getBalance({ address: account as `0x${string}` }),
+        ]);
+        if (alive) setBnbBal(Number(formatEther(balance)));
+        const gas = await p.estimateGas({
+          account: account as `0x${string}`,
+          to: (isBnb ? botAddress : tok!.address) as `0x${string}`,
+          value: 0n,
+          data: isBnb
+            ? "0x"
+            : encodeFunctionData({
+                abi: erc20Abi,
+                functionName: "transfer",
+                args: [
+                  botAddress as `0x${string}`,
+                  parseUnits(n.toFixed(Math.min(9, tok!.decimals)), tok!.decimals),
+                ],
+              }),
+        });
+        if (alive) setFeeBnb(Number(formatEther(((gas * 12n + 9n) / 10n) * gasPrice)));
+      } catch {
+        if (alive) setFeeError(true);
+      }
+    }, 250);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [open, account, asset, botAddress, isBnb, n, quoteRevision, tok]);
   const max = isBnb
-    ? bnbBal != null
-      ? floor6(Math.max(bnbBal - GAS_KEEP, 0))
+    ? bnbBal != null && feeBnb != null
+      ? floor6(Math.max(bnbBal - feeBnb, 0))
       : 0
     : tokBal != null
       ? floor6(tokBal)
       : 0;
-  const typed = Number(amount.replace(",", "."));
-  const n = floor6(useBrl ? (brlPerBnb ? typed / brlPerBnb : 0) : typed);
-  const gasOk = isBnb || (bnbBal ?? 0) >= 0.0003;
-  const miss = isBnb && need ? missingBnb(need.total, botBnb ?? 0, n) : 0;
-  const valid = n > 0 && n <= max && gasOk && miss === 0;
+  const gasOk = feeBnb != null && bnbBal != null && bnbBal >= feeBnb;
+  const miss = isBnb && need && botBnb != null ? missingBnb(need.total, botBnb, n) : 0;
+  // Funding can be partial; only the wallet's balance and estimated transfer fee gate sending.
+  const valid = n > 0 && n <= max && gasOk;
   const pct = max > 0 ? Math.min(100, Math.round((n / max) * 100)) : 0;
   const sym = tok?.symbol ?? "BNB";
   const brl = (bnb: number) =>
@@ -157,14 +198,14 @@ export function FundBotDialog({
       // Pedido completo e simples: Trust Wallet recusa ("Unknown method") quando falta "data" ou a rede.
       let tx: { from: string; to: string; value: string; data: `0x${string}` };
       if (isBnb) {
-        tx = { from, to: botAddress, value: hex(parseEther(n.toFixed(6))), data: "0x" };
+        tx = { from, to: botAddress, value: hex(parseEther(n.toFixed(9))), data: "0x" };
       } else {
         const data = encodeFunctionData({
           abi: erc20Abi,
           functionName: "transfer",
           args: [
             botAddress as `0x${string}`,
-            parseUnits(n.toFixed(Math.min(6, tok!.decimals)), tok!.decimals),
+            parseUnits(n.toFixed(Math.min(9, tok!.decimals)), tok!.decimals),
           ],
         });
         tx = { from, to: tok!.address, value: "0x0", data };
@@ -178,9 +219,13 @@ export function FundBotDialog({
             value: BigInt(tx.value),
             data: tx.data,
           })
-          .then((g) => (g * 12n) / 10n)
-          .catch(() => (isBnb ? 21000n : 100000n)),
+          .then((g) => (g * 12n + 9n) / 10n),
       ]);
+      const freshBalance = await p.getBalance({ address: from });
+      if (freshBalance < BigInt(tx.value) + gas * gasPrice)
+        throw new Error(
+          "O saldo precisa cobrir o envio e a taxa estimada da rede. Reduza um pouco o valor.",
+        );
       const h = (await provider.request({
         method: "eth_sendTransaction",
         params: [{ ...tx, gas: hex(gas), gasPrice: hex(gasPrice), chainId: hex(56n) }],
@@ -359,34 +404,63 @@ export function FundBotDialog({
             <p className="mt-2 text-[11px] text-muted-foreground">
               Disponível: {max.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} {sym}
               {isBnb
-                ? ` ≈ ${brl(max)} (guardamos ${GAS_KEEP} BNB na sua carteira para a taxa da rede).`
+                ? ` ≈ ${brl(max)} (descontada a estimativa do gás deste envio).`
                 : tokBal == null && account
                   ? " (consultando…)"
                   : "."}
             </p>
-            {!gasOk && account && (
+            {account && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Taxa estimada do envio:{" "}
+                {feeBnb == null
+                  ? feeError
+                    ? "indisponível"
+                    : "calculando…"
+                  : `${feeBnb.toLocaleString("pt-BR", { maximumFractionDigits: 9 })} BNB (≈ ${brl(feeBnb)})`}
+                . Inclui margem de 20% no limite de gás; o custo final pode variar.{" "}
+                <button
+                  type="button"
+                  className="text-primary underline"
+                  onClick={() => setQuoteRevision((v) => v + 1)}
+                >
+                  Atualizar estimativa
+                </button>
+              </p>
+            )}
+            {!gasOk && feeBnb != null && account && (
               <p className="mt-1 text-xs text-destructive">
                 Você precisa de um pouco de BNB na sua carteira para pagar a taxa da rede deste
                 envio.
               </p>
             )}
-            {account && n > max && (
+            {account && n > max && (!isBnb || feeBnb != null) && (
               <p className="mt-1 text-xs text-destructive">Valor maior que o disponível.</p>
             )}
             {account && n > 0 && miss > 0 && need && (
-              <div className="mt-2 rounded border border-destructive/50 bg-destructive/10 p-2 text-xs space-y-1">
-                <p className="font-semibold">⚠️ Valor não é compatível com a sua estratégia</p>
+              <div className="mt-2 rounded border border-warning/50 bg-warning/10 p-2 text-xs space-y-1">
+                <p className="font-semibold">
+                  Depósito parcial · reserva da estratégia ainda não coberta
+                </p>
                 <p>
-                  Para o robô conseguir fazer uma compra, a carteira dele precisa de{" "}
+                  A configuração atual considera um saldo de referência de{" "}
                   <strong>
                     {need.total.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB
                   </strong>{" "}
                   (≈ {brl(need.total)}):
                 </p>
                 <p>
-                  • {need.trade.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB para a
-                  compra ({brl(need.trade)})<br />• {need.reserve} BNB guardados para o gás (
-                  {brl(need.reserve)})
+                  {need.trade > 0 ? (
+                    <>
+                      • {need.trade.toLocaleString("pt-BR", { maximumFractionDigits: 9 })} BNB por
+                      compra ({brl(need.trade)})<br />
+                    </>
+                  ) : (
+                    <>
+                      • Compra calculada como porcentagem do saldo disponível.
+                      <br />
+                    </>
+                  )}
+                  • {need.reserve} BNB de reserva configurada ({brl(need.reserve)})
                 </p>
                 <p>
                   O robô já tem{" "}
@@ -397,9 +471,9 @@ export function FundBotDialog({
                   .
                 </p>
                 <p className="text-muted-foreground">
-                  O gás de cada operação custa centavos — a reserva é só uma "poupança" para o robô
-                  nunca travar no meio de uma venda. Você pode diminuir essa reserva ou o valor de
-                  compra na estratégia.
+                  Você pode enviar este valor agora e complementar depois. A reserva não é o custo
+                  de uma transação. Para usar um valor menor na estratégia, ajuste a reserva e
+                  aplique a mudança antes de iniciar compras.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Button
@@ -408,11 +482,11 @@ export function FundBotDialog({
                     disabled={n + miss > max}
                     onClick={() => setVal(n + miss)}
                   >
-                    Usar valor mínimo
+                    Completar saldo de referência
                   </Button>
                   <Button asChild type="button" size="sm" variant="outline">
-                    <Link to="/estrategia" onClick={() => setOpen(false)}>
-                      Ajustar estratégia
+                    <Link to="/estrategia" hash="strategy-gas" onClick={() => setOpen(false)}>
+                      Ajustar reserva de gás
                     </Link>
                   </Button>
                 </div>
