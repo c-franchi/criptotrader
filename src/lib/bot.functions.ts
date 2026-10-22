@@ -1,3 +1,5 @@
+import { walletScopeSchema } from "./walletScope";
+import { assertWalletScope } from "./walletScope.server";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -19,20 +21,26 @@ async function allTokens(userId: string): Promise<TokenInfo[]> {
 
 export const getBotWallet = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: { walletScope?: string } | undefined) =>
+    z.object({ walletScope: walletScopeSchema }).parse(d ?? {}),
+  )
+  .handler(async ({ context, data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data } = await supabaseAdmin
+    await assertWalletScope(supabaseAdmin, context.userId, data.walletScope);
+    const { data: bw, error: walletError } = await supabaseAdmin
       .from("bot_wallets")
       .select("address")
       .eq("user_id", context.userId)
+      .eq("wallet_scope", data.walletScope)
       .maybeSingle();
-    if (!data)
+    if (walletError) throw new Error("Não foi possível consultar a carteira do robô");
+    if (!bw)
       return { address: null, bnb: null, tokens: [] as { symbol: string; amount: string }[] };
     const { pubClient } = await import("./bot.server");
     const { erc20Abi } = await import("./pancake");
     const { formatEther, formatUnits } = await import("viem");
     const pub = pubClient();
-    const addr = data.address as `0x${string}`;
+    const addr = bw.address as `0x${string}`;
     const list = await allTokens(context.userId);
     try {
       const bnb = formatEther(await pub.getBalance({ address: addr }));
@@ -50,32 +58,48 @@ export const getBotWallet = createServerFn({ method: "GET" })
           ),
         })),
       );
-      return { address: data.address, bnb, tokens };
+      return { address: bw.address, bnb, tokens };
     } catch {
-      return { address: data.address, bnb: null, tokens: [] };
+      return { address: bw.address, bnb: null, tokens: [] };
     }
   });
 
 export const createBotWallet = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: { walletScope?: string } | undefined) =>
+    z.object({ walletScope: walletScopeSchema }).parse(d ?? {}),
+  )
+  .handler(async ({ context, data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertWalletScope(supabaseAdmin, context.userId, data.walletScope);
     const { data: ex } = await supabaseAdmin
       .from("bot_wallets")
       .select("address")
       .eq("user_id", context.userId)
+      .eq("wallet_scope", data.walletScope)
       .maybeSingle();
     if (ex) return { address: ex.address };
     const { newEncryptedWallet } = await import("./bot.server");
     const w = await newEncryptedWallet();
     const { error } = await supabaseAdmin
       .from("bot_wallets")
-      .insert({ user_id: context.userId, ...w });
-    if (error) throw new Error("Não foi possível criar a carteira do robô");
+      .insert({ user_id: context.userId, wallet_scope: data.walletScope, ...w });
+    if (error) {
+      if (error.code === "23505") {
+        const { data: existing } = await supabaseAdmin
+          .from("bot_wallets")
+          .select("address")
+          .eq("user_id", context.userId)
+          .eq("wallet_scope", data.walletScope)
+          .maybeSingle();
+        if (existing) return { address: existing.address };
+      }
+      throw new Error("Não foi possível criar a carteira do robô");
+    }
     await supabaseAdmin.from("audit_log").insert({
       user_id: context.userId,
       action: "bot_wallet_created",
-      details: { address: w.address },
+      details: { address: w.address, wallet_scope: data.walletScope },
     });
     return { address: w.address };
   });
@@ -83,9 +107,10 @@ export const createBotWallet = createServerFn({ method: "POST" })
 /** Sends all bot tokens and BNB (minus gas) back to the wallet registered in Estratégia. */
 export const withdrawBot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { to?: string } | undefined) =>
+  .inputValidator((d: { to?: string; walletScope?: string } | undefined) =>
     z
       .object({
+        walletScope: walletScopeSchema,
         to: z
           .string()
           .regex(/^0x[0-9a-fA-F]{40}$/)
@@ -99,6 +124,7 @@ export const withdrawBot = createServerFn({ method: "POST" })
       const { data: strat } = await context.supabase
         .from("strategies")
         .select("tracked_wallet")
+        .eq("wallet_scope", data.walletScope)
         .not("tracked_wallet", "is", null)
         .order("updated_at", { ascending: false })
         .limit(1)
@@ -121,18 +147,21 @@ export const withdrawBot = createServerFn({ method: "POST" })
       );
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { acquireExecution, releaseExecution } = await import("./executionLock.server");
-    const owner = await acquireExecution(supabaseAdmin, context.userId);
+    await assertWalletScope(supabaseAdmin, context.userId, data.walletScope);
+    const owner = await acquireExecution(supabaseAdmin, context.userId, data.walletScope);
     let unresolved = false;
     try {
       const { error: disarmError } = await supabaseAdmin
         .from("grid_bots")
         .update({ armed: false })
-        .eq("user_id", context.userId);
+        .eq("user_id", context.userId)
+        .eq("wallet_scope", data.walletScope);
       if (disarmError) throw disarmError;
       const { data: bw } = await supabaseAdmin
         .from("bot_wallets")
         .select("enc_key")
         .eq("user_id", context.userId)
+        .eq("wallet_scope", data.walletScope)
         .maybeSingle();
       if (!bw) throw new Error("Sem carteira do robô");
       const { contractTransaction, submitTransaction, settleSubmission } =
@@ -206,9 +235,11 @@ export const withdrawBot = createServerFn({ method: "POST" })
         if (r.receipt.status !== "success") throw new Error("Saque de BNB revertido");
         hashes.push(r.hash);
       }
-      await supabaseAdmin
-        .from("audit_log")
-        .insert({ user_id: context.userId, action: "bot_withdraw", details: { to, hashes } });
+      await supabaseAdmin.from("audit_log").insert({
+        user_id: context.userId,
+        action: "bot_withdraw",
+        details: { to, hashes, wallet_scope: data.walletScope },
+      });
       return { hashes };
     } finally {
       const { data: pending, error } = await supabaseAdmin
@@ -223,8 +254,10 @@ export const withdrawBot = createServerFn({ method: "POST" })
 /** Runs one grid step immediately for the caller's bot on the chosen token. */
 export const runGridNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { token: string }) =>
-    z.object({ token: z.string().regex(/^0x[0-9a-fA-F]{40}$/) }).parse(d),
+  .inputValidator((d: { token: string; walletScope?: string }) =>
+    z
+      .object({ token: z.string().regex(/^0x[0-9a-fA-F]{40}$/), walletScope: walletScopeSchema })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -233,6 +266,7 @@ export const runGridNow = createServerFn({ method: "POST" })
       .from("grid_bots")
       .select("*")
       .eq("user_id", context.userId)
+      .eq("wallet_scope", data.walletScope)
       .eq("token", data.token)
       .maybeSingle();
     if (!bot) throw new Error("Salve a grade primeiro");
@@ -242,18 +276,24 @@ export const runGridNow = createServerFn({ method: "POST" })
 /** Read-only view of the caller's pending submissions; never returns signing material. */
 export const getExecutionStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: { walletScope?: string } | undefined) =>
+    z.object({ walletScope: walletScopeSchema }).parse(d ?? {}),
+  )
+  .handler(async ({ context, data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertWalletScope(supabaseAdmin, context.userId, data.walletScope);
     const { data: lock, error } = await supabaseAdmin
       .from("bot_execution_locks" as never)
       .select("acquired_at")
       .eq("user_id", context.userId)
+      .eq("wallet_scope", data.walletScope)
       .maybeSingle();
     if (error) throw new Error("Não foi possível consultar o estado das operações");
     const { data: pending, error: pendingError } = await supabaseAdmin
       .from("execution_submissions" as never)
       .select("tx_hash,created_at")
       .eq("user_id", context.userId)
+      .eq("wallet_scope", data.walletScope)
       .is("finished_at", null)
       .order("created_at")
       .limit(20);
@@ -268,8 +308,10 @@ export const getExecutionStatus = createServerFn({ method: "GET" })
 /** Read-only observation; never acquires/releases locks, signs or changes bot state. */
 export const getBotAnalysis = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { token: string }) =>
-    z.object({ token: z.string().regex(/^0x[0-9a-fA-F]{40}$/) }).parse(d),
+  .inputValidator((d: { token: string; walletScope?: string }) =>
+    z
+      .object({ token: z.string().regex(/^0x[0-9a-fA-F]{40}$/), walletScope: walletScopeSchema })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
@@ -277,6 +319,7 @@ export const getBotAnalysis = createServerFn({ method: "GET" })
       .from("grid_bots")
       .select("*")
       .eq("user_id", context.userId)
+      .eq("wallet_scope", data.walletScope)
       .ilike("token", data.token)
       .maybeSingle();
     if (error) throw new Error("Não foi possível consultar o robô");

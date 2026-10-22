@@ -1,8 +1,15 @@
+import { LEGACY_WALLET_SCOPE } from "./walletScope";
 /** Persistent wallet-wide mutex. Age alone is never evidence of a failed transaction. */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export async function acquireExecution(admin: any, userId: string) {
+export async function acquireExecution(
+  admin: any,
+  userId: string,
+  walletScope = LEGACY_WALLET_SCOPE,
+) {
   const owner = crypto.randomUUID();
-  const { error } = await admin.from("bot_execution_locks").insert({ user_id: userId, owner });
+  const { error } = await admin
+    .from("bot_execution_locks")
+    .insert({ user_id: userId, owner, wallet_scope: walletScope });
   if (error)
     throw new Error("Carteira em execução ou confirmação pendente; aguarde antes de repetir");
   return owner;
@@ -33,7 +40,7 @@ export async function reconcileLocks(
 ) {
   const { data: locks, error } = await admin
     .from("bot_execution_locks")
-    .select("user_id, owner, acquired_at");
+    .select("user_id, owner, acquired_at,wallet_scope");
   if (error) throw error;
   const released = 0;
   for (const l of locks ?? []) {
@@ -49,6 +56,7 @@ export async function reconcileLocks(
       .from("orders")
       .select("id,tx_hash,source")
       .eq("user_id", l.user_id)
+      .eq("wallet_scope", l.wallet_scope ?? LEGACY_WALLET_SCOPE)
       .eq("status", "enviada");
     if (ordersError) continue;
     // Do not release unknown submissions, approvals or withdrawals, even if no order was saved.
@@ -73,7 +81,8 @@ export async function reconcileLocks(
             armed: false,
             last_error: "Execução legada pendente: concilie o saldo e a posição antes de religar",
           })
-          .eq("user_id", l.user_id);
+          .eq("user_id", l.user_id)
+          .eq("wallet_scope", l.wallet_scope ?? LEGACY_WALLET_SCOPE);
       } catch {
         /* retain the lock until there is positive evidence */
       }

@@ -1,3 +1,4 @@
+import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -29,14 +30,16 @@ export function StrategyAlert({
   pools: PoolInfo[];
 }) {
   const { user } = useAuth();
+  const { walletScope } = useSelectedWallet();
   const strategy = useQuery({
-    queryKey: ["strategy", user?.id, address],
+    queryKey: ["strategy", user?.id, walletScope, address],
     enabled: !!user,
     queryFn: async () => {
       const { data } = await supabase
         .from("strategies")
         .select("config")
         .eq("user_id", user!.id)
+        .eq("wallet_scope", walletScope)
         .eq("token", address)
         .maybeSingle();
       return data

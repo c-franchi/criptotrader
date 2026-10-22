@@ -52,18 +52,21 @@ export type Database = {
       };
       bot_wallets: {
         Row: {
+          wallet_scope: string;
           address: string;
           created_at: string;
           enc_key: string;
           user_id: string;
         };
         Insert: {
+          wallet_scope?: string;
           address: string;
           created_at?: string;
           enc_key: string;
           user_id: string;
         };
         Update: {
+          wallet_scope?: string;
           address?: string;
           created_at?: string;
           enc_key?: string;
@@ -73,6 +76,7 @@ export type Database = {
       };
       grid_bots: {
         Row: {
+          wallet_scope: string;
           armed: boolean;
           gas_reserve_bnb: number;
           id: string;
@@ -94,6 +98,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          wallet_scope?: string;
           armed?: boolean;
           gas_reserve_bnb?: number;
           id?: string;
@@ -115,6 +120,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          wallet_scope?: string;
           armed?: boolean;
           gas_reserve_bnb?: number;
           id?: string;
@@ -193,6 +199,7 @@ export type Database = {
       };
       orders: {
         Row: {
+          wallet_scope: string;
           gas_bnb: number | null;
           actual_token_delta: string | null;
           actual_bnb_received: number | null;
@@ -218,6 +225,7 @@ export type Database = {
           wallet: string;
         };
         Insert: {
+          wallet_scope?: string;
           gas_bnb?: number | null;
           actual_token_delta?: string | null;
           actual_bnb_received?: number | null;
@@ -243,6 +251,7 @@ export type Database = {
           wallet: string;
         };
         Update: {
+          wallet_scope?: string;
           gas_bnb?: number | null;
           actual_token_delta?: string | null;
           actual_bnb_received?: number | null;
@@ -471,6 +480,7 @@ export type Database = {
       };
       strategies: {
         Row: {
+          wallet_scope: string;
           config: Json;
           id: string;
           mode: string;
@@ -483,6 +493,7 @@ export type Database = {
           version: number;
         };
         Insert: {
+          wallet_scope?: string;
           config?: Json;
           id?: string;
           mode?: string;
@@ -495,6 +506,7 @@ export type Database = {
           version?: number;
         };
         Update: {
+          wallet_scope?: string;
           config?: Json;
           id?: string;
           mode?: string;

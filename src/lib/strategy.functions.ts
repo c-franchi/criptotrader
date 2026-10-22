@@ -1,3 +1,5 @@
+import { walletScopeSchema } from "./walletScope";
+import { assertWalletScope } from "./walletScope.server";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -10,6 +12,7 @@ export const saveUserStrategy = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
+        walletScope: walletScopeSchema,
         token: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
         config: strategySchema,
         wallet: z
@@ -23,7 +26,9 @@ export const saveUserStrategy = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertWalletScope(supabaseAdmin, context.userId, data.walletScope);
     return persistStrategy(supabaseAdmin as unknown as StrategyRpcClient, context.userId, {
+      walletScope: data.walletScope,
       token: data.token,
       config: data.config as Json,
       wallet: data.wallet,
@@ -35,7 +40,9 @@ export const saveUserStrategy = createServerFn({ method: "POST" })
 export const getStrategyDraft = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ token: z.string().regex(/^0x[0-9a-fA-F]{40}$/) }).parse(d),
+    z
+      .object({ token: z.string().regex(/^0x[0-9a-fA-F]{40}$/), walletScope: walletScopeSchema })
+      .parse(d),
   )
   .handler(async ({ context, data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -43,6 +50,7 @@ export const getStrategyDraft = createServerFn({ method: "GET" })
       .from("strategy_drafts" as never)
       .select("config,tracked_wallet,base_version,revision")
       .eq("user_id", context.userId)
+      .eq("wallet_scope", data.walletScope)
       .eq("token", data.token.toLowerCase())
       .maybeSingle();
     if (error) throw new Error("Não foi possível recuperar o rascunho salvo.");

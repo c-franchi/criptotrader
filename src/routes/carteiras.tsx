@@ -1,3 +1,4 @@
+import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
@@ -40,6 +41,7 @@ export const Route = createFileRoute("/carteiras")({
 
 function Wallets() {
   const { user } = useAuth();
+  const { selectWallet } = useSelectedWallet();
   const { wallets, add, rename, remove } = useSavedWallets();
   const [address, setAddress] = useState("");
   const [label, setLabel] = useState("");
@@ -109,7 +111,12 @@ function Wallets() {
                 onBlur={(e) => e.target.value !== w.label && rename(w.id, e.target.value)}
               />
               <p className="break-all font-mono text-xs text-muted-foreground">{w.address}</p>
-              <div className="mt-2 flex gap-2">
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button size="sm" asChild>
+                  <Link to="/grade" onClick={() => selectWallet(w.id)}>
+                    Abrir robôs desta carteira
+                  </Link>
+                </Button>
                 <Button
                   size="sm"
                   variant="secondary"
@@ -133,7 +140,7 @@ function Wallets() {
                   size="sm"
                   variant="ghost"
                   className="ml-auto text-destructive"
-                  onClick={() => remove(w.id)}
+                  onClick={() => remove(w.id).catch((e) => toast.error((e as Error).message))}
                 >
                   Remover
                 </Button>
@@ -148,19 +155,20 @@ function Wallets() {
 
 /** Shows the robot's own wallet, clearly separated from the user's personal wallets. */
 function BotWallet() {
+  const { walletScope, name } = useSelectedWallet();
   const getW = useServerFn(getBotWallet);
   const [w, setW] = useState<Awaited<ReturnType<typeof getBotWallet>> | null>(null);
   useEffect(() => {
-    void getW()
+    void getW({ data: { walletScope } })
       .then(setW)
       .catch(() => setW({ address: null, bnb: null, tokens: [] }));
-  }, [getW]);
+  }, [getW, walletScope]);
 
   const bnb = w?.bnb === null || w?.bnb === undefined ? null : Number(w.bnb);
   const held = (w?.tokens ?? []).filter((t) => Number(t.amount) > 0);
 
   return (
-    <Panel title="Carteira do robô">
+    <Panel title={`Carteira automática · ${name}`}>
       {w === null ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : w.address ? (

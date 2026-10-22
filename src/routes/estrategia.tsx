@@ -1,3 +1,4 @@
+import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   AlertDialog,
@@ -147,6 +148,12 @@ function Num({
 
 function StrategyForm() {
   const { user } = useAuth();
+  const {
+    walletScope,
+    address: scopeAddress,
+    setWalletDirty,
+    ready: walletReady,
+  } = useSelectedWallet();
   const { token, selectToken, tokens } = useSelectedToken();
   const [c, setC] = useState<StrategyConfig>(EMPTY_CONFIG);
   const [wallet, setWallet] = useState("");
@@ -161,6 +168,10 @@ function StrategyForm() {
   const savingRef = useRef(false);
   const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const dirty = savedSnapshot != null && savedSnapshot !== JSON.stringify({ c, wallet });
+  useEffect(() => {
+    setWalletDirty(dirty);
+    return () => setWalletDirty(false);
+  }, [dirty, setWalletDirty]);
   useEffect(() => {
     if (!dirty) return;
     const handler = (e: BeforeUnloadEvent) => {
@@ -234,8 +245,12 @@ function StrategyForm() {
     setDraftRevision(0);
     setDraftNotice("");
     Promise.all([
-      supabase.from("strategies").select("*").order("updated_at", { ascending: false }),
-      getStrategyDraft({ data: { token: token.address } }),
+      supabase
+        .from("strategies")
+        .select("*")
+        .eq("wallet_scope", walletScope)
+        .order("updated_at", { ascending: false }),
+      getStrategyDraft({ data: { token: token.address, walletScope } }),
     ])
       .then(([{ data, error }, draft]) => {
         if (error) throw error;
@@ -244,7 +259,7 @@ function StrategyForm() {
         const own = rows.find((r) => r.token.toLowerCase() === token.address.toLowerCase());
         const trackedWallet = draft
           ? (draft.tracked_wallet ?? "")
-          : (rows.find((r) => r.tracked_wallet)?.tracked_wallet ?? "");
+          : (rows.find((r) => r.tracked_wallet)?.tracked_wallet ?? scopeAddress ?? "");
         setWallet(trackedWallet);
         const cfg = draft
           ? { ...EMPTY_CONFIG, ...draft.config }
@@ -282,6 +297,7 @@ function StrategyForm() {
     supabase
       .from("grid_bots")
       .select("id")
+      .eq("wallet_scope", walletScope)
       .eq("armed", true)
       .ilike("token", token.address)
       .limit(1)
@@ -300,7 +316,7 @@ function StrategyForm() {
     return () => {
       alive = false;
     };
-  }, [token.address]);
+  }, [token.address, walletScope, scopeAddress]);
 
   useEffect(() => {
     let alive = true;
@@ -349,7 +365,7 @@ function StrategyForm() {
     else void save();
   };
   const save = async () => {
-    if (!user || errors.length) return;
+    if (!user || !walletReady || errors.length) return;
     const validation = strategySchema.safeParse(c);
     if (!validation.success)
       return void toast.error(validation.error.issues[0]?.message ?? "Revise a estratégia");
@@ -358,7 +374,14 @@ function StrategyForm() {
     setSaving(true);
     try {
       const result = await saveUserStrategy({
-        data: { token: token.address, config: c, wallet: wallet || null, version, draftRevision },
+        data: {
+          token: token.address,
+          config: c,
+          wallet: wallet || null,
+          version,
+          draftRevision,
+          walletScope,
+        },
       });
       if (tokenRef.current !== token.address) return;
       setVersion(result.version);
@@ -369,6 +392,7 @@ function StrategyForm() {
         const { data: latest } = await supabase
           .from("strategies")
           .select("version,config")
+          .eq("wallet_scope", walletScope)
           .ilike("token", token.address)
           .maybeSingle();
         if (tokenRef.current !== token.address) return;
@@ -430,16 +454,15 @@ function StrategyForm() {
               Robô ligado para {token.symbol} — você pode ajustar sem desligar
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Altere o que quiser (metas de venda, stop, valores, recompras) e salve. O robô
-              continua em execução e passa a seguir as novas regras na próxima verificação (até 1
-              minuto). A posição atual, o preço médio e as compras já feitas são mantidos.
+              A carteira selecionada possui um robô ligado. Ajustes só passam a valer após aplicar
+              uma nova versão; rascunhos não alteram as operações. A posição atual é preservada.
             </p>
           </div>
         )}
-        <Panel title="Passo 1 · Escolha sua carteira">
+        <Panel title="Passo 1 · Carteira pessoal para operações manuais">
           <p className="mb-2 text-xs text-muted-foreground">
-            Comece por aqui: é dessa carteira que sai o BNB para comprar e para onde volta o BNB das
-            vendas.
+            Esta é a carteira usada ao operar manualmente. O robô automático usa uma carteira
+            própria da área selecionada acima; envie saldo para ela na tela Robô.
           </p>
           <WalletPicker value={wallet} onPick={setWallet} />
           <Input

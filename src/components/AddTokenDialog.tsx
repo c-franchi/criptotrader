@@ -1,3 +1,4 @@
+import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +23,7 @@ const isAddr = (a: string) => /^0x[0-9a-fA-F]{40}$/.test(a);
 const fmt = (v: string) => Number(v).toLocaleString("pt-BR", { maximumFractionDigits: 6 });
 
 export function AddTokenDialog({ wallet: initialWallet }: { wallet?: string | null }) {
+  const { walletScope, address: selectedAddress } = useSelectedWallet();
   const { tokens, addToken, removeToken, selectToken } = useSelectedToken();
   const [open, setOpen] = useState(false);
   const [wallet, setWallet] = useState(initialWallet ?? "");
@@ -32,17 +34,19 @@ export function AddTokenDialog({ wallet: initialWallet }: { wallet?: string | nu
 
   useEffect(() => {
     if (!open || wallet) return;
-    if (initialWallet) return void setWallet(initialWallet);
+    if (initialWallet || selectedAddress)
+      return void setWallet(initialWallet ?? selectedAddress ?? "");
     supabase
       .from("strategies")
       .select("tracked_wallet")
+      .eq("wallet_scope", walletScope)
       .not("tracked_wallet", "is", null)
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
         if (data?.tracked_wallet) setWallet(data.tracked_wallet);
       });
-  }, [open, wallet, initialWallet]);
+  }, [open, wallet, initialWallet, selectedAddress, walletScope]);
 
   const add = async (t: {
     address: `0x${string}`;

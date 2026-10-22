@@ -1,3 +1,4 @@
+import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { formatPrice } from "@/lib/display";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { PRESETS } from "@/lib/presets";
@@ -116,6 +117,7 @@ function Operar() {
   const { token: selected, selectToken: setGTE, tokens } = useSelectedToken();
   const GTE = selected.address;
   const sym = selected.symbol;
+  const { walletScope } = useSelectedWallet();
   const [wallet, setWallet] = useState<WalletClient | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
@@ -199,6 +201,7 @@ function Operar() {
     supabase
       .from("strategies")
       .select("tracked_wallet, config, token")
+      .eq("wallet_scope", walletScope)
       .order("updated_at", { ascending: false })
       .then(({ data }) => {
         const rows = data ?? [];
@@ -218,7 +221,7 @@ function Operar() {
     loadMarket();
     const t = setInterval(loadMarket, 30_000);
     return () => clearInterval(t);
-  }, [loadOrders, loadMarket, GTE]);
+  }, [loadOrders, loadMarket, GTE, walletScope]);
 
   useEffect(() => {
     if (!account) return;

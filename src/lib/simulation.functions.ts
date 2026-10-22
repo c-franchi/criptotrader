@@ -1,3 +1,4 @@
+import { walletScopeSchema } from "./walletScope";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import Decimal from "decimal.js";
@@ -59,6 +60,7 @@ export const tradeSimulation = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
+        walletScope: walletScopeSchema,
         id: z.string().uuid(),
         requestId: z.string().uuid(),
         revision: z.number().int().nonnegative(),
@@ -109,6 +111,7 @@ export const tradeSimulation = createServerFn({ method: "POST" })
     const { data: strategy } = await context.supabase
       .from("strategies")
       .select("config")
+      .eq("wallet_scope", data.walletScope)
       .ilike("token", data.token)
       .maybeSingle();
     const tax = taxFor(

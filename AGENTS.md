@@ -31,3 +31,5 @@
 - In-app notifications live in the notifications table (users read/delete own; only service_role inserts) — alert and robot ticks write them alongside push.
 
 - On-chain market fallback converts to USD through the PancakeSwap V2 WBNB/USDT pool so the robot keeps a USD price when DexScreener is rate-limited.- Security guards (robot liquidity floor, slippage levels, contract bytecode risk scan) are pure helpers in src/lib/safety.ts (tested); wallet-saved alerts go through security.functions.ts so bell+push fire server-side.
+
+- Real portfolios use wallet_scope (saved user_wallets.id); the zero UUID preserves the original portfolio. Always qualify wallet keys, bots, strategies, drafts, receipts and withdrawals by user plus scope. Never change a bot’s scope after creation. The scheduler may run different wallets concurrently, but every signing path keeps the persistent mutex for that wallet. Switching the displayed scope never arms or pauses bots.

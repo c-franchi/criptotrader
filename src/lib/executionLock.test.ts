@@ -4,9 +4,10 @@ it("wallet-wide atomic uniqueness blocks a second execution and owner mismatch c
   const rows = new Map<string, string>();
   const admin = {
     from: () => ({
-      insert: async (r: { user_id: string; owner: string }) => {
-        if (rows.has(r.user_id)) return { error: "duplicate" };
-        rows.set(r.user_id, r.owner);
+      insert: async (r: { user_id: string; owner: string; wallet_scope: string }) => {
+        const key = `${r.user_id}:${r.wallet_scope}`;
+        if (rows.has(key)) return { error: "duplicate" };
+        rows.set(key, r.owner);
         return { error: null };
       },
       delete: () => {
@@ -17,8 +18,9 @@ it("wallet-wide atomic uniqueness blocks a second execution and owner mismatch c
             return q;
           },
           then: (resolve: (v: { error: null }) => void) => {
-            if (rows.get(filters["user_id"] ?? "") === filters["owner"])
-              rows.delete(filters["user_id"] ?? "");
+            for (const [key, owner] of rows)
+              if (key.startsWith(`${filters["user_id"]}:`) && owner === filters["owner"])
+                rows.delete(key);
             resolve({ error: null });
           },
         };
@@ -31,6 +33,14 @@ it("wallet-wide atomic uniqueness blocks a second execution and owner mismatch c
   await releaseExecution(admin, "user", "wrong-owner");
   expect(rows.size).toBe(1);
   await releaseExecution(admin, "user", owner);
+  expect(rows.size).toBe(0);
+  const a = await acquireExecution(admin, "user", "wallet-a");
+  const b = await acquireExecution(admin, "user", "wallet-b");
+  expect(rows.size).toBe(2);
+  await expect(acquireExecution(admin, "user", "wallet-a")).rejects.toThrow("Carteira em execução");
+  await releaseExecution(admin, "user", a);
+  expect(rows.size).toBe(1);
+  await releaseExecution(admin, "user", b);
   expect(rows.size).toBe(0);
 });
 import { canReleaseLock, STALE_LOCK_MS } from "./executionLock.server";

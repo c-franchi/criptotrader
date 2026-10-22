@@ -1,3 +1,4 @@
+import { WalletSelector } from "./WalletSelector";
 import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
@@ -203,6 +204,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         data-app-content
         className="mx-auto w-full min-w-0 max-w-[1600px] px-3 py-4 sm:px-4 sm:py-6"
       >
+        <WalletSelector />
         {children}
       </main>
     </div>

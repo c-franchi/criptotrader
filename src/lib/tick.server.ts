@@ -1,3 +1,5 @@
+import { runWalletQueues } from "./walletQueues";
+import { LEGACY_WALLET_SCOPE } from "./walletScope";
 import { BeforeBroadcastError, BeforeSigningError } from "./executionPhase";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { runGridStep } from "./bot.server";
@@ -8,7 +10,7 @@ import { acquireExecution, reconcileLocks, releaseExecution } from "./executionL
 export async function tickBot(admin: any, bot: any) {
   let owner: string;
   try {
-    owner = await acquireExecution(admin, bot.user_id);
+    owner = await acquireExecution(admin, bot.user_id, bot.wallet_scope ?? LEGACY_WALLET_SCOPE);
   } catch {
     const reason = "Execução bloqueada: carteira em uso ou operação anterior sem conciliação";
     const { error } = await admin.from("grid_bots").update({ last_error: reason }).eq("id", bot.id);
@@ -30,6 +32,7 @@ export async function tickBot(admin: any, bot: any) {
       .from("bot_wallets")
       .select("enc_key")
       .eq("user_id", bot.user_id)
+      .eq("wallet_scope", bot.wallet_scope ?? LEGACY_WALLET_SCOPE)
       .maybeSingle();
     if (!bw) {
       await admin
@@ -137,16 +140,18 @@ export async function tickAll(admin: any) {
     .order("last_run_at", { ascending: true, nullsFirst: true })
     .limit(20);
   if (botsError) throw botsError;
-  const out: { ok: boolean; blocked?: boolean; reason?: string | null }[] = [];
   const started = Date.now();
-  for (const b of bots ?? []) {
-    if (Date.now() - started > 40_000) break;
-    try {
-      out.push(await tickBot(admin, b));
-    } catch {
-      out.push({ ok: false, reason: "Falha isolada; próxima execução tentará conciliar" });
-    }
-  }
+  const out = await runWalletQueues(
+    bots ?? [],
+    async (b: any): Promise<{ ok: boolean; blocked?: boolean; reason?: string | null }> => {
+      try {
+        return await tickBot(admin, b);
+      } catch {
+        return { ok: false, reason: "Falha isolada; próxima execução tentará conciliar" };
+      }
+    },
+    () => Date.now() - started <= 40_000,
+  );
   const blocked = out.filter((r) => r.blocked).length;
   const failed = out.filter((r) => !r.ok && !r.blocked).length;
   return {

@@ -1,3 +1,5 @@
+import { useSelectedWallet } from "@/hooks/useSelectedWallet";
+import { LEGACY_WALLET_SCOPE } from "@/lib/walletScope";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -102,6 +104,13 @@ function Step({
 
 function Robo() {
   const { user } = useAuth();
+  const {
+    walletScope,
+    name: walletName,
+    wallets: scopeWallets,
+    selectWallet,
+    ready: walletReady,
+  } = useSelectedWallet();
   const getW = useServerFn(getBotWallet),
     createW = useServerFn(createBotWallet),
     withdraw = useServerFn(withdrawBot),
@@ -127,7 +136,7 @@ function Robo() {
       if (busy) return;
       busy = true;
       try {
-        const result = await getBotAnalysis({ data: { token } });
+        const result = await getBotAnalysis({ data: { token, walletScope } });
         if (alive) {
           setAnalysis(result);
           setAnalysisError(false);
@@ -144,7 +153,7 @@ function Robo() {
       alive = false;
       clearInterval(timer);
     };
-  }, [token]);
+  }, [token, walletScope]);
   const [execution, setExecution] = useState<Awaited<ReturnType<typeof getExecutionStatus>> | null>(
     null,
   );
@@ -156,10 +165,10 @@ function Robo() {
   const [allBots, setAllBots] = useState<Bot[]>([]);
 
   const load = useCallback(async () => {
-    void getExecutionStatus()
+    void getExecutionStatus({ data: { walletScope } })
       .then(setExecution)
       .catch(() => setExecution(null));
-    getW()
+    getW({ data: { walletScope } })
       .then(setW)
       .catch(() => setW({ address: null, bnb: null, tokens: [] }));
     const { data: list } = await supabase
@@ -167,7 +176,10 @@ function Robo() {
       .select("*")
       .order("updated_at", { ascending: false });
     setAllBots(list ?? []);
-    const data = (list ?? []).find((b) => b.token.toLowerCase() === token.toLowerCase()) ?? null;
+    const data =
+      (list ?? []).find(
+        (b) => b.wallet_scope === walletScope && b.token.toLowerCase() === token.toLowerCase(),
+      ) ?? null;
     setBot(data);
     setMode((data?.mode as Mode) ?? "estrategia");
     setF(
@@ -180,6 +192,7 @@ function Robo() {
     const { data: s } = await supabase
       .from("strategies")
       .select("config")
+      .eq("wallet_scope", walletScope)
       .ilike("token", token)
       .order("updated_at", { ascending: false })
       .limit(1)
@@ -188,11 +201,12 @@ function Robo() {
     const { data: o } = await supabase
       .from("orders")
       .select("*")
+      .eq("wallet_scope", walletScope)
       .in("source", ["grade", "robo"])
       .order("created_at", { ascending: false })
       .limit(orderLimit);
     setOrders(o ?? []);
-  }, [token, getW, orderLimit]);
+  }, [token, getW, orderLimit, walletScope]);
   useEffect(() => {
     load();
     const t = setInterval(load, 30_000);
@@ -200,10 +214,11 @@ function Robo() {
   }, [load]);
 
   const persist = async (armed?: boolean) => {
-    if (!user) return;
+    if (!user || !walletReady) return;
     if (armed && !w?.address) return void toast.error("Crie a carteira do robô antes de ligar");
     let row: Record<string, unknown> = {
       user_id: user.id,
+      wallet_scope: walletScope,
       token,
       mode,
       armed: armed ?? bot?.armed ?? false,
@@ -239,7 +254,9 @@ function Robo() {
             .from("grid_bots")
             .update({ armed: false, updated_at: new Date().toISOString() })
             .eq("id", bot.id)
-        : await supabase.from("grid_bots").upsert(row as never, { onConflict: "user_id,token" });
+        : await supabase
+            .from("grid_bots")
+            .upsert(row as never, { onConflict: "user_id,wallet_scope,token" });
     if (error)
       return void toast.error(
         armed === false
@@ -324,7 +341,7 @@ function Robo() {
         </div>
       </div>
 
-      <Panel title={`Robô · ${sym}`}>
+      <Panel title={`Robô · ${sym} · ${walletName}`}>
         <p role="status" className="text-lg font-semibold">
           {!execution
             ? "Consultando estado…"
@@ -356,6 +373,7 @@ function Robo() {
             <Button
               disabled={
                 saving ||
+                !walletReady ||
                 !execution ||
                 execution.locked ||
                 !w?.address ||
@@ -440,9 +458,9 @@ function Robo() {
         title={`Meus robôs (${allBots.filter((b) => b.armed).length} ligado${allBots.filter((b) => b.armed).length === 1 ? "" : "s"})`}
       >
         <p className="mb-2 text-xs text-muted-foreground">
-          Você pode ter <strong className="text-foreground">um robô para cada token</strong>, todos
-          ao mesmo tempo. Toque em um robô para ver e alterar. Todos usam o mesmo saldo da carteira
-          do robô.
+          Você pode ter <strong className="text-foreground">um robô para cada token</strong>, em
+          cada carteira. Eles continuam ativos ao trocar a visualização. Toque em um robô para abrir
+          a carteira e o token correspondentes.
         </p>
         {allBots.length === 0 ? (
           <p className="text-xs text-muted-foreground">
@@ -452,11 +470,19 @@ function Robo() {
           <ul className="space-y-2">
             {allBots.map((b) => {
               const tk = tokens.find((t) => t.address.toLowerCase() === b.token.toLowerCase());
-              const active = b.token.toLowerCase() === token.toLowerCase();
+              const active =
+                b.wallet_scope === walletScope && b.token.toLowerCase() === token.toLowerCase();
+              const scopeName =
+                b.wallet_scope === LEGACY_WALLET_SCOPE
+                  ? "Robô original"
+                  : scopeWallets.find((w) => w.id === b.wallet_scope)?.label || "Outra carteira";
               return (
                 <li key={b.id}>
                   <button
-                    onClick={() => setToken(tk?.address ?? b.token)}
+                    onClick={() => {
+                      selectWallet(b.wallet_scope);
+                      setToken(tk?.address ?? b.token);
+                    }}
                     className={`w-full rounded-md border p-3 text-left text-xs ${active ? "border-primary bg-primary/10" : b.armed ? "border-success/50 bg-success/5" : "border-border"}`}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -473,7 +499,7 @@ function Robo() {
                       </span>
                     </div>
                     <p className="mt-1 text-muted-foreground">
-                      {b.mode === "grade" ? "Grade de preços" : "Minha estratégia"}
+                      {scopeName} · {b.mode === "grade" ? "Grade de preços" : "Minha estratégia"}
                       {b.last_run_at
                         ? ` · conferiu às ${new Date(b.last_run_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
                         : ""}
@@ -534,8 +560,19 @@ function Robo() {
         <Panel title="Preparar robô">
           <ol className="space-y-2">
             <Step n={1} done={!!w?.address} title="Criar a carteira do robô">
-              É uma carteira nova, só do robô. A chave fica guardada criptografada no servidor e
-              ninguém vê. Toque em "Criar carteira do robô" abaixo.
+              Crie uma carteira automática separada para {walletName}. Ela usa apenas o saldo que
+              você enviar; as outras carteiras continuam independentes.
+              <div className="mt-2">
+                <Button
+                  size="sm"
+                  disabled={busy || !walletReady}
+                  onClick={() =>
+                    act(() => createW({ data: { walletScope } }), "Carteira automática criada")
+                  }
+                >
+                  Criar carteira automática
+                </Button>
+              </div>
             </Step>
             <Step n={2} done={hasFunds} title="Colocar BNB na carteira do robô">
               Toque em "Enviar BNB da minha carteira" (abaixo), escolha o valor e confirme no app da
@@ -735,7 +772,7 @@ function Robo() {
               onClick={() =>
                 confirm(
                   "Executar uma avaliação agora? Se houver um sinal válido, o robô poderá enviar uma operação real.",
-                ) && act(() => runNow({ data: { token } }), "Avaliação executada")
+                ) && act(() => runNow({ data: { token, walletScope } }), "Avaliação executada")
               }
             >
               Avaliar e operar agora
@@ -776,7 +813,7 @@ function Robo() {
         )}
       </Panel>
 
-      <Panel collapsible title="Adicionar ou retirar saldo">
+      <Panel collapsible title={`Adicionar ou retirar saldo · ${walletName}`}>
         {w === null ? (
           <Unavailable reason="carregando" />
         ) : w.address ? (
@@ -821,7 +858,7 @@ function Robo() {
               >
                 {bnb < reserve
                   ? `O robô tem ${bnb} BNB, mas sua estratégia guarda ${reserve} BNB só para o gás (reserva de segurança). Para operar ele precisa de ~${need ? +need.total.toFixed(6) : reserve} BNB no total. Envie mais ou diminua a "reserva para gás" na estratégia.`
-                  : "Saldo suficiente para o gás."}
+                  : "Saldo suficiente para o gás desta carteira."}
               </p>
             )}
             {w.tokens
@@ -835,7 +872,7 @@ function Robo() {
                 </p>
               ))}
             <div className="mt-3 rounded-md border border-warning/50 bg-warning/10 p-3">
-              <p className="font-semibold">Retirar saldo e pausar os robôs</p>
+              <p className="font-semibold">Retirar saldo e pausar os robôs desta carteira</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 A qualquer momento: o robô é{" "}
                 <strong className="text-foreground">desligado na hora</strong>, os tokens que ele
@@ -885,10 +922,10 @@ function Robo() {
                       disabled={busy || !dest}
                       onClick={() =>
                         confirm(
-                          "Desligar o robô e devolver todo o saldo para a carteira escolhida?",
+                          "Pausar os robôs desta carteira e devolver seu saldo para o destino escolhido? Os robôs das outras carteiras continuam ativos.",
                         ) &&
                         act(
-                          () => withdraw({ data: { to: dest } }),
+                          () => withdraw({ data: { to: dest, walletScope } }),
                           "Devolução enviada. Confira na sua carteira em alguns segundos.",
                         )
                       }
@@ -901,7 +938,10 @@ function Robo() {
             </div>
           </div>
         ) : (
-          <Button disabled={busy} onClick={() => act(() => createW(), "Carteira do robô criada")}>
+          <Button
+            disabled={busy}
+            onClick={() => act(() => createW({ data: { walletScope } }), "Carteira do robô criada")}
+          >
             Criar carteira do robô
           </Button>
         )}

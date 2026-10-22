@@ -1,3 +1,4 @@
+import { LEGACY_WALLET_SCOPE } from "./walletScope";
 import { withExecutionPhase } from "./executionPhase";
 import {
   createPublicClient,
@@ -100,6 +101,7 @@ export async function poolState(token: `0x${string}`) {
 type Bot = {
   id: string;
   user_id: string;
+  wallet_scope?: string;
   token: string;
   lower_price: number;
   upper_price: number;
@@ -184,6 +186,7 @@ async function runGridStepImpl(
     .from("strategies")
     .select("config")
     .eq("user_id", bot.user_id)
+    .eq("wallet_scope", bot.wallet_scope ?? LEGACY_WALLET_SCOPE)
     .ilike("token", token)
     .maybeSingle();
   const { hasVerifiedTax } = await import("./tokens");

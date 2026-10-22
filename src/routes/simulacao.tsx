@@ -1,3 +1,4 @@
+import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
@@ -55,6 +56,7 @@ const toState = (a: Account): SimState => ({
 });
 
 function Sim() {
+  const { walletScope } = useSelectedWallet();
   const { user } = useAuth();
   const { token } = useSelectedToken();
   const market = useQuery({
@@ -117,6 +119,7 @@ function Sim() {
       if (!acc) return;
       await tradeSimulation({
         data: {
+          walletScope,
           id: acc.id,
           revision: acc.revision,
           requestId: crypto.randomUUID(),

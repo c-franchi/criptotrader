@@ -10,6 +10,7 @@ export async function persistStrategy(
   admin: StrategyRpcClient,
   userId: string,
   data: {
+    walletScope?: string;
     token: string;
     config: Json;
     wallet: string | null;
@@ -17,14 +18,18 @@ export async function persistStrategy(
     draftRevision: number;
   },
 ) {
-  const { error } = await admin.rpc("apply_strategy_with_draft", {
-    p_user: userId,
-    p_token: data.token,
-    p_config: data.config,
-    p_wallet: data.wallet,
-    p_version: data.version,
-    p_draft_revision: data.draftRevision,
-  });
+  const { error } = await admin.rpc(
+    data.walletScope ? "apply_strategy_with_draft_scoped" : "apply_strategy_with_draft",
+    {
+      p_user: userId,
+      ...(data.walletScope ? { p_scope: data.walletScope } : {}),
+      p_token: data.token,
+      p_config: data.config,
+      p_wallet: data.wallet,
+      p_version: data.version,
+      p_draft_revision: data.draftRevision,
+    },
+  );
   if (!error)
     return {
       status: "applied" as const,
@@ -35,14 +40,18 @@ export async function persistStrategy(
   const restriction = strategySaveRestriction(error.message);
   if (restriction.kind === "unavailable" || restriction.kind === "draft_conflict")
     throw new Error(restriction.text);
-  const { data: revision, error: draftError } = await admin.rpc("save_strategy_draft", {
-    p_user: userId,
-    p_token: data.token,
-    p_config: data.config,
-    p_wallet: data.wallet,
-    p_base_version: data.version,
-    p_revision: data.draftRevision,
-  });
+  const { data: revision, error: draftError } = await admin.rpc(
+    data.walletScope ? "save_strategy_draft_scoped" : "save_strategy_draft",
+    {
+      p_user: userId,
+      ...(data.walletScope ? { p_scope: data.walletScope } : {}),
+      p_token: data.token,
+      p_config: data.config,
+      p_wallet: data.wallet,
+      p_base_version: data.version,
+      p_revision: data.draftRevision,
+    },
+  );
   if (draftError) throw new Error(strategySaveRestriction(draftError.message).text);
   return {
     status: "draft" as const,

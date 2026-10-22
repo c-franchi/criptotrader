@@ -1,3 +1,4 @@
+import { LEGACY_WALLET_SCOPE } from "./walletScope";
 import { withExecutionPhase } from "./executionPhase";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Decimal from "decimal.js";
@@ -13,7 +14,13 @@ import { strategyObservation } from "./strategyObservation";
 import { hasVerifiedTax, taxFor } from "./tokens";
 import { EMPTY_CONFIG, type StrategyConfig } from "./strategy";
 
-type Bot = { id: string; user_id: string; token: string; strat_state: unknown };
+type Bot = {
+  id: string;
+  user_id: string;
+  wallet_scope?: string;
+  token: string;
+  strat_state: unknown;
+};
 
 /** Runs one tick of the robot following the user's saved strategy for this token. At most one swap. */
 export async function runStrategyStep(
@@ -40,6 +47,7 @@ async function runStrategyStepImpl(
     .from("strategies")
     .select("config")
     .eq("user_id", bot.user_id)
+    .eq("wallet_scope", bot.wallet_scope ?? LEGACY_WALLET_SCOPE)
     .ilike("token", bot.token)
     .order("updated_at", { ascending: false })
     .limit(1)
@@ -169,6 +177,7 @@ async function runStrategyStepImpl(
       .from("grid_bots")
       .select("token,mode,gas_reserve_bnb")
       .eq("user_id", bot.user_id)
+      .eq("wallet_scope", bot.wallet_scope ?? LEGACY_WALLET_SCOPE)
       .eq("armed", true)
       .neq("id", bot.id);
     if (budgetError) throw budgetError;

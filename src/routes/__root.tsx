@@ -1,3 +1,4 @@
+import { SelectedWalletProvider } from "@/hooks/useSelectedWallet";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -133,7 +134,9 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <SelectedTokenProvider>
-        <Outlet />
+        <SelectedWalletProvider>
+          <Outlet />
+        </SelectedWalletProvider>
       </SelectedTokenProvider>
       <Toaster />
       <PushAfterInstall />
