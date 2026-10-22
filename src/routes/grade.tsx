@@ -557,8 +557,8 @@ function Robo() {
                 Criar estratégia ›
               </Link>
             </Step>
-            <Step n={4} done={armed} title="Ligar o robô">
-              Revise o resumo abaixo e toque em "Ligar robô".
+            <Step n={4} done={armed} title="Iniciar o robô">
+              Revise o resumo abaixo e toque em "Iniciar robô".
             </Step>
           </ol>
         </Panel>
@@ -602,7 +602,7 @@ function Robo() {
           </div>
           {armed && (
             <p className="mb-2 text-[11px] text-muted-foreground">
-              Desligue o robô para trocar o modo.
+              Pause o robô para trocar o modo.
             </p>
           )}
           {mode === "estrategia" &&
@@ -947,7 +947,8 @@ function Robo() {
         <div className="space-y-3 text-sm">
           <Faq q="O robô usa a estratégia que eu salvei?">
             Sim. No modo "Minha estratégia" ele lê a estratégia salva do token a cada minuto. Se
-            você mudar e salvar a estratégia, o robô passa a seguir a nova na próxima verificação.
+            você aplicar uma nova versão da estratégia, o robô passa a segui-la na próxima
+            verificação. Um rascunho salvo ainda não altera as operações reais.
           </Faq>
           <Faq q="Ele considera a taxa do token?">
             Sim. A taxa medida no contrato (ex.: 8% em alguns tokens) é descontada do valor mínimo
@@ -971,8 +972,9 @@ function Robo() {
             continua 100% sua.
           </Faq>
           <Faq q="Como paro tudo?">
-            Toque em "Desligar robô". Para pegar o dinheiro de volta, use "Desligar e devolver tudo"
-            na área Carteira do robô — dá para fazer a qualquer momento, até logo depois de enviar.
+            Toque em "Pausar robô" para impedir novas operações. Para retirar o saldo, abra
+            "Adicionar ou retirar saldo" e use "Desligar e devolver tudo". Se houver uma transação
+            enviada, a retirada aguarda sua confirmação.
           </Faq>
         </div>
       </Panel>
