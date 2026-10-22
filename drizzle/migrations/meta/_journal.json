@@ -127,6 +127,13 @@
       "when": 1792696500000,
       "tag": "0017_reset_strategy_configuration",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792700396419,
+      "tag": "0018_remove_paused_bot",
+      "breakpoints": true
     }
   ]
 }

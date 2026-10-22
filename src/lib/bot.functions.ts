@@ -268,6 +268,7 @@ export const runGridNow = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .eq("wallet_scope", data.walletScope)
       .eq("token", data.token)
+      .is("archived_at", null)
       .maybeSingle();
     if (!bot) throw new Error("Salve a grade primeiro");
     return tickBot(supabaseAdmin, bot);
@@ -321,6 +322,7 @@ export const getBotAnalysis = createServerFn({ method: "GET" })
       .eq("user_id", context.userId)
       .eq("wallet_scope", data.walletScope)
       .ilike("token", data.token)
+      .is("archived_at", null)
       .maybeSingle();
     if (error) throw new Error("Não foi possível consultar o robô");
     if (!bot)

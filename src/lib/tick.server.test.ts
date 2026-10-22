@@ -18,6 +18,7 @@ it("reports blocked ticks as degraded and never claims the strategy was evaluate
       const q: any = {
         select: () => q,
         eq: () => q,
+        is: () => q,
         order: () => q,
         limit: () => q,
         update: (patch: any) => {
@@ -50,6 +51,7 @@ it("releases proven pre-broadcast failures but retains unresolved earlier submis
         const q: any = {
           select: () => q,
           eq: () => q,
+          is: () => q,
           update: () => q,
           maybeSingle: async () => ({
             data: table === "grid_bots" ? bot : { enc_key: "unused" },
