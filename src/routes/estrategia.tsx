@@ -17,6 +17,7 @@ import { AppShell, Panel, RequireLogin } from "@/components/AppShell";
 import { getStrategyDraft, saveUserStrategy } from "@/lib/strategy.functions";
 import { strategySchema } from "@/lib/strategyValidation";
 import { EMPTY_CONFIG, describeStrategy, type StrategyConfig } from "@/lib/strategy";
+import { StrategyPresetCard } from "@/components/StrategyPresetCard";
 import { PRESETS, buildPreset, type PresetId } from "@/lib/presets";
 import { breakEvenPct, taxFor } from "@/lib/tokens";
 import { hasTokenTax, stopRealLossPct } from "@/lib/stopLoss";
@@ -397,7 +398,7 @@ function StrategyForm() {
   const firstEntry = c.sizingMode === "fixo" && c.buyAmount > 0 ? c.buyAmount : null;
 
   return (
-    <div className="grid min-w-0 gap-4 [&>*]:min-w-0 lg:grid-cols-[minmax(0,1fr)_380px]">
+    <div className="grid w-full min-w-0 grid-cols-1 gap-4 [&>*]:min-w-0 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="space-y-4">
         <nav
           onClick={(e) => {
@@ -624,8 +625,8 @@ function StrategyForm() {
               <HelpTip title="Tipos de estratégia">
                 <p>
                   <b>Prontas (robô automático):</b> regras já montadas para o robô seguir sozinho. O
-                  robô automático ainda está em construção — por enquanto elas servem para aprender
-                  e simular.
+                  robô automático executa as regras reais quando estiver ligado e sem bloqueios de
+                  execução.
                 </p>
                 <p>
                   <b>Manual:</b> você mesmo define quando comprar e vender, e recebe avisos no
@@ -695,59 +696,13 @@ function StrategyForm() {
             )}
 
             {preset && (
-              <div className="mt-3 space-y-3 rounded-md border-2 border-primary bg-primary/10 p-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-semibold text-primary">{preset.name}</p>
-                  <span className="rounded-full border border-warning/50 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning">
-                    Funciona no Robô automático
-                  </span>
-                </div>
-                <p className="text-sm">{preset.summary}</p>
-                <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Como funciona
-                  </p>
-                  <ul className="space-y-1.5 text-sm">
-                    {preset.how.map((h) => (
-                      <li key={h} className="flex gap-2">
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                        <span>{h}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="rounded-md bg-background/60 p-2.5">
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Para quem é
-                  </p>
-                  <p className="text-sm">{preset.forWho}</p>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Esta estratégia foi feita para o robô seguir sozinho. Enquanto o robô automático
-                  não fica pronto, você pode salvá-la, ver o resultado em Métricas e fazer as
-                  compras em Operar.
-                </p>
-                <Button
-                  className="w-full"
-                  variant={c.presetId === preset.id && !edited ? "default" : "outline"}
-                  disabled={!(amountBnb > 0)}
-                  onClick={() => applyPreset(preset.id)}
-                >
-                  {c.presetId === preset.id ? (
-                    <>
-                      <Check className="h-4 w-4" />{" "}
-                      {edited ? "Reaplicar com este valor" : "✓ Em uso"}
-                    </>
-                  ) : (
-                    "Usar esta estratégia"
-                  )}
-                </Button>
-                {!(amountBnb > 0) && (
-                  <p className="text-xs text-destructive">
-                    Digite o valor no passo 3 para montar a estratégia.
-                  </p>
-                )}
-              </div>
+              <StrategyPresetCard
+                preset={preset}
+                selected={c.presetId === preset.id}
+                edited={edited}
+                canApply={amountBnb > 0}
+                onApply={() => applyPreset(preset.id)}
+              />
             )}
 
             {mode === "manual" && (
@@ -1108,7 +1063,10 @@ function StrategyForm() {
             >
               <div className="space-y-3">
                 {c.takeProfits.map((t, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+                  <div
+                    key={i}
+                    className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2"
+                  >
                     <Num
                       label={`TP ${i + 1}: valorização sobre preço médio (%)`}
                       help="Take-profit (realizar lucro): quando o preço subir esse % acima do que você pagou, vende uma parte. Ex.: +10% vende metade e garante o ganho."

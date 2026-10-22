@@ -60,7 +60,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const current = nav.find((n) => n.to === pathname);
   return (
-    <div className="min-h-screen pb-20 lg:pb-0 lg:pl-64">
+    <div
+      data-app-shell
+      className="min-h-screen w-full min-w-0 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64"
+    >
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-card lg:flex">
         <Link
           to="/"
@@ -101,7 +104,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link
               key={n.to}
               to={n.to}
-              className="flex min-h-16 flex-1 flex-col items-center justify-center gap-1 text-[10px] text-muted-foreground"
+              className="flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 text-center text-[10px] text-muted-foreground"
               activeProps={{ className: "text-primary" }}
               activeOptions={{ exact: true }}
             >
@@ -176,7 +179,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Sheet>
           <Link
             to="/"
-            className="shrink-0 font-mono text-sm font-semibold tracking-wider text-primary"
+            className="min-w-0 break-words font-mono text-sm font-semibold tracking-wider text-primary"
           >
             CRYPTO·BOT
           </Link>
@@ -196,7 +199,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-[1600px] px-3 py-4 sm:px-4 sm:py-6">{children}</main>
+      <main
+        data-app-content
+        className="mx-auto w-full min-w-0 max-w-[1600px] px-3 py-4 sm:px-4 sm:py-6"
+      >
+        {children}
+      </main>
     </div>
   );
 }
@@ -226,29 +234,33 @@ export function Panel({
             el.scrollIntoView({ behavior: "smooth", block: el.open ? "start" : "center" }),
           );
         }}
-        className="group min-w-0 scroll-mt-16 rounded-lg border border-border bg-card p-3 sm:p-4"
+        data-panel
+        className="group min-w-0 max-w-full scroll-mt-16 rounded-lg border border-border bg-card p-3 sm:p-4"
       >
         <summary
           onClick={(e) => {
             (e.currentTarget.parentElement as HTMLElement).dataset["userToggle"] = "1";
           }}
-          className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden"
+          className="flex min-w-0 cursor-pointer list-none items-start justify-between gap-2 [&::-webkit-details-marker]:hidden"
         >
-          <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          <h2 className="min-w-0 flex-1 whitespace-normal break-words text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             {title}
           </h2>
-          <span className="flex items-center gap-2">
+          <span className="flex shrink-0 items-center gap-2">
             {right && <span onClick={(e) => e.stopPropagation()}>{right}</span>}
             <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
           </span>
         </summary>
-        <div className="mt-3">{children}</div>
+        <div className="mt-3 min-w-0 max-w-full">{children}</div>
       </details>
     );
   return (
-    <section className="min-w-0 rounded-lg border border-border bg-card p-3 sm:p-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+    <section
+      data-panel
+      className="min-w-0 max-w-full rounded-lg border border-border bg-card p-3 sm:p-4"
+    >
+      <div className="mb-3 flex min-w-0 flex-wrap items-start justify-between gap-2">
+        <h2 className="min-w-0 flex-1 whitespace-normal break-words text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           {title}
         </h2>
         {right}

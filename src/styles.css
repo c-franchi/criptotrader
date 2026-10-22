@@ -117,12 +117,12 @@
   }
 }
 
-/* Keep every page inside the phone screen: no sideways scroll, no auto-zoom. */
+/* Bound the layout itself; hiding horizontal overflow would conceal clipped content. */
 @layer base {
   html,
   body {
-    max-width: 100%;
-    overflow-x: hidden;
+    width: 100%;
+    min-width: 0;
   }
   html {
     -webkit-text-size-adjust: 100%;
@@ -131,8 +131,7 @@
   img,
   svg,
   video,
-  canvas,
-  table {
+  canvas {
     max-width: 100%;
   }
   [data-radix-popper-content-wrapper] {
@@ -143,6 +142,8 @@
     max-width: calc(100vw - 1.5rem);
     max-height: calc(100dvh - 2rem);
     overflow-y: auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 }
 @media (max-width: 767px) {
@@ -168,5 +169,63 @@
   .text-sm {
     font-size: 15px;
     line-height: 1.5;
+  }
+}
+
+/* Shared content constraints apply to every route, including authenticated screens.
+   Keep table/chart overflow inside their own scroll containers. */
+@layer base {
+  [data-app-content] {
+    overflow-wrap: anywhere;
+  }
+  [data-app-content] :where(section, article, details, form, fieldset, .grid, .flex),
+  [data-app-content] :where(.grid, .flex) > *,
+  :is([role="dialog"], [role="alertdialog"]) :where(.grid, .flex) > *,
+  [data-panel] > * {
+    min-inline-size: 0;
+  }
+  [data-app-content] :where(section, article, details, form, fieldset),
+  [data-app-content] :where(input, select, textarea) {
+    max-inline-size: 100%;
+  }
+  [data-app-content] :where(input, select, textarea) {
+    min-inline-size: 0;
+  }
+  [data-app-content] :where(p, li, dt, dd, label, h1, h2, h3, a, code) {
+    overflow-wrap: anywhere;
+  }
+}
+@media (max-width: 767px) {
+  [data-app-content] .truncate {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  [data-slot="button"]:not([data-size="icon"]) {
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+    min-height: 2.25rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  [data-slot="button"] > :not(svg) {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  [data-slot="select-trigger"] {
+    height: auto;
+    min-height: 2.25rem;
+    white-space: normal;
+    text-align: left;
+  }
+  [data-slot="select-trigger"] > span {
+    -webkit-line-clamp: unset;
+    overflow: visible;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
