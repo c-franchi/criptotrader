@@ -15,7 +15,8 @@ export async function readWalletCapital(
       .from("grid_bots")
       .select("id,token,armed,mode,order_bnb,gas_reserve_bnb,strat_state")
       .eq("user_id", userId)
-      .eq("wallet_scope", scope),
+      .eq("wallet_scope", scope)
+      .is("archived_at", null),
     admin.from("strategies").select("token,config").eq("user_id", userId).eq("wallet_scope", scope),
   ]);
   if (bots.error || strategies.error)

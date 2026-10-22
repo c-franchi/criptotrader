@@ -26,7 +26,8 @@ export async function tickBot(admin: any, bot: any) {
       .eq("id", bot.id)
       .maybeSingle();
     if (currentError) throw currentError;
-    if (!current?.armed) return { ok: false, action: "nenhuma", reason: "Robô desligado" };
+    if (!current?.armed || current.archived_at)
+      return { ok: false, action: "nenhuma", reason: "Robô desligado" };
     bot = current;
     const { data: bw } = await admin
       .from("bot_wallets")
@@ -137,6 +138,7 @@ export async function tickAll(admin: any) {
     .from("grid_bots")
     .select("*")
     .eq("armed", true)
+    .is("archived_at", null)
     .order("last_run_at", { ascending: true, nullsFirst: true })
     .limit(20);
   if (botsError) throw botsError;

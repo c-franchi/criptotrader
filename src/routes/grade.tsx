@@ -18,6 +18,7 @@ import {
 import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { ChevronDown } from "lucide-react";
 import { WalletCapitalPanel } from "@/components/WalletCapitalPanel";
+import { RemoveBotButton } from "@/components/RemoveBotButton";
 import { ResetStrategiesButton } from "@/components/ResetStrategiesButton";
 import { formatEther, formatUnits } from "viem";
 import { HelpTip } from "@/components/HelpTip";
@@ -202,6 +203,7 @@ function Robo() {
     const { data: list } = await supabase
       .from("grid_bots")
       .select("*")
+      .is("archived_at", null)
       .order("updated_at", { ascending: false });
     if (selectionRef.current !== key) return;
     setAllBots(list ?? []);
@@ -255,6 +257,7 @@ function Robo() {
     if (armed && !w?.address) return void toast.error("Crie a carteira do robô antes de ligar");
     let row: Record<string, unknown> = {
       user_id: user.id,
+      archived_at: null,
       wallet_scope: walletScope,
       token,
       mode,
@@ -455,6 +458,19 @@ function Robo() {
                 >
                   {saving ? "Salvando…" : "Iniciar robô"}
                 </Button>
+              )}
+              {bot && (
+                <RemoveBotButton
+                  key={bot.id}
+                  botId={bot.id}
+                  walletScope={walletScope}
+                  symbol={sym}
+                  armed={armed}
+                  onDone={() => {
+                    setBot(null);
+                    void load();
+                  }}
+                />
               )}
               <Button variant="outline" disabled={busy} onClick={load}>
                 Atualizar estado
@@ -739,6 +755,15 @@ function Robo() {
                               : ""}
                           </p>
                         </button>
+                        <div className="mt-2">
+                          <RemoveBotButton
+                            botId={b.id}
+                            walletScope={b.wallet_scope}
+                            symbol={tk?.symbol ?? b.token.slice(0, 8)}
+                            armed={b.armed}
+                            onDone={() => void load()}
+                          />
+                        </div>
                       </li>
                     );
                   })}
@@ -1164,6 +1189,7 @@ const AUDIT_LABEL: Record<string, string> = {
   bot_armed: "Robô ligado",
   bot_disarmed: "Robô desligado",
   bot_saved: "Configuração salva",
+  bot_removed: "Robô removido · carteira e histórico preservados",
   strategies_reset: "Estratégias resetadas · bots preservados e pausados",
   execution_lock_reviewed: "Conferência concluída · carteira liberada",
 };

@@ -70,6 +70,7 @@ it("routes confirmed recovery through the real swap executor with the decision p
       const q: any = {
         select: () => q,
         eq: () => q,
+        is: () => q,
         ilike: () => q,
         neq: () => q,
         order: () => q,

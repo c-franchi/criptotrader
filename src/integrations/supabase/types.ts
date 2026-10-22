@@ -77,6 +77,7 @@ export type Database = {
       grid_bots: {
         Row: {
           wallet_scope: string;
+          archived_at: string | null;
           armed: boolean;
           gas_reserve_bnb: number;
           id: string;
@@ -99,6 +100,7 @@ export type Database = {
         };
         Insert: {
           wallet_scope?: string;
+          archived_at?: string | null;
           armed?: boolean;
           gas_reserve_bnb?: number;
           id?: string;
@@ -121,6 +123,7 @@ export type Database = {
         };
         Update: {
           wallet_scope?: string;
+          archived_at?: string | null;
           armed?: boolean;
           gas_reserve_bnb?: number;
           id?: string;

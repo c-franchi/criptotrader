@@ -7,6 +7,7 @@ it("qualifies both capital queries by user and wallet, returning no signing mate
       const entry = { table, filters: [] as [string, string][], fields: "" };
       queries.push(entry);
       const query = {
+        is: () => query,
         select: (fields: string) => {
           entry.fields = fields;
           return query;
