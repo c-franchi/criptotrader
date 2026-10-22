@@ -52,3 +52,13 @@ Gás e transferências de tokens vêm do receipt. BNB nativo recebido só é cla
 O cron do robô usa `/api/public/hooks/grid-tick` com autenticação. O cron de alertas usa `/api/public/hooks/alert-tick`. O diário de notificações preserva avisos durante falhas temporárias de push, com limite de tentativas e identificação para agrupamento no aparelho. A entrega externa não tem garantia de exatamente uma vez.
 
 A tela Integrações consulta o estado real do banco, RPC, configuração e verificação dos robôs. Ela não mostra segredos. Recuperação de senha depende do envio de e-mail e das URLs de redirecionamento autorizadas no provedor de autenticação.
+
+## Recuperação no executor real (22/10/2026)
+
+A estratégia adaptativa oferece **Comprar recuperação no robô REAL**, habilitado e parametrizado pelo titular em Estratégia. Não ativa automaticamente configurações salvas, não altera posições abertas e não importa o motor candidato de simulação. A nova entrada substitui entradas adaptativas antigas enquanto habilitada: queda entre topo anterior e mínima de fechamentos, recuperação limitada e fechamentos consecutivos em alta. Usa apenas o final contínuo de velas completas e recentes, bloqueia compras tardias, não faz recompra com posição aberta e consome o fundo somente após fill confirmado. Uma venda não apaga o fundo consumido.
+
+Os valores iniciais do formulário (8% de queda, recuperação entre 2% e 8%, dois fechamentos) são exemplos editáveis, não parâmetros otimizados nem garantia de lucro. O espaço até o topo anterior precisa superar a meta adaptativa estimada com taxas do token, slippage configurado nas duas pontas e taxas DEX estimadas. Isso não prevê retorno ao topo e não confirma lucro após gás ou execução real. Todos os controles de capital, liquidez, taxas verificadas, gás, impacto, cooldown e trava continuam ativos.
+
+`grid-tick` retorna contagens de tentativas, avaliações sem erro, bloqueios, falhas e adiamentos; bloqueios/falhas respondem HTTP 503. Não registrar uma passagem pela estratégia como se tivesse ocorrido quando a trava impediu a execução. A tela diferencia a consulta de análise do servidor, o preço ao vivo e o horário do executor.
+
+Travas antigas sem hash no diário atual exigem conciliação individual com registros históricos e rede. Nunca excluir por tempo, saldo aparentemente intacto ou ausência de linhas no diário. O cron pode estar funcionando normalmente enquanto uma carteira permanece bloqueada.

@@ -22,8 +22,8 @@ export const Route = createFileRoute("/api/public/hooks/grid-tick")({
         }
         if (!ok) return new Response("Unauthorized", { status: 401 });
         const { tickAll } = await import("@/lib/tick.server");
-        const n = await tickAll(supabaseAdmin);
-        return Response.json({ ok: true, bots: n });
+        const result = await tickAll(supabaseAdmin);
+        return Response.json(result, { status: result.ok ? 200 : 503 });
       },
     },
   },

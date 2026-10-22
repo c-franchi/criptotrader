@@ -1,3 +1,4 @@
+import { withExecutionPhase } from "./executionPhase";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Decimal from "decimal.js";
 import { strategySchema } from "./strategyValidation";
@@ -7,15 +8,8 @@ import { botSigner, poolState, pubClient, sendSwap, approveForSwap } from "./bot
 import { tokenMeta } from "./tokenMeta.server";
 import { readMarket } from "./market.server";
 import { readCandles } from "./history.server";
-import {
-  updateEntryLatch,
-  closesAt,
-  referenceHigh,
-  decide,
-  intervalMinutes,
-  normalizeState,
-} from "./autoStrategy";
-import { closedTail } from "./candleSeries";
+import { updateEntryLatch, decide, normalizeState } from "./autoStrategy";
+import { strategyObservation } from "./strategyObservation";
 import { hasVerifiedTax, taxFor } from "./tokens";
 import { EMPTY_CONFIG, type StrategyConfig } from "./strategy";
 
@@ -28,6 +22,18 @@ export async function runStrategyStep(
   enc: string,
   owner: string,
   analysisOnly = false,
+) {
+  return withExecutionPhase((beginSigning) =>
+    runStrategyStepImpl(admin, bot, enc, owner, analysisOnly, beginSigning),
+  );
+}
+async function runStrategyStepImpl(
+  admin: any,
+  bot: Bot,
+  enc: string,
+  owner: string,
+  analysisOnly: boolean,
+  beginSigning: () => void,
 ) {
   const now = Date.now();
   const { data: strat } = await admin
@@ -77,24 +83,20 @@ export async function runStrategyStep(
   } catch {
     /* history unavailable */
   }
-  const high = referenceHigh(candles, now / 1000 - cfg.windowHours * 3600);
-  const closes = closesAt(candles, intervalMinutes(cfg.candleInterval), now);
+  const observation = strategyObservation(cfg, candles, priceUsd, best.liquidityUsd, now);
+  const { high, closes, historyFresh: fresh } = observation;
   if (state.tokens > 0) state.peakUsd = Math.max(state.peakUsd, priceUsd);
-
-  if (market.error || now - new Date(market.fetchedAt).getTime() > 60_000)
+  if (
+    market.error ||
+    !Number.isFinite(Date.parse(market.fetchedAt)) ||
+    now - Date.parse(market.fetchedAt) > 60_000
+  )
     return { patch: { last_error: "Preço desatualizado: aguardando nova consulta" }, order: null };
-  const minutes = intervalMinutes(cfg.candleInterval);
-  const complete = closedTail(candles, minutes, now);
-  const fresh =
-    complete.length > 0 &&
-    now - ((complete.at(-1)?.[0] ?? 0) + minutes * 60) * 1000 < minutes * 60_000 * 2;
-  const signals = cfg.rulesVersion === 2 ? complete.map((c) => c[4]) : closes;
-  const observation = { priceUsd, liquidityUsd: best.liquidityUsd, high, closes: signals, now };
   if (fresh) state = updateEntryLatch(cfg, state, observation);
   const d = decide(cfg, state, observation);
   if (
     d.action === "compra" &&
-    (!fresh || (cfg.entryType !== "queda" && complete.length < cfg.maSlow + 1))
+    (!fresh || (cfg.entryType !== "queda" && observation.completeCount < cfg.maSlow + 1))
   )
     return {
       patch: {
@@ -150,6 +152,7 @@ export async function runStrategyStep(
 
   if (!pool) return { patch: { ...patch, last_error: "Pool inexistente" }, order: null };
   const pub = pubClient();
+  beginSigning();
   const { account, wallet } = await botSigner(enc);
   const me = account.address;
   const reserve = parseEther(String(cfg.gasReserveBnb || 0.003));

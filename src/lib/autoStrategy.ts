@@ -1,3 +1,4 @@
+import { liveRecovery } from "./liveRecovery";
 import type { StrategyConfig } from "./strategy";
 import type { Candle } from "./backtest";
 import { grossForNet } from "./tokens";
@@ -17,6 +18,7 @@ export type BotState = {
   lossTodayBnb: number;
   lastTradeAt: number; // ms
   entryConsumed?: boolean;
+  recoveryLowAt?: number;
   tokensRaw?: string;
   lastFillHash?: string;
   accountingEstimated?: boolean;
@@ -38,7 +40,7 @@ export const EMPTY_STATE: BotState = {
 
 export type Decision =
   | { action: "nenhuma"; reason: string }
-  | { action: "compra"; reason: string }
+  | { action: "compra"; reason: string; recoveryLowAt?: number }
   | { action: "venda"; reason: string; sellPct: number; tpIndex?: number; all: boolean };
 
 export type Market = {
@@ -46,6 +48,8 @@ export type Market = {
   liquidityUsd: number | null;
   high: number | null;
   closes: number[];
+  closedTimes?: number[];
+  historyFresh?: boolean;
   now: number;
 };
 
@@ -120,9 +124,17 @@ export function readRegime(cfg: StrategyConfig, closes: number[]): Regime | null
   const rangePct = (hi / lo - 1) * 100;
   const fast = avg(closes.slice(-cfg.maFast)),
     slow = avg(closes.slice(-cfg.maSlow));
-  const kind = rangePct < 8 ? "lateral" : fast > slow ? "alta" : "queda";
+  // New recovery strategies can recognize a wide sideways range; old exits stay unchanged.
+  const efficiency = hi > lo ? Math.abs(w.at(-1)! - w[0]!) / (hi - lo) : 0;
+  const kind = (cfg.recovery?.enabled ? rangePct < 8 || efficiency < 0.6 : rangePct < 8)
+    ? "lateral"
+    : fast > slow
+      ? "alta"
+      : "queda";
   const tax = { buy: cfg.buyTaxPct ?? 0, sell: cfg.sellTaxPct ?? 0 };
-  const targetNetPct = NET_TARGET[kind];
+  const targetNetPct = cfg.recovery?.enabled
+    ? Math.max(NET_TARGET[kind], cfg.recovery.minNetPct)
+    : NET_TARGET[kind];
   return {
     kind,
     lo,
@@ -206,7 +218,12 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
       reason: `Limite de ${cfg.maxTradesPerDay} operações por dia atingido`,
     };
 
-  if (cfg.rulesVersion === 2 && s.entryConsumed && cfg.entryType !== "queda")
+  if (
+    cfg.rulesVersion === 2 &&
+    s.entryConsumed &&
+    cfg.entryType !== "queda" &&
+    !cfg.recovery?.enabled
+  )
     return { action: "nenhuma", reason: "Sinal já utilizado: aguardando novo recuo após rearme" };
   if (cfg.cooldownMin > 0 && m.now - s.lastTradeAt < cfg.cooldownMin * 60_000)
     return { action: "nenhuma", reason: `Pausa entre operações (${cfg.cooldownMin} min)` };
@@ -223,6 +240,17 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
     return { action: "nenhuma", reason: "Limite de perda do dia atingido — compras pausadas" };
   if (!(cfg.buyAmount > 0)) return { action: "nenhuma", reason: "Estratégia sem valor de compra" };
 
+  if (cfg.recovery?.enabled) {
+    if (holding)
+      return {
+        action: "nenhuma",
+        reason: "Recuperação: posição aberta; sem recompra, aguardando saída ou proteção",
+      };
+    const recovery = liveRecovery(cfg, m, s.recoveryLowAt ?? 0);
+    return recovery.ready
+      ? { action: "compra", reason: recovery.reason, recoveryLowAt: recovery.lowAt }
+      : { action: "nenhuma", reason: recovery.reason };
+  }
   if (cfg.entryType === "queda") {
     if (!(cfg.dropPct > 0)) return { action: "nenhuma", reason: "Estratégia sem % de queda" };
     let ref = cfg.referenceType === "manual" ? cfg.manualReference : m.high;
@@ -314,6 +342,7 @@ export function afterTrade(
     return {
       ...base,
       entryConsumed: true,
+      ...(d.recoveryLowAt != null ? { recoveryLowAt: d.recoveryLowAt } : {}),
       entries: s.entries + 1,
       costBnb: s.costBnb + t.bnb,
       tokens,

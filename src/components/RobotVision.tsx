@@ -15,6 +15,7 @@ import { stopPrice, netPositionPct } from "@/lib/stopLoss";
 import { CandleChart } from "@/components/CandleChart";
 import { OrderAudit } from "@/components/OrderAudit";
 import { decide } from "@/lib/autoStrategy";
+import { strategyObservation } from "@/lib/strategyObservation";
 import type { auditOrder } from "@/lib/audit.functions";
 
 type Order = {
@@ -90,6 +91,8 @@ export function RobotVision(props: {
   armed: boolean;
   reason?: string | null | undefined;
   evaluatedAt?: string | null | undefined;
+  executionBlocked?: boolean | undefined;
+  serverAnalysis?: { reason: string; error: string | null; at: string } | null | undefined;
 }) {
   const { token, symbol, cfg, state, mode, grid, orders, armed, reason, evaluatedAt } = props;
   const [now, setNow] = useState(0);
@@ -108,6 +111,18 @@ export function RobotVision(props: {
   });
   const pool = market.data?.pools.find((p) => p.supported) ?? market.data?.pools[0];
   const candles = useCandles(pool?.pairAddress, token);
+  const serverStale = !evaluatedAt || now - Date.parse(evaluatedAt) > 180_000;
+  const analysisStale =
+    !props.serverAnalysis || now - Date.parse(props.serverAnalysis.at) > 120_000;
+  const observation = cfg
+    ? strategyObservation(
+        cfg,
+        candles.data ?? [],
+        Number(pool?.priceUsd) || 0,
+        pool?.liquidityUsd ?? null,
+        now,
+      )
+    : null;
   const ms = 24 * 3_600_000;
   const all = (candles.data ?? []).filter((c) => c[0] * 1000 >= now - ms);
   const lastAt = candles.data?.at(-1)?.[0] != null ? (candles.data.at(-1)?.[0] ?? 0) * 1000 : null;
@@ -117,7 +132,7 @@ export function RobotVision(props: {
     : null;
   const slowAvg = (() => {
     if (!cfg || cfg.entryType !== "medias" || !candles.data) return null;
-    const cl = closesAt(candles.data, intervalMinutes(cfg.candleInterval), now || Date.now());
+    const cl = observation?.closes ?? [];
     if (cl.length < cfg.maSlow) return null;
     const f = cl.slice(-cfg.maFast).reduce((a, b) => a + b, 0) / cfg.maFast,
       s = cl.slice(-cfg.maSlow).reduce((a, b) => a + b, 0) / cfg.maSlow;
@@ -125,10 +140,7 @@ export function RobotVision(props: {
   })();
   const regime = (() => {
     if (!cfg || cfg.entryType !== "adaptativa" || !candles.data) return null;
-    return readRegime(
-      cfg,
-      closesAt(candles.data, intervalMinutes(cfg.candleInterval), now || Date.now()),
-    );
+    return readRegime(cfg, observation?.closes ?? []);
   })();
   const adaptLines: Line[] = [];
   if (regime && cfg) {
@@ -138,7 +150,7 @@ export function RobotVision(props: {
         label: `Venda (+${regime.targetGrossPct.toFixed(1)}%, já com taxas)`,
         tone: "sell",
       });
-    else if (state.entries < Math.max(1, cfg.maxEntries)) {
+    else if (!cfg.recovery?.enabled && state.entries < Math.max(1, cfg.maxEntries)) {
       if (regime.kind === "lateral" && regime.rangePct >= regime.targetGrossPct)
         adaptLines.push({
           price: regime.lo + (regime.hi - regime.lo) * 0.25,
@@ -179,13 +191,24 @@ export function RobotVision(props: {
         <span
           className={cn(
             "flex items-center gap-1.5 text-xs font-medium",
-            armed ? "text-success" : "text-muted-foreground",
+            armed && !props.executionBlocked && !serverStale
+              ? "text-success"
+              : "text-muted-foreground",
           )}
         >
           <span
-            className={cn("h-2 w-2 rounded-full bg-current", armed && "motion-safe:animate-pulse")}
+            className={cn(
+              "h-2 w-2 rounded-full bg-current",
+              armed && !props.executionBlocked && !serverStale && "motion-safe:animate-pulse",
+            )}
           />
-          {armed ? "Robô vigiando" : "Robô desligado"}
+          {!armed
+            ? "Robô desligado"
+            : props.executionBlocked
+              ? "Executor bloqueado"
+              : serverStale
+                ? "Sem avaliação recente do executor"
+                : "Executor com avaliação recente"}
         </span>
       </div>
       <CandleChart
@@ -193,7 +216,7 @@ export function RobotVision(props: {
         candles={candles.data ?? []}
         now={now}
         strategyMinutes={intervalMinutes(cfg?.candleInterval ?? "15m")}
-        rulesVersion={cfg?.rulesVersion ?? 1}
+        rulesVersion={cfg?.recovery?.enabled ? 2 : (cfg?.rulesVersion ?? 1)}
         fastLength={cfg?.maFast ?? 9}
         slowLength={cfg?.maSlow ?? 21}
         levels={lines}
@@ -254,27 +277,29 @@ export function RobotVision(props: {
         <div className="border-t border-border pt-3 text-xs">
           <p className="font-semibold">Por que o bot está esperando?</p>
           <p>
-            {armed
-              ? decide(cfg, state, {
-                  priceUsd: live,
-                  liquidityUsd: pool?.liquidityUsd ?? null,
-                  high,
-                  closes: closesAt(candles.data ?? [], intervalMinutes(cfg.candleInterval), now),
-                  now,
-                }).reason
-              : "Robô desligado"}
+            {!armed
+              ? "Robô desligado"
+              : analysisStale
+                ? "Prévia do servidor indisponível ou antiga; não confirma execução."
+                : (props.serverAnalysis?.error ?? props.serverAnalysis?.reason)}
           </p>
           <p className="text-muted-foreground">
-            Prévia atual às {new Date(now).toLocaleTimeString("pt-BR")} · {cfg.candleInterval}.
-            Última avaliação do servidor:{" "}
+            Prévia do servidor às{" "}
+            {props.serverAnalysis
+              ? new Date(props.serverAnalysis.at).toLocaleTimeString("pt-BR")
+              : "indisponível"}{" "}
+            · {cfg.candleInterval}. Última avaliação do servidor:{" "}
             {evaluatedAt ? new Date(evaluatedAt).toLocaleString("pt-BR") : "indisponível"} ·{" "}
             {reason ?? "sem motivo registrado"}. Cooldown restante:{" "}
             {Math.max(0, Math.ceil((state.lastTradeAt + cfg.cooldownMin * 60_000 - now) / 60_000))}{" "}
             min.
           </p>
           <p className="text-warning">
-            A condição visual não garante execução. Recuperação e rearme novos estão disponíveis
-            somente na simulação.
+            {cfg.recovery?.enabled
+              ? "Recuperação habilitada no executor REAL. Uma entrada por fundo confirmado, sujeita aos limites e à disponibilidade da execução."
+              : "Recuperação real desativada na estratégia salva. Ative e configure em Estratégia para usar esse tipo de entrada."}
+            {serverStale &&
+              " Sem avaliação recente do executor: não é possível afirmar que acompanhou o movimento."}
           </p>
         </div>
       )}
@@ -346,18 +371,24 @@ export function RobotVision(props: {
           )}
           {mode !== "grade" && cfg?.entryType === "adaptativa" && (
             <p className="text-muted-foreground">
-              {!regime
-                ? "Juntando histórico para reconhecer o padrão do preço…"
-                : regime.kind === "lateral"
-                  ? regime.rangePct >= regime.targetGrossPct
-                    ? `Padrão: preço parado (faixa de ${regime.rangePct.toFixed(1)}%). O robô compra no fundo da faixa e vende com ganho curto.`
-                    : `Padrão: preço parado, mas a faixa (${regime.rangePct.toFixed(1)}%) não paga as taxas (${regime.targetGrossPct.toFixed(1)}%). O robô não entra.`
-                  : regime.kind === "alta"
-                    ? "Padrão: alta. O robô compra quando o preço recuar até a linha verde (a média)."
-                    : "Padrão: queda. O robô não compra enquanto o preço cai."}
+              {cfg.recovery?.enabled && observation
+                ? decide(cfg, state, observation).reason
+                : !regime
+                  ? "Juntando histórico para reconhecer o padrão do preço…"
+                  : regime.kind === "lateral"
+                    ? regime.rangePct >= regime.targetGrossPct
+                      ? `Padrão: preço parado (faixa de ${regime.rangePct.toFixed(1)}%). O robô compra no fundo da faixa e vende com ganho curto.`
+                      : `Padrão: preço parado, mas a faixa (${regime.rangePct.toFixed(1)}%) não paga as taxas (${regime.targetGrossPct.toFixed(1)}%). O robô não entra.`
+                    : regime.kind === "alta"
+                      ? "Padrão: alta. O robô compra quando o preço recuar até a linha verde (a média)."
+                      : "Padrão: queda. O robô não compra enquanto o preço cai."}
             </p>
           )}
-          {reason && <p className="text-muted-foreground">O robô está pensando: {reason}</p>}
+          {reason && (
+            <p className="text-muted-foreground">
+              Motivo registrado na última avaliação do executor: {reason}
+            </p>
+          )}
         </div>
       )}
       {live != null &&
@@ -420,6 +451,9 @@ export function RobotVision(props: {
                       ? "Preço recuou até a média"
                       : `Preço ${pct(slowAvg.s).toFixed(1)}% acima da média lenta`,
                 });
+            } else if (cfg.entryType === "adaptativa" && cfg.recovery?.enabled && observation) {
+              const decision = decide(cfg, state, observation);
+              checks.push({ ok: decision.action === "compra", t: decision.reason });
             } else if (cfg.entryType === "adaptativa") {
               checks.push({
                 ok: !!regime && regime.kind !== "queda",

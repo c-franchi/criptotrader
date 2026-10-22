@@ -39,3 +39,12 @@
 - [ ] Validar compras, vendas e saques reais pelo titular: não executados durante desenvolvimento.
 - [ ] Confirmar recuperação de senha com recebimento de e-mail e entrega push no dispositivo do titular.
 - [ ] Histórico de longo prazo e USD/BNB histórico: fonte atual continua limitada; não apresentar a aproximação como resultado comprovado.
+
+## Recuperação real e diagnóstico do executor (22/10/2026)
+- [x] Implementar recuperação no caminho real de assinatura, com habilitação e parâmetros explícitos na estratégia.
+- [x] Usar velas completas e contínuas; impedir entrada tardia, recompra com posição aberta e repetição no mesmo fundo confirmado.
+- [x] Classificar faixa lateral ampla no novo modo, preservando regras de ciclos antigos.
+- [x] Compartilhar a observação da estratégia entre servidor e interface e expor avaliação antiga/bloqueada.
+- [x] Retornar bloqueios, falhas e adiamentos no cron em vez de sucesso incondicional.
+- [ ] Conciliar trava legada identificada em 21/10 às 14:30 UTC: diário atual sem hash associado. Não foi excluída automaticamente.
+- [ ] Titular revisar parâmetros, salvar recuperação real e validar uma operação autorizada após conciliação.

@@ -2,6 +2,15 @@ export type PresetId = "segura" | "equilibrada" | "ativa" | "adaptativa";
 
 export type StrategyConfig = {
   rulesVersion?: 1 | 2;
+  /** Explicitly enabled by the owner; absent preserves existing real cycles. */
+  recovery?: {
+    enabled: boolean;
+    minDropPct: number;
+    reboundPct: number;
+    maxReboundPct: number;
+    confirmationBars: number;
+    minNetPct: number;
+  };
   taxVerified?: boolean;
   allocationBnb?: number; // optional hard capital cap for this bot
   presetId?: PresetId | null; // which ready-made style produced this config
@@ -68,11 +77,19 @@ export const EMPTY_CONFIG: StrategyConfig = {
 
 export function describeStrategy(c: StrategyConfig, quote = "WBNB"): string[] {
   const lines: string[] = [];
+  if (c.recovery?.enabled)
+    lines.push(
+      `Recuperação REAL: queda mínima ${c.recovery.minDropPct}%, recuperação de ${c.recovery.reboundPct}% a ${c.recovery.maxReboundPct}% da mínima e ${c.recovery.confirmationBars} fechamentos consecutivos em alta. Exige espaço até o topo anterior para meta líquida de ${c.recovery.minNetPct}% mais margem de execução estimada. Uma entrada por fundo, sem recompras neste modo. Não garante retorno ao topo.`,
+    );
   const size =
     c.sizingMode === "fixo"
       ? `${c.buyAmount} ${quote} por compra`
       : `${c.buyAmount}% do saldo disponível de ${quote} por compra`;
-  if (c.entryType === "queda") {
+  if (c.recovery?.enabled) {
+    lines.push(
+      `Tamanho da entrada: ${size}. Nenhuma compra adicional enquanto houver posição aberta.`,
+    );
+  } else if (c.entryType === "queda") {
     const ref =
       c.referenceType === "manual"
         ? `o preço de referência definido (${c.manualReference ?? "não informado"})`

@@ -816,21 +816,83 @@ function StrategyForm() {
                         barato.
                       </p>
                       <p>
-                        <b>Cruzamento de médias:</b> compra quando o preço começa a subir — segue a
-                        tendência.
+                        <b>Cruzamento de médias:</b> exige tendência de alta e recuo até a média
+                        lenta. Para comprar retomadas após quedas, use a recuperação real na
+                        adaptativa.
                       </p>
                     </HelpTip>
                   </div>
                   <select
                     className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={c.entryType}
-                    onChange={(e) => set("entryType", e.target.value as "queda")}
+                    onChange={(e) => {
+                      set("entryType", e.target.value as "queda");
+                      if (e.target.value !== "adaptativa" && c.recovery)
+                        set("recovery", { ...c.recovery, enabled: false });
+                    }}
                   >
                     <option value="queda">Queda percentual</option>
                     <option value="medias">Tendência + recuo (médias)</option>
                     <option value="adaptativa">Adaptativa (lê o padrão do preço)</option>
                   </select>
                 </div>
+                {c.entryType === "adaptativa" && (
+                  <div className="space-y-3 rounded-md border border-primary/40 p-3">
+                    <label className="flex items-center gap-2 text-sm font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={c.recovery?.enabled ?? false}
+                        onChange={(e) =>
+                          set("recovery", {
+                            minDropPct: 8,
+                            reboundPct: 2,
+                            maxReboundPct: 8,
+                            confirmationBars: 2,
+                            minNetPct: 1.5,
+                            ...c.recovery,
+                            enabled: e.target.checked,
+                          })
+                        }
+                      />
+                      Comprar recuperação no robô REAL
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Ao salvar, substitui as entradas adaptativas por recuperação confirmada. Usa
+                      velas fechadas, uma compra por fundo, sem recompra. Valores iniciais são
+                      exemplos editáveis, sem desempenho comprovado. As proteções e saídas
+                      continuam.
+                    </p>
+                    {c.recovery?.enabled && (
+                      <>
+                        <Num
+                          label="Queda mínima (%)"
+                          value={c.recovery.minDropPct}
+                          onChange={(n) => set("recovery", { ...c.recovery!, minDropPct: n })}
+                        />
+                        <Num
+                          label="Recuperação mínima desde o fundo (%)"
+                          value={c.recovery.reboundPct}
+                          onChange={(n) => set("recovery", { ...c.recovery!, reboundPct: n })}
+                        />
+                        <Num
+                          label="Recuperação máxima para entrar (%)"
+                          value={c.recovery.maxReboundPct}
+                          onChange={(n) => set("recovery", { ...c.recovery!, maxReboundPct: n })}
+                        />
+                        <Num
+                          label="Fechamentos consecutivos em alta"
+                          value={c.recovery.confirmationBars}
+                          onChange={(n) => set("recovery", { ...c.recovery!, confirmationBars: n })}
+                        />
+                        <Num
+                          label="Meta líquida mínima estimada (%)"
+                          value={c.recovery.minNetPct}
+                          onChange={(n) => set("recovery", { ...c.recovery!, minNetPct: n })}
+                        />
+                      </>
+                    )}
+                  </div>
+                )}
                 {c.entryType === "queda" ? (
                   <>
                     <Num

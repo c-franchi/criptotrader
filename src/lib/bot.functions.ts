@@ -260,6 +260,7 @@ export const getExecutionStatus = createServerFn({ method: "GET" })
     if (pendingError) throw new Error("Diário de execução indisponível");
     return {
       locked: !!lock,
+      lockAcquiredAt: lock ? (lock as { acquired_at: string }).acquired_at : null,
       pending: (pending ?? []) as { tx_hash: string; created_at: string }[],
     };
   });

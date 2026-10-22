@@ -324,7 +324,9 @@ function Robo() {
                 ? "Atenção: última verificação encontrou um problema"
                 : !armed
                   ? "Robô pausado"
-                  : "Robô ligado · acompanhando condições da estratégia"}
+                  : !bot?.last_run_at || Date.now() - Date.parse(bot.last_run_at) > 180000
+                    ? "Robô ligado, mas sem avaliação recente do executor"
+                    : "Robô ligado · executor com avaliação recente"}
         </p>
         <p className="mb-2 text-xs text-muted-foreground">
           O motivo abaixo vem da última verificação. Robô ligado não significa que uma compra será
@@ -333,6 +335,10 @@ function Robo() {
         {execution?.locked && (
           <p className="mb-2 text-sm text-warning">
             Carteira bloqueada durante execução ou conciliação. Novas ordens e saques aguardam.
+            {execution.lockAcquiredAt &&
+              ` Trava desde ${new Date(execution.lockAcquiredAt).toLocaleString("pt-BR")}.`}
+            {!execution.pending.length &&
+              " Sem hash no diário atual: execução antiga exige revisão dos registros e da rede; não há liberação automática por tempo."}
           </p>
         )}
         {execution?.pending.map((p) => (
@@ -791,6 +797,8 @@ function Robo() {
               armed={armed}
               reason={bot?.last_reason}
               evaluatedAt={bot?.last_run_at}
+              executionBlocked={execution?.locked}
+              serverAnalysis={analysisError ? null : analysis}
             />
           </div>
         )}

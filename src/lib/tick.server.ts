@@ -1,3 +1,4 @@
+import { BeforeSigningError } from "./executionPhase";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { runGridStep } from "./bot.server";
 import { reconcileSubmissions } from "./submission.server";
@@ -9,7 +10,11 @@ export async function tickBot(admin: any, bot: any) {
   try {
     owner = await acquireExecution(admin, bot.user_id);
   } catch {
-    return { ok: false, action: "nenhuma", reason: "Carteira em execução ou confirmação pendente" };
+    const reason = "Execução bloqueada: carteira em uso ou operação anterior sem conciliação";
+    const { error } = await admin.from("grid_bots").update({ last_error: reason }).eq("id", bot.id);
+    if (error) throw error;
+    // Do not advance last_run_at: no strategy evaluation took place.
+    return { ok: false, blocked: true, action: "nenhuma", reason };
   }
   let retain = false;
   try {
@@ -41,7 +46,7 @@ export async function tickBot(admin: any, bot: any) {
         res = await runStrategyStep(admin, bot, bw.enc_key, owner);
       }
     } catch (e) {
-      retain = true; // A signing/provider error may happen after submission. Never assume no funds moved.
+      retain = !(e instanceof BeforeSigningError); // Retain uncertain signing failures; release proven read-only failures.
       res = {
         patch: {
           last_error: (((e as Error).message ?? "erro").split("\n")[0] ?? "erro").slice(0, 300),
@@ -98,13 +103,18 @@ export async function tickBot(admin: any, bot: any) {
       .from("execution_submissions")
       .select("finished_at")
       .eq("lock_owner", owner);
-    if (!error && !(pending ?? []).some((p: any) => !p.finished_at)) {
+    if (
+      !error &&
+      (!retain || pending?.length > 0) &&
+      !(pending ?? []).some((p: any) => !p.finished_at)
+    ) {
       await releaseExecution(admin, bot.user_id, owner);
     }
   }
 }
 
 export async function tickAll(admin: any) {
+  let reconciliationOk = true;
   try {
     const { pubClient } = await import("./bot.server");
     const pub = pubClient();
@@ -118,15 +128,16 @@ export async function tickAll(admin: any) {
       }
     });
   } catch {
-    /* reconciliation is best-effort; ticks continue */
+    reconciliationOk = false; // Expose degraded reconciliation to the scheduler monitor.
   }
-  const { data: bots } = await admin
+  const { data: bots, error: botsError } = await admin
     .from("grid_bots")
     .select("*")
     .eq("armed", true)
     .order("last_run_at", { ascending: true, nullsFirst: true })
     .limit(20);
-  const out = [];
+  if (botsError) throw botsError;
+  const out: { ok: boolean; blocked?: boolean; reason?: string | null }[] = [];
   const started = Date.now();
   for (const b of bots ?? []) {
     if (Date.now() - started > 40_000) break;
@@ -136,5 +147,15 @@ export async function tickAll(admin: any) {
       out.push({ ok: false, reason: "Falha isolada; próxima execução tentará conciliar" });
     }
   }
-  return out.length;
+  const blocked = out.filter((r) => r.blocked).length;
+  const failed = out.filter((r) => !r.ok && !r.blocked).length;
+  return {
+    ok: reconciliationOk && blocked === 0 && failed === 0 && out.length === (bots ?? []).length,
+    attempted: out.length,
+    evaluated: out.filter((r) => r.ok).length,
+    blocked,
+    failed,
+    deferred: (bots ?? []).length - out.length,
+    reconciliationOk,
+  };
 }

@@ -1,3 +1,4 @@
+import { withExecutionPhase } from "./executionPhase";
 import {
   createPublicClient,
   createWalletClient,
@@ -120,6 +121,18 @@ export async function runGridStep(
   owner: string,
   analysisOnly = false,
 ) {
+  return withExecutionPhase((beginSigning) =>
+    runGridStepImpl(bot, enc, admin, owner, analysisOnly, beginSigning),
+  );
+}
+async function runGridStepImpl(
+  bot: Bot,
+  enc: string,
+  admin: any,
+  owner: string,
+  analysisOnly: boolean,
+  beginSigning: () => void,
+) {
   const token = getAddress(bot.token);
   const pool = await poolState(token);
   if (!pool) return { patch: { last_error: "Pool inexistente" }, order: null };
@@ -153,6 +166,7 @@ export async function runGridStep(
   if (d.action === "nenhuma") return { patch, order: null };
 
   const pub = pubClient();
+  beginSigning();
   const { account, wallet } = await botSigner(enc);
   const me = account.address;
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);

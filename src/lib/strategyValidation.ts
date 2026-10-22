@@ -38,12 +38,28 @@ export const strategySchema = z
     maxRetries: z.number().int().nonnegative(),
     buyTaxPct: z.number().finite().min(0).lt(100).optional(),
     sellTaxPct: z.number().finite().min(0).lt(100).optional(),
+    recovery: z
+      .object({
+        enabled: z.boolean(),
+        minDropPct: z.number().finite().positive().lt(100),
+        reboundPct: z.number().finite().positive().lt(100),
+        maxReboundPct: z.number().finite().positive().lt(100),
+        confirmationBars: z.number().int().min(2).max(10),
+        minNetPct: z.number().finite().positive().max(100),
+      })
+      .optional(),
     taxVerified: z.boolean().optional(),
     rulesVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     allocationBnb: z.number().finite().nonnegative().optional(),
   })
   .passthrough()
   .superRefine((c, ctx) => {
+    if (c.recovery?.enabled) {
+      if (c.entryType !== "adaptativa")
+        ctx.addIssue({ code: "custom", message: "Recuperação real exige estratégia adaptativa" });
+      if (c.recovery.maxReboundPct < c.recovery.reboundPct)
+        ctx.addIssue({ code: "custom", message: "Recuperação máxima deve ser maior que a mínima" });
+    }
     if (c.sizingMode === "percentual" && c.buyAmount > 100)
       ctx.addIssue({ code: "custom", message: "Percentual de compra acima de 100%" });
     if (c.maFast >= c.maSlow)
