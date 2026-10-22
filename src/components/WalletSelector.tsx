@@ -8,7 +8,7 @@ export function WalletSelector() {
   if (!user) return null;
   return (
     <section className="mb-4 rounded-lg border border-border bg-card p-3">
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-end sm:gap-3">
         <label className="min-w-0 flex-1 text-sm font-medium" htmlFor="active-wallet">
           Carteira selecionada
           <select
@@ -18,7 +18,7 @@ export function WalletSelector() {
             disabled={!ready}
             onChange={(e) => selectWallet(e.target.value)}
           >
-            <option value={LEGACY_WALLET_SCOPE}>Robô original · carteira atual preservada</option>
+            <option value={LEGACY_WALLET_SCOPE}>Robô original</option>
             {wallets.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.label || "Carteira"} · {w.address.slice(0, 6)}…{w.address.slice(-4)}
