@@ -6,17 +6,9 @@ import { AppShell, Panel } from "@/components/AppShell";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { getMarket } from "@/lib/chain.functions";
 import { useCandles } from "@/hooks/useCandles";
-import { backtest, windowStats } from "@/lib/backtest";
-import { PRESETS, buildPreset } from "@/lib/presets";
-import { taxFor } from "@/lib/tokens";
+import { windowStats } from "@/lib/marketStats";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { CandleChart } from "@/components/CandleChart";
-import { StrategyComparison } from "@/components/StrategyComparison";
-import { getFxQuote } from "@/lib/fx.functions";
-import type { Candle } from "@/lib/backtest";
-import type { PresetId } from "@/lib/strategy";
 
 export const Route = createFileRoute("/metricas")({
   head: () => ({
@@ -24,12 +16,12 @@ export const Route = createFileRoute("/metricas")({
       { title: "Métricas de evolução — CryptoBot" },
       {
         name: "description",
-        content: "Variação do token em 1h, 12h e 24h e quanto cada estratégia teria rendido.",
+        content: "Variação do token em 1h, 12h e 24h e histórico de preços.",
       },
       { property: "og:title", content: "Métricas de evolução — CryptoBot" },
       {
         property: "og:description",
-        content: "Variação do token em 1h, 12h e 24h e quanto cada estratégia teria rendido.",
+        content: "Variação do token em 1h, 12h e 24h e histórico de preços.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -53,17 +45,13 @@ const usd = formatUsd;
 
 function Metrics() {
   const { token, tokens, selectToken } = useSelectedToken();
-  const tax = taxFor(token.address);
   const [hours, setHours] = useState(24);
-  const [amount, setAmount] = useState("1");
-  const [preset, setPreset] = useState<PresetId>("ativa");
   const [clock, setClock] = useState(0);
   useEffect(() => {
     setClock(Date.now());
     const timer = setInterval(() => setClock(Date.now()), 15_000);
     return () => clearInterval(timer);
   }, []);
-  const fx = useQuery({ queryKey: ["fx"], queryFn: () => getFxQuote(), staleTime: 60_000 });
   const market = useQuery({
     queryKey: ["market", token.address],
     queryFn: () => getMarket({ data: { address: token.address } }),
@@ -75,8 +63,6 @@ function Metrics() {
   const now = clock / 1000;
   const win = (candles.data ?? []).filter((c) => c[0] >= now - hours * 3600);
   const stats = windowStats(win);
-  const cap = Number(amount) || 0;
-  const liq = market.data?.pools.find((p) => p.supported)?.liquidityUsd ?? null;
 
   return (
     <div className="space-y-4">
@@ -172,93 +158,14 @@ function Metrics() {
             </div>
           </Panel>
 
-          <Panel title="Comparação simulada">
-            <Label>Valor aplicado (BNB)</Label>
-            <Input
-              type="number"
-              step="any"
-              min={0}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-            <div className="mt-3 flex flex-wrap gap-2">
-              {PRESETS.map((p) => (
-                <Button
-                  key={p.id}
-                  variant={preset === p.id ? "secondary" : "outline"}
-                  size="sm"
-                  aria-pressed={preset === p.id}
-                  onClick={() => setPreset(p.id)}
-                >
-                  {p.name}
-                </Button>
-              ))}
-            </div>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Estimativa feita com o histórico de preço (velas de 5 min) e taxa de 0,25% por troca e
-              a taxa do token ({tax.buy}% na compra, {tax.sell}% na venda). Não inclui gás, slippage
-              nem impacto de preço. Resultado passado não garante resultado futuro.
-            </p>
-          </Panel>
           <CandleChart
             key={token.address}
             candles={candles.data ?? []}
             now={clock}
             strategyMinutes={15}
           />
-          {fx.data?.bnbUsd && fx.data.bnbUsd > 0 ? (
-            <StrategyComparison
-              candles={win.map((c): Candle => [
-                c[0],
-                c[1] / (fx.data?.bnbUsd ?? 1),
-                c[2] / (fx.data?.bnbUsd ?? 1),
-                c[3] / (fx.data?.bnbUsd ?? 1),
-                c[4] / (fx.data?.bnbUsd ?? 1),
-                c[5],
-              ])}
-              cfg={buildPreset(preset, cap, liq, tax)}
-              budget={cap}
-              liquidity={liq}
-            />
-          ) : (
-            <p className="text-xs text-warning">
-              Conversão BNB indisponível: comparação financeira aguardando cotação.
-            </p>
-          )}
-          <p className="text-xs text-warning">
-            Histórico original em USD; comparação usa a cotação atual de BNB como aproximação
-            constante. Não representa a variação histórica USD/BNB.
-          </p>
         </>
       )}
-    </div>
-  );
-}
-
-function Row({
-  name,
-  pnlPct,
-  cap,
-  trades,
-}: {
-  name: string;
-  pnlPct: number;
-  cap: number;
-  trades: number;
-}) {
-  return (
-    <div className="flex items-center justify-between rounded-md border border-border p-3 text-sm">
-      <div>
-        <p className="font-medium">{name}</p>
-        <p className="text-xs text-muted-foreground">{trades} operação(ões)</p>
-      </div>
-      <div className="text-right">
-        <p className={`font-bold ${tone(pnlPct)}`}>{pct(pnlPct)}</p>
-        <p className={`text-xs ${tone(pnlPct)}`}>
-          {(cap * pnlPct) / 100 >= 0 ? "+" : ""}
-          {((cap * pnlPct) / 100).toFixed(5)} BNB
-        </p>
-      </div>
     </div>
   );
 }

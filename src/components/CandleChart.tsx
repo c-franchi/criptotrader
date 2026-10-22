@@ -1,7 +1,7 @@
 import { formatPrice } from "@/lib/display";
 import { technicalSeries } from "@/lib/technicalSeries";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Candle } from "@/lib/backtest";
+import type { Candle } from "@/lib/marketStats";
 import { aggregateCandles, engineSeries, completeEngineSeries } from "@/lib/candleSeries";
 import { Button } from "@/components/ui/button";
 import { chartIndicators } from "@/lib/chartIndicators";

@@ -1,6 +1,6 @@
 import { liveRecovery } from "./liveRecovery";
 import type { StrategyConfig } from "./strategy";
-import type { Candle } from "./backtest";
+import type { Candle } from "./marketStats";
 import { grossForNet } from "./tokens";
 import { netPositionPct, stopPrice } from "./stopLoss";
 

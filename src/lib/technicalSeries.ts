@@ -1,6 +1,6 @@
 import { aggregateCandles } from "./candleSeries";
 import { chartIndicators } from "./chartIndicators";
-import type { Candle } from "./backtest";
+import type { Candle } from "./marketStats";
 /** Display only. Reset all windows at incomplete bars and missing intervals. */
 export function technicalSeries(candles: Candle[], minutes: number, now: number) {
   const result: {

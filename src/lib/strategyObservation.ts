@@ -1,4 +1,4 @@
-import type { Candle } from "./backtest";
+import type { Candle } from "./marketStats";
 import type { StrategyConfig } from "./strategy";
 import { closesAt, intervalMinutes, referenceHigh } from "./autoStrategy";
 import { closedTail } from "./candleSeries";

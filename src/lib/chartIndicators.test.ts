@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { chartIndicators } from "./chartIndicators";
-import type { Candle } from "./backtest";
+import type { Candle } from "./marketStats";
 const candles = (n: number, close: (i: number) => number): Candle[] =>
   Array.from({ length: n }, (_, i) => [
     i * 300,

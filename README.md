@@ -1,6 +1,6 @@
 # Criptotrader
 
-Aplicação de acompanhamento e negociação de tokens da BNB Smart Chain. Inclui mercado e gráficos OHLCV, estratégias por token, simulação, operação assinada na carteira e robô com carteira dedicada.
+Aplicação de acompanhamento e negociação de tokens da BNB Smart Chain. Inclui mercado e gráficos OHLCV, estratégias por token, operação assinada na carteira e robô com carteira dedicada.
 
 - Site: https://criptotrader.lovable.app
 - Editor: https://lovable.dev/projects/813e2308-d3b8-4ddb-acec-44b1593415e4
@@ -37,15 +37,12 @@ Prazo do swap, timeout e idade da trava não provam falha. Enquanto uma submiss�
 
 Gás e transferências de tokens vêm do receipt. BNB nativo recebido só é classificado como confirmado com trace da transação, que depende de um RPC com suporte a `debug_traceTransaction`. Sem isso, o resultado continua explicitamente estimado. A contabilidade legada de ciclos existentes não é reescrita.
 
-## Regras e simulação
+## Regras de execução
 
 - Limites de entrada não impedem avaliação de stop, trailing ou take-profit. Liquidez, gás e capacidade de execução ainda podem impedir uma venda.
 - Análise e execução automatizada usam o mesmo pool token/WBNB PancakeSwap V2. Outros pools são apresentados como consulta.
 - Compras exigem histórico recente e contínuo e taxas conhecidas ou confirmadas pelo usuário.
 - Estratégias sem `rulesVersion` preservam o comportamento legado. A versão 2 adiciona rearme das entradas por médias e respeita o percentual de todos os alvos. Uma posição aberta impede alteração da configuração do ciclo.
-- Regras candidatas em `candidateStrategy.ts` e custos normalizados em `costLedger.ts` são exclusivamente simulados e nunca importados pelo executor.
-- Simulações novas são por token; saldo e histórico são gravados atomicamente, com revisão e identificador idempotente. Simulações antigas sem token são somente leitura.
-- Comparações incluem resultado de liquidação, queda máxima, exposição, ciclos e comprar/manter com custos equivalentes. Cerca de 25h de dados não comprovam desempenho de uma estratégia.
 
 ## Operação
 
@@ -55,7 +52,7 @@ A tela Integrações consulta o estado real do banco, RPC, configuração e veri
 
 ## Recuperação no executor real (22/10/2026)
 
-A estratégia adaptativa oferece **Comprar recuperação no robô REAL**, habilitado e parametrizado pelo titular em Estratégia. Não ativa automaticamente configurações salvas, não altera posições abertas e não importa o motor candidato de simulação. A nova entrada substitui entradas adaptativas antigas enquanto habilitada: queda entre topo anterior e mínima de fechamentos, recuperação limitada e fechamentos consecutivos em alta. Usa apenas o final contínuo de velas completas e recentes, bloqueia compras tardias, não faz recompra com posição aberta e consome o fundo somente após fill confirmado. Uma venda não apaga o fundo consumido.
+A estratégia adaptativa oferece **Comprar recuperação no robô REAL**, habilitado e parametrizado pelo titular em Estratégia. Não ativa automaticamente configurações salvas, não altera posições abertas. A nova entrada substitui entradas adaptativas antigas enquanto habilitada: queda entre topo anterior e mínima de fechamentos, recuperação limitada e fechamentos consecutivos em alta. Usa apenas o final contínuo de velas completas e recentes, bloqueia compras tardias, não faz recompra com posição aberta e consome o fundo somente após fill confirmado. Uma venda não apaga o fundo consumido.
 
 Os valores iniciais do formulário (8% de queda, recuperação entre 2% e 8%, dois fechamentos) são exemplos editáveis, não parâmetros otimizados nem garantia de lucro. O espaço até o topo anterior precisa superar a meta adaptativa estimada com taxas do token, slippage configurado nas duas pontas e taxas DEX estimadas. Isso não prevê retorno ao topo e não confirma lucro após gás ou execução real. Todos os controles de capital, liquidez, taxas verificadas, gás, impacto, cooldown e trava continuam ativos.
 
@@ -68,3 +65,9 @@ Travas antigas sem hash no diário atual exigem conciliação individual com reg
 A migração `0015_strategy_drafts.sql` cria rascunhos privados por usuário e token. O servidor tenta aplicar com as proteções e revisão existentes; em bloqueio de execução, posição aberta ou conflito da versão real, preserva os campos em rascunho e retorna explicitamente `draft`. A versão real não avança, o executor não lê rascunhos e nenhuma trava é removida. Rascunhos usam revisão independente para impedir sobrescrita entre abas. A aplicação válida e o consumo do rascunho são atômicos; não há aplicação automática após desbloqueio.
 
 A interface recupera o rascunho ao abrir, distingue sua versão da versão real, evita envios duplicados e não oferece primeira compra após salvar apenas um rascunho. `tests/strategy-drafts.sql` deve ser executado dentro de transação com `ROLLBACK`; usa somente fixtures com usuários aleatórios.
+
+## Recursos de simulação removidos (22/10/2026)
+
+Foram removidos a rota de simulação, seus endpoints de escrita, motores de replay e comparações hipotéticas. Métricas mantém estatísticas e gráficos de mercado. As migrações históricas e os registros antigos no banco são preservados; não há conversão de saldos fictícios em saldo real. A validação técnica de contratos antes de assinar operações reais permanece ativa.
+
+A tela Estratégia consulta os bloqueios por carteira e posição do token a cada 15 segundos, informa o motivo do rascunho e orienta a conciliação ou revisão da versão antes de uma nova aplicação explícita. Respostas de salvamento de outra carteira não são aplicadas ao formulário atual.

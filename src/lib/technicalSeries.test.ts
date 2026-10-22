@@ -1,7 +1,7 @@
 import { it, expect } from "vitest";
 import { technicalSeries } from "./technicalSeries";
 import { formatPrice } from "./display";
-import type { Candle } from "./backtest";
+import type { Candle } from "./marketStats";
 it("preserves small prices and formats large prices for Brazil", () => {
   expect(formatPrice(83849.039975)).toBe("83.849,04");
   expect(formatPrice(0.000000012345678)).toBe("0,0000000123457");
