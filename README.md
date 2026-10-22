@@ -71,3 +71,13 @@ A interface recupera o rascunho ao abrir, distingue sua versão da versão real,
 Foram removidos a rota de simulação, seus endpoints de escrita, motores de replay e comparações hipotéticas. Métricas mantém estatísticas e gráficos de mercado. As migrações históricas e os registros antigos no banco são preservados; não há conversão de saldos fictícios em saldo real. A validação técnica de contratos antes de assinar operações reais permanece ativa.
 
 A tela Estratégia consulta os bloqueios por carteira e posição do token a cada 15 segundos, informa o motivo do rascunho e orienta a conciliação ou revisão da versão antes de uma nova aplicação explícita. Respostas de salvamento de outra carteira não são aplicadas ao formulário atual.
+
+## Sala do robô, capital e reset (22/10/2026)
+
+A rota `/grade` apresenta os controles de iniciar/pausar ao lado do gráfico, análise, posições e operações; há modo de tela cheia. Os relatórios de saldo são por usuário e carteira, atualizados a cada 15 segundos. Saldo BNB na rede, custo de posições, reservas de compra, gás e saldo livre são separados. Custo de posição já saiu do BNB líquido e não é descontado novamente. Custo legado não é rotulado como resultado confirmado.
+
+`walletCapital.ts` é compartilhado pelo relatório e pelos dois executores (estratégia/grade). Capital individual considera o menor limite positivo entre `allocationBnb` e `maxExposureQuote`, descontando o custo da posição. Sem limite, reserva as entradas fixas restantes, o percentual da próxima compra ou uma ordem da grade. Bots pausados mantêm suas posições e não reservam novas compras. Prévia de início inclui explicitamente o bot selecionado. A compra confere novamente o saldo da rede e as reservas dos outros bots sob a trava da carteira. Reservas acima do saldo geram déficit visível; não são fundos transferidos nem garantia de execução. Vendas continuam seguindo os controles existentes.
+
+`0017_reset_strategy_configuration.sql` adiciona reset transacional, disponível somente ao servidor autenticado. Remove configurações/rascunhos e pausa os bots, arquivando os valores anteriores em `audit_log`. Mantém bots, carteiras, posições, ordens, receipts e locks. Recusa posição aberta ou submissão pendente. Reset não é conciliação de execução e nunca libera mutex. A interface exige confirmação explícita; todas as carteiras são incluídas somente ao marcar essa opção. O executor nunca é ligado automaticamente pelo reset.
+
+`tests/reset-strategies.sql` foi validado em transação com rollback e usuários aleatórios. Verifica isolamento, auditoria, preservação de bots/locks, posição aberta e transação pendente. Os testes de capital verificam reservas concorrentes, percentuais, grade, saldos pequenos e ausência de desconto duplicado.
