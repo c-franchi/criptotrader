@@ -65,9 +65,11 @@ it.each([20, 0.01])(
     fireEvent.click(screen.getByRole("button", { name: "Enviar da minha carteira" }));
     fireEvent.click(screen.getByRole("button", { name: "Conectar carteira" }));
     await waitFor(() => expect(screen.getByPlaceholderText("100,00")).not.toBeDisabled());
+    await screen.findByText(/Taxa estimada do envio:/, {}, { timeout: 5000 });
     fireEvent.change(screen.getByPlaceholderText("100,00"), { target: { value: String(amount) } });
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /Enviar .*BNB.*para o robô/ })).toBeEnabled(),
+    await waitFor(
+      () => expect(screen.getByRole("button", { name: /Enviar .*BNB.*para o robô/ })).toBeEnabled(),
+      { timeout: 5000 },
     );
     expect(screen.getByText(/Depósito parcial/)).toBeTruthy();
     expect(screen.getByText(/Taxa estimada do envio:/).textContent).toContain("0,00000252 BNB");
