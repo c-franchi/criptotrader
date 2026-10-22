@@ -62,3 +62,9 @@ Os valores iniciais do formulário (8% de queda, recuperação entre 2% e 8%, do
 `grid-tick` retorna contagens de tentativas, avaliações sem erro, bloqueios, falhas e adiamentos; bloqueios/falhas respondem HTTP 503. Não registrar uma passagem pela estratégia como se tivesse ocorrido quando a trava impediu a execução. A tela diferencia a consulta de análise do servidor, o preço ao vivo e o horário do executor.
 
 Travas antigas sem hash no diário atual exigem conciliação individual com registros históricos e rede. Nunca excluir por tempo, saldo aparentemente intacto ou ausência de linhas no diário. O cron pode estar funcionando normalmente enquanto uma carteira permanece bloqueada.
+
+## Salvamento com execução bloqueada (22/10/2026)
+
+A migração `0015_strategy_drafts.sql` cria rascunhos privados por usuário e token. O servidor tenta aplicar com as proteções e revisão existentes; em bloqueio de execução, posição aberta ou conflito da versão real, preserva os campos em rascunho e retorna explicitamente `draft`. A versão real não avança, o executor não lê rascunhos e nenhuma trava é removida. Rascunhos usam revisão independente para impedir sobrescrita entre abas. A aplicação válida e o consumo do rascunho são atômicos; não há aplicação automática após desbloqueio.
+
+A interface recupera o rascunho ao abrir, distingue sua versão da versão real, evita envios duplicados e não oferece primeira compra após salvar apenas um rascunho. `tests/strategy-drafts.sql` deve ser executado dentro de transação com `ROLLBACK`; usa somente fixtures com usuários aleatórios.

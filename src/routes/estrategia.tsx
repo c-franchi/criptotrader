@@ -9,12 +9,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin } from "@/components/AppShell";
-import { saveUserStrategy } from "@/lib/strategy.functions";
+import { getStrategyDraft, saveUserStrategy } from "@/lib/strategy.functions";
 import { strategySchema } from "@/lib/strategyValidation";
 import { EMPTY_CONFIG, describeStrategy, type StrategyConfig } from "@/lib/strategy";
 import { PRESETS, buildPreset, type PresetId } from "@/lib/presets";
@@ -150,6 +150,14 @@ function StrategyForm() {
   const [c, setC] = useState<StrategyConfig>(EMPTY_CONFIG);
   const [wallet, setWallet] = useState("");
   const [version, setVersion] = useState(0);
+  const [activeVersion, setActiveVersion] = useState(0);
+  const [activeConfig, setActiveConfig] = useState<StrategyConfig | null>(null);
+  const [draftRevision, setDraftRevision] = useState(0);
+  const [draftNotice, setDraftNotice] = useState("");
+  const [saving, setSaving] = useState(false);
+  const tokenRef = useRef(token.address);
+  tokenRef.current = token.address;
+  const savingRef = useRef(false);
   const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const dirty = savedSnapshot != null && savedSnapshot !== JSON.stringify({ c, wallet });
   useEffect(() => {
@@ -221,28 +229,51 @@ function StrategyForm() {
   useEffect(() => {
     let alive = true;
     setLiq(null);
-    supabase
-      .from("strategies")
-      .select("*")
-      .order("updated_at", { ascending: false })
-      .then(({ data }) => {
+    setSavedSnapshot(null);
+    setDraftRevision(0);
+    setDraftNotice("");
+    Promise.all([
+      supabase.from("strategies").select("*").order("updated_at", { ascending: false }),
+      getStrategyDraft({ data: { token: token.address } }),
+    ])
+      .then(([{ data, error }, draft]) => {
+        if (error) throw error;
         if (!alive) return;
         const rows = data ?? [];
         const own = rows.find((r) => r.token.toLowerCase() === token.address.toLowerCase());
-        setWallet(rows.find((r) => r.tracked_wallet)?.tracked_wallet ?? "");
-        const cfg = own
-          ? { ...EMPTY_CONFIG, ...(own.config as Partial<StrategyConfig>) }
-          : EMPTY_CONFIG;
+        const trackedWallet = draft
+          ? (draft.tracked_wallet ?? "")
+          : (rows.find((r) => r.tracked_wallet)?.tracked_wallet ?? "");
+        setWallet(trackedWallet);
+        const cfg = draft
+          ? { ...EMPTY_CONFIG, ...draft.config }
+          : own
+            ? { ...EMPTY_CONFIG, ...(own.config as Partial<StrategyConfig>) }
+            : EMPTY_CONFIG;
         setC(cfg);
         setSavedSnapshot(
           JSON.stringify({
             c: cfg,
-            wallet: rows.find((r) => r.tracked_wallet)?.tracked_wallet ?? "",
+            wallet: trackedWallet,
           }),
         );
         setMode(cfg.presetId ?? (own ? "manual" : ""));
-        setVersion(own?.version ?? 0);
+        setActiveVersion(own?.version ?? 0);
+        setActiveConfig(
+          own ? { ...EMPTY_CONFIG, ...(own.config as Partial<StrategyConfig>) } : null,
+        );
+        setVersion(draft?.base_version ?? own?.version ?? 0);
+        setDraftRevision(draft?.revision ?? 0);
+        setDraftNotice(
+          draft ? "Rascunho recuperado. Estes ajustes ainda não foram aplicados ao robô real." : "",
+        );
         setEdited(false);
+      })
+      .catch(() => {
+        if (alive)
+          toast.error(
+            "Não foi possível carregar a estratégia e o rascunho. Tente abrir esta tela novamente.",
+          );
       });
     measure(false);
     setPool(undefined);
@@ -321,29 +352,52 @@ function StrategyForm() {
     const validation = strategySchema.safeParse(c);
     if (!validation.success)
       return void toast.error(validation.error.issues[0]?.message ?? "Revise a estratégia");
+    if (savingRef.current || savedSnapshot == null) return;
+    savingRef.current = true;
+    setSaving(true);
     try {
-      await saveUserStrategy({
-        data: { token: token.address, config: c, wallet: wallet || null, version },
+      const result = await saveUserStrategy({
+        data: { token: token.address, config: c, wallet: wallet || null, version, draftRevision },
       });
+      if (tokenRef.current !== token.address) return;
+      setVersion(result.version);
+      setDraftRevision(result.draftRevision);
+      setSavedSnapshot(JSON.stringify({ c, wallet }));
+      if (result.status === "draft") {
+        setDraftNotice(result.message);
+        const { data: latest } = await supabase
+          .from("strategies")
+          .select("version,config")
+          .ilike("token", token.address)
+          .maybeSingle();
+        if (tokenRef.current !== token.address) return;
+        if (latest) {
+          setActiveVersion(latest.version);
+          setActiveConfig({ ...EMPTY_CONFIG, ...(latest.config as Partial<StrategyConfig>) });
+        }
+        toast.success("Rascunho salvo. A estratégia real permanece sem alterações.");
+        return;
+      }
+      setActiveVersion(result.version);
+      setActiveConfig(c);
+      setDraftNotice("");
+      toast.success(
+        `Estratégia de ${token.symbol} aplicada (versão ${result.version}).${botRunning ? " O robô ligado usará as novas regras na próxima avaliação." : " O robô permanece desligado."}`,
+      );
+      setAskTrade(true);
     } catch (e) {
       toast.error((e as Error).message);
-      return;
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
-    setVersion(version + 1);
-    setSavedSnapshot(JSON.stringify({ c, wallet }));
-    toast.success(
-      botRunning
-        ? `Estratégia de ${token.symbol} salva (versão ${version + 1}). O robô ligado passa a usar as novas regras na próxima verificação (até 1 min), sem desligar.`
-        : `Estratégia de ${token.symbol} salva (versão ${version + 1})`,
-    );
-    setAskTrade(true);
   };
   const [askTrade, setAskTrade] = useState(false);
   const navigate = useNavigate();
   const firstEntry = c.sizingMode === "fixo" && c.buyAmount > 0 ? c.buyAmount : null;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
+    <div className="grid min-w-0 gap-4 [&>*]:min-w-0 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="space-y-4">
         <nav
           onClick={(e) => {
@@ -1159,7 +1213,7 @@ function StrategyForm() {
 
       <div
         id="strategy-summary"
-        className="scroll-mt-24 space-y-4 lg:sticky lg:top-20 lg:self-start"
+        className="min-w-0 scroll-mt-24 space-y-4 break-words lg:sticky lg:top-20 lg:self-start"
       >
         <div
           role="status"
@@ -1169,25 +1223,60 @@ function StrategyForm() {
             ? "Carregando estratégia…"
             : dirty
               ? "Alterações ainda não salvas"
-              : `Estratégia sem alterações pendentes · versão ${version}`}
+              : draftRevision > 0
+                ? `Rascunho salvo · versão real ${activeVersion} preservada`
+                : `Estratégia sem alterações pendentes · versão ${activeVersion}`}
+          {draftNotice && (
+            <p className="mt-2 text-warning">
+              {draftNotice} A configuração real só muda quando a aplicação for permitida e
+              confirmada.
+            </p>
+          )}
+          {draftRevision > 0 && version !== activeVersion && activeConfig && (
+            <div className="mt-3 space-y-2">
+              <details>
+                <summary className="cursor-pointer underline">
+                  Comparar com a estratégia real v{activeVersion}
+                </summary>
+                <ul className="mt-2 space-y-2">
+                  {describeStrategy(activeConfig).map((line, i) => (
+                    <li key={i}>• {line}</li>
+                  ))}
+                </ul>
+              </details>
+              <Button
+                variant="outline"
+                className="h-auto w-full whitespace-normal"
+                onClick={() => setVersion(activeVersion)}
+                disabled={saving}
+              >
+                Revisei os campos; usar a versão real v{activeVersion} como base
+              </Button>
+            </div>
+          )}
           <Button
             className="mt-2 w-full"
-            disabled={!dirty || errors.length > 0}
+            disabled={
+              saving ||
+              savedSnapshot == null ||
+              (!dirty && draftRevision === 0) ||
+              errors.length > 0
+            }
             onClick={requestSave}
           >
-            Salvar alterações
+            {saving ? "Salvando…" : draftRevision > 0 ? "Aplicar rascunho" : "Salvar alterações"}
           </Button>
         </div>
         <Panel title="Prévia em linguagem simples">
           {chosen && (
-            <p className="mb-3 flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 p-2 text-sm font-semibold text-primary">
+            <p className="mb-3 flex flex-wrap items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 p-2 text-sm font-semibold text-primary">
               <Check className="h-4 w-4 shrink-0" /> {chosen.name}
               {edited && (
                 <span className="font-normal text-muted-foreground">(com ajustes manuais)</span>
               )}
             </p>
           )}
-          <ul className="space-y-2 text-sm">
+          <ul className="min-w-0 space-y-2 break-words text-sm">
             {describeStrategy(c).map((l, i) => (
               <li key={i}>• {l}</li>
             ))}
@@ -1264,13 +1353,19 @@ function StrategyForm() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          <Button className="mt-4 w-full" onClick={requestSave} disabled={errors.length > 0}>
-            Salvar estratégia{chosen ? ` · ${chosen.name}` : ""}
-            {version ? ` (atual v${version})` : ""}
+          <Button
+            className="mt-4 h-auto min-h-10 w-full whitespace-normal break-words"
+            onClick={requestSave}
+            disabled={saving || savedSnapshot == null || errors.length > 0}
+          >
+            {saving ? "Salvando…" : draftRevision > 0 ? "Aplicar rascunho" : "Salvar estratégia"}
+            {chosen ? ` · ${chosen.name}` : ""}
+            {activeVersion ? ` (real v${activeVersion})` : ""}
           </Button>
           <p className="mt-2 text-xs text-muted-foreground">
-            Salvar não ativa nenhuma operação real. Execução automática estará disponível em fases
-            futuras.
+            Salvar não liga um robô desligado. Uma estratégia aplicada pode ser usada por um robô já
+            ligado na próxima avaliação. Se houver bloqueio ou posição aberta, os ajustes ficam como
+            rascunho e não alteram as regras reais.
           </p>
         </Panel>
       </div>
