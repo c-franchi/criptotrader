@@ -83,6 +83,8 @@ function ChartBody({
   const stateRef = useRef({ view, follow, hours, now, minutes });
   stateRef.current = { view, follow, hours, now, minutes };
   const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const gestureStart = useRef<{ x: number; y: number } | null>(null);
+  const suppressClick = useRef(false);
   const pinch = useRef<{ dist: number; span: number; anchorT: number } | null>(null);
   const longPress = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -239,9 +241,16 @@ function ChartBody({
   };
 
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
-    (e.target as Element).setPointerCapture?.(e.pointerId);
+    if (e.pointerType === "mouse" && ![0, 1, 2].includes(e.button)) return;
+    if (e.pointerType === "mouse" && e.button !== 0) e.preventDefault();
+    if (pointers.current.size === 0) {
+      gestureStart.current = { x: e.clientX, y: e.clientY };
+      suppressClick.current = false;
+    }
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 2) {
+      suppressClick.current = true;
       const pts = [...pointers.current.values()];
       const a = pts[0],
         b = pts[1];
@@ -253,7 +262,7 @@ function ChartBody({
         anchorT: tFromEvent((a.x + b.x) / 2) ?? (cur.start + cur.end) / 2,
       };
       if (longPress.current) clearTimeout(longPress.current);
-    } else if (e.pointerType === "touch") {
+    } else if (e.pointerType === "touch" && tool === "inspect") {
       const t = tFromEvent(e.clientX);
       longPress.current = setTimeout(() => {
         if (t != null) setProbe({ t, px: e.clientX });
@@ -262,6 +271,14 @@ function ChartBody({
   };
   const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const prev = pointers.current.get(e.pointerId);
+    const start = gestureStart.current;
+    if (prev && start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6) {
+      suppressClick.current = true;
+      if (longPress.current) {
+        clearTimeout(longPress.current);
+        longPress.current = null;
+      }
+    }
     if (prev) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pinch.current && pointers.current.size === 2) {
       const pts = [...pointers.current.values()];
@@ -285,11 +302,17 @@ function ChartBody({
         clearTimeout(longPress.current);
         longPress.current = null;
       }
-      if (Math.abs(dx) > Math.abs(e.clientY - prev.y))
+      if (suppressClick.current && Math.abs(dx) > Math.abs(e.clientY - prev.y))
         panBy((-dx / (svgRef.current?.getBoundingClientRect().width || 1)) * span);
       return;
     }
-    if (prev && pointers.current.size === 1 && e.pointerType === "mouse" && e.buttons === 1) {
+    if (
+      prev &&
+      pointers.current.size === 1 &&
+      e.pointerType === "mouse" &&
+      (e.buttons & 7) !== 0 &&
+      suppressClick.current
+    ) {
       panBy((-(e.clientX - prev.x) / (svgRef.current?.getBoundingClientRect().width || 1)) * span);
       return;
     }
@@ -576,6 +599,10 @@ function ChartBody({
                 ? "Ponto 1 marcado. Toque ou clique no segundo ponto."
                 : `Medição concluída: ${((measure[1]!.price / measure[0]!.price - 1) * 100).toFixed(2)}% · ${Math.abs(measure[1]!.time - measure[0]!.time) / 60000 < 1 ? "menos de 1" : Math.round(Math.abs(measure[1]!.time - measure[0]!.time) / 60000)} min. Toque para iniciar outra medição.`
             : "Desenho ativo: toque ou clique na altura do preço desejado."}
+          <p className="mt-1 text-xs font-normal">
+            Clique sem arrastar para marcar. Para mover, arraste com o botão esquerdo, direito ou
+            central do mouse. No celular, deslize para mover e toque para marcar.
+          </p>
         </div>
       )}
       {bars.length ? (
@@ -588,9 +615,10 @@ function ChartBody({
             "w-full touch-pan-y select-none overflow-hidden",
             tool !== "inspect" && "cursor-crosshair",
           )}
-          onPointerDown={tool === "inspect" ? onPointerDown : undefined}
+          onPointerDown={onPointerDown}
+          onContextMenu={(e) => e.preventDefault()}
           onClick={(e) => {
-            if (tool === "inspect") return;
+            if (tool === "inspect" || e.button !== 0 || suppressClick.current) return;
             const rect = e.currentTarget.getBoundingClientRect();
             const px = ((e.clientX - rect.left) * W) / rect.width;
             const py = ((e.clientY - rect.top) * (volBase + 20)) / rect.height;
@@ -624,7 +652,10 @@ function ChartBody({
           }}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
+          onPointerCancel={(e) => {
+            suppressClick.current = true;
+            onPointerUp(e);
+          }}
           onPointerLeave={() => {
             if (pointers.current.size === 0) setProbe(null);
           }}
