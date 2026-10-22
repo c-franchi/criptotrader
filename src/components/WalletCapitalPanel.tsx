@@ -64,12 +64,6 @@ export function WalletCapitalPanel({
               </div>
             ))}
           </div>
-          <p className="mt-3 text-xs text-muted-foreground">
-            O valor em posições é o custo registrado dos tokens, não uma cotação de venda. Posições
-            de grade sem custo registrado devem ser conferidas no histórico. Ele já saiu do BNB da
-            carteira e não é descontado duas vezes. Reservas são compromissos internos para novas
-            compras, não transferências na rede.
-          </p>
           {previewId && (
             <p className="mt-2 text-xs text-primary">
               Prévia de início: inclui o capital do bot selecionado, mesmo pausado. Os outros bots
@@ -90,8 +84,63 @@ export function WalletCapitalPanel({
               de cada compra.
             </p>
           )}
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="mt-4 space-y-3 lg:hidden">
+            <h3 className="text-sm font-semibold">Bots desta carteira</h3>
+            {c.rows.map((row) => (
+              <article key={row.id} className="rounded-lg border border-border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="whitespace-nowrap text-base font-semibold">
+                    {tokens.find((t) => t.address.toLowerCase() === row.token.toLowerCase())
+                      ?.symbol ?? `${row.token.slice(0, 8)}…`}
+                  </h4>
+                  <span className="text-xs text-muted-foreground">
+                    {!row.configured
+                      ? "Configurar estratégia"
+                      : row.armed
+                        ? "Ligado"
+                        : row.id === previewId
+                          ? "Prévia de início"
+                          : "Pausado"}
+                  </span>
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Em posição</dt>
+                    <dd className="mt-1 font-medium tabular-nums">
+                      {row.mode === "grade" ? "Consultar histórico" : bnb(row.invested)}
+                    </dd>
+                    {row.mode !== "grade" && (
+                      <p className="text-[11px] text-muted-foreground">
+                        {row.estimated ? "Custo estimado" : "Custo registrado"}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Reservado para compra</dt>
+                    <dd className="mt-1 font-medium tabular-nums">{bnb(row.reserved)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Reserva para gás</dt>
+                    <dd className="mt-1 font-medium tabular-nums">{bnb(row.gas)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Disponível para o bot</dt>
+                    <dd
+                      className={`mt-1 font-medium tabular-nums ${locked !== false ? "text-warning" : "text-primary"}`}
+                    >
+                      {locked !== false
+                        ? "Bloqueado"
+                        : row.armed || row.id === previewId
+                          ? bnb(row.available)
+                          : "Sem reserva"}
+                    </dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+          <div className="mt-3 hidden overflow-x-auto lg:block">
+            <table className="w-full min-w-[720px] text-left text-sm [&_th]:whitespace-nowrap [&_th]:font-medium [&_td]:break-normal">
               <caption className="mb-2 text-left font-semibold">
                 Bots que usam esta mesma carteira
               </caption>
@@ -140,12 +189,24 @@ export function WalletCapitalPanel({
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Sem limite de capital individual: reserva as compras fixas restantes da estratégia, o
-            percentual da próxima entrada ou uma ordem de grade. Para dividir um valor fixo entre
-            bots, defina “Capital máximo deste robô” na estratégia. Carteiras diferentes têm saldos
-            independentes. Atualizado em {new Date(c.at).toLocaleTimeString("pt-BR")}.
-          </p>
+          <details className="mt-3 text-xs text-muted-foreground">
+            <summary className="cursor-pointer font-medium">Como o saldo é dividido</summary>
+            <div className="mt-2 space-y-2">
+              <p className="mt-3 text-xs text-muted-foreground">
+                O valor em posições é o custo registrado dos tokens, não uma cotação de venda.
+                Posições de grade sem custo registrado devem ser conferidas no histórico. Ele já
+                saiu do BNB da carteira e não é descontado duas vezes. Reservas são compromissos
+                internos para novas compras, não transferências na rede.
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Sem limite de capital individual: reserva as compras fixas restantes da estratégia,
+                o percentual da próxima entrada ou uma ordem de grade. Para dividir um valor fixo
+                entre bots, defina “Capital máximo deste robô” na estratégia. Carteiras diferentes
+                têm saldos independentes. Atualizado em {new Date(c.at).toLocaleTimeString("pt-BR")}
+                .
+              </p>
+            </div>
+          </details>
         </>
       )}
     </Panel>

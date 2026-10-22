@@ -388,7 +388,7 @@ function Robo() {
         </div>
         <div>
           <p className="mb-2 text-xs text-muted-foreground">Criar ou abrir robô para o token:</p>
-          <div className="flex flex-wrap gap-2">
+          <div data-token-picker className="flex flex-wrap gap-2">
             {tokens.map((t) => (
               <Button
                 key={t.address}

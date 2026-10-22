@@ -140,11 +140,11 @@ function Dashboard() {
 
   return (
     <AppShell>
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div data-token-picker className="mb-4 flex flex-wrap gap-2">
         {tokens.map((x) => (
           <Button
             key={x.address}
-            className="flex-1 sm:flex-none"
+            className="flex-none"
             variant={x.address === addr ? "default" : "secondary"}
             onClick={() => setAddr(x.address)}
           >
