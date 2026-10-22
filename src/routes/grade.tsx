@@ -1,3 +1,4 @@
+import { recoverStrategyExecution } from "@/lib/strategy.functions";
 import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { LEGACY_WALLET_SCOPE } from "@/lib/walletScope";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -472,8 +473,22 @@ function Robo() {
                   }}
                 />
               )}
-              <Button variant="outline" disabled={busy} onClick={load}>
-                Atualizar estado
+              <Button
+                variant="outline"
+                disabled={busy || saving}
+                onClick={async () => {
+                  setSaving(true);
+                  try {
+                    await recoverStrategyExecution({ data: { walletScope } });
+                    await load();
+                  } catch (e) {
+                    toast.error((e as Error).message);
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+              >
+                {execution?.locked ? "Verificar e recuperar" : "Atualizar estado"}
               </Button>
               <Link
                 to="/estrategia"

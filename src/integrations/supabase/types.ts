@@ -35,16 +35,19 @@ export type Database = {
       bot_execution_locks: {
         Row: {
           acquired_at: string;
+          phase: string;
           owner: string;
           user_id: string;
         };
         Insert: {
           acquired_at?: string;
+          phase?: string;
           owner: string;
           user_id: string;
         };
         Update: {
           acquired_at?: string;
+          phase?: string;
           owner?: string;
           user_id?: string;
         };

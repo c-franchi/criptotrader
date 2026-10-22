@@ -6,10 +6,11 @@ export async function acquireExecution(
   userId: string,
   walletScope = LEGACY_WALLET_SCOPE,
 ) {
+  await recoverPreflightExecution(admin, userId, walletScope);
   const owner = crypto.randomUUID();
   const { error } = await admin
     .from("bot_execution_locks")
-    .insert({ user_id: userId, owner, wallet_scope: walletScope });
+    .insert({ user_id: userId, owner, wallet_scope: walletScope, phase: "preparing" });
   if (error)
     throw new Error("Carteira em execução ou confirmação pendente; aguarde antes de repetir");
   return owner;
@@ -89,4 +90,14 @@ export async function reconcileLocks(
     }
   }
   return released;
+}
+
+/** Database fencing prevents an expired preflight worker from later registering a broadcast. */
+export async function recoverPreflightExecution(admin: any, userId: string, walletScope: string) {
+  const { data, error } = await admin.rpc("recover_preflight_execution", {
+    p_user: userId,
+    p_scope: walletScope,
+  });
+  if (error) throw new Error("Não foi possível verificar a execução anterior. Tente novamente.");
+  return data === true;
 }

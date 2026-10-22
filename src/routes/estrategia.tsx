@@ -10,7 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -128,10 +128,12 @@ function Num({
   value: number | null;
   onChange: (n: number) => void;
 }) {
+  const generatedId = useId();
+  const fieldId = id ?? generatedId;
   return (
     <div>
       <div className="flex items-center gap-1">
-        <Label htmlFor={id} className="text-sm">
+        <Label htmlFor={fieldId} className="text-sm">
           {label}
         </Label>
         {help && (
@@ -141,7 +143,7 @@ function Num({
         )}
       </div>
       <Input
-        id={id}
+        id={fieldId}
         type="number"
         step="any"
         min={0}
@@ -356,6 +358,8 @@ function StrategyForm() {
   const walletOk = /^0x[0-9a-fA-F]{40}$/.test(wallet);
 
   const errors: string[] = [];
+  if (!(c.buyAmount > 0))
+    errors.push("Informe o valor por compra em Valores das operações do robô.");
   if (wallet && !/^0x[0-9a-fA-F]{40}$/.test(wallet)) errors.push("Endereço de carteira inválido.");
   if (c.sizingMode === "percentual" && c.buyAmount > 100)
     errors.push("Percentual do saldo não pode passar de 100%.");
@@ -427,7 +431,6 @@ function StrategyForm() {
   };
   const [askTrade, setAskTrade] = useState(false);
   const navigate = useNavigate();
-  const firstEntry = c.sizingMode === "fixo" && c.buyAmount > 0 ? c.buyAmount : null;
 
   return (
     <div className="grid w-full min-w-0 grid-cols-1 gap-4 [&>*]:min-w-0 lg:grid-cols-[minmax(0,1fr)_380px]">
@@ -443,6 +446,9 @@ function StrategyForm() {
           aria-label="Seções da estratégia"
           className="flex flex-wrap gap-3 rounded-md border border-border p-3 text-sm"
         >
+          <a href="#strategy-values" className="text-primary underline">
+            Valores das operações
+          </a>
           <a href="#strategy-entry" className="text-primary underline">
             Entrada
           </a>
@@ -456,6 +462,70 @@ function StrategyForm() {
             Resumo e salvar
           </a>
         </nav>
+        <section id="strategy-values" className="scroll-mt-24">
+          <Panel title="Valores das operações do robô">
+            <p className="mb-3 text-sm text-muted-foreground">
+              Estes são os valores que serão salvos e usados pelo robô automático de {token.symbol}
+              na carteira selecionada. Você pode editar também nas estratégias prontas.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-sm">
+                Como calcular cada compra
+                <select
+                  aria-label="Como calcular cada compra"
+                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-3"
+                  value={c.sizingMode}
+                  onChange={(e) => set("sizingMode", e.target.value as "fixo" | "percentual")}
+                >
+                  <option value="fixo">Valor fixo em BNB</option>
+                  <option value="percentual">Percentual do saldo disponível</option>
+                </select>
+              </label>
+              <Num
+                id="strategy-buy-amount"
+                label={
+                  c.sizingMode === "fixo"
+                    ? "Valor por compra (BNB)"
+                    : "Saldo disponível por compra (%)"
+                }
+                value={c.buyAmount}
+                onChange={(n) => set("buyAmount", n)}
+                hint={
+                  c.sizingMode === "fixo" && bnbBrl
+                    ? `Aproximadamente ${brl(c.buyAmount * bnbBrl)} por compra.`
+                    : c.sizingMode === "fixo"
+                      ? "Valor em BNB usado em cada compra. A taxa da rede fica fora deste valor."
+                      : "O percentual considera o saldo liberado para este robô, depois das reservas."
+                }
+              />
+              <Num
+                label="Máximo de compras por posição"
+                value={c.maxEntries}
+                onChange={(n) => set("maxEntries", n)}
+                hint="Na recuperação real, uma posição admite somente uma entrada."
+              />
+              <Num
+                label="Capital máximo deste robô (BNB)"
+                value={c.allocationBnb ?? 0}
+                onChange={(n) => set("allocationBnb", n)}
+                hint="0 = sem teto individual. A carteira continua compartilhada e o saldo não pode ser usado duas vezes."
+              />
+              <Num
+                label="Máximo aplicado na posição (BNB)"
+                value={c.maxExposureQuote}
+                onChange={(n) => set("maxExposureQuote", n)}
+                hint="0 = sem teto adicional por posição. O saldo liberado e o limite do robô continuam valendo."
+              />
+            </div>
+            <p className="mt-3 text-sm">
+              Depois de definir os valores e as regras, toque em{" "}
+              <a href="#strategy-summary" className="text-primary underline">
+                Salvar estratégia
+              </a>{" "}
+              e abra o robô para iniciar.
+            </p>
+          </Panel>
+        </section>
         {botRunning && (
           <div className="rounded-md border border-primary/50 bg-primary/10 p-3 text-sm">
             <p className="font-semibold">
@@ -605,7 +675,7 @@ function StrategyForm() {
             </div>
           </Panel>
 
-          <Panel title={`Passo 3 · Quanto de BNB usar para comprar ${token.symbol}`}>
+          <Panel title={`Passo 3 · Orçamento para montar uma estratégia pronta`}>
             <div className="mb-2 flex gap-2">
               {(["BRL", "BNB"] as const).map((cur) => (
                 <Button
@@ -646,7 +716,9 @@ function StrategyForm() {
             )}
 
             <p className="mt-2 text-xs text-muted-foreground">
-              Esse valor é usado para montar a estratégia pronta (passo 4).
+              Este orçamento monta os valores ao aplicar um modelo no passo 4. Digitar aqui não
+              altera uma estratégia existente. Os valores efetivos ficam em “Valores das operações
+              do robô”, no início da tela.
             </p>
           </Panel>
 
@@ -844,37 +916,6 @@ function StrategyForm() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <div className="flex items-center gap-1">
-                    <Label>Tamanho da compra</Label>
-                    <HelpTip title="Tamanho da compra">
-                      <p>
-                        <b>Valor fixo:</b> sempre a mesma quantia de BNB.
-                      </p>
-                      <p>
-                        <b>% do saldo:</b> uma porcentagem do BNB que estiver na carteira.
-                      </p>
-                    </HelpTip>
-                  </div>
-                  <select
-                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={c.sizingMode}
-                    onChange={(e) => set("sizingMode", e.target.value as "fixo")}
-                  >
-                    <option value="percentual">% do saldo disponível</option>
-                    <option value="fixo">Valor fixo</option>
-                  </select>
-                </div>
-                <Num
-                  label={
-                    c.sizingMode === "fixo"
-                      ? "Valor por compra (moeda do par)"
-                      : "% do saldo usado na compra"
-                  }
-                  value={c.buyAmount}
-                  help="Quanto o robô usa em cada compra. Ex.: com 0,01 BNB por compra e 3 compras, o máximo gasto é 0,03 BNB. Comece com pouco."
-                  onChange={(n) => set("buyAmount", n)}
-                />
-                <div>
-                  <div className="flex items-center gap-1">
                     <Label>Tipo de sinal</Label>
                     <HelpTip title="Tipo de sinal">
                       <p>
@@ -1037,24 +1078,14 @@ function StrategyForm() {
                   help="Dinheiro disponível no pool para trocas. Pouca liquidez = preço salta muito e pode ser difícil vender. Abaixo deste valor, não compra."
                   onChange={(n) => set("minLiquidityUsd", n)}
                 />
-                <Num
-                  label="Máx. entradas por posição"
-                  value={c.maxEntries}
-                  help="Quantas vezes pode comprar antes de vender. Comprar em partes ajuda a pegar um preço médio melhor se continuar caindo."
-                  onChange={(n) => set("maxEntries", n)}
-                />
+
                 <Num
                   label="Intervalo mínimo entre compras (min)"
                   value={c.cooldownMin}
                   help="Tempo mínimo de espera entre uma compra e outra, para não gastar tudo numa queda rápida."
                   onChange={(n) => set("cooldownMin", n)}
                 />
-                <Num
-                  label={`Exposição máxima ao ${token.symbol} (moeda do par)`}
-                  value={c.maxExposureQuote}
-                  help="Teto total de BNB aplicado neste token. Protege para não colocar tudo num só lugar."
-                  onChange={(n) => set("maxExposureQuote", n)}
-                />
+
                 <Num
                   label="Máx. operações por dia"
                   value={c.maxTradesPerDay}
@@ -1086,13 +1117,6 @@ function StrategyForm() {
                 />
                 Confirmo os percentuais de taxa de compra e venda informados
               </label>
-              <div className="mt-3">
-                <Num
-                  label="Capital máximo deste robô (BNB; 0 = sem divisão específica)"
-                  value={c.allocationBnb ?? 0}
-                  onChange={(n) => set("allocationBnb", n)}
-                />
-              </div>
               <p className="mt-2 text-xs text-warning">
                 Taxa desconhecida não significa taxa zero. Metas de lucro descontam as taxas do
                 token; gás, DEX e execução ainda precisam ser considerados.
@@ -1274,13 +1298,22 @@ function StrategyForm() {
             disabled={
               saving ||
               savedSnapshot == null ||
-              (!dirty && draftRevision === 0) ||
+              (!dirty && draftRevision === 0 && activeVersion > 0) ||
               errors.length > 0
             }
             onClick={requestSave}
           >
-            {saving ? "Salvando…" : draftRevision > 0 ? "Aplicar rascunho" : "Salvar alterações"}
+            {saving ? "Salvando…" : draftRevision > 0 ? "Aplicar rascunho" : "Salvar estratégia"}
           </Button>
+          {activeVersion > 0 && draftRevision === 0 && (
+            <Button
+              variant="outline"
+              className="mt-2 w-full"
+              onClick={() => navigate({ to: "/grade" })}
+            >
+              Abrir robô e gráfico
+            </Button>
+          )}
         </div>
         <ResetStrategiesButton key={walletScope} walletScope={walletScope} />
         <Panel title="Prévia em linguagem simples">
@@ -1307,32 +1340,17 @@ function StrategyForm() {
           <AlertDialog open={askTrade} onOpenChange={setAskTrade}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>
-                  Estratégia salva! Fazer a primeira compra agora?
-                </AlertDialogTitle>
+                <AlertDialogTitle>Estratégia salva! Abrir o robô?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Você vai para Operar com a estratégia de {token.symbol} já carregada
-                  {firstEntry ? (
-                    <>
-                      {" "}
-                      e a primeira entrada preenchida com <b>{firstEntry} BNB</b>
-                    </>
-                  ) : null}
-                  . Lá você só confere o valor, conecta a carteira e confirma: paga BNB e recebe{" "}
-                  {token.symbol}.
+                  A estratégia de {token.symbol} está salva. Abra a sala do robô para conferir os
+                  valores, o saldo disponível e o gráfico, e iniciar quando estiver pronto. Salvar a
+                  estratégia não inicia operações automaticamente.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Agora não</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() =>
-                    navigate({
-                      to: "/operar",
-                      search: firstEntry ? { entrada: String(firstEntry) } : {},
-                    })
-                  }
-                >
-                  Ir para a operação
+                <AlertDialogAction onClick={() => navigate({ to: "/grade" })}>
+                  Abrir robô e gráfico
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

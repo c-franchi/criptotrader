@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { recoverStrategyExecution } from "@/lib/strategy.functions";
+import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +35,24 @@ export function StrategyApplicationStatus({
     },
     refetchInterval: 15_000,
   });
+  const [recovering, setRecovering] = useState(false);
+  const recover = async () => {
+    setRecovering(true);
+    try {
+      const result = await recoverStrategyExecution({ data: { walletScope } });
+      await status.refetch();
+      if (result.recovered)
+        toast.success("Execução interrompida recuperada. Agora aplique sua estratégia.");
+      else
+        toast.info(
+          "Verificação concluída. Transações enviadas continuam aguardando confirmação da rede.",
+        );
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setRecovering(false);
+    }
+  };
   const state = status.data;
   return (
     <div className="mt-3 space-y-2 rounded-md border border-border p-3 text-sm" aria-live="polite">
@@ -51,8 +72,9 @@ export function StrategyApplicationStatus({
           )}
           {state.pending.length === 0 && (
             <p>
-              Não há transação no diário atual. O bloqueio precisa ser investigado no painel do
-              robô; ele não é removido automaticamente.
+              Não há transação no diário atual. Use “Verificar e recuperar” para corrigir uma
+              tentativa interrompida antes do envio. Execuções sem comprovação de fase permanecem
+              protegidas.
             </p>
           )}
           {state.pending.map((item) => (
@@ -82,10 +104,10 @@ export function StrategyApplicationStatus({
         <Button
           size="sm"
           variant="outline"
-          disabled={status.isFetching}
-          onClick={() => void status.refetch()}
+          disabled={status.isFetching || recovering}
+          onClick={() => void recover()}
         >
-          Verificar novamente
+          {recovering ? "Verificando…" : "Verificar e recuperar"}
         </Button>
         <Button size="sm" variant="outline" asChild>
           <Link to="/grade">Ver operações do robô</Link>

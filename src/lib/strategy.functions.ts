@@ -27,6 +27,8 @@ export const saveUserStrategy = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await assertWalletScope(supabaseAdmin, context.userId, data.walletScope);
+    const { recoverPreflightExecution } = await import("./executionLock.server");
+    await recoverPreflightExecution(supabaseAdmin, context.userId, data.walletScope);
     return persistStrategy(supabaseAdmin as unknown as StrategyRpcClient, context.userId, {
       walletScope: data.walletScope,
       token: data.token,
@@ -62,4 +64,17 @@ export const getStrategyDraft = createServerFn({ method: "GET" })
       revision: number;
     };
     return { ...row, config: strategySchema.parse(row.config) as unknown as StrategyConfig };
+  });
+
+/** Attempts only the fenced, pre-broadcast recovery; never releases unknown or submitted work. */
+export const recoverStrategyExecution = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ walletScope: walletScopeSchema }).parse(d))
+  .handler(async ({ context, data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertWalletScope(supabaseAdmin, context.userId, data.walletScope);
+    const { recoverPreflightExecution } = await import("./executionLock.server");
+    return {
+      recovered: await recoverPreflightExecution(supabaseAdmin, context.userId, data.walletScope),
+    };
   });

@@ -1,9 +1,13 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
+import { recoverStrategyExecution } from "@/lib/strategy.functions";
 import { StrategyApplicationStatus } from "./StrategyApplicationStatus";
 
 const mocks = vi.hoisted(() => ({ execution: vi.fn(), rows: vi.fn(), scope: vi.fn() }));
+vi.mock("@/lib/strategy.functions", () => ({
+  recoverStrategyExecution: vi.fn().mockResolvedValue({ recovered: true }),
+}));
 vi.mock("@/lib/bot.functions", () => ({ getExecutionStatus: mocks.execution }));
 vi.mock("@tanstack/react-router", () => ({
   Link: ({ children }: { children: React.ReactNode }) => <a href="/grade">{children}</a>,
@@ -50,4 +54,16 @@ it("allows the user to inspect an unresolved transaction", async () => {
 it("instructs explicit application after the guards clear", async () => {
   show(false, "0");
   expect(await screen.findByText(/Nenhuma execução pendente ou posição aberta/)).toBeTruthy();
+});
+
+it("lets a stopped strategy recover its own wallet without navigating away", async () => {
+  show(true, "0");
+  await screen.findByText(/Não há transação no diário/);
+  const button = screen.getByRole("button", { name: "Verificar e recuperar" });
+  await waitFor(() => expect(button).not.toBeDisabled());
+  fireEvent.click(button);
+  await waitFor(() =>
+    expect(recoverStrategyExecution).toHaveBeenCalledWith({ data: { walletScope: "scope-a" } }),
+  );
+  await waitFor(() => expect(mocks.execution.mock.calls.length).toBeGreaterThan(1));
 });

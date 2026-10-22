@@ -134,6 +134,13 @@
       "when": 1792700396419,
       "tag": "0018_remove_paused_bot",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792714800000,
+      "tag": "0019_execution_preflight_recovery",
+      "breakpoints": true
     }
   ]
 }
