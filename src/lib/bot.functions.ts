@@ -249,7 +249,7 @@ export const getExecutionStatus = createServerFn({ method: "GET" })
       .select("acquired_at")
       .eq("user_id", context.userId)
       .maybeSingle();
-    if (error) throw new Error("Não foi possível consultar a trava de execução");
+    if (error) throw new Error("Não foi possível consultar o estado das operações");
     const { data: pending, error: pendingError } = await supabaseAdmin
       .from("execution_submissions" as never)
       .select("tx_hash,created_at")

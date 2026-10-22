@@ -18,7 +18,7 @@ export function strategySaveRestriction(message: string) {
   if (/Execution in progress|Execução em andamento|Wallet execution pending/i.test(message))
     return {
       kind: "pending",
-      text: "A carteira tem uma execução pendente de conciliação. Mesmo desligado, o robô mantém as regras reais até essa revisão.",
+      text: "Uma operação anterior está pendente de confirmação. Seu rascunho está salvo; aplique após a confirmação.",
     } as const;
   return {
     kind: "unavailable",

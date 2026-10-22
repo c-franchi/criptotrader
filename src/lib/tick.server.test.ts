@@ -34,3 +34,36 @@ it("reports blocked ticks as degraded and never claims the strategy was evaluate
   expect(mocks.release).not.toHaveBeenCalled();
   expect(await tickAll(admin)).toMatchObject({ ok: false, attempted: 1, evaluated: 0, blocked: 1 });
 });
+
+import { BeforeBroadcastError } from "./executionPhase";
+import { runGridStep } from "./bot.server";
+it("releases proven pre-broadcast failures but retains unresolved earlier submissions", async () => {
+  mocks.acquire.mockResolvedValue("owner");
+  vi.mocked(runGridStep).mockRejectedValue(new BeforeBroadcastError("RPC unavailable before send"));
+  const bot = { id: "b", user_id: "u", armed: true, mode: "grade" };
+  for (const unresolved of [false, true]) {
+    mocks.release.mockClear();
+    const admin = {
+      from: (table: string) => {
+        const data =
+          table === "execution_submissions" ? (unresolved ? [{ finished_at: null }] : []) : null;
+        const q: any = {
+          select: () => q,
+          eq: () => q,
+          update: () => q,
+          maybeSingle: async () => ({
+            data: table === "grid_bots" ? bot : { enc_key: "unused" },
+            error: null,
+          }),
+          then: (resolve: any) => resolve({ data, error: null }),
+        };
+        return q;
+      },
+    };
+    expect(await tickBot(admin, bot)).toMatchObject({
+      ok: false,
+      error: "RPC unavailable before send",
+    });
+    expect(mocks.release).toHaveBeenCalledTimes(unresolved ? 0 : 1);
+  }
+});

@@ -1,4 +1,4 @@
-import { BeforeSigningError } from "./executionPhase";
+import { BeforeBroadcastError, BeforeSigningError } from "./executionPhase";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { runGridStep } from "./bot.server";
 import { reconcileSubmissions } from "./submission.server";
@@ -46,7 +46,7 @@ export async function tickBot(admin: any, bot: any) {
         res = await runStrategyStep(admin, bot, bw.enc_key, owner);
       }
     } catch (e) {
-      retain = !(e instanceof BeforeSigningError); // Retain uncertain signing failures; release proven read-only failures.
+      retain = !(e instanceof BeforeSigningError || e instanceof BeforeBroadcastError); // Retain uncertain signing failures; release proven read-only failures.
       res = {
         patch: {
           last_error: (((e as Error).message ?? "erro").split("\n")[0] ?? "erro").slice(0, 300),

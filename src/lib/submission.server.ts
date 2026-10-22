@@ -1,3 +1,4 @@
+import { BeforeBroadcastError } from "./executionPhase";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Decimal from "decimal.js";
 import { encodeFunctionData, keccak256, formatEther, formatUnits, parseUnits } from "viem";
@@ -19,26 +20,33 @@ export async function submitTransaction(o: {
   intent: Record<string, any>;
   maxGasGwei?: number;
 }) {
-  if (o.maxGasGwei && (await o.pub.getGasPrice()) > BigInt(Math.round(o.maxGasGwei * 1e9)))
-    throw new Error("Gás acima do limite configurado");
-  const request = await o.wallet.prepareTransactionRequest({
-    account: o.wallet.account,
-    to: o.to,
-    value: o.value ?? 0n,
-    ...(o.data ? { data: o.data } : {}),
-  });
-  const signed = await o.wallet.signTransaction(request);
-  const hash = keccak256(signed);
   const id = crypto.randomUUID();
-  const { error } = await o.admin.from("execution_submissions").insert({
-    id,
-    user_id: o.userId,
-    lock_owner: o.owner,
-    tx_hash: hash,
-    nonce: request.nonce,
-    intent: o.intent,
-  });
-  if (error) throw new Error("Não foi possível registrar a transação; nada foi transmitido");
+  let signed: `0x${string}`;
+  let hash: `0x${string}`;
+  try {
+    if (o.maxGasGwei && (await o.pub.getGasPrice()) > BigInt(Math.round(o.maxGasGwei * 1e9)))
+      throw new Error("Gás acima do limite configurado");
+    const request = await o.wallet.prepareTransactionRequest({
+      account: o.wallet.account,
+      to: o.to,
+      value: o.value ?? 0n,
+      ...(o.data ? { data: o.data } : {}),
+    });
+    signed = await o.wallet.signTransaction(request);
+    hash = keccak256(signed);
+
+    const { error } = await o.admin.from("execution_submissions").insert({
+      id,
+      user_id: o.userId,
+      lock_owner: o.owner,
+      tx_hash: hash,
+      nonce: request.nonce,
+      intent: o.intent,
+    });
+    if (error) throw new Error("Não foi possível registrar a transação; nada foi transmitido");
+  } catch (error) {
+    throw new BeforeBroadcastError(error instanceof Error ? error.message : "Falha antes do envio");
+  }
   // Any failure from here is indeterminate. The journal owns the hash, and the lock stays held.
   try {
     await o.pub.sendRawTransaction({ serializedTransaction: signed });

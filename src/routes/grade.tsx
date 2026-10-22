@@ -149,6 +149,7 @@ function Robo() {
     null,
   );
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
   const { wallets: saved } = useSavedWallets();
   const [dest, setDest] = useState("");
   const [vision, setVision] = useState(false);
@@ -198,7 +199,7 @@ function Robo() {
     return () => clearInterval(t);
   }, [load]);
 
-  const save = async (armed?: boolean) => {
+  const persist = async (armed?: boolean) => {
     if (!user) return;
     if (armed && !w?.address) return void toast.error("Crie a carteira do robô antes de ligar");
     let row: Record<string, unknown> = {
@@ -243,7 +244,9 @@ function Robo() {
       return void toast.error(
         armed === false
           ? `Não foi possível desligar: ${error.message}`
-          : `Não foi possível salvar: ${error.message}`,
+          : /Wallet execution pending|Execução em andamento|execution.*lock/i.test(error.message)
+            ? "A carteira está conferindo uma operação anterior. Atualize o estado antes de tentar novamente."
+            : `Não foi possível salvar: ${error.message}`,
       );
     await supabase.from("audit_log").insert({
       user_id: user.id,
@@ -254,6 +257,16 @@ function Robo() {
       armed === undefined ? "Configuração salva" : armed ? "Robô LIGADO" : "Robô desligado",
     );
     load();
+  };
+
+  const save = async (armed?: boolean) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await persist(armed);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const act = async (fn: () => Promise<unknown>, ok: string) => {
@@ -291,118 +304,139 @@ function Robo() {
 
   return (
     <div className="space-y-4">
-      <Panel title="Análise atual · sem executar operações">
-        <p role="status" className="text-sm">
-          {analysisError
-            ? "Não foi possível atualizar a análise. Tente novamente em instantes."
-            : (analysis?.error ?? analysis?.reason ?? "Consultando mercado e estratégia…")}
-        </p>
-        {analysis && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Consulta: {new Date(analysis.at).toLocaleString("pt-BR")} · prévia atualizada a cada
-            minuto enquanto esta tela está aberta. Considera as regras e dados disponíveis; não
-            garante saldo, gás ou execução.
-          </p>
-        )}
-        {execution?.locked && (
-          <p className="mt-2 text-xs text-warning">
-            Análise disponível; operações bloqueadas pela carteira em uso ou com execução a revisar.
-            Esta consulta não libera a trava.
-          </p>
-        )}
-      </Panel>
-      <Panel title="Estado de operação">
-        <p
-          role="status"
-          className="mb-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-base font-semibold"
-        >
-          {execution?.pending?.length
-            ? "Aguardando confirmação na rede"
-            : execution?.locked
-              ? "Conferindo execução anterior"
-              : bot?.last_error
-                ? "Atenção: última verificação encontrou um problema"
-                : !armed
-                  ? "Robô pausado"
+      <div>
+        <p className="mb-2 text-xs text-muted-foreground">Criar ou abrir robô para o token:</p>
+        <div className="flex flex-wrap gap-2">
+          {tokens.map((t) => (
+            <Button
+              key={t.address}
+              size="sm"
+              variant={t.address === token ? "default" : "secondary"}
+              onClick={() => setToken(t.address)}
+            >
+              {allBots.some((b) => b.armed && b.token.toLowerCase() === t.address.toLowerCase())
+                ? "● "
+                : ""}
+              {t.symbol}
+            </Button>
+          ))}
+          <AddTokenDialog />
+        </div>
+      </div>
+
+      <Panel title={`Robô · ${sym}`}>
+        <p role="status" className="text-lg font-semibold">
+          {!execution
+            ? "Consultando estado…"
+            : execution.locked
+              ? "Conferindo operação anterior"
+              : !armed
+                ? "Pausado"
+                : bot?.last_error
+                  ? "Precisa de atenção"
                   : !bot?.last_run_at || Date.now() - Date.parse(bot.last_run_at) > 180000
-                    ? "Robô ligado, mas sem avaliação recente do executor"
-                    : "Robô ligado · executor com avaliação recente"}
-        </p>
-        <p className="mb-2 text-xs text-muted-foreground">
-          O motivo abaixo vem da última verificação. Robô ligado não significa que uma compra será
-          feita imediatamente.
-        </p>
-        {execution?.locked && (
-          <p className="mb-2 text-sm text-warning">
-            Carteira bloqueada durante execução ou conciliação. Novas ordens e saques aguardam.
-            {execution.lockAcquiredAt &&
-              ` Trava desde ${new Date(execution.lockAcquiredAt).toLocaleString("pt-BR")}.`}
-            {!execution.pending.length &&
-              " Sem hash no diário atual: execução antiga exige revisão dos registros e da rede; não há liberação automática por tempo."}
-          </p>
-        )}
-        {execution?.pending.map((p) => (
-          <a
-            key={p.tx_hash}
-            href={`https://bscscan.com/tx/${p.tx_hash}`}
-            target="_blank"
-            rel="noreferrer"
-            className="mb-2 block break-all text-xs text-primary underline"
-          >
-            Transação pendente: {p.tx_hash}
-          </a>
-        ))}
-        <p className="text-sm">
-          {armed ? "Robô ligado" : "Robô desligado"} · {sym} · regras{" "}
-          {cfg?.rulesVersion === 2 ? "v2" : "legadas"}
+                    ? "Aguardando o executor"
+                    : "Ligado · acompanhando o mercado"}
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          Última passagem pelo executor:{" "}
-          {bot?.last_run_at ? new Date(bot.last_run_at).toLocaleString("pt-BR") : "aguardando"}
+          {execution?.locked
+            ? "A carteira está conferindo uma operação. Você pode pausar o robô; novas operações aguardam a confirmação."
+            : !armed
+              ? "Escolha a estratégia e toque em Iniciar robô quando estiver pronto."
+              : bot?.last_error ||
+                bot?.last_reason ||
+                "O robô confere as condições de compra e venda a cada minuto."}
         </p>
-        <p role="status" className="mt-2 text-sm">
-          {bot?.last_error ||
-            bot?.last_reason ||
-            "Salve uma estratégia para acompanhar as condições de entrada e saída."}
-        </p>
-        {st.accountingEstimated && (
-          <p className="mt-2 text-xs text-warning">
-            A posição contém contabilidade estimada. BNB recebido só é confirmado quando há trace da
-            transação.
-          </p>
-        )}
-        {armed && bot?.last_run_at && Date.now() - new Date(bot.last_run_at).getTime() > 180000 && (
-          <p className="mt-2 text-xs text-warning">
-            Verificação atrasada: confira o agendamento em Integrações.
-          </p>
-        )}
-      </Panel>
-      <section className="rounded-lg border border-primary/30 bg-card p-4">
-        <h1 className="text-lg font-semibold">Robô automático</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          O robô olha o preço a cada minuto e{" "}
-          <strong className="text-foreground">segue a estratégia que você salvou</strong> para o
-          token: compra com BNB quando o preço chega no seu ponto de compra e vende por BNB quando
-          chega na meta de lucro ou no limite de perda. Você não precisa assinar nada — ele usa uma
-          carteira só dele.
-        </p>
-        <div className="mt-3 rounded border border-destructive/50 bg-destructive/10 p-2.5 text-xs">
-          <strong>Dinheiro real, sem confirmação.</strong> Ligado, o robô troca sozinho. Coloque na
-          carteira dele só o que aceita perder. Nenhuma estratégia garante lucro.
+        <div className="mt-4 flex flex-wrap gap-2">
+          {armed ? (
+            <Button disabled={saving} variant="destructive" onClick={() => save(false)}>
+              Pausar robô
+            </Button>
+          ) : (
+            <Button
+              disabled={
+                saving ||
+                !execution ||
+                execution.locked ||
+                !w?.address ||
+                (mode === "estrategia" && !cfg)
+              }
+              onClick={() =>
+                confirm(
+                  `Iniciar o robô para ${sym}? Ele comprará e venderá automaticamente com dinheiro real, seguindo a configuração salva.`,
+                ) && save(true)
+              }
+            >
+              {saving ? "Salvando…" : "Iniciar robô"}
+            </Button>
+          )}
+          <Button variant="outline" disabled={busy} onClick={load}>
+            Atualizar estado
+          </Button>
+          <Link
+            to="/estrategia"
+            className="inline-flex items-center px-2 text-sm text-primary underline"
+          >
+            Editar estratégia
+          </Link>
         </div>
-        {armed && (
-          <div className="mt-3 flex items-center gap-2 rounded-md border border-success bg-success/10 p-3 text-sm font-semibold text-success">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-success motion-safe:animate-pulse" />
-            <span className="min-w-0">
-              🤖 Robô em operação agora ·{" "}
-              {mode === "grade" ? "Grade de preços" : preset ? preset.name : "Estratégia manual"} ·{" "}
-              {sym}
-            </span>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Operações com dinheiro real. Nenhuma estratégia garante lucro.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Info
+            label="Saldo da carteira"
+            value={
+              bnb === null
+                ? "Consultando…"
+                : `${bnb.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB`
+            }
+          />
+          <Info
+            label="Estratégia"
+            value={
+              mode === "grade"
+                ? "Grade de preços"
+                : (preset?.name ?? (cfg ? "Personalizada" : "Não configurada"))
+            }
+          />
+        </div>
+        <details className="mt-3 text-xs text-muted-foreground">
+          <summary className="cursor-pointer">Detalhes de funcionamento</summary>
+          <div className="mt-2 space-y-2">
+            <p>
+              Última avaliação:{" "}
+              {bot?.last_run_at ? new Date(bot.last_run_at).toLocaleString("pt-BR") : "aguardando"}.
+            </p>
+            {bot?.last_error && <p className="text-warning">{bot.last_error}</p>}
+            {execution?.lockAcquiredAt && (
+              <p>
+                Conferência iniciada em {new Date(execution.lockAcquiredAt).toLocaleString("pt-BR")}
+                .
+              </p>
+            )}
+            {execution?.pending.map((p) => (
+              <a
+                key={p.tx_hash}
+                className="block text-primary underline"
+                target="_blank"
+                rel="noreferrer"
+                href={`https://bscscan.com/tx/${p.tx_hash}`}
+              >
+                Ver transação na rede
+              </a>
+            ))}
+            {st.accountingEstimated && (
+              <p>
+                A posição contém valores estimados; consulte a auditoria para os valores
+                confirmados.
+              </p>
+            )}
           </div>
-        )}
-      </section>
-
+        </details>
+      </Panel>
       <Panel
+        collapsible
         title={`Meus robôs (${allBots.filter((b) => b.armed).length} ligado${allBots.filter((b) => b.armed).length === 1 ? "" : "s"})`}
       >
         <p className="mb-2 text-xs text-muted-foreground">
@@ -444,13 +478,6 @@ function Robo() {
                         ? ` · conferiu às ${new Date(b.last_run_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
                         : ""}
                     </p>
-                    {(b.last_error || b.last_reason) && (
-                      <p
-                        className={`mt-0.5 ${b.last_error ? "text-destructive" : "text-muted-foreground"}`}
-                      >
-                        {b.last_error ?? b.last_reason}
-                      </p>
-                    )}
                   </button>
                 </li>
               );
@@ -458,26 +485,6 @@ function Robo() {
           </ul>
         )}
       </Panel>
-
-      <div>
-        <p className="mb-2 text-xs text-muted-foreground">Criar ou abrir robô para o token:</p>
-        <div className="flex flex-wrap gap-2">
-          {tokens.map((t) => (
-            <Button
-              key={t.address}
-              size="sm"
-              variant={t.address === token ? "default" : "secondary"}
-              onClick={() => setToken(t.address)}
-            >
-              {allBots.some((b) => b.armed && b.token.toLowerCase() === t.address.toLowerCase())
-                ? "● "
-                : ""}
-              {t.symbol}
-            </Button>
-          ))}
-          <AddTokenDialog />
-        </div>
-      </div>
 
       <Panel collapsible title="Como funciona a carteira do robô (leia antes)">
         <div className="grid gap-3 text-sm sm:grid-cols-3">
@@ -523,37 +530,44 @@ function Robo() {
         </ul>
       </Panel>
 
-      <Panel title={`Para o robô funcionar com ${sym}`}>
-        <ol className="space-y-2">
-          <Step n={1} done={!!w?.address} title="Criar a carteira do robô">
-            É uma carteira nova, só do robô. A chave fica guardada criptografada no servidor e
-            ninguém vê. Toque em "Criar carteira do robô" abaixo.
-          </Step>
-          <Step n={2} done={hasFunds} title="Colocar BNB na carteira do robô">
-            Toque em "Enviar BNB da minha carteira" (abaixo), escolha o valor e confirme no app da
-            sua carteira. Ele precisa de BNB para comprar e um pouquinho para o gás ({reserve} BNB
-            fica guardado para isso).
-            {w?.address && (
-              <div className="mt-2">
-                <FundBotDialog botAddress={w.address} onDone={load} botBnb={bnb} need={need} />
-              </div>
-            )}
-          </Step>
-          <Step n={3} done={mode === "grade" || !!cfg} title={`Salvar uma estratégia para ${sym}`}>
-            O robô faz exatamente o que a estratégia diz.{" "}
-            <Link to="/estrategia" className="text-primary underline">
-              Criar estratégia ›
-            </Link>
-          </Step>
-          <Step n={4} done={armed} title="Ligar o robô">
-            Revise o resumo abaixo e toque em "Ligar robô".
-          </Step>
-        </ol>
-      </Panel>
+      {(!w?.address || !hasFunds || (mode === "estrategia" && !cfg)) && (
+        <Panel title="Preparar robô">
+          <ol className="space-y-2">
+            <Step n={1} done={!!w?.address} title="Criar a carteira do robô">
+              É uma carteira nova, só do robô. A chave fica guardada criptografada no servidor e
+              ninguém vê. Toque em "Criar carteira do robô" abaixo.
+            </Step>
+            <Step n={2} done={hasFunds} title="Colocar BNB na carteira do robô">
+              Toque em "Enviar BNB da minha carteira" (abaixo), escolha o valor e confirme no app da
+              sua carteira. Ele precisa de BNB para comprar e um pouquinho para o gás ({reserve} BNB
+              fica guardado para isso).
+              {w?.address && (
+                <div className="mt-2">
+                  <FundBotDialog botAddress={w.address} onDone={load} botBnb={bnb} need={need} />
+                </div>
+              )}
+            </Step>
+            <Step
+              n={3}
+              done={mode === "grade" || !!cfg}
+              title={`Salvar uma estratégia para ${sym}`}
+            >
+              O robô faz exatamente o que a estratégia diz.{" "}
+              <Link to="/estrategia" className="text-primary underline">
+                Criar estratégia ›
+              </Link>
+            </Step>
+            <Step n={4} done={armed} title="Ligar o robô">
+              Revise o resumo abaixo e toque em "Ligar robô".
+            </Step>
+          </ol>
+        </Panel>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <Panel
-          title="O que o robô vai seguir"
+          collapsible
+          title="Configuração do robô"
           right={
             <HelpTip title="Qual modo escolher?">
               <p>
@@ -675,37 +689,8 @@ function Robo() {
           )}
         </Panel>
 
-        <Panel title={armed ? `🤖 Em operação · ${sym}` : `Situação do robô · ${sym}`}>
+        <Panel collapsible title={`Posição e operações · ${sym}`}>
           <div className="space-y-2 text-sm">
-            <div
-              className={`rounded-md border p-3 ${armed ? "border-success bg-success/10" : "border-border"}`}
-            >
-              <p className={`font-semibold ${armed ? "text-base text-success" : ""}`}>
-                {armed ? (
-                  <span className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-success motion-safe:animate-pulse" />
-                    LIGADO — operando sozinho
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">○ Desligado</span>
-                )}
-              </p>
-              {bot?.last_reason && (
-                <p className="mt-1 text-xs">
-                  <span className="text-muted-foreground">O que ele está pensando: </span>
-                  {bot.last_reason}
-                </p>
-              )}
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Última passagem pelo executor:{" "}
-                {bot?.last_run_at
-                  ? new Date(bot.last_run_at).toLocaleString("pt-BR")
-                  : "ainda não verificou"}
-              </p>
-              {bot?.last_error && (
-                <p className="mt-1 text-xs text-destructive">Atenção: {bot.last_error}</p>
-              )}
-            </div>
             {mode === "estrategia" ? (
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <Info
@@ -744,40 +729,27 @@ function Robo() {
                 Faixa atual: {bot?.last_level ?? "—"} de {bot?.levels ?? "—"}
               </p>
             )}
-            <div className="flex flex-wrap gap-2 pt-1">
-              {armed ? (
-                <Button variant="destructive" onClick={() => save(false)}>
-                  Desligar robô
-                </Button>
-              ) : (
-                <Button
-                  disabled={!w?.address || (mode === "estrategia" && !cfg)}
-                  onClick={() =>
-                    confirm(
-                      `Ligar o robô para ${sym}? Ele vai comprar e vender sozinho com dinheiro real, seguindo ${mode === "estrategia" ? "sua estratégia" : "a grade"}.`,
-                    ) && save(true)
-                  }
-                >
-                  Ligar robô
-                </Button>
-              )}
-              <Button
-                variant="secondary"
-                disabled={busy || !bot}
-                onClick={() => act(() => runNow({ data: { token } }), "Verificação feita")}
-              >
-                Verificar agora
-              </Button>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Ligado, ele confere a cada minuto. Cada compra ou venda chega no sininho 🔔 e no
-              celular.
-            </p>
+            <Button
+              variant="secondary"
+              disabled={busy || !bot || !armed || execution?.locked}
+              onClick={() =>
+                confirm(
+                  "Executar uma avaliação agora? Se houver um sinal válido, o robô poderá enviar uma operação real.",
+                ) && act(() => runNow({ data: { token } }), "Avaliação executada")
+              }
+            >
+              Avaliar e operar agora
+            </Button>
           </div>
         </Panel>
       </div>
 
-      <Panel title="Ver o robô em ação">
+      <Panel collapsible title="Gráfico e análise do mercado">
+        <p className="mb-2 text-sm">
+          {analysisError
+            ? "Análise indisponível no momento."
+            : (analysis?.error ?? analysis?.reason ?? "Consultando mercado…")}
+        </p>
         <p className="mb-2 text-xs text-muted-foreground">
           Veja no gráfico onde o robô vai comprar e vender, e cada operação que ele já fez.
         </p>
@@ -804,7 +776,7 @@ function Robo() {
         )}
       </Panel>
 
-      <Panel title="Carteira do robô">
+      <Panel collapsible title="Adicionar ou retirar saldo">
         {w === null ? (
           <Unavailable reason="carregando" />
         ) : w.address ? (
@@ -863,7 +835,7 @@ function Robo() {
                 </p>
               ))}
             <div className="mt-3 rounded-md border border-warning/50 bg-warning/10 p-3">
-              <p className="font-semibold">↩️ Me arrependi — quero meu dinheiro de volta</p>
+              <p className="font-semibold">Retirar saldo e pausar os robôs</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 A qualquer momento: o robô é{" "}
                 <strong className="text-foreground">desligado na hora</strong>, os tokens que ele
@@ -1023,6 +995,7 @@ const AUDIT_LABEL: Record<string, string> = {
   bot_armed: "Robô ligado",
   bot_disarmed: "Robô desligado",
   bot_saved: "Configuração salva",
+  execution_lock_reviewed: "Conferência concluída · carteira liberada",
 };
 /** Shows the user's own security/audit trail with BscScan links so every action can be checked on-chain. */
 function AuditPanel() {

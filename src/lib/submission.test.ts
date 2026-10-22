@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { encodeEventTopics, encodeAbiParameters, parseAbi } from "viem";
 import type { TransactionReceipt } from "viem";
 import { nativeProceeds, settleSubmission, submitTransaction } from "./submission.server";
+import { BeforeBroadcastError } from "./executionPhase";
 import { EMPTY_STATE } from "./autoStrategy";
 const userId = "u",
   owner = "lock",
@@ -56,6 +57,16 @@ describe("journal before broadcast", () => {
     const f = setup(true);
     await expect(submitTransaction(f)).rejects.toThrow("nada foi transmitido");
     expect(f.pub.sendRawTransaction).not.toHaveBeenCalled();
+  });
+  it("classifies preparation, signing and journal failures as not broadcast", async () => {
+    for (const phase of ["prepare", "sign", "journal"]) {
+      const f = setup(phase === "journal");
+      if (phase === "prepare")
+        f.wallet.prepareTransactionRequest.mockRejectedValue(new Error("RPC unavailable"));
+      if (phase === "sign") f.wallet.signTransaction.mockRejectedValue(new Error("signing failed"));
+      await expect(submitTransaction(f)).rejects.toBeInstanceOf(BeforeBroadcastError);
+      expect(f.pub.sendRawTransaction).not.toHaveBeenCalled();
+    }
   });
   it("checks gas before signing", async () => {
     const f = setup();
