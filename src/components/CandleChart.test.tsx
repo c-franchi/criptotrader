@@ -181,3 +181,16 @@ it("updates a separate current-price line without modifying OHLC or closed avera
   );
   expect(screen.queryByLabelText(/Cotação atual independente/)).toBeNull();
 });
+it("offers a simple candle/area switch and keeps trade preferences separate from robot charts", () => {
+  localStorage.setItem("cryptobot:chart-view", JSON.stringify({ minutes: 5, mode: "candles" }));
+  render(<CandleChart compact candles={candles} now={9000000} />);
+  expect(screen.getByLabelText("Intervalo das velas")).toHaveValue("30");
+  fireEvent.click(screen.getByRole("button", { name: "Linha" }));
+  expect(screen.getByLabelText("Gráfico de linha e área")).toBeTruthy();
+  expect(JSON.parse(localStorage.getItem("cryptobot:trade-chart-view")!).mode).toBe("line");
+  expect(JSON.parse(localStorage.getItem("cryptobot:chart-view")!).mode).toBe("candles");
+  fireEvent.click(screen.getByRole("button", { name: "Velas" }));
+  expect(screen.queryByLabelText("Gráfico de linha e área")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Ferramentas" }));
+  expect(screen.getByLabelText("Visualização do gráfico")).toBeTruthy();
+});

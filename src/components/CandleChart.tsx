@@ -1,6 +1,6 @@
 import { formatPrice } from "@/lib/display";
 import { technicalSeries } from "@/lib/technicalSeries";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { Candle } from "@/lib/marketStats";
 import { aggregateCandles, engineSeries, completeEngineSeries } from "@/lib/candleSeries";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ function ChartBody({
   tall = false,
   alignStrategy = false,
   liveQuote,
+  compact = false,
 }: {
   candles: Candle[];
   now: number;
@@ -63,11 +64,16 @@ function ChartBody({
   tall?: boolean;
   alignStrategy?: boolean;
   liveQuote?: { price: number; at: number } | undefined;
+  compact?: boolean;
 }) {
-  const [minutes, setMinutes] = useState(alignStrategy ? strategyMinutes : 5);
+  const [minutes, setMinutes] = useState(compact ? 30 : alignStrategy ? strategyMinutes : 5);
   const [height, setHeight] = useState(tall ? 420 : 320);
   const [mode, setMode] = useState("candles");
-  const [showSma, setShowSma] = useState(true);
+  const [showSma, setShowSma] = useState(!compact);
+  const [controls, setControls] = useState(false);
+  const areaId = useId();
+  const W = compact ? 400 : 760,
+    plot = compact ? 300 : 640;
   const [technical, setTechnical] = useState(false);
   const [showEma, setShowEma] = useState(true);
   const [showBands, setShowBands] = useState(true);
@@ -94,8 +100,11 @@ function ChartBody({
 
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem("cryptobot:chart-view") ?? "null");
-      if (!alignStrategy && [5, 15, 60].includes(saved?.minutes)) setMinutes(saved.minutes);
+      const saved = JSON.parse(
+        localStorage.getItem(compact ? "cryptobot:trade-chart-view" : "cryptobot:chart-view") ??
+          "null",
+      );
+      if (!alignStrategy && [5, 15, 30, 60].includes(saved?.minutes)) setMinutes(saved.minutes);
       if ([1, 4, 12, 24].includes(saved?.hours)) setHours(saved.hours);
       if ([260, 320, 420, 560].includes(saved?.height)) setHeight(saved.height);
       if (["candles", "line"].includes(saved?.mode)) setMode(saved.mode);
@@ -108,18 +117,18 @@ function ChartBody({
     }
     if (alignStrategy) setMinutes(strategyMinutes);
     setReady(true);
-  }, [alignStrategy, strategyMinutes]);
+  }, [alignStrategy, strategyMinutes, compact]);
   useEffect(() => {
     if (ready)
       try {
         localStorage.setItem(
-          "cryptobot:chart-view",
+          compact ? "cryptobot:trade-chart-view" : "cryptobot:chart-view",
           JSON.stringify({ minutes, hours, height, mode, showSma, technical, showEma, showBands }),
         );
       } catch {
         /* unavailable */
       }
-  }, [minutes, hours, ready, height, mode, showSma, technical, showEma, showBands]);
+  }, [minutes, hours, ready, height, mode, showSma, technical, showEma, showBands, compact]);
 
   // Enquadramento previsível: seguir o presente dentro da janela escolhida.
   const frame = useCallback(
@@ -162,13 +171,13 @@ function ChartBody({
       const rect = el.getBoundingClientRect();
       const cur = stateRef.current.view ?? frame(stateRef.current.hours);
       const anchorT =
-        cur.start + ((e.clientX - rect.left) / ((rect.width * 640) / 760)) * (cur.end - cur.start);
+        cur.start + ((e.clientX - rect.left) / ((rect.width * plot) / W)) * (cur.end - cur.start);
       const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1);
       zoomAt(anchorT, Math.exp(dy * 0.0015));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [frame, candles.length]);
+  }, [frame, candles.length, W, plot]);
 
   const bars = useMemo(() => aggregateCandles(candles, minutes, now), [candles, minutes, now]);
   const series = useMemo(
@@ -220,10 +229,7 @@ function ChartBody({
   const min = Math.max(0, low - pad),
     max = high + pad;
 
-  const W = 760,
-    H = height,
-    plot = 640,
-    labelW = W - plot;
+  const H = height;
   const x = (t: number) => ((t - v.start) / (span || 1)) * plot;
   const y = (p: number) => 12 + ((max - p) / (max - min || 1)) * (H - 24);
   const width = Math.max(1.5, Math.min(22, ((minutes * 60_000) / (span || 1)) * plot * 0.7));
@@ -372,252 +378,264 @@ function ChartBody({
 
   return (
     <div className="min-w-0 space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted-foreground">Velas</span>
-        {[5, 15, 60].map((m) => (
-          <Button
-            key={m}
-            size="sm"
-            variant={minutes === m ? "secondary" : "ghost"}
-            aria-pressed={minutes === m}
-            onClick={() => setMinutes(m)}
-          >
-            {m === 60 ? "1h" : `${m}m`}
-          </Button>
-        ))}
-        <span className="text-xs text-muted-foreground">Janela</span>
-        {windows.map((w) => (
-          <Button
-            key={w.hours}
-            size="sm"
-            variant={hours === w.hours ? "secondary" : "ghost"}
-            aria-pressed={hours === w.hours}
-            onClick={() => {
-              setHours(w.hours);
-              setFollow(true);
-            }}
-          >
-            {w.id}
-          </Button>
-        ))}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          aria-label="Ampliar zoom"
-          onClick={() => zoomAt((v.start + v.end) / 2, 0.7)}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          aria-label="Reduzir zoom"
-          onClick={() => zoomAt((v.start + v.end) / 2, 1 / 0.7)}
-        >
-          <Minus className="h-4 w-4" />
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            setFollow(true);
-            setView(frame(hours));
-          }}
-        >
-          <RotateCcw className="mr-1 h-4 w-4" />
-          Restaurar
-        </Button>
-        {follow ? (
-          <span className="text-xs text-success">Acompanhar últimas velas: ativo</span>
-        ) : (
-          <Button size="sm" variant="secondary" onClick={() => setFollow(true)}>
-            Voltar ao tempo real
-          </Button>
-        )}
-      </div>
-      <div className="flex flex-wrap items-center gap-3 text-xs">
-        <label>
-          Visualização{" "}
-          <select
-            aria-label="Visualização do gráfico"
-            className="rounded border border-border bg-background p-2"
-            value={mode}
-            onChange={(e) => setMode(e.target.value)}
-          >
-            <option value="candles">Velas</option>
-            <option value="line">Linha de fechamento</option>
-          </select>
-        </label>
-        <label>
-          Altura{" "}
-          <select
-            aria-label="Altura do gráfico"
-            className="rounded border border-border bg-background p-2"
-            value={height}
-            onChange={(e) => setHeight(Number(e.target.value))}
-          >
-            <option value={260}>Compacto</option>
-            <option value={320}>Padrão</option>
-            <option value={420}>Grande</option>
-            <option value={560}>Extra grande</option>
-          </select>
-        </label>
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={showSma} onChange={(e) => setShowSma(e.target.checked)} />{" "}
-          Médias do robô
-        </label>
-        <Button
-          size="sm"
-          variant={technical ? "secondary" : "outline"}
-          aria-pressed={technical}
-          onClick={() => setTechnical(!technical)}
-        >
-          {technical ? "Modo avançado · indicadores" : "Indicadores técnicos · modo avançado"}
-        </Button>
-      </div>
-      {technical && (
-        <section
-          aria-label="Indicadores técnicos"
-          className="rounded-md border border-border p-3 text-xs"
-        >
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div>
-              RSI (14)
-              <p className="mt-1 font-mono text-base">
-                {indicators.rsi == null ? "—" : indicators.rsi.toFixed(2)}
-              </p>
-            </div>
-            <div>
-              EMA (20)
-              <p className="mt-1 font-mono text-base">
-                {indicators.ema == null ? "—" : `US$ ${usd(indicators.ema)}`}
-              </p>
-            </div>
-            <div>
-              ATR (14)
-              <p className="mt-1 font-mono text-base">
-                {indicators.atr == null ? "—" : `US$ ${usd(indicators.atr)}`}
-              </p>
-            </div>
-            <div>
-              Velas válidas<p className="mt-1 font-mono text-base">{indicators.count}</p>
-            </div>
+      {(!compact || controls) && (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">Velas</span>
+            {[5, 15, 60].map((m) => (
+              <Button
+                key={m}
+                size="sm"
+                variant={minutes === m ? "secondary" : "ghost"}
+                aria-pressed={minutes === m}
+                onClick={() => setMinutes(m)}
+              >
+                {m === 60 ? "1h" : `${m}m`}
+              </Button>
+            ))}
+            <span className="text-xs text-muted-foreground">Janela</span>
+            {windows.map((w) => (
+              <Button
+                key={w.hours}
+                size="sm"
+                variant={hours === w.hours ? "secondary" : "ghost"}
+                aria-pressed={hours === w.hours}
+                onClick={() => {
+                  setHours(w.hours);
+                  setFollow(true);
+                }}
+              >
+                {w.id}
+              </Button>
+            ))}
           </div>
-          <p className="mt-2 text-muted-foreground">
-            Intervalo {minutes}m · apenas velas fechadas e completas desde a última lacuna. RSI/ATR
-            exigem 15 velas; EMA exige 20. RSI: força relativa; EMA: tendência; ATR: amplitude de
-            oscilação. Indicadores visuais não alteram o robô e não são sinais automáticos de compra
-            ou venda.
-          </p>
-        </section>
-      )}
-      <details className="rounded-md border border-border p-3 text-xs">
-        <summary className="cursor-pointer font-medium">Ferramentas de marcação e medição</summary>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <label>
-            Ferramenta{" "}
-            <select
-              aria-label="Ferramenta do gráfico"
-              value={tool}
-              onChange={(e) => {
-                setTool(e.target.value);
-                setMeasure([]);
-              }}
-              className="rounded border border-border bg-background p-2"
-            >
-              <option value="inspect">Inspecionar / arrastar</option>
-              <option value="measure">Medir dois pontos</option>
-              <option value="support">Suporte · tocar no gráfico</option>
-              <option value="resistance">Resistência · tocar no gráfico</option>
-              <option value="horizontal">Linha horizontal · tocar no gráfico</option>
-            </select>
-          </label>
-          <label>
-            Preço USD{" "}
-            <input
-              aria-label="Preço da marcação"
-              type="number"
-              min="0"
-              step="any"
-              value={drawingPrice}
-              onChange={(e) => setDrawingPrice(e.target.value)}
-              className="w-32 rounded border border-border bg-background p-2"
-            />
-          </label>
-          {["Linha horizontal", "Suporte", "Resistência"].map((label) => (
+          <div className="flex flex-wrap items-center gap-2">
             <Button
-              key={label}
               size="sm"
               variant="outline"
-              disabled={!(Number(drawingPrice) > 0 && Number.isFinite(Number(drawingPrice)))}
-              onClick={() =>
-                setMarks((m) => [...m.slice(-9), { price: Number(drawingPrice), label }])
-              }
+              aria-label="Ampliar zoom"
+              onClick={() => zoomAt((v.start + v.end) / 2, 0.7)}
             >
-              {label}
+              <Plus className="h-4 w-4" />
             </Button>
-          ))}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setMarks([]);
-              setMeasure([]);
-            }}
-          >
-            Limpar marcações
-          </Button>
-        </div>
-        <p className="mt-2 text-muted-foreground">
-          Marcações temporárias em USD; não enviam ordens. Na medição, toque ou clique em dois
-          pontos da área de preços. Para desenhar suporte, resistência ou linha, selecione a
-          ferramenta e toque no gráfico.
-        </p>
-        {marks.map((m, i) => (
-          <p key={i}>
-            {m.label}: US$ {usd(m.price)}{" "}
-            <button
-              aria-label={`Excluir marcação ${i + 1}`}
-              onClick={() => setMarks((a) => a.filter((_, j) => j !== i))}
+            <Button
+              size="sm"
+              variant="outline"
+              aria-label="Reduzir zoom"
+              onClick={() => zoomAt((v.start + v.end) / 2, 1 / 0.7)}
             >
-              ×
-            </button>
+              <Minus className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setFollow(true);
+                setView(frame(hours));
+              }}
+            >
+              <RotateCcw className="mr-1 h-4 w-4" />
+              Restaurar
+            </Button>
+            {follow ? (
+              <span className="text-xs text-success">Acompanhar últimas velas: ativo</span>
+            ) : (
+              <Button size="sm" variant="secondary" onClick={() => setFollow(true)}>
+                Voltar ao tempo real
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <label>
+              Visualização{" "}
+              <select
+                aria-label="Visualização do gráfico"
+                className="rounded border border-border bg-background p-2"
+                value={mode}
+                onChange={(e) => setMode(e.target.value)}
+              >
+                <option value="candles">Velas</option>
+                <option value="line">Linha de fechamento</option>
+              </select>
+            </label>
+            <label>
+              Altura{" "}
+              <select
+                aria-label="Altura do gráfico"
+                className="rounded border border-border bg-background p-2"
+                value={height}
+                onChange={(e) => setHeight(Number(e.target.value))}
+              >
+                <option value={260}>Compacto</option>
+                <option value={320}>Padrão</option>
+                <option value={420}>Grande</option>
+                <option value={560}>Extra grande</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={showSma}
+                onChange={(e) => setShowSma(e.target.checked)}
+              />{" "}
+              Médias do robô
+            </label>
+            <Button
+              size="sm"
+              variant={technical ? "secondary" : "outline"}
+              aria-pressed={technical}
+              onClick={() => setTechnical(!technical)}
+            >
+              {technical ? "Modo avançado · indicadores" : "Indicadores técnicos · modo avançado"}
+            </Button>
+          </div>
+          {technical && (
+            <section
+              aria-label="Indicadores técnicos"
+              className="rounded-md border border-border p-3 text-xs"
+            >
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div>
+                  RSI (14)
+                  <p className="mt-1 font-mono text-base">
+                    {indicators.rsi == null ? "—" : indicators.rsi.toFixed(2)}
+                  </p>
+                </div>
+                <div>
+                  EMA (20)
+                  <p className="mt-1 font-mono text-base">
+                    {indicators.ema == null ? "—" : `US$ ${usd(indicators.ema)}`}
+                  </p>
+                </div>
+                <div>
+                  ATR (14)
+                  <p className="mt-1 font-mono text-base">
+                    {indicators.atr == null ? "—" : `US$ ${usd(indicators.atr)}`}
+                  </p>
+                </div>
+                <div>
+                  Velas válidas<p className="mt-1 font-mono text-base">{indicators.count}</p>
+                </div>
+              </div>
+              <p className="mt-2 text-muted-foreground">
+                Intervalo {minutes}m · apenas velas fechadas e completas desde a última lacuna.
+                RSI/ATR exigem 15 velas; EMA exige 20. RSI: força relativa; EMA: tendência; ATR:
+                amplitude de oscilação. Indicadores visuais não alteram o robô e não são sinais
+                automáticos de compra ou venda.
+              </p>
+            </section>
+          )}
+          <details className="rounded-md border border-border p-3 text-xs">
+            <summary className="cursor-pointer font-medium">
+              Ferramentas de marcação e medição
+            </summary>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <label>
+                Ferramenta{" "}
+                <select
+                  aria-label="Ferramenta do gráfico"
+                  value={tool}
+                  onChange={(e) => {
+                    setTool(e.target.value);
+                    setMeasure([]);
+                  }}
+                  className="rounded border border-border bg-background p-2"
+                >
+                  <option value="inspect">Inspecionar / arrastar</option>
+                  <option value="measure">Medir dois pontos</option>
+                  <option value="support">Suporte · tocar no gráfico</option>
+                  <option value="resistance">Resistência · tocar no gráfico</option>
+                  <option value="horizontal">Linha horizontal · tocar no gráfico</option>
+                </select>
+              </label>
+              <label>
+                Preço USD{" "}
+                <input
+                  aria-label="Preço da marcação"
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={drawingPrice}
+                  onChange={(e) => setDrawingPrice(e.target.value)}
+                  className="w-32 rounded border border-border bg-background p-2"
+                />
+              </label>
+              {["Linha horizontal", "Suporte", "Resistência"].map((label) => (
+                <Button
+                  key={label}
+                  size="sm"
+                  variant="outline"
+                  disabled={!(Number(drawingPrice) > 0 && Number.isFinite(Number(drawingPrice)))}
+                  onClick={() =>
+                    setMarks((m) => [...m.slice(-9), { price: Number(drawingPrice), label }])
+                  }
+                >
+                  {label}
+                </Button>
+              ))}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setMarks([]);
+                  setMeasure([]);
+                }}
+              >
+                Limpar marcações
+              </Button>
+            </div>
+            <p className="mt-2 text-muted-foreground">
+              Marcações temporárias em USD; não enviam ordens. Na medição, toque ou clique em dois
+              pontos da área de preços. Para desenhar suporte, resistência ou linha, selecione a
+              ferramenta e toque no gráfico.
+            </p>
+            {marks.map((m, i) => (
+              <p key={i}>
+                {m.label}: US$ {usd(m.price)}{" "}
+                <button
+                  aria-label={`Excluir marcação ${i + 1}`}
+                  onClick={() => setMarks((a) => a.filter((_, j) => j !== i))}
+                >
+                  ×
+                </button>
+              </p>
+            ))}
+            {measure.length === 1 && (
+              <p role="status">Primeiro ponto selecionado. Toque no segundo ponto do gráfico.</p>
+            )}
+            {measure.length === 2 && (
+              <p role="status">
+                Variação: {((measure[1]!.price / measure[0]!.price - 1) * 100).toFixed(2)}% ·
+                Intervalo: {Math.abs(measure[1]!.time - measure[0]!.time) / 60000} min
+              </p>
+            )}
+          </details>
+          <p className="text-xs font-semibold">
+            Gráfico: {minutes === 60 ? "1h" : `${minutes}m`} | Estratégia:{" "}
+            {strategyMinutes === 60 ? "1h" : `${strategyMinutes}m`}
           </p>
-        ))}
-        {measure.length === 1 && (
-          <p role="status">Primeiro ponto selecionado. Toque no segundo ponto do gráfico.</p>
-        )}
-        {measure.length === 2 && (
-          <p role="status">
-            Variação: {((measure[1]!.price / measure[0]!.price - 1) * 100).toFixed(2)}% · Intervalo:{" "}
-            {Math.abs(measure[1]!.time - measure[0]!.time) / 60000} min
-          </p>
-        )}
-      </details>
-      <p className="text-xs font-semibold">
-        Gráfico: {minutes === 60 ? "1h" : `${minutes}m`} | Estratégia:{" "}
-        {strategyMinutes === 60 ? "1h" : `${strategyMinutes}m`}
-      </p>
-      {atHistoryLimit && <p className="text-xs text-warning">Limite do histórico disponível.</p>}
-      {tool !== "inspect" && (
-        <div
-          role="status"
-          className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm"
-        >
-          {tool === "measure"
-            ? measure.length === 0
-              ? "Medição ativa: toque ou clique no primeiro ponto do gráfico."
-              : measure.length === 1
-                ? "Ponto 1 marcado. Toque ou clique no segundo ponto."
-                : `Medição concluída: ${((measure[1]!.price / measure[0]!.price - 1) * 100).toFixed(2)}% · ${Math.abs(measure[1]!.time - measure[0]!.time) / 60000 < 1 ? "menos de 1" : Math.round(Math.abs(measure[1]!.time - measure[0]!.time) / 60000)} min. Toque para iniciar outra medição.`
-            : "Desenho ativo: toque ou clique na altura do preço desejado."}
-          <p className="mt-1 text-xs font-normal">
-            Clique sem arrastar para marcar. Para mover, arraste com o botão esquerdo, direito ou
-            central do mouse. No celular, deslize para mover e toque para marcar.
-          </p>
-        </div>
+          {atHistoryLimit && (
+            <p className="text-xs text-warning">Limite do histórico disponível.</p>
+          )}
+          {tool !== "inspect" && (
+            <div
+              role="status"
+              className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm"
+            >
+              {tool === "measure"
+                ? measure.length === 0
+                  ? "Medição ativa: toque ou clique no primeiro ponto do gráfico."
+                  : measure.length === 1
+                    ? "Ponto 1 marcado. Toque ou clique no segundo ponto."
+                    : `Medição concluída: ${((measure[1]!.price / measure[0]!.price - 1) * 100).toFixed(2)}% · ${Math.abs(measure[1]!.time - measure[0]!.time) / 60000 < 1 ? "menos de 1" : Math.round(Math.abs(measure[1]!.time - measure[0]!.time) / 60000)} min. Toque para iniciar outra medição.`
+                : "Desenho ativo: toque ou clique na altura do preço desejado."}
+              <p className="mt-1 text-xs font-normal">
+                Clique sem arrastar para marcar. Para mover, arraste com o botão esquerdo, direito
+                ou central do mouse. No celular, deslize para mover e toque para marcar.
+              </p>
+            </div>
+          )}
+        </>
       )}
       {bars.length ? (
         <svg
@@ -768,20 +786,58 @@ function ChartBody({
               className={tones[l.tone]}
             />
           ))}
-          {mode === "line" && (
-            <path
-              d={visibleBars
-                .map(
-                  (b, i) =>
-                    `${i === 0 || b.candle[0] !== (visibleBars[i - 1]?.candle[0] ?? 0) + minutes * 60 ? "M" : "L"}${x(b.candle[0] * 1000)},${y(b.candle[4])}`,
-                )
-                .join(" ")}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              className="text-primary"
-            />
-          )}
+          {mode === "line" &&
+            (() => {
+              const segments: (typeof visibleBars)[] = [];
+              for (const bar of visibleBars) {
+                const tail = segments.at(-1);
+                if (!tail || bar.candle[0] !== (tail.at(-1)?.candle[0] ?? 0) + minutes * 60)
+                  segments.push([bar]);
+                else tail.push(bar);
+              }
+              const tone =
+                (visibleBars.at(-1)?.candle[4] ?? 0) >= (visibleBars[0]?.candle[4] ?? 0)
+                  ? "text-success"
+                  : "text-destructive";
+              return (
+                <g className={compact ? tone : "text-primary"} aria-label="Gráfico de linha e área">
+                  <defs>
+                    <linearGradient id={areaId} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="currentColor" stopOpacity="0.22" />
+                      <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  {segments.map((segment, i) => {
+                    const first = segment[0]!,
+                      last = segment.at(-1)!;
+                    const d = segment
+                      .map(
+                        (b, j) =>
+                          `${j === 0 ? "M" : "L"}${x(b.candle[0] * 1000)},${y(b.candle[4])}`,
+                      )
+                      .join(" ");
+                    return (
+                      <g key={i}>
+                        <path
+                          d={`${d} L${x(last.candle[0] * 1000)},${y(min)} L${x(first.candle[0] * 1000)},${y(min)} Z`}
+                          fill={`url(#${areaId})`}
+                          stroke="none"
+                        />
+                        <path d={d} fill="none" stroke="currentColor" strokeWidth={2.5} />
+                      </g>
+                    );
+                  })}
+                  {visibleBars.at(-1) && (
+                    <circle
+                      cx={x(visibleBars.at(-1)!.candle[0] * 1000)}
+                      cy={y(visibleBars.at(-1)!.candle[4])}
+                      r={4}
+                      fill="currentColor"
+                    />
+                  )}
+                </g>
+              );
+            })()}
           {visibleBars.map(({ candle: c, forming, complete }) => (
             <g
               key={c[0]}
@@ -922,6 +978,77 @@ function ChartBody({
           Histórico indisponível neste período.
         </p>
       )}
+      {compact && (
+        <div
+          className="flex flex-wrap items-center gap-2"
+          aria-label="Controles rápidos do gráfico"
+        >
+          <div
+            className="flex rounded-full bg-secondary p-1"
+            role="group"
+            aria-label="Tipo de gráfico"
+          >
+            <Button
+              size="sm"
+              variant={mode === "candles" ? "default" : "ghost"}
+              className="rounded-full"
+              aria-pressed={mode === "candles"}
+              onClick={() => setMode("candles")}
+            >
+              Velas
+            </Button>
+            <Button
+              size="sm"
+              variant={mode === "line" ? "default" : "ghost"}
+              className="rounded-full"
+              aria-pressed={mode === "line"}
+              onClick={() => setMode("line")}
+            >
+              Linha
+            </Button>
+          </div>
+          {windows.map((w) => (
+            <Button
+              key={w.hours}
+              size="sm"
+              className="rounded-full"
+              variant={hours === w.hours ? "secondary" : "ghost"}
+              aria-pressed={hours === w.hours}
+              onClick={() => {
+                setHours(w.hours);
+                setFollow(true);
+              }}
+            >
+              {w.id}
+            </Button>
+          ))}
+          {mode === "candles" && (
+            <select
+              aria-label="Intervalo das velas"
+              value={minutes}
+              onChange={(e) => setMinutes(Number(e.target.value))}
+              className="rounded-full border border-border bg-background px-3 py-2"
+            >
+              {[5, 15, 30, 60].map((m) => (
+                <option key={m} value={m}>
+                  {m === 60 ? "1h" : `${m}m`}
+                </option>
+              ))}
+            </select>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-expanded={controls}
+            onClick={() => {
+              setControls(!controls);
+              if (controls) setTool("inspect");
+            }}
+          >
+            {controls ? "Ocultar ferramentas" : "Ferramentas"}
+          </Button>
+        </div>
+      )}
       {technical && (
         <div className="rounded-md border border-border p-2">
           <div className="flex flex-wrap gap-4 text-xs">
@@ -1005,9 +1132,14 @@ function ChartBody({
         </div>
       )}
       <p className="text-[11px] text-muted-foreground">
-        <span className="text-primary">SMA {fastLength}</span> ·{" "}
-        <span className="text-chart-4">SMA {slowLength}</span> · USD · OHLCV do pool / GeckoTerminal
-        · {bars.some((b) => b.forming) ? "Última vela em formação" : "Sem vela atual"} ·{" "}
+        {showSma && (
+          <>
+            <span className="text-primary">SMA {fastLength}</span> ·{" "}
+            <span className="text-chart-4">SMA {slowLength}</span> ·{" "}
+          </>
+        )}
+        USD · OHLCV do pool / GeckoTerminal ·{" "}
+        {bars.some((b) => b.forming) ? "Última vela em formação" : "Sem vela atual"} ·{" "}
         {volumeMax ? "Volume em USD" : "Volume indisponível"}
       </p>
       {technical && (
@@ -1073,6 +1205,7 @@ export function CandleChart(props: {
   now: number;
   strategyMinutes?: number;
   alignStrategy?: boolean;
+  compact?: boolean;
   liveQuote?: { price: number; at: number } | undefined;
   rulesVersion?: 1 | 2;
   fastLength?: number;

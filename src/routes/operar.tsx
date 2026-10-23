@@ -5,7 +5,8 @@ import { PRESETS } from "@/lib/presets";
 import { reconcileUserOrders } from "@/lib/audit.functions";
 import { computePnl, rebuyEdgePct, type Fill } from "@/lib/pnl";
 import { cn } from "@/lib/utils";
-import { TokenChart } from "@/components/TokenChart";
+import { intervalMinutes } from "@/lib/autoStrategy";
+import { TradeMarket } from "@/components/TradeMarket";
 import { Slider } from "@/components/ui/slider";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -47,7 +48,6 @@ import { Label } from "@/components/ui/label";
 import type { Tables } from "@/integrations/supabase/types";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
-import { intervalMinutes } from "@/lib/autoStrategy";
 import { slippageLevel } from "@/lib/safety";
 import { ContractRisk } from "@/components/ContractRisk";
 
@@ -148,6 +148,24 @@ function Operar() {
   const [side, setSide] = useState<"compra" | "venda">("compra");
   const [hasStrategy, setHasStrategy] = useState(false);
   const { entrada } = Route.useSearch();
+  const [tradeOpen, setTradeOpen] = useState(!!entrada);
+  const marketRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
+  const selectSide = (next: "compra" | "venda") => {
+    setSide(next);
+    setQuote(null);
+    setTradeOpen(true);
+    requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "instant"
+          : "smooth",
+        block: "start",
+      });
+      amountRef.current?.focus({ preventScroll: true });
+    });
+  };
   const preset = PRESETS.find((p) => p.id === cfg.presetId) ?? null;
 
   const loadOrders = useCallback(async () => {
@@ -606,37 +624,296 @@ function Operar() {
   return (
     <div className="space-y-4">
       <div className="rounded border border-destructive/50 bg-destructive/10 p-3 text-sm">
-        <strong>Modo CONFIRMAÇÃO — operações reais.</strong> Cada transação precisa ser assinada por
-        você na carteira. Gatilhos e cotações não garantem preço, lucro ou capacidade de venda.
+        <strong>Compra e venda com sua carteira.</strong> Você revisa os valores e assina cada
+        transação na carteira.
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {tokens.map((t) => (
-          <Button
-            key={t.address}
-            size="sm"
-            variant={t.address === GTE ? "default" : "secondary"}
-            disabled={!!busy}
-            onClick={() => {
-              setGTE(t.address);
-              setQuote(null);
-              setPair(undefined);
-              setReserves(null);
-              setBal(null);
-            }}
+      <div ref={marketRef} className="scroll-mt-24">
+        <TradeMarket
+          strategyMinutes={intervalMinutes(cfg.candleInterval)}
+          rulesVersion={cfg.rulesVersion ?? 1}
+          token={selected}
+          tokens={tokens}
+          disabled={!!busy}
+          onSide={selectSide}
+          onSelect={(address) => {
+            setGTE(address);
+            setQuote(null);
+            setPair(undefined);
+            setReserves(null);
+            setBal(null);
+            setSellAmt("");
+            setBuyAmt("");
+            setTradeOpen(false);
+          }}
+          extra={<AddTokenDialog wallet={account} />}
+        />
+      </div>
+
+      {tradeOpen && (
+        <>
+          <div
+            ref={formRef}
+            className="scroll-mt-24 rounded-2xl border border-border bg-card p-4"
+            aria-label={`Valores para ${side === "compra" ? "comprar" : "vender"} ${sym}`}
           >
-            {t.symbol} — {t.name}
-          </Button>
-        ))}
-        <AddTokenDialog wallet={account} />
-      </div>
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <h2 className="text-lg font-bold">
+                {side === "compra" ? "Comprar" : "Vender"} {sym}
+              </h2>
+              <Button
+                variant="ghost"
+                disabled={!!busy}
+                onClick={() => {
+                  setTradeOpen(false);
+                  setQuote(null);
+                  requestAnimationFrame(() =>
+                    marketRef.current?.scrollIntoView({ block: "start" }),
+                  );
+                }}
+              >
+                Voltar ao gráfico
+              </Button>
+            </div>
+            {!account && (
+              <Button className="mb-3 w-full" onClick={connect} disabled={!!busy}>
+                {busy === "conectando" ? "Conectando…" : "Conectar carteira para continuar"}
+              </Button>
+            )}
+            {!ready && <p className="mb-3 text-sm text-warning">{blocks.join(" ")}</p>}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                className={
+                  side === "compra" ? "bg-emerald-700 text-white hover:bg-emerald-800" : ""
+                }
+                variant={side === "compra" ? "default" : "secondary"}
+                disabled={!!busy}
+                onClick={() => {
+                  setSide("compra");
+                  setQuote(null);
+                }}
+              >
+                Comprar
+              </Button>
+              <Button
+                variant={side === "venda" ? "destructive" : "secondary"}
+                disabled={!!busy}
+                onClick={() => {
+                  setSide("venda");
+                  setQuote(null);
+                }}
+              >
+                Vender
+              </Button>
+            </div>
+            <p className="mt-3 text-sm text-muted-foreground">
+              {side === "compra" ? (
+                <>
+                  Você paga <b>BNB</b> e recebe <b>{sym}</b>.
+                </>
+              ) : (
+                <>
+                  Você entrega <b>{sym}</b> e recebe <b>BNB</b>.
+                </>
+              )}
+            </p>
+            <Label htmlFor="manual-trade-amount" className="mt-3 block">
+              {side === "compra" ? "Quanto BNB usar" : `Quantidade de ${sym}`}
+            </Label>
+            <Input
+              ref={amountRef}
+              id="manual-trade-amount"
+              inputMode="decimal"
+              min="0"
+              disabled={!!busy}
+              className="mt-1 text-lg"
+              type="number"
+              step="any"
+              value={side === "compra" ? buyAmt : sellAmt}
+              onChange={(e) => {
+                (side === "compra" ? setBuyAmt : setSellAmt)(e.target.value);
+                setQuote(null);
+              }}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Disponível:{" "}
+              {bal
+                ? side === "compra"
+                  ? `${fmtBnb(spendable)} BNB (já descontada a reserva de gás)`
+                  : `${fmtGte(bal.gte)} ${sym}`
+                : "conecte a carteira"}
+            </p>
+            <Slider
+              className="mt-4"
+              min={0}
+              max={100}
+              step={1}
+              value={[pctNow]}
+              disabled={!bal || !!busy}
+              onValueChange={([v]) => applyPct(v ?? 0)}
+            />
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              {[25, 50, 75, 100].map((p) => (
+                <Button
+                  key={p}
+                  size="sm"
+                  variant={Math.round(pctNow) === p ? "default" : "outline"}
+                  disabled={!bal || !!busy}
+                  onClick={() => applyPct(p)}
+                >
+                  {p === 100 ? "Máx" : `${p}%`}
+                </Button>
+              ))}
+            </div>
+            <Button
+              className={cn(
+                "mt-4 w-full rounded-full",
+                side === "compra" && "bg-emerald-700 text-white hover:bg-emerald-800",
+              )}
+              size="lg"
+              variant={side === "venda" ? "destructive" : "default"}
+              onClick={() => prepare(side)}
+              disabled={!ready || !!busy}
+            >
+              {side === "compra" ? `Cotar compra de ${sym}` : `Cotar venda de ${sym}`}
+            </Button>
+          </div>
 
-      <TokenChart
-        address={GTE}
-        symbol={sym}
-        strategyMinutes={intervalMinutes(cfg.candleInterval)}
-        rulesVersion={cfg.rulesVersion ?? 1}
-      />
+          {quote && (
+            <Panel title="Revisar antes de assinar">
+              {(() => {
+                const hasTax = quote.tax != null && quote.tax > 0.5;
+                const gross = hasTax
+                  ? (quote.out * 10000n) / BigInt(Math.round((100 - quote.tax!) * 100))
+                  : null;
+                const envia =
+                  quote.side === "compra"
+                    ? `${fmtBnb(quote.amountIn)} BNB`
+                    : `${fmtGte(quote.amountIn)} ${sym}`;
+                const recebe =
+                  quote.side === "compra"
+                    ? `${fmtGte(quote.out)} ${sym}`
+                    : `${fmtBnb(quote.out)} BNB`;
+                const bruto =
+                  gross == null
+                    ? null
+                    : quote.side === "compra"
+                      ? `${fmtGte(gross)} ${sym}`
+                      : `${fmtBnb(gross)} BNB`;
+                const bnbIn = Number(formatEther(quote.amountIn));
+                const tkOut = Number(formatUnits(quote.out, selected.decimals));
+                return (
+                  <div className="rounded-lg border border-primary/60 bg-primary/10 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Você envia
+                    </p>
+                    <p className="font-mono text-2xl font-bold">{envia}</p>
+                    <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {quote.side === "compra"
+                        ? `Você recebe — ${sym}, taxa do token já descontada`
+                        : quote.tax == null
+                          ? "Você recebe — BNB (taxa será medida depois da aprovação)"
+                          : quote.estimated
+                            ? "Você recebe — BNB, taxa do token já descontada (conferida de novo antes de assinar)"
+                            : "Você recebe — BNB, taxa do token já descontada"}
+                    </p>
+                    <p className="font-mono text-2xl font-bold text-success">{recebe}</p>
+                    {quote.side === "compra" && quote.out > 0n && bnbIn > 0 ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Câmbio desta troca: 1 BNB ≈ {n2(tkOut / bnbIn)} {sym} (taxa incluída).
+                      </p>
+                    ) : null}
+                    {quote.side === "venda" && quote.amountIn > 0n && tkOut > 0 ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Câmbio desta troca: 1 {sym} ≈ {n6(bnbIn / tkOut)} BNB (taxa incluída).
+                      </p>
+                    ) : null}
+                    {bruto != null ? (
+                      <p className="mt-2 text-sm text-warning">
+                        Sem a taxa de ~{quote.tax!.toFixed(1)}%, seriam {bruto} — a diferença fica
+                        com o token.
+                      </p>
+                    ) : quote.tax != null && quote.tax <= 0.5 ? (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Taxa do token: nenhuma detectada nesta troca.
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })()}
+              <ul className="mt-3 space-y-1 text-sm">
+                {quote.side === "compra" &&
+                  pnl.lastSell &&
+                  (() => {
+                    const bnbIn = Number(formatEther(quote.amountIn)),
+                      tk = Number(formatUnits(quote.out, selected.decimals));
+                    const edge = rebuyEdgePct(pnl.lastSell, bnbIn, tk);
+                    const atSellRate = bnbIn * (pnl.lastSell.tokens / pnl.lastSell.bnb);
+                    return edge == null ? null : (
+                      <li className={edge >= 0 ? "text-success" : "text-destructive"}>
+                        Na última venda, {n6(bnbIn)} BNB valiam {n2(atSellRate)} {sym}. Agora você
+                        compra {n2(tk)} {sym}: {edge >= 0 ? "+" : ""}
+                        {edge.toFixed(1)}% {edge >= 0 ? "a mais" : "a menos"}.
+                      </li>
+                    );
+                  })()}
+                {quote.side === "venda" &&
+                  pnl.avgCost &&
+                  (() => {
+                    const tk = Number(formatUnits(quote.amountIn, selected.decimals)),
+                      bnb = Number(formatEther(quote.out));
+                    const res = bnb - tk * pnl.avgCost;
+                    return (
+                      <li className={res >= 0 ? "text-success" : "text-destructive"}>
+                        Pelo seu preço médio, esta venda dá {res >= 0 ? "lucro" : "prejuízo"} de ~
+                        {n6(Math.abs(res))} BNB.
+                      </li>
+                    );
+                  })()}
+                <li>
+                  Mínimo aceito (slippage {cfg.maxSlippagePct}%):{" "}
+                  {quote.side === "compra"
+                    ? `${fmtGte(quote.min)} ${sym}`
+                    : `${fmtBnb(quote.min)} BNB`}
+                </li>
+                {slippageLevel(cfg.maxSlippagePct) !== "ok" && (
+                  <li
+                    className={cn(
+                      "rounded-md border p-2 font-medium",
+                      slippageLevel(cfg.maxSlippagePct) === "critico"
+                        ? "border-destructive/50 bg-destructive/10 text-destructive"
+                        : "border-warning/50 bg-warning/10 text-warning",
+                    )}
+                  >
+                    {slippageLevel(cfg.maxSlippagePct) === "critico"
+                      ? `Perigo: slippage de ${cfg.maxSlippagePct}% é muito alto. Robôs de mineradores podem "espremer" sua ordem (ataque sanduíche) e você receber bem menos. Reduza na estratégia, se a taxa do token permitir.`
+                      : `Cautela: slippage de ${cfg.maxSlippagePct}% acima de 5%. Você pode receber menos que o previsto.`}
+                  </li>
+                )}
+                <li>Impacto de preço estimado: {quote.impact.toFixed(2)}%</li>
+                <li>
+                  Validade: 5 minutos.{" "}
+                  {quote.side === "venda" &&
+                    "Pode exigir uma aprovação limitada a esta quantidade."}
+                </li>
+              </ul>
+              <div className="mt-3 flex gap-2">
+                <Button onClick={execute} disabled={!ready || !!busy}>
+                  {busy === "assinatura"
+                    ? "Aguardando assinatura…"
+                    : busy === "confirmando"
+                      ? "Confirmando…"
+                      : "Assinar na carteira"}
+                </Button>
+                <Button variant="ghost" onClick={() => setQuote(null)} disabled={!!busy}>
+                  Cancelar
+                </Button>
+              </div>
+            </Panel>
+          )}
+        </>
+      )}
+
       <ContractRisk address={GTE} />
       {bal && (
         <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
@@ -783,221 +1060,6 @@ function Operar() {
           </p>
         )}
       </div>
-
-      <div className="rounded-lg border border-border bg-card p-4">
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            className={side === "compra" ? "bg-success text-background hover:bg-success/90" : ""}
-            variant={side === "compra" ? "default" : "secondary"}
-            onClick={() => {
-              setSide("compra");
-              setQuote(null);
-            }}
-          >
-            Comprar
-          </Button>
-          <Button
-            variant={side === "venda" ? "destructive" : "secondary"}
-            onClick={() => {
-              setSide("venda");
-              setQuote(null);
-            }}
-          >
-            Vender
-          </Button>
-        </div>
-        <p className="mt-3 text-sm text-muted-foreground">
-          {side === "compra" ? (
-            <>
-              Você paga <b>BNB</b> e recebe <b>{sym}</b>.
-            </>
-          ) : (
-            <>
-              Você entrega <b>{sym}</b> e recebe <b>BNB</b>.
-            </>
-          )}
-        </p>
-        <Label className="mt-3 block">
-          {side === "compra" ? "Quanto BNB usar" : `Quantidade de ${sym}`}
-        </Label>
-        <Input
-          className="mt-1"
-          type="number"
-          step="any"
-          value={side === "compra" ? buyAmt : sellAmt}
-          onChange={(e) => {
-            (side === "compra" ? setBuyAmt : setSellAmt)(e.target.value);
-            setQuote(null);
-          }}
-        />
-        <p className="mt-1 text-xs text-muted-foreground">
-          Disponível:{" "}
-          {bal
-            ? side === "compra"
-              ? `${fmtBnb(spendable)} BNB (já descontada a reserva de gás)`
-              : `${fmtGte(bal.gte)} ${sym}`
-            : "conecte a carteira"}
-        </p>
-        <Slider
-          className="mt-4"
-          min={0}
-          max={100}
-          step={1}
-          value={[pctNow]}
-          disabled={!bal}
-          onValueChange={([v]) => applyPct(v ?? 0)}
-        />
-        <div className="mt-3 grid grid-cols-4 gap-2">
-          {[25, 50, 75, 100].map((p) => (
-            <Button
-              key={p}
-              size="sm"
-              variant={Math.round(pctNow) === p ? "default" : "outline"}
-              disabled={!bal}
-              onClick={() => applyPct(p)}
-            >
-              {p === 100 ? "Máx" : `${p}%`}
-            </Button>
-          ))}
-        </div>
-        <Button
-          className="mt-4 w-full"
-          size="lg"
-          variant={side === "venda" ? "destructive" : "default"}
-          onClick={() => prepare(side)}
-          disabled={!ready || !!busy}
-        >
-          {side === "compra" ? `Cotar compra de ${sym}` : `Cotar venda de ${sym}`}
-        </Button>
-      </div>
-
-      {quote && (
-        <Panel title="Revisar antes de assinar">
-          {(() => {
-            const hasTax = quote.tax != null && quote.tax > 0.5;
-            const gross = hasTax
-              ? (quote.out * 10000n) / BigInt(Math.round((100 - quote.tax!) * 100))
-              : null;
-            const envia =
-              quote.side === "compra"
-                ? `${fmtBnb(quote.amountIn)} BNB`
-                : `${fmtGte(quote.amountIn)} ${sym}`;
-            const recebe =
-              quote.side === "compra" ? `${fmtGte(quote.out)} ${sym}` : `${fmtBnb(quote.out)} BNB`;
-            const bruto =
-              gross == null
-                ? null
-                : quote.side === "compra"
-                  ? `${fmtGte(gross)} ${sym}`
-                  : `${fmtBnb(gross)} BNB`;
-            const bnbIn = Number(formatEther(quote.amountIn));
-            const tkOut = Number(formatUnits(quote.out, selected.decimals));
-            return (
-              <div className="rounded-lg border border-primary/60 bg-primary/10 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Você envia
-                </p>
-                <p className="font-mono text-2xl font-bold">{envia}</p>
-                <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {quote.side === "compra"
-                    ? `Você recebe — ${sym}, taxa do token já descontada`
-                    : quote.tax == null
-                      ? "Você recebe — BNB (taxa será medida depois da aprovação)"
-                      : quote.estimated
-                        ? "Você recebe — BNB, taxa do token já descontada (conferida de novo antes de assinar)"
-                        : "Você recebe — BNB, taxa do token já descontada"}
-                </p>
-                <p className="font-mono text-2xl font-bold text-success">{recebe}</p>
-                {quote.side === "compra" && quote.out > 0n && bnbIn > 0 ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Câmbio desta troca: 1 BNB ≈ {n2(tkOut / bnbIn)} {sym} (taxa incluída).
-                  </p>
-                ) : null}
-                {quote.side === "venda" && quote.amountIn > 0n && tkOut > 0 ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Câmbio desta troca: 1 {sym} ≈ {n6(bnbIn / tkOut)} BNB (taxa incluída).
-                  </p>
-                ) : null}
-                {bruto != null ? (
-                  <p className="mt-2 text-sm text-warning">
-                    Sem a taxa de ~{quote.tax!.toFixed(1)}%, seriam {bruto} — a diferença fica com o
-                    token.
-                  </p>
-                ) : quote.tax != null && quote.tax <= 0.5 ? (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Taxa do token: nenhuma detectada nesta troca.
-                  </p>
-                ) : null}
-              </div>
-            );
-          })()}
-          <ul className="mt-3 space-y-1 text-sm">
-            {quote.side === "compra" &&
-              pnl.lastSell &&
-              (() => {
-                const bnbIn = Number(formatEther(quote.amountIn)),
-                  tk = Number(formatUnits(quote.out, selected.decimals));
-                const edge = rebuyEdgePct(pnl.lastSell, bnbIn, tk);
-                const atSellRate = bnbIn * (pnl.lastSell.tokens / pnl.lastSell.bnb);
-                return edge == null ? null : (
-                  <li className={edge >= 0 ? "text-success" : "text-destructive"}>
-                    Na última venda, {n6(bnbIn)} BNB valiam {n2(atSellRate)} {sym}. Agora você
-                    compra {n2(tk)} {sym}: {edge >= 0 ? "+" : ""}
-                    {edge.toFixed(1)}% {edge >= 0 ? "a mais" : "a menos"}.
-                  </li>
-                );
-              })()}
-            {quote.side === "venda" &&
-              pnl.avgCost &&
-              (() => {
-                const tk = Number(formatUnits(quote.amountIn, selected.decimals)),
-                  bnb = Number(formatEther(quote.out));
-                const res = bnb - tk * pnl.avgCost;
-                return (
-                  <li className={res >= 0 ? "text-success" : "text-destructive"}>
-                    Pelo seu preço médio, esta venda dá {res >= 0 ? "lucro" : "prejuízo"} de ~
-                    {n6(Math.abs(res))} BNB.
-                  </li>
-                );
-              })()}
-            <li>
-              Mínimo aceito (slippage {cfg.maxSlippagePct}%):{" "}
-              {quote.side === "compra" ? `${fmtGte(quote.min)} ${sym}` : `${fmtBnb(quote.min)} BNB`}
-            </li>
-            {slippageLevel(cfg.maxSlippagePct) !== "ok" && (
-              <li
-                className={cn(
-                  "rounded-md border p-2 font-medium",
-                  slippageLevel(cfg.maxSlippagePct) === "critico"
-                    ? "border-destructive/50 bg-destructive/10 text-destructive"
-                    : "border-warning/50 bg-warning/10 text-warning",
-                )}
-              >
-                {slippageLevel(cfg.maxSlippagePct) === "critico"
-                  ? `Perigo: slippage de ${cfg.maxSlippagePct}% é muito alto. Robôs de mineradores podem "espremer" sua ordem (ataque sanduíche) e você receber bem menos. Reduza na estratégia, se a taxa do token permitir.`
-                  : `Cautela: slippage de ${cfg.maxSlippagePct}% acima de 5%. Você pode receber menos que o previsto.`}
-              </li>
-            )}
-            <li>Impacto de preço estimado: {quote.impact.toFixed(2)}%</li>
-            <li>
-              Validade: 5 minutos.{" "}
-              {quote.side === "venda" && "Pode exigir uma aprovação limitada a esta quantidade."}
-            </li>
-          </ul>
-          <div className="mt-3 flex gap-2">
-            <Button onClick={execute} disabled={!ready || !!busy}>
-              {busy === "assinatura"
-                ? "Aguardando assinatura…"
-                : busy === "confirmando"
-                  ? "Confirmando…"
-                  : "Assinar na carteira"}
-            </Button>
-            <Button variant="ghost" onClick={() => setQuote(null)} disabled={!!busy}>
-              Cancelar
-            </Button>
-          </div>
-        </Panel>
-      )}
 
       <Panel title={`Seus resultados com ${sym}`}>
         {pnl.buys + pnl.sells === 0 ? (

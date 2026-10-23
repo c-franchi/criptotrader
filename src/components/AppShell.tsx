@@ -1,3 +1,4 @@
+import { ThemeToggle } from "./ThemeToggle";
 import { WalletSelector } from "./WalletSelector";
 import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { Link, useLocation } from "@tanstack/react-router";
@@ -198,6 +199,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           )}
           <div className="ml-auto flex shrink-0 items-center">
+            <ThemeToggle />
             <AppUpdateNotice />
             <NotificationBell />
             {!user && (
