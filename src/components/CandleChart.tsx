@@ -74,6 +74,7 @@ function ChartBody({
   const [mode, setMode] = useState("candles");
   const [showSma, setShowSma] = useState(!compact);
   const [controls, setControls] = useState(false);
+  const [allLevels, setAllLevels] = useState(false);
   const areaId = useId();
   const storageKey =
     preferenceKey ?? (compact ? "cryptobot:trade-chart-view" : "cryptobot:chart-view");
@@ -110,6 +111,7 @@ function ChartBody({
       if ([1, 4, 12, 24].includes(saved?.hours)) setHours(saved.hours);
       if ([260, 320, 420, 560].includes(saved?.height)) setHeight(saved.height);
       if (["candles", "line"].includes(saved?.mode)) setMode(saved.mode);
+      if (typeof saved?.allLevels === "boolean") setAllLevels(saved.allLevels);
       if (typeof saved?.showSma === "boolean") setShowSma(saved.showSma);
       if (typeof saved?.technical === "boolean") setTechnical(saved.technical);
       if (typeof saved?.showEma === "boolean") setShowEma(saved.showEma);
@@ -125,12 +127,34 @@ function ChartBody({
       try {
         localStorage.setItem(
           storageKey,
-          JSON.stringify({ minutes, hours, height, mode, showSma, technical, showEma, showBands }),
+          JSON.stringify({
+            minutes,
+            hours,
+            height,
+            mode,
+            showSma,
+            technical,
+            showEma,
+            showBands,
+            allLevels,
+          }),
         );
       } catch {
         /* unavailable */
       }
-  }, [minutes, hours, ready, height, mode, showSma, technical, showEma, showBands, storageKey]);
+  }, [
+    minutes,
+    hours,
+    ready,
+    height,
+    mode,
+    showSma,
+    technical,
+    showEma,
+    showBands,
+    allLevels,
+    storageKey,
+  ]);
 
   // Enquadramento previsível: seguir o presente dentro da janela escolhida.
   const frame = useCallback(
@@ -211,7 +235,9 @@ function ChartBody({
   const points = [
     ...(quote ? [quote.price] : []),
     ...visibleBars.flatMap((b) => [b.candle[2], b.candle[3]]),
-    ...levels.filter((l) => l.price > 0).map((l) => l.price),
+    // In the simple view, asynchronous targets must not flatten market candles.
+    ...(!compact || allLevels ? levels.filter((l) => l.price > 0).map((l) => l.price) : []),
+    ...visibleTrades.flatMap((t) => (t.price != null && t.price > 0 ? [t.price] : [])),
     ...marks.map((m) => m.price),
     ...measure.map((m) => m.price),
     ...(technical
@@ -223,7 +249,9 @@ function ChartBody({
             ),
           )
       : []),
-    ...visibleSeries.flatMap((s) => [s.fast, s.slow].filter((x): x is number => x != null)),
+    ...(showSma
+      ? visibleSeries.flatMap((s) => [s.fast, s.slow].filter((x): x is number => x != null))
+      : []),
   ];
   const low = points.length ? Math.min(...points) : 0,
     high = points.length ? Math.max(...points) : 1;
@@ -639,6 +667,21 @@ function ChartBody({
           )}
         </>
       )}
+      {compact && levels.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="font-medium">
+            {allLevels ? "Todos os níveis" : "Foco no preço e nas operações"}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            aria-pressed={allLevels}
+            onClick={() => setAllLevels(!allLevels)}
+          >
+            {allLevels ? "Focar nas operações" : "Ver todos os níveis"}
+          </Button>
+        </div>
+      )}
       {bars.length ? (
         <svg
           ref={svgRef}
@@ -776,18 +819,21 @@ function ChartBody({
                   />
                 );
               })}
-          {levels.map((l, i) => (
-            <line
-              key={i}
-              x1={0}
-              x2={plot}
-              y1={y(l.price)}
-              y2={y(l.price)}
-              stroke="currentColor"
-              strokeDasharray="5 4"
-              className={tones[l.tone]}
-            />
-          ))}
+          {levels
+            .filter((l) => l.price >= min && l.price <= max)
+            .map((l, i) => (
+              <line
+                key={i}
+                aria-label={`${l.label}: US$ ${usd(l.price)}`}
+                x1={0}
+                x2={plot}
+                y1={y(l.price)}
+                y2={y(l.price)}
+                stroke="currentColor"
+                strokeDasharray="5 4"
+                className={tones[l.tone]}
+              />
+            ))}
           {mode === "line" &&
             (() => {
               const segments: (typeof visibleBars)[] = [];
@@ -1157,6 +1203,11 @@ function ChartBody({
             .map((l, i) => (
               <li key={i} className={tones[l.tone]}>
                 {l.label}: US$ {usd(l.price)}
+                {l.price > max
+                  ? " · ↑ acima da área visível"
+                  : l.price < min
+                    ? " · ↓ abaixo da área visível"
+                    : ""}
                 <FiatValue usd={l.price} hideUsdDuplicate />
               </li>
             ))}

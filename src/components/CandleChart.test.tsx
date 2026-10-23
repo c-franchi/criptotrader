@@ -217,3 +217,58 @@ it("preserves robot buy/sell/protection levels and executed points in the compac
   expect(JSON.parse(localStorage.getItem("cryptobot:robot-chart-view")!).mode).toBe("line");
   expect(localStorage.getItem("cryptobot:trade-chart-view")).toBeNull();
 });
+
+it("keeps candles readable when distant robot levels arrive and offers the complete risk view", () => {
+  const props = {
+    compact: true,
+    preferenceKey: "cryptobot:robot-chart-view",
+    candles,
+    now: 9000000,
+  };
+  const view = render(<CandleChart {...props} />);
+  const svg = screen.getByRole("img");
+  const wickSpan = () => {
+    const wick = svg.querySelector("g > title")!.parentElement!.querySelector("line")!;
+    return Math.abs(Number(wick.getAttribute("y2")) - Number(wick.getAttribute("y1")));
+  };
+  const before = wickSpan();
+  const levels = [
+    { price: 70, label: "Proteção distante", tone: "stop" as const },
+    { price: 104, label: "Venda planejada", tone: "sell" as const },
+    { price: 99, label: "Compra planejada", tone: "buy" as const },
+  ];
+  view.rerender(<CandleChart {...props} levels={levels} />);
+  expect(wickSpan()).toBe(before);
+  expect(svg.querySelector('[aria-label="Proteção distante: US$ 70,00"]')).toBeNull();
+  expect(svg.querySelector('[aria-label="Compra planejada: US$ 99,00"]')).toBeTruthy();
+  expect(screen.getByText(/Proteção distante: US\$ 70,00 · ↓ abaixo/)).toBeTruthy();
+  expect(screen.getByText(/Venda planejada: US\$ 104,00 · ↑ acima/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Ver todos os níveis" }));
+  expect(wickSpan()).toBeLessThan(before / 5);
+  expect(svg.querySelector('[aria-label="Proteção distante: US$ 70,00"]')).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Focar nas operações" }));
+  expect(wickSpan()).toBe(before);
+  fireEvent.click(screen.getByRole("button", { name: "Linha" }));
+  view.unmount();
+  render(<CandleChart {...props} levels={levels} />);
+  expect(screen.getByLabelText("Gráfico de linha e área")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Ver todos os níveis" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+});
+
+it("includes recorded fill prices in the focused view without changing trade evidence", () => {
+  render(
+    <CandleChart
+      compact
+      candles={candles}
+      now={9000000}
+      trades={[{ time: 6000000, price: 95, side: "compra", details: ["Preço registrado"] }]}
+    />,
+  );
+  const point = screen.getByRole("img").querySelector('circle[r="5"]')!;
+  expect(Number(point.getAttribute("cy"))).toBeGreaterThan(12);
+  expect(Number(point.getAttribute("cy"))).toBeLessThan(308);
+  expect(point.parentElement!.textContent).toContain("Preço registrado");
+});
