@@ -397,6 +397,7 @@ function Robo() {
 
         <GuidedBotSetup
           key={selectionKey}
+          userId={user?.id ?? ""}
           open={setupOpen}
           onOpenChange={setSetupOpen}
           walletScope={walletScope}

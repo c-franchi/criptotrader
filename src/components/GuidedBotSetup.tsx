@@ -1,5 +1,5 @@
 import { getTokenTax } from "@/lib/userTokens.functions";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
@@ -12,8 +12,10 @@ import {
   getBotReadiness,
 } from "@/lib/guidedBot.functions";
 import { getMarket } from "@/lib/chain.functions";
+import { getWalletCapital } from "@/lib/capital.functions";
+import { readSetupDraft, writeSetupDraft, removeSetupDraft, setupDraftKey } from "@/lib/setupDraft";
 import { getFxQuote } from "@/lib/fx.functions";
-import { createBotWallet, type getBotWallet } from "@/lib/bot.functions";
+import { createBotWallet, getExecutionStatus, type getBotWallet } from "@/lib/bot.functions";
 import {
   guidedInputSchema,
   incompatibleBotToken,
@@ -90,6 +92,7 @@ export function GuidedBotSetup({
   open,
   onOpenChange,
   walletScope,
+  userId,
   walletName,
   token,
   symbol,
@@ -103,6 +106,7 @@ export function GuidedBotSetup({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   walletScope: string;
+  userId: string;
   walletName: string;
   token: string;
   symbol: string;
@@ -124,7 +128,27 @@ export function GuidedBotSetup({
     [ack, setAck] = useState(false),
     [locked, setLocked] = useState(false),
     [currency, setCurrency] = useState<"BNB" | "BRL">("BNB");
+  const session = useRef(0);
+  const [loadedKey, setLoadedKey] = useState("");
+  const [storageFailed, setStorageFailed] = useState(false);
+  const [conflict, setConflict] = useState(false);
+  const [reload, setReload] = useState(0);
+  const draftKey = setupDraftKey(userId, walletScope, token);
   const qc = useQueryClient();
+  const capital = useQuery({
+    queryKey: ["guided-wallet-capital", userId, walletScope],
+    queryFn: async () => {
+      const [report, execution] = await Promise.all([
+        getWalletCapital({ data: { walletScope } }),
+        getExecutionStatus({ data: { walletScope } }),
+      ]);
+      return { report, locked: execution.locked };
+    },
+    enabled: open && !!userId,
+    refetchInterval: 15000,
+    staleTime: 0,
+    retry: false,
+  });
   const market = useQuery({
     queryKey: ["market", token],
     queryFn: () => getMarket({ data: { address: token } }),
@@ -147,9 +171,12 @@ export function GuidedBotSetup({
     retry: false,
   });
   useEffect(() => {
+    session.current += 1;
     if (!open) return;
     let alive = true;
+    const local = readSetupDraft(draftKey, initial);
     setLoaded(false);
+    setConflict(false);
     setSaved(false);
     setStep(0);
     setError("");
@@ -161,7 +188,7 @@ export function GuidedBotSetup({
         const c = (r.draft?.config ?? r.strategy?.config ?? {}) as Partial<StrategyConfig>;
         const tp = c.takeProfits?.[0]?.pct;
         const taxRetention = (1 - (c.buyTaxPct ?? 0) / 100) * (1 - (c.sellTaxPct ?? 0) / 100);
-        setForm({
+        const serverForm: GuidedForm = {
           ...initial,
           model: r.bot?.mode === "grade" ? "grid" : c.recovery?.enabled ? "recovery" : "dca",
           capital: c.allocationBnb ?? c.maxExposureQuote ?? 0,
@@ -182,9 +209,18 @@ export function GuidedBotSetup({
           reboundPct: c.recovery?.reboundPct ?? 1,
           maxReboundPct: c.recovery?.maxReboundPct ?? 3,
           confirmationBars: c.recovery?.confirmationBars ?? 2,
-        });
-        setVersion(r.strategy?.version ?? 0);
-        setRevision(r.draft?.revision ?? 0);
+        };
+        setForm(local?.form ?? serverForm);
+        setStep(local?.step ?? 0);
+        setCurrency(local?.currency ?? "BNB");
+        const serverVersion = r.strategy?.version ?? 0;
+        const serverRevision = r.draft?.revision ?? 0;
+        setConflict(
+          !!local && (local.version !== serverVersion || local.revision !== serverRevision),
+        );
+        setVersion(local?.version ?? serverVersion);
+        setRevision(local?.revision ?? serverRevision);
+        setLoadedKey(draftKey);
         const state = r.bot?.strat_state as { tokens?: number; costBnb?: number } | null;
         setLocked(
           !!r.bot?.armed || Number(state?.tokens ?? 0) > 0 || Number(state?.costBnb ?? 0) > 0,
@@ -196,8 +232,18 @@ export function GuidedBotSetup({
       });
     return () => {
       alive = false;
+      session.current += 1;
     };
-  }, [open, walletScope, token]);
+  }, [open, walletScope, token, draftKey, reload]);
+  useEffect(() => {
+    if (!open || !loaded || loadedKey !== draftKey || saved) return;
+    setStorageFailed(!writeSetupDraft(draftKey, { form, step, currency, version, revision }));
+  }, [open, loaded, loadedKey, draftKey, saved, form, step, currency, version, revision]);
+  const close = (next: boolean) => {
+    if (!next && loaded && loadedKey === draftKey && !saved)
+      writeSetupDraft(draftKey, { form, step, currency, version, revision });
+    onOpenChange(next);
+  };
   const set = <K extends keyof GuidedForm>(k: K, v: GuidedForm[K]) => {
     setForm((p) => ({ ...p, [k]: v }));
     setSaved(false);
@@ -217,6 +263,7 @@ export function GuidedBotSetup({
     setBusy(true);
     try {
       await createBotWallet({ data: { walletScope } });
+      await capital.refetch();
       await onDone();
     } catch (e) {
       setError((e as Error).message);
@@ -225,16 +272,27 @@ export function GuidedBotSetup({
     }
   };
   const save = async () => {
+    if (conflict)
+      return setError("As regras salvas mudaram. Revise a atualização antes de salvar.");
     if (!validation.success) return setError(issue);
+    const savingSession = session.current;
     setBusy(true);
     setError("");
     try {
       await saveGuidedBot({
         data: { walletScope, token, settings: validation.data, version, draftRevision: revision },
       });
-      setVersion((v) => v + 1);
-      setRevision(0);
-      setSaved(true);
+      const pending = readSetupDraft(draftKey, initial);
+      if (pending && JSON.stringify(pending.form) === JSON.stringify(form))
+        removeSetupDraft(draftKey);
+      if (session.current === savingSession) {
+        setVersion((v) => v + 1);
+        setRevision(0);
+        setSaved(true);
+      } else {
+        // A reopened editor must fetch the confirmed version, without discarding newer input.
+        setReload((n) => n + 1);
+      }
       await qc.invalidateQueries({ queryKey: ["bot-readiness", walletScope, token] });
       await qc.invalidateQueries({ queryKey: ["wallet-capital", walletScope] });
       await onDone();
@@ -262,27 +320,43 @@ export function GuidedBotSetup({
     }
   };
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        if (
-          !busy &&
-          (!v && loaded && !saved ? window.confirm("Fechar sem salvar estas alterações?") : true)
-        )
-          onOpenChange(v);
-      }}
-    >
+    <Dialog open={open} onOpenChange={close}>
       <DialogContent
-        className="max-h-[92dvh] w-[calc(100vw-1rem)] max-w-2xl overflow-y-auto p-4 sm:p-6"
+        className="max-h-[92dvh] w-[calc(100vw-1rem)] max-w-2xl overflow-y-auto p-4 sm:p-6 [&>button.absolute]:size-11 [&>button.absolute]:grid [&>button.absolute]:place-items-center"
         onInteractOutside={(e) => e.preventDefault()}
       >
-        <DialogHeader>
+        <DialogHeader className="pr-10">
           <DialogTitle>Configurar robô · {symbol}</DialogTitle>
           <DialogDescription>
             Carteira {walletName}. Você paga com BNB e recebe {symbol}. Toda a preparação acontece
             aqui.
           </DialogDescription>
         </DialogHeader>
+        {loaded && !saved && (
+          <p className="text-xs text-muted-foreground" role="status">
+            {storageFailed
+              ? "O navegador não permitiu guardar o preenchimento. Salve as regras antes de sair da página."
+              : "Preenchimento salvo neste dispositivo por carteira e moeda. Fechar não inicia o robô."}
+          </p>
+        )}
+        {conflict && (
+          <div role="alert" className="rounded border border-warning p-3 text-sm">
+            <p>
+              As regras foram alteradas em outra sessão. Seu preenchimento foi preservado; confira
+              as regras atuais antes de substituir.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                removeSetupDraft(draftKey);
+                setLoaded(false);
+                setReload((n) => n + 1);
+              }}
+            >
+              Descartar preenchimento e carregar regras atuais
+            </Button>
+          </div>
+        )}
         <ol className="grid grid-cols-4 gap-1 text-center text-xs" aria-label="Etapas">
           {["Modelo", "Valores", "Regras", "Revisar"].map((s, i) => (
             <li
@@ -361,8 +435,7 @@ export function GuidedBotSetup({
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Trocar carteira ou moeda abre as regras dela e descarta os campos ainda não salvos
-                  deste assistente.
+                  Trocar carteira ou moeda preserva o preenchimento de cada uma neste dispositivo.
                 </p>
                 <p className="text-sm">
                   Escolha como o robô vai agir. As porcentagens e os valores serão revisados antes
@@ -422,6 +495,62 @@ export function GuidedBotSetup({
             )}
             {step === 1 && (
               <div className="space-y-4">
+                <div
+                  className="rounded-lg border border-primary/40 p-3 text-sm space-y-2"
+                  aria-label="Saldo para configurar o robô"
+                >
+                  <b>Saldo disponível para este robô</b>
+                  {capital.data?.report && !capital.isError ? (
+                    (() => {
+                      const report = capital.data.report;
+                      const available = Math.max(0, Number(report.free) - form.reserve);
+                      return (
+                        <>
+                          <p>Saldo na carteira: {quote(Number(report.balance))}</p>
+                          <p>Em posições (custo registrado): {quote(Number(report.invested))}</p>
+                          <p>
+                            Reservado para compras de robôs ligados:{" "}
+                            {quote(Number(report.reserved))}
+                          </p>
+                          <p>Reservas para taxas de robôs ligados: {quote(Number(report.gas))}</p>
+                          <p>Reserva para taxas desta configuração: {quote(form.reserve)}</p>
+                          <p className="font-semibold text-primary">
+                            {capital.data.locked
+                              ? "Novas compras bloqueadas: há execução pendente de conferência."
+                              : `Livre para configurar: ${quote(available)}`}
+                          </p>
+                          {!capital.data.locked && form.capital > available && (
+                            <p className="text-warning">
+                              O capital informado supera o saldo livre. Reduza o valor ou adicione
+                              saldo.
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground">
+                            Atualizado às {new Date(report.at).toLocaleTimeString("pt-BR")}. O saldo
+                            é conferido novamente antes de iniciar e comprar. Configurar não reserva
+                            dinheiro.
+                          </p>
+                        </>
+                      );
+                    })()
+                  ) : (
+                    <p>
+                      {capital.isPending
+                        ? "Consultando saldo disponível…"
+                        : capital.isError
+                          ? "Não foi possível confirmar o saldo disponível. Tente atualizar."
+                          : "Carteira automática ainda não criada. Crie e adicione saldo abaixo."}
+                    </p>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={capital.isFetching}
+                    onClick={() => void capital.refetch()}
+                  >
+                    Atualizar saldo
+                  </Button>
+                </div>
                 <p className="text-sm">
                   O capital é o teto de compras deste robô. A reserva para taxas fica fora desse
                   valor; outros robôs não podem usar o mesmo saldo duas vezes.
@@ -692,7 +821,7 @@ export function GuidedBotSetup({
                     </p>
                     <Button
                       className="w-full"
-                      disabled={busy || !validation.success || unsupported}
+                      disabled={busy || conflict || !validation.success || unsupported}
                       onClick={save}
                     >
                       {busy ? "Salvando…" : "Salvar regras e preparar robô"}
@@ -762,6 +891,9 @@ export function GuidedBotSetup({
             )}
           </>
         )}
+        <Button variant="ghost" onClick={() => close(false)}>
+          Fechar e continuar depois
+        </Button>
       </DialogContent>
     </Dialog>
   );
