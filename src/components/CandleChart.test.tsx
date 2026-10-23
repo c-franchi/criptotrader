@@ -164,3 +164,20 @@ it("does not mark after a canceled pointer or a two-finger zoom", () => {
   fireEvent.click(svg, { clientX: 200, clientY: 100 });
   expect(screen.queryByText("Ponto 1 marcado. Toque ou clique no segundo ponto.")).toBeNull();
 });
+
+it("updates a separate current-price line without modifying OHLC or closed averages", () => {
+  const before = JSON.stringify(candles);
+  const view = render(
+    <CandleChart candles={candles} now={9000000} liveQuote={{ price: 102, at: 9000000 }} />,
+  );
+  expect(screen.getByLabelText(/Cotação atual independente das velas: US\$ 102,00/)).toBeTruthy();
+  view.rerender(
+    <CandleChart candles={candles} now={9003000} liveQuote={{ price: 103, at: 9003000 }} />,
+  );
+  expect(screen.getByLabelText(/Cotação atual independente das velas: US\$ 103,00/)).toBeTruthy();
+  expect(JSON.stringify(candles)).toBe(before);
+  view.rerender(
+    <CandleChart candles={candles} now={9020000} liveQuote={{ price: 103, at: 9003000 }} />,
+  );
+  expect(screen.queryByLabelText(/Cotação atual independente/)).toBeNull();
+});

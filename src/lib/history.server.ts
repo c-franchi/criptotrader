@@ -104,7 +104,7 @@ export async function readCandles(pool: string, token?: string): Promise<Candle[
           cache.clear();
           failures.clear();
         }
-        cache.set(key, { candles, expires: Date.now() + 60_000 });
+        cache.set(key, { candles, expires: Date.now() + 30_000 });
         failures.delete(key);
         if (candles.length) await saveCandles(p, t, candles);
         return candles;

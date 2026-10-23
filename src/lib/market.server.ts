@@ -24,17 +24,18 @@ const pending = new Map<string, Promise<Market>>();
 const USDT = "0x55d398326f99059fF775485246999027B3197955" as const;
 /** BNB price in USD from the PancakeSwap V2 WBNB/USDT pool (both 18 decimals). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function bnbUsdPrice(client: any): Promise<number | null> {
+async function bnbUsdPrice(client: any, blockNumber?: bigint): Promise<number | null> {
   const pair = await client.readContract({
     address: PANCAKE_V2_FACTORY,
+    blockNumber,
     abi: factoryAbi,
     functionName: "getPair",
     args: [WBNB, USDT],
   });
   if (pair === ZERO) return null;
   const [[r0, r1], token0] = await Promise.all([
-    client.readContract({ address: pair, abi: pairAbi, functionName: "getReserves" }),
-    client.readContract({ address: pair, abi: pairAbi, functionName: "token0" }),
+    client.readContract({ address: pair, abi: pairAbi, blockNumber, functionName: "getReserves" }),
+    client.readContract({ address: pair, abi: pairAbi, blockNumber, functionName: "token0" }),
   ]);
   const wbnbIs0 = String(token0).toLowerCase() === WBNB.toLowerCase();
   const bnb = Number(formatUnits(wbnbIs0 ? r0 : r1, 18)),
@@ -42,7 +43,11 @@ async function bnbUsdPrice(client: any): Promise<number | null> {
   return bnb > 0 ? usd / bnb : null;
 }
 
-async function onChainPool(address: string, rpcUrl: string): Promise<PoolInfo[]> {
+async function onChainPool(
+  address: string,
+  rpcUrl: string,
+  blockNumber?: bigint,
+): Promise<PoolInfo[]> {
   const token = getAddress(address);
   const info = await tokenMeta(address);
   const client = createPublicClient({
@@ -51,14 +56,15 @@ async function onChainPool(address: string, rpcUrl: string): Promise<PoolInfo[]>
   });
   const pair = await client.readContract({
     address: PANCAKE_V2_FACTORY,
+    blockNumber,
     abi: factoryAbi,
     functionName: "getPair",
     args: [token, WBNB],
   });
   if (pair === ZERO) return [];
   const [[r0, r1], token0] = await Promise.all([
-    client.readContract({ address: pair, abi: pairAbi, functionName: "getReserves" }),
-    client.readContract({ address: pair, abi: pairAbi, functionName: "token0" }),
+    client.readContract({ address: pair, abi: pairAbi, blockNumber, functionName: "getReserves" }),
+    client.readContract({ address: pair, abi: pairAbi, blockNumber, functionName: "token0" }),
   ]);
   const isToken0 = token0.toLowerCase() === token.toLowerCase();
   const tokenReserve = isToken0 ? r0 : r1;
@@ -69,7 +75,7 @@ async function onChainPool(address: string, rpcUrl: string): Promise<PoolInfo[]>
           Number(formatUnits(bnbReserve, 18)) / Number(formatUnits(tokenReserve, info.decimals)),
         )
       : null;
-  const bnbUsd = await bnbUsdPrice(client).catch(() => null);
+  const bnbUsd = await bnbUsdPrice(client, blockNumber).catch(() => null);
   const priceUsd = price && bnbUsd ? String(Number(price) * bnbUsd) : null;
   const liquidityUsd = bnbUsd ? Number(formatUnits(bnbReserve, 18)) * bnbUsd * 2 : null;
   return [
@@ -156,19 +162,62 @@ async function fetchMarket(address: string, rpcUrl: string): Promise<Market> {
   }
 }
 
-export async function readMarket(address: string, rpcUrl: string): Promise<Market> {
-  const key = `${rpcUrl}:${address.toLowerCase()}`;
+async function fetchTradingMarket(address: string, rpcUrl: string): Promise<Market> {
+  try {
+    const client = createPublicClient({
+      chain: bsc,
+      transport: http(rpcUrl, { timeout: 4000, retryCount: 0 }),
+    });
+    const block = await client.getBlock({ blockTag: "latest" });
+    const fetchedAt = new Date(Number(block.timestamp) * 1000).toISOString();
+    if (
+      Date.now() - Number(block.timestamp) * 1000 > 15_000 ||
+      Number(block.timestamp) * 1000 > Date.now() + 5_000
+    )
+      throw new Error("RPC retornou um bloco antigo ou horário inválido");
+    const pools = await onChainPool(address, rpcUrl, block.number);
+    return {
+      pools,
+      fetchedAt,
+      source: `PancakeSwap V2 · on-chain · bloco ${block.number}`,
+      error: pools.some((p) => Number(p.priceUsd) > 0)
+        ? null
+        : "Cotação USD do par BNB compatível indisponível",
+    };
+  } catch {
+    return {
+      pools: [],
+      fetchedAt: new Date().toISOString(),
+      source: "PancakeSwap V2 · on-chain",
+      error: "Cotação on-chain indisponível; aguardando consulta atualizada",
+    };
+  }
+}
+
+export async function readMarket(
+  address: string,
+  rpcUrl: string,
+  options?: { live?: boolean },
+): Promise<Market> {
+  const key = `${options?.live ? "live:" : ""}${rpcUrl}:${address.toLowerCase()}`;
   const saved = cache.get(key);
   if (saved && saved.expires > Date.now()) return saved.result;
   const active = pending.get(key);
   if (active) return active;
-  const request = fetchMarket(address, rpcUrl)
+  const request = (
+    options?.live ? fetchTradingMarket(address, rpcUrl) : fetchMarket(address, rpcUrl)
+  )
     .then((result) => {
       if (result.error && saved?.result.pools.length) {
-        return { ...saved.result, error: "Atualização indisponível; exibindo a última consulta" };
+        const fallback = {
+          ...saved.result,
+          error: "Atualização indisponível; exibindo a última consulta",
+        };
+        if (options?.live) cache.set(key, { result: fallback, expires: Date.now() + 2000 });
+        return fallback;
       }
       if (cache.size >= 100) cache.clear();
-      cache.set(key, { result, expires: Date.now() + 15_000 });
+      cache.set(key, { result, expires: Date.now() + (options?.live ? 2000 : 15_000) });
       return result;
     })
     .finally(() => pending.delete(key));

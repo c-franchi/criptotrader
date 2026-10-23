@@ -1,3 +1,4 @@
+import { formatUsd } from "@/lib/display";
 import { GuidedBotSetup } from "@/components/GuidedBotSetup";
 import { BotReadiness } from "@/components/BotReadiness";
 import { BotPerformancePanel } from "@/components/BotPerformancePanel";
@@ -128,7 +129,7 @@ function Robo() {
       }
     };
     void refresh();
-    const timer = setInterval(refresh, 60000);
+    const timer = setInterval(refresh, 5000);
     return () => {
       alive = false;
       clearInterval(timer);
@@ -161,62 +162,72 @@ function Robo() {
   }, [fullscreen]);
   const [allBots, setAllBots] = useState<Bot[]>([]);
 
+  const loadingKeys = useRef(new Set<string>());
   const load = useCallback(async () => {
     const key = `${walletScope}:${token}`;
-    void getExecutionStatus({ data: { walletScope } })
-      .then((value) => {
-        if (selectionRef.current === key) setExecution(value);
-      })
-      .catch(() => {
-        if (selectionRef.current === key) setExecution(null);
-      });
-    getW({ data: { walletScope } })
-      .then((value) => {
-        if (selectionRef.current === key) setW(value);
-      })
-      .catch(() => {
-        if (selectionRef.current === key) setW({ address: null, bnb: null, tokens: [] });
-      });
-    const { data: list } = await supabase
-      .from("grid_bots")
-      .select("*")
-      .is("archived_at", null)
-      .order("updated_at", { ascending: false });
-    if (selectionRef.current !== key) return;
-    setAllBots(list ?? []);
-    const data =
-      (list ?? []).find(
-        (b) => b.wallet_scope === walletScope && b.token.toLowerCase() === token.toLowerCase(),
-      ) ?? null;
-    setBot(data);
-    setMode((data?.mode as Mode) ?? "estrategia");
-    setF(
-      data && data.mode === "grade"
-        ? (Object.fromEntries(
-            Object.keys(blank).map((k) => [k, String((data as Record<string, unknown>)[k])]),
-          ) as typeof blank)
-        : blank,
-    );
-    const { data: s } = await supabase
-      .from("strategies")
-      .select("config")
-      .eq("wallet_scope", walletScope)
-      .ilike("token", token)
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (selectionRef.current !== key) return;
-    setCfg(s ? { ...EMPTY_CONFIG, ...(s.config as Partial<StrategyConfig>) } : null);
-    const { data: o } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("wallet_scope", walletScope)
-      .in("source", ["grade", "robo"])
-      .ilike("token", token)
-      .order("created_at", { ascending: false })
-      .limit(orderLimit);
-    if (selectionRef.current !== key) return;
-    setOrders(o ?? []);
+    if (loadingKeys.current.has(key)) return;
+    loadingKeys.current.add(key);
+    try {
+      const walletRefresh = Promise.allSettled([
+        getExecutionStatus({ data: { walletScope } })
+          .then((value) => {
+            if (selectionRef.current === key) setExecution(value);
+          })
+          .catch(() => {
+            if (selectionRef.current === key) setExecution(null);
+          }),
+        getW({ data: { walletScope } })
+          .then((value) => {
+            if (selectionRef.current === key) setW(value);
+          })
+          .catch(() => {
+            if (selectionRef.current === key) setW({ address: null, bnb: null, tokens: [] });
+          }),
+      ]);
+      const { data: list } = await supabase
+        .from("grid_bots")
+        .select("*")
+        .is("archived_at", null)
+        .order("updated_at", { ascending: false });
+      if (selectionRef.current !== key) return;
+      setAllBots(list ?? []);
+      const data =
+        (list ?? []).find(
+          (b) => b.wallet_scope === walletScope && b.token.toLowerCase() === token.toLowerCase(),
+        ) ?? null;
+      setBot(data);
+      setMode((data?.mode as Mode) ?? "estrategia");
+      setF(
+        data && data.mode === "grade"
+          ? (Object.fromEntries(
+              Object.keys(blank).map((k) => [k, String((data as Record<string, unknown>)[k])]),
+            ) as typeof blank)
+          : blank,
+      );
+      const { data: s } = await supabase
+        .from("strategies")
+        .select("config")
+        .eq("wallet_scope", walletScope)
+        .ilike("token", token)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (selectionRef.current !== key) return;
+      setCfg(s ? { ...EMPTY_CONFIG, ...(s.config as Partial<StrategyConfig>) } : null);
+      const { data: o } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("wallet_scope", walletScope)
+        .in("source", ["grade", "robo"])
+        .ilike("token", token)
+        .order("created_at", { ascending: false })
+        .limit(orderLimit);
+      if (selectionRef.current !== key) return;
+      setOrders(o ?? []);
+      await walletRefresh;
+    } finally {
+      loadingKeys.current.delete(key);
+    }
   }, [token, getW, orderLimit, walletScope]);
   useEffect(() => {
     setW(null);
@@ -225,7 +236,7 @@ function Robo() {
     setExecution(null);
     setOrders([]);
     load();
-    const t = setInterval(load, 30_000);
+    const t = setInterval(load, 5_000);
     return () => clearInterval(t);
   }, [load]);
 
@@ -691,9 +702,7 @@ function Robo() {
                   />
                   <Info
                     label="Preço médio de compra"
-                    value={
-                      st.avgPriceUsd > 0 ? `US$ ${st.avgPriceUsd.toPrecision(4)}` : "sem posição"
-                    }
+                    value={st.avgPriceUsd > 0 ? formatUsd(st.avgPriceUsd) : "sem posição"}
                   />
                   <Info
                     label={`${sym} comprados`}
@@ -713,7 +722,7 @@ function Robo() {
                   />
                   <Info
                     label="Último preço visto"
-                    value={bot?.last_price ? `US$ ${Number(bot.last_price).toPrecision(4)}` : "—"}
+                    value={bot?.last_price ? formatUsd(bot.last_price) : "—"}
                   />
                 </div>
               ) : (

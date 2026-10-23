@@ -1,3 +1,4 @@
+import { formatUsd, formatDistancePct } from "./display";
 import { liveRecovery } from "./liveRecovery";
 import type { StrategyConfig } from "./strategy";
 import type { Candle } from "./marketStats";
@@ -267,7 +268,7 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
       };
     return {
       action: "nenhuma",
-      reason: `Esperando cair até US$ ${at.toPrecision(4)} (faltam ${fmt((p / at - 1) * 100)})`,
+      reason: `Esperando cair até ${formatUsd(at)} (faltam ${formatDistancePct((p / at - 1) * 100)})`,
     };
   }
   if (cfg.entryType === "adaptativa") {
@@ -293,7 +294,7 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
         };
       return {
         action: "nenhuma",
-        reason: `Preço parado — esperando cair até US$ ${at.toPrecision(4)} (parte de baixo da faixa)`,
+        reason: `Preço parado — esperando cair até ${formatUsd(at)} (parte de baixo da faixa)`,
       };
     }
     if (p <= r.slow)
@@ -303,7 +304,7 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
       };
     return {
       action: "nenhuma",
-      reason: `Padrão de alta — esperando recuar até US$ ${r.slow.toPrecision(4)}`,
+      reason: `Padrão de alta — esperando recuar até ${formatUsd(r.slow)}`,
     };
   }
   const c = m.closes;
@@ -325,7 +326,7 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
     action: "nenhuma",
     reason:
       fast > slow
-        ? `Tendência de alta — esperando o preço recuar até US$ ${slow.toPrecision(4)} para comprar barato`
+        ? `Tendência de alta — esperando o preço recuar até ${formatUsd(slow)} para comprar barato`
         : "Tendência de queda — o robô não compra enquanto o preço cai",
   };
 }
