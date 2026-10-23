@@ -28,3 +28,10 @@ it("does not invent realized results from quotes or incomplete history", () => {
   expect(botPerformance([buy], 1.01, 100, null, null).open).toBeNull();
   expect(botPerformance([buy], 1.01, 100, 10, 1000, true).total).toBeNull();
 });
+
+it("continues valuing retained purchases without treating the automation stop as a sale", () => {
+  const report = botPerformance([buy], 1.01, 100, 12, 1000);
+  expect(report.realized).toBe(0);
+  expect(report.open).toBeCloseTo(0.19);
+  expect(report.total).toBeCloseTo(0.19);
+});

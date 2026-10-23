@@ -1,3 +1,4 @@
+import { FinishAutomationButton } from "@/components/FinishAutomationButton";
 import type { ReadinessAction } from "@/lib/readinessIssues";
 import { FiatValue } from "@/hooks/useCurrency";
 import { TokenPicker } from "@/components/TokenPicker";
@@ -373,12 +374,39 @@ function Robo() {
       ? Array.from({ length: lv + 1 }, (_, i) => lo + (i * (hi - lo)) / lv)
       : [];
 
+  if (fullscreen)
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Gráfico do robô em tela cheia"
+        className="fixed inset-0 z-50 overflow-y-auto bg-background p-3 sm:p-5"
+      >
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="font-semibold">{sym} · gráfico e níveis salvos</p>
+          <Button variant="outline" onClick={() => setFullscreen(false)}>
+            Sair da tela cheia
+          </Button>
+        </div>
+        <RobotVision
+          chartOnly
+          token={token}
+          symbol={sym}
+          cfg={cfg}
+          state={st}
+          mode={mode}
+          grid={lines}
+          orders={orders}
+          armed={armed}
+          reason={bot?.last_reason}
+          evaluatedAt={bot?.last_run_at}
+          executionBlocked={execution?.locked}
+          serverAnalysis={analysis}
+        />
+      </div>
+    );
   return (
-    <div
-      className={
-        fullscreen ? "fixed inset-0 z-50 overflow-y-auto bg-background p-3 sm:p-5" : "space-y-4"
-      }
-    >
+    <div className="space-y-4">
       <div className="mx-auto w-full max-w-[1700px] space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -392,6 +420,16 @@ function Robo() {
               <Button variant="destructive" disabled={saving} onClick={() => save(false)}>
                 Pausar robô
               </Button>
+            )}
+            {bot && st.tokens > 0 && user && (
+              <FinishAutomationButton
+                botId={bot.id}
+                walletScope={walletScope}
+                userId={user.id}
+                armed={armed}
+                symbol={sym}
+                onDone={load}
+              />
             )}
             <Button variant="outline" onClick={() => setFullscreen(!fullscreen)}>
               {fullscreen ? "Sair da tela cheia" : "Abrir em tela cheia"}
