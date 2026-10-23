@@ -49,6 +49,7 @@ function ChartBody({
   levels = [],
   trades = [],
   tall = false,
+  alignStrategy = false,
 }: {
   candles: Candle[];
   now: number;
@@ -59,8 +60,9 @@ function ChartBody({
   levels?: ChartLevel[];
   trades?: ChartTrade[];
   tall?: boolean;
+  alignStrategy?: boolean;
 }) {
-  const [minutes, setMinutes] = useState(5);
+  const [minutes, setMinutes] = useState(alignStrategy ? strategyMinutes : 5);
   const [height, setHeight] = useState(tall ? 420 : 320);
   const [mode, setMode] = useState("candles");
   const [showSma, setShowSma] = useState(true);
@@ -91,7 +93,7 @@ function ChartBody({
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("cryptobot:chart-view") ?? "null");
-      if ([5, 15, 60].includes(saved?.minutes)) setMinutes(saved.minutes);
+      if (!alignStrategy && [5, 15, 60].includes(saved?.minutes)) setMinutes(saved.minutes);
       if ([1, 4, 12, 24].includes(saved?.hours)) setHours(saved.hours);
       if ([260, 320, 420, 560].includes(saved?.height)) setHeight(saved.height);
       if (["candles", "line"].includes(saved?.mode)) setMode(saved.mode);
@@ -102,8 +104,9 @@ function ChartBody({
     } catch {
       /* default */
     }
+    if (alignStrategy) setMinutes(strategyMinutes);
     setReady(true);
-  }, []);
+  }, [alignStrategy, strategyMinutes]);
   useEffect(() => {
     if (ready)
       try {
@@ -1034,6 +1037,7 @@ export function CandleChart(props: {
   candles: Candle[];
   now: number;
   strategyMinutes?: number;
+  alignStrategy?: boolean;
   rulesVersion?: 1 | 2;
   fastLength?: number;
   slowLength?: number;

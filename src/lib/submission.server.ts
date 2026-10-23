@@ -37,6 +37,12 @@ export async function submitTransaction(o: {
       throw new Error("Não foi possível estimar o gás; operação não enviada");
     if (o.maxGasGwei && feePerGas > BigInt(Math.round(o.maxGasGwei * 1e9)))
       throw new Error("Gás estimado acima do limite configurado");
+    if (
+      o.intent["side"] === "compra" &&
+      o.intent["maxBuyFeeRaw"] != null &&
+      BigInt(request.gas) * BigInt(feePerGas) >= BigInt(o.intent["maxBuyFeeRaw"])
+    )
+      throw new Error("A taxa estimada da compra consome a margem configurada. Nada foi enviado.");
     const available = await o.pub.getBalance({ address: o.wallet.account.address });
     if (available < (o.value ?? 0n) + BigInt(request.gas) * BigInt(feePerGas))
       throw new Error("BNB insuficiente para o valor da operação e sua taxa estimada de rede");

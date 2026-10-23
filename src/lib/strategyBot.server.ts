@@ -1,3 +1,4 @@
+import { incompatibleBotToken, INCOMPATIBLE_BNB } from "./guidedBot";
 import { strategyBuyAmount } from "./walletCapital";
 import { readWalletCapital } from "./walletCapital.server";
 import { LEGACY_WALLET_SCOPE } from "./walletScope";
@@ -13,7 +14,7 @@ import { readMarket } from "./market.server";
 import { readCandles } from "./history.server";
 import { updateEntryLatch, decide, normalizeState } from "./autoStrategy";
 import { strategyObservation } from "./strategyObservation";
-import { hasVerifiedTax, taxFor } from "./tokens";
+import { grossForNet, hasVerifiedTax, taxFor } from "./tokens";
 import { EMPTY_CONFIG, type StrategyConfig } from "./strategy";
 
 type Bot = {
@@ -44,6 +45,11 @@ async function runStrategyStepImpl(
   analysisOnly: boolean,
   beginSigning: () => void,
 ) {
+  if (incompatibleBotToken(bot.token))
+    return {
+      patch: { last_error: INCOMPATIBLE_BNB, last_reason: "Moeda incompatível com compra em BNB" },
+      order: null,
+    };
   const now = Date.now();
   const { data: strat } = await admin
     .from("strategies")
@@ -81,8 +87,9 @@ async function runStrategyStepImpl(
   if (!best || !(priceUsd > 0))
     return {
       patch: {
-        last_error: null,
-        last_reason: "Preço indisponível — aguardando",
+        last_error:
+          "Não há cotação de um par BNB compatível para executar este robô. O gráfico pode usar outro par; confira a moeda e a disponibilidade do mercado.",
+        last_reason: "Sem condições de executar uma compra",
         strat_state: state,
       },
       order: null,
@@ -164,7 +171,9 @@ async function runStrategyStepImpl(
   const pub = pubClient();
   const { account, wallet } = await botSigner(enc);
   const me = account.address;
-  const reserve = parseEther(String(cfg.gasReserveBnb ?? 0.005));
+  const reserve = parseEther(
+    new Decimal(cfg.gasReserveBnb ?? 0.005).toFixed(18, Decimal.ROUND_DOWN),
+  );
   const bnbBal = await pub.getBalance({ address: me });
   const dec = (await tokenMeta(token)).decimals;
   const tax = taxFor(token, cfg);
@@ -228,6 +237,15 @@ async function runStrategyStepImpl(
         priceUsd,
         decimals: dec,
         snapshot,
+        ...(cfg.guidedModel
+          ? {
+              feeTargetGrossPct:
+                cfg.guidedModel === "recovery"
+                  ? grossForNet(cfg.recovery?.minNetPct ?? 4, tax)
+                  : Math.min(...cfg.takeProfits.map((t) => t.pct)),
+              sellTaxPct: tax.sell,
+            }
+          : {}),
       },
     });
     if (r.order.tx_hash)

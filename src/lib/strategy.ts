@@ -1,6 +1,7 @@
 export type PresetId = "segura" | "equilibrada" | "ativa" | "adaptativa";
 
 export type StrategyConfig = {
+  guidedModel?: "dca" | "grid" | "recovery";
   rulesVersion?: 1 | 2;
   /** Explicitly enabled by the owner; absent preserves existing real cycles. */
   recovery?: {

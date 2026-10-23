@@ -113,6 +113,11 @@ export function NotificationBell() {
                   {n.title}
                 </p>
                 <p className="text-xs text-muted-foreground break-words">{n.body}</p>
+                {n.link === "/grade" && (
+                  <Link to="/grade" className="mt-1 inline-block text-xs text-primary underline">
+                    Ver meus robôs
+                  </Link>
+                )}
                 <p className="mt-0.5 text-[10px] text-muted-foreground">
                   {new Date(n.created_at).toLocaleString("pt-BR")}
                 </p>

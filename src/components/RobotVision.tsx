@@ -1,3 +1,4 @@
+import { incompatibleBotToken, INCOMPATIBLE_BNB } from "@/lib/guidedBot";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getMarket } from "@/lib/chain.functions";
@@ -73,7 +74,7 @@ export function robotLines(
     if (ref && ref > 0)
       out.push({
         price: ref * (1 - cfg.dropPct / 100),
-        label: `Compra abaixo daqui (-${cfg.dropPct}% do topo)`,
+        label: `Gatilho de compra (-${cfg.dropPct}% da referência móvel)`,
         tone: "buy",
       });
   }
@@ -161,13 +162,40 @@ export function RobotVision(props: {
         adaptLines.push({ price: regime.slow, label: "Compra abaixo daqui (média)", tone: "buy" });
     }
   }
-  const lines: Line[] =
-    mode === "grade"
-      ? grid.map((p, i) => ({
-          price: p,
-          label: i === 0 ? "Grade (base)" : i === grid.length - 1 ? "Grade (topo)" : "",
-          tone: "grid" as const,
-        }))
+  const quoteUsd =
+    Number(pool?.priceNative) > 0 && Number(pool?.priceUsd) > 0
+      ? Number(pool?.priceUsd) / Number(pool?.priceNative)
+      : null;
+  const signalsAvailable =
+    !incompatibleBotToken(token) &&
+    !props.executionBlocked &&
+    !analysisStale &&
+    !props.serverAnalysis?.error &&
+    !/indisponível|inexistente|incompatível/i.test(props.serverAnalysis?.reason ?? "");
+  const lines: Line[] = !signalsAvailable
+    ? []
+    : mode === "grade"
+      ? quoteUsd == null
+        ? []
+        : [
+            ...grid.map((p, i) => ({
+              price: p * quoteUsd,
+              label:
+                i === 0
+                  ? "Faixa · mínimo (USD aproximado)"
+                  : i === grid.length - 1
+                    ? "Faixa · máximo (USD aproximado)"
+                    : "",
+              tone: "grid" as const,
+            })),
+            ...(cfg?.guidedModel === "grid"
+              ? robotLines(
+                  cfg,
+                  { ...state, avgPriceUsd: state.avgPriceUsd * quoteUsd },
+                  null,
+                ).filter((l) => l.tone !== "buy")
+              : []),
+          ]
       : [
           ...robotLines(cfg, state, high),
           ...adaptLines,
@@ -211,8 +239,20 @@ export function RobotVision(props: {
                 : "Executor com avaliação recente"}
         </span>
       </div>
+      {incompatibleBotToken(token) && (
+        <p role="alert" className="rounded border border-warning/40 p-3 text-sm text-warning">
+          {INCOMPATIBLE_BNB}
+        </p>
+      )}
+      {!signalsAvailable && !incompatibleBotToken(token) && (
+        <p className="text-sm text-warning">
+          Sem condições confirmadas para exibir gatilhos de operação. O gráfico é uma consulta de
+          mercado; consulte o motivo do executor abaixo.
+        </p>
+      )}
       <CandleChart
-        key={token}
+        key={`${token}:${cfg?.candleInterval}`}
+        alignStrategy
         candles={candles.data ?? []}
         now={now}
         strategyMinutes={intervalMinutes(cfg?.candleInterval ?? "15m")}
@@ -257,10 +297,10 @@ export function RobotVision(props: {
       />
       {cfg && state.tokens > 0 && (
         <p className="text-xs text-warning">
-          Preço médio do motor: referência de mercado ponderada, não custo efetivo por token. Custo
-          gerenciado: {state.costBnb.toFixed(8)} BNB / {state.tokens.toFixed(6)} tokens ={" "}
-          {(state.costBnb / state.tokens).toPrecision(6)} BNB/token; gás não incluído. Equilíbrio
-          estimado após venda:{" "}
+          Referência de preço do motor: referência de mercado ponderada, não custo efetivo por
+          token. Custo gerenciado: {state.costBnb.toFixed(8)} BNB / {state.tokens.toFixed(6)} tokens
+          = {(state.costBnb / state.tokens).toPrecision(6)} BNB/token; inclui os custos registrados,
+          quando apurados. Equilíbrio estimado após venda:{" "}
           {(
             state.costBnb /
             state.tokens /
@@ -295,9 +335,11 @@ export function RobotVision(props: {
             min.
           </p>
           <p className="text-warning">
-            {cfg.recovery?.enabled
-              ? "Recuperação habilitada no executor REAL. Uma entrada por fundo confirmado, sujeita aos limites e à disponibilidade da execução."
-              : "Recuperação real desativada na estratégia salva. Ative e configure em Estratégia para usar esse tipo de entrada."}
+            {cfg.entryType !== "adaptativa"
+              ? ""
+              : cfg.recovery?.enabled
+                ? "Recuperação habilitada no executor REAL. Uma entrada por fundo confirmado, sujeita aos limites e à disponibilidade da execução."
+                : "Recuperação real desativada na estratégia salva. Ative e configure em Estratégia para usar esse tipo de entrada."}
             {serverStale &&
               " Sem avaliação recente do executor: não é possível afirmar que acompanhou o movimento."}
           </p>
@@ -353,7 +395,8 @@ export function RobotVision(props: {
               </p>
             ) : (
               <p className="text-success">
-                Falta {((live / buyLine.price - 1) * 100).toFixed(1)}% de queda para o robô comprar.
+                Distância do gatilho de compra: {((1 - buyLine.price / live) * 100).toFixed(1)}%
+                abaixo do preço atual. A execução ainda depende das verificações do servidor.
               </p>
             ))}
           {nextSell && (

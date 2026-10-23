@@ -182,7 +182,9 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
     if (cfg.entryType === "adaptativa") {
       const r = readRegime(cfg, m.closes);
       const tax = { buy: cfg.buyTaxPct ?? 0, sell: cfg.sellTaxPct ?? 0 };
-      const gross = r ? r.targetGrossPct : grossForNet(NET_TARGET.alta, tax);
+      const gross = r
+        ? r.targetGrossPct
+        : grossForNet(Math.max(NET_TARGET.alta, cfg.recovery?.minNetPct ?? 0), tax);
       if (change >= gross - 1e-9)
         return {
           action: "venda",
