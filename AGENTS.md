@@ -21,7 +21,7 @@
 - Chart history reads cache and coalesce in history.server.ts by pool and token, persist the last good list in price_candles (service_role only) and on the device (useCandles); on source failure serve the saved list and label its age instead of fabricating prices.
 - Automated grid signs with a server-generated bot wallet (AES-GCM with BOT_KEY_SECRET, table bot_wallets readable only by service_role) — users never hand over keys.
 - Robot decisions are pure and tested (src/lib/autoStrategy.ts follows the saved strategy per token; src/lib/grid.ts for price-grid mode); on-chain execution lives in *.server.ts, discounts token tax in min-out, and runs at most one swap per tick.
-- /api/public/hooks/grid-tick runs every five seconds via pg_cron (ops/grid-tick-fast.sql) and accepts the managed cron secret or the internal_tokens grid_tick token.
+- /api/public/hooks/grid-tick runs every two seconds via pg_cron (ops/grid-tick-fast.sql) and accepts the managed cron secret or the internal_tokens grid_tick token.
 - Browser bundle maps Node `events`/`buffer` to npm polyfills via a client-only resolveId plugin in vite.config.ts — WalletConnect crashes (EventEmitter is not a constructor) without them.
 - Token buy/sell tax is measured by a simulated buy+sell eth_call with a state-overridden probe contract (taxDetect.server.ts) — no funds move and it works for any token with a V2 BNB pair; manual values in the strategy override it.
 - Bot withdrawals only go to a user_wallets address saved >=24h ago — limits damage from a stolen session.
@@ -35,4 +35,6 @@
 
 - Wallet capital reservations are computed in walletCapital.ts and readWalletCapital.server.ts for both live buy executors and the dashboard. Keep gas, liquid BNB, recorded position cost and purchase reservations distinct. Never subtract position cost from liquid BNB twice. Reset only configurations after an explicit request; preserve bot state, wallets, orders and persistent execution locks, and archive removed configurations in audit_log.
 
-- Live robot quotes use readMarket(..., { live: true }): reserves and BNB/USD pinned to one fresh BSC block, coalesced for two seconds. RobotVision polls every three seconds; executor and read-only preview every five seconds. Never substitute historical candle wicks or aggregator cache as a current execution price. Current-price chart markers are separate from OHLCV and never alter closed indicators.
+- Live robot quotes use readMarket(..., { live: true }): reserves and BNB/USD pinned to one fresh BSC block, coalesced for two seconds. RobotVision polls every two seconds; executor is scheduled every two seconds and read-only preview every five seconds. Never substitute historical candle wicks or aggregator cache as a current execution price. Current-price chart markers are separate from OHLCV and never alter closed indicators.
+
+- Fixed strategy exits are evaluated from a fresh on-chain quote before reading historical candles. Robot history reads use one bounded attempt, independent of UI history retries; candle closes remain required for new entries.

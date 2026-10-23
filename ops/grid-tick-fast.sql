@@ -1,5 +1,5 @@
 -- Apply after deploying the fast quote path. Rollback cadence with:
--- SELECT cron.alter_job(jobid, schedule := '* * * * *') FROM cron.job WHERE jobname = 'grid-tick';
+-- SELECT cron.alter_job(jobid, schedule := '5 seconds') FROM cron.job WHERE jobname = 'grid-tick';
 -- Retains the existing endpoint and authorization inside Postgres; never outputs the command.
 DO $$
 DECLARE job_id bigint; job_command text;
@@ -12,5 +12,5 @@ BEGIN
   ELSE
     RAISE EXCEPTION 'Inspect scheduler argument structure before changing timeout';
   END IF;
-  PERFORM cron.alter_job(job_id, schedule := '5 seconds', command := job_command);
+  PERFORM cron.alter_job(job_id, schedule := '2 seconds', command := job_command);
 END $$;

@@ -102,14 +102,14 @@ export function RobotVision(props: {
   const [audited, setAudited] = useState<Awaited<ReturnType<typeof auditOrder>>[]>([]);
   useEffect(() => {
     setNow(Date.now());
-    const t = setInterval(() => setNow(Date.now()), 3_000);
+    const t = setInterval(() => setNow(Date.now()), 2_000);
     return () => clearInterval(t);
   }, []);
   const market = useQuery({
     queryKey: ["trading-market", token],
     queryFn: () => getTradingMarket({ data: { address: token } }),
     staleTime: 2_000,
-    refetchInterval: 3_000,
+    refetchInterval: 2_000,
     retry: 1,
   });
   const pool = market.data?.pools.find((p) => p.supported) ?? market.data?.pools[0];
@@ -215,6 +215,12 @@ export function RobotVision(props: {
             : []),
         ];
   const buyLine = lines.find((l) => l.tone === "buy");
+  const savedSell =
+    mode !== "grade" && cfg?.entryType !== "adaptativa"
+      ? robotLines(cfg, state, null)
+          .filter((l) => l.tone === "sell")
+          .sort((a, b) => a.price - b.price)[0]
+      : null;
   const nextSell = lines.filter((l) => l.tone === "sell").sort((a, b) => a.price - b.price)[0];
 
   return (
@@ -263,6 +269,30 @@ export function RobotVision(props: {
           mercado; consulte o motivo do executor abaixo.
         </p>
       )}
+      {savedSell && (
+        <section
+          aria-label="Alvo de venda salvo"
+          className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm space-y-1"
+        >
+          <p className="font-semibold">Próxima venda · {usd(savedSell.price)}</p>
+          <FiatValue usd={savedSell.price} hideUsdDuplicate />
+          <p>Preço médio da compra: {usd(state.avgPriceUsd)}.</p>
+          <p className="text-xs text-muted-foreground">
+            A linha “Agora” é a cotação atual, não o alvo de venda. O robô compara a cotação
+            on-chain com este alvo sem esperar a vela fechar.
+          </p>
+          {!signalsAvailable && (
+            <p className="text-xs text-warning">
+              Alvo da estratégia salva; a execução não está confirmada nesta consulta. Confira o
+              estado do executor.
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            O envio depende das verificações de saldo, gás e impacto; preço final e confirmação
+            dependem da rede.
+          </p>
+        </section>
+      )}
       <CandleChart
         key={`${token}:${cfg?.candleInterval}`}
         compact
@@ -306,7 +336,7 @@ export function RobotVision(props: {
           })}
       />
       <p className="text-xs text-muted-foreground">
-        Cotação do par negociado: consulta a cada 3s · {market.data?.source ?? "consultando"}.
+        Cotação do par negociado: consulta a cada 2s · {market.data?.source ?? "consultando"}.
         {priceAt > 0 ? ` Preço observado às ${new Date(priceAt).toLocaleTimeString("pt-BR")}.` : ""}
         {cfg?.entryType === "queda"
           ? ` A compra segue a queda de ${cfg.dropPct}% da referência; SMA 9/21 são apenas indicadores visuais nesta estratégia.`
@@ -575,7 +605,7 @@ export function RobotVision(props: {
               <div className="flex items-center justify-between">
                 <p className="font-semibold">Acompanhamento rápido</p>
                 <span className="text-[10px] text-muted-foreground">
-                  preço a cada 3s · executor a cada 5s
+                  preço a cada 2s · executor programado a cada 2s
                   {priceAt
                     ? ` · ${new Date(priceAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
                     : ""}
