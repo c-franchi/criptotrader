@@ -77,3 +77,15 @@ it("gives a guided grid a real full-position stop and target without altering le
   delete legacy.guidedModel;
   expect(guidedGridExit(legacy, state, 0.013)).toBeNull();
 });
+
+it("preserves explicit market/network protections and provides a grid correction field", () => {
+  expect(buildGuidedConfig(input).minLiquidityUsd).toBe(5000);
+  expect(buildGuidedConfig({ ...input, minLiquidityUsd: 12000, maxGasGwei: 3 })).toMatchObject({
+    minLiquidityUsd: 12000,
+    maxGasGwei: 3,
+  });
+  expect(guidedInputSchema.safeParse({ ...input, minLiquidityUsd: -1 }).success).toBe(false);
+  const badGrid = guidedInputSchema.safeParse({ ...input, model: "grid", lower: 0, upper: 0 });
+  expect(badGrid.success).toBe(false);
+  if (!badGrid.success) expect(badGrid.error.issues[0]?.path).toEqual(["lower"]);
+});

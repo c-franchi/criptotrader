@@ -21,6 +21,8 @@ export const guidedInputSchema = z
     maxTradesPerDay: z.number().int().min(1).max(1000),
     profitPct: pct,
     stopPct: pct,
+    minLiquidityUsd: z.number().finite().nonnegative().optional(),
+    maxGasGwei: z.number().finite().positive().max(1000).optional(),
     reserve: z.number().finite().nonnegative(),
     buyTax: z.number().finite().min(0).lt(100),
     sellTax: z.number().finite().min(0).lt(100),
@@ -34,23 +36,30 @@ export const guidedInputSchema = z
   })
   .superRefine((d, ctx) => {
     if (d.buyAmount > d.capital)
-      ctx.addIssue({ code: "custom", message: "A compra não pode superar o capital do robô." });
+      ctx.addIssue({
+        code: "custom",
+        path: ["buyAmount"],
+        message: "A compra não pode superar o capital do robô.",
+      });
     if (
       d.model !== "grid" &&
       d.buyAmount * (d.model === "recovery" ? 1 : d.maxEntries) > d.capital + 1e-15
     )
       ctx.addIssue({
         code: "custom",
+        path: ["buyAmount"],
         message: "A soma das compras supera o capital. Reduza o valor ou a quantidade de compras.",
       });
     if (d.model === "grid" && !(d.upper > d.lower && d.lower > 0))
       ctx.addIssue({
         code: "custom",
+        path: ["lower"],
         message: "Defina uma faixa válida, com máximo maior que mínimo.",
       });
     if (d.model === "recovery" && d.maxReboundPct < d.reboundPct)
       ctx.addIssue({
         code: "custom",
+        path: ["maxReboundPct"],
         message: "A recuperação máxima precisa ser maior que a mínima.",
       });
   });
@@ -73,7 +82,8 @@ export function buildGuidedConfig(input: GuidedInput): StrategyConfig {
     cooldownMin: d.cooldownMin,
     maxTradesPerDay: d.maxTradesPerDay,
     gasReserveBnb: d.reserve,
-    minLiquidityUsd: 5000,
+    minLiquidityUsd: d.minLiquidityUsd ?? 5000,
+    maxGasGwei: d.maxGasGwei ?? EMPTY_CONFIG.maxGasGwei,
     buyTaxPct: d.buyTax,
     sellTaxPct: d.sellTax,
     taxVerified: true,

@@ -102,3 +102,42 @@ it("allows a viable setup after read-only checks and fails closed on unavailable
   expect(r.ready).toBe(false);
   expect(r.errors.join(" ")).toMatch(/Nada foi enviado/);
 });
+
+it("returns an actionable liquidity blocker with measured and required values", async () => {
+  const a = admin();
+  const original = a.from;
+  a.from = (table: string) => {
+    if (table !== "strategies") return original(table);
+    const q: any = {
+      select: () => q,
+      eq: () => q,
+      ilike: () => q,
+      maybeSingle: async () => ({
+        data: {
+          version: 1,
+          config: {
+            ...EMPTY_CONFIG,
+            minLiquidityUsd: 5000,
+            buyAmount: 0.001,
+            takeProfits: [{ pct: 4, sellPct: 100 }],
+            taxVerified: true,
+          },
+        },
+        error: null,
+      }),
+    };
+    return q;
+  };
+  m.market.mockResolvedValue({
+    error: null,
+    fetchedAt: new Date().toISOString(),
+    pools: [{ pairAddress: pair, supported: true, priceUsd: "100", liquidityUsd: 2500 }],
+  });
+  const result = await readBotReadiness(a, "u", "s", token);
+  expect(result).toMatchObject({ ready: false, liquidityUsd: 2500, minLiquidityUsd: 5000 });
+  expect(result.issues).toContainEqual({
+    action: "liquidity",
+    message: expect.stringMatching(/US\$ 2.500.*US\$ 5.000/),
+  });
+  expect(m.estimate).not.toHaveBeenCalled();
+});

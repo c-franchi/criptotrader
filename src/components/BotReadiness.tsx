@@ -1,3 +1,4 @@
+import { readinessLabels, type ReadinessAction } from "@/lib/readinessIssues";
 import { useQuery } from "@tanstack/react-query";
 import { getBotReadiness } from "@/lib/guidedBot.functions";
 import { Panel } from "./AppShell";
@@ -9,7 +10,7 @@ export function BotReadiness({
 }: {
   walletScope: string;
   token: string;
-  onConfigure: () => void;
+  onConfigure: (action?: ReadinessAction) => void;
 }) {
   const q = useQuery({
     queryKey: ["bot-readiness", walletScope, token],
@@ -17,6 +18,8 @@ export function BotReadiness({
     refetchInterval: 30000,
     retry: false,
   });
+  const resolve = (action: ReadinessAction) =>
+    action === "refresh" ? void q.refetch() : onConfigure(action);
   return (
     <Panel title="Verificações antes de iniciar">
       {q.isError ? (
@@ -34,16 +37,31 @@ export function BotReadiness({
               : "Ainda não está pronto para iniciar."}
           </p>
           <ul className="mt-2 space-y-2 text-sm">
-            {q.data.errors.map((e) => (
-              <li key={e} role="alert">
-                • {e}
+            {(
+              q.data.issues ??
+              q.data.errors.map((message) => ({ message, action: "rules" as const }))
+            ).map((issue, i) => (
+              <li key={i} role="alert" className="rounded border border-warning/30 p-3 space-y-2">
+                <p>{issue.message}</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={q.isFetching}
+                  onClick={() => resolve(issue.action)}
+                >
+                  {readinessLabels[issue.action]}
+                </Button>
               </li>
             ))}
           </ul>
-          <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+          <dl className="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
             <div>
               <dt>Disponível para este robô</dt>
-              <dd>{q.data.available == null ? "Não apurado" : `${q.data.available} BNB`}</dd>
+              <dd>
+                {q.data.available == null
+                  ? "Não apurado"
+                  : `${Number(q.data.available).toLocaleString("pt-BR", { maximumFractionDigits: 8 })} BNB`}
+              </dd>
             </div>
             <div>
               <dt>Taxa estimada da compra</dt>
@@ -85,7 +103,7 @@ export function BotReadiness({
         >
           Verificar novamente
         </Button>
-        <Button size="sm" variant="outline" onClick={onConfigure}>
+        <Button size="sm" variant="outline" onClick={() => onConfigure("rules")}>
           Configurar aqui
         </Button>
       </div>

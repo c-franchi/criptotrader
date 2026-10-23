@@ -1,3 +1,4 @@
+import type { ReadinessAction } from "@/lib/readinessIssues";
 import { FiatValue } from "@/hooks/useCurrency";
 import { TokenPicker } from "@/components/TokenPicker";
 import { formatUsd } from "@/lib/display";
@@ -146,6 +147,16 @@ function Robo() {
   const [dest, setDest] = useState("");
   const [fullscreen, setFullscreen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [setupProblem, setSetupProblem] = useState<ReadinessAction | undefined>();
+  const showExecutionProblem = () => {
+    setSetupOpen(false);
+    setSetupProblem(undefined);
+    setTimeout(() => {
+      const button = document.getElementById("robot-execution-recovery");
+      button?.scrollIntoView({ block: "center", behavior: "smooth" });
+      button?.focus();
+    }, 0);
+  };
   const selectionKey = `${walletScope}:${token}`;
   const selectionRef = useRef(selectionKey);
   selectionRef.current = selectionKey;
@@ -405,7 +416,12 @@ function Robo() {
           key={selectionKey}
           userId={user?.id ?? ""}
           open={setupOpen}
-          onOpenChange={setSetupOpen}
+          onOpenChange={(value) => {
+            setSetupOpen(value);
+            if (!value) setSetupProblem(undefined);
+          }}
+          problemTarget={setupProblem}
+          onExecutionIssue={showExecutionProblem}
           walletScope={walletScope}
           walletName={walletName}
           token={token}
@@ -525,6 +541,7 @@ function Robo() {
                 <Button
                   variant="outline"
                   disabled={busy || saving}
+                  id="robot-execution-recovery"
                   onClick={async () => {
                     setSaving(true);
                     try {
@@ -609,7 +626,13 @@ function Robo() {
               <BotReadiness
                 walletScope={walletScope}
                 token={token}
-                onConfigure={() => setSetupOpen(true)}
+                onConfigure={(action) => {
+                  if (action === "execution") showExecutionProblem();
+                  else {
+                    setSetupProblem(action ?? "rules");
+                    setSetupOpen(true);
+                  }
+                }}
               />
             )}
             <BotPerformancePanel walletScope={walletScope} token={token} />
