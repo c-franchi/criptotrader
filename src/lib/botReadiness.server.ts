@@ -1,3 +1,4 @@
+import type { ReadinessAction, ReadinessIssue } from "./readinessIssues";
 import Decimal from "decimal.js";
 /* eslint-disable @typescript-eslint/no-explicit-any -- privileged Supabase and viem boundary */
 import { formatEther, parseEther, getAddress } from "viem";
@@ -19,6 +20,13 @@ import { readMarket } from "./market.server";
 export async function readBotReadiness(admin: any, userId: string, scope: string, token: string) {
   const errors: string[] = [],
     warnings: string[] = [];
+  const issues: ReadinessIssue[] = [];
+  const block = (action: ReadinessAction, message: string) => {
+    errors.push(message);
+    issues.push({ action, message });
+  };
+  let liquidityUsd: number | null = null;
+  let minLiquidityUsd: number | null = null;
   let feeBnb: number | null = null,
     exchangeCostBnb: number | null = null,
     priceUsd: number | null = null,
@@ -29,6 +37,9 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
   const result = () => ({
     ready: errors.length === 0,
     errors,
+    issues,
+    liquidityUsd,
+    minLiquidityUsd,
     warnings,
     feeBnb,
     exchangeCostBnb,
@@ -40,7 +51,7 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
     at: new Date().toISOString(),
   });
   if (incompatibleBotToken(token)) {
-    errors.push(INCOMPATIBLE_BNB);
+    block("token", INCOMPATIBLE_BNB);
     return result();
   }
   const [b, s, w, l] = await Promise.all([
@@ -75,7 +86,7 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
   if ([b, s, w, l].some((q) => q.error))
     throw new Error("Não foi possível conferir a configuração e o saldo. Tente novamente.");
   if (!b.data || !s.data) {
-    errors.push("Configure e salve este robô aqui antes de iniciar.");
+    block("rules", "Configure e salve este robô aqui antes de iniciar.");
     return result();
   }
   const bot = b.data;
@@ -83,27 +94,31 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
   updatedAt = bot.updated_at;
   version = s.data.version;
   const cfg = { ...EMPTY_CONFIG, ...s.data.config } as StrategyConfig;
+  minLiquidityUsd = cfg.minLiquidityUsd;
   if (!strategySchema.safeParse(cfg).success)
-    errors.push("As regras salvas precisam de revisão. Abra Configurar robô.");
-  if (!w.data) errors.push("Crie a carteira automática no assistente de configuração.");
+    block("rules", "As regras salvas precisam de revisão. Abra Configurar robô.");
+  if (!w.data) block("fund", "Crie a carteira automática no assistente de configuração.");
   if (l.data)
-    errors.push(
+    block(
+      "execution",
       "Uma operação desta carteira está aguardando confirmação. Use Verificar e recuperar.",
     );
   if (!hasVerifiedTax(token, cfg))
-    errors.push("Confirme as taxas da moeda na configuração antes de iniciar.");
-  if (!(cfg.buyAmount > 0)) errors.push("Informe um valor por compra maior que zero.");
+    block("fees", "Confirme as taxas da moeda na configuração antes de iniciar.");
+  if (!(cfg.buyAmount > 0)) block("values", "Informe um valor por compra maior que zero.");
   if (
     cfg.entryType !== "adaptativa" &&
     !cfg.takeProfits.some((t) => t.pct > 0) &&
     !cfg.trailingEnabled &&
     cfg.stopLossPct <= 0
   )
-    errors.push("Falta definir uma saída automática: meta de venda ou proteção.");
+    block("rules", "Falta definir uma saída automática: meta de venda ou proteção.");
   if (!w.data || errors.length) return result();
   const pub = pubClient();
   const [market, pool, balance, gasPrice] = await Promise.all([
-    readMarket(token, process.env["BSC_RPC_URL"] || "https://bsc-dataseed.bnbchain.org"),
+    readMarket(token, process.env["BSC_RPC_URL"] || "https://bsc-dataseed.bnbchain.org", {
+      live: true,
+    }),
     poolState(getAddress(token)),
     pub.getBalance({ address: getAddress(w.data.address) }),
     pub.getGasPrice(),
@@ -111,26 +126,35 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
   const best = market.pools.find(
     (p) => p.supported && p.pairAddress.toLowerCase() === pool?.pair.toLowerCase(),
   );
+  liquidityUsd = best?.liquidityUsd ?? null;
   priceUsd = Number(best?.priceUsd) > 0 ? Number(best!.priceUsd) : null;
   if (!pool || !best || !priceUsd)
-    errors.push(
+    block(
+      "token",
       "Não há cotação de um par BNB compatível para esta moeda. O gráfico de outro par não permite executar este robô.",
     );
   if (market.error || Date.now() - Date.parse(market.fetchedAt) > 60000)
-    errors.push("A cotação está desatualizada. Aguarde uma nova leitura antes de iniciar.");
+    block("refresh", "A cotação está desatualizada. Aguarde uma nova leitura antes de iniciar.");
   if (
     Number(bot.strat_state?.tokens ?? 0) <= 0 &&
     (best?.liquidityUsd == null || best.liquidityUsd < cfg.minLiquidityUsd)
   )
-    errors.push("A liquidez disponível não atende às regras do robô.");
+    block(
+      liquidityUsd == null ? "refresh" : "liquidity",
+      `Liquidez do par: ${liquidityUsd == null ? "não apurada" : `US$ ${liquidityUsd.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}`}. Mínimo exigido: US$ ${cfg.minLiquidityUsd.toLocaleString("pt-BR")}. ${liquidityUsd == null ? "Não foi possível confirmar a liquidez; tente consultar novamente." : "O par está abaixo do mínimo configurado."}`,
+    );
   if (gasPrice > BigInt(Math.round(cfg.maxGasGwei * 1e9)))
-    errors.push("A taxa da rede está acima do limite configurado. Aguarde ou revise em Avançado.");
+    block(
+      "gas",
+      "A taxa da rede está acima do limite configurado. Aguarde ou revise o limite da taxa de rede.",
+    );
   const capital = await readWalletCapital(admin, userId, scope, formatEther(balance), bot.id);
   const own = capital.rows.find((r) => r.id === bot.id);
   available = own?.available ?? null;
   const holding = Number(bot.strat_state?.tokens ?? 0) > 0;
   if (!holding && Number(capital.shortfall) > 0)
-    errors.push(
+    block(
+      "values",
       "O saldo não cobre o capital e as reservas dos robôs desta carteira. Reduza o limite ou adicione saldo.",
     );
   const amount =
@@ -138,8 +162,8 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
       ? parseEther(new Decimal(bot.order_bnb).toFixed(18, Decimal.ROUND_DOWN))
       : strategyBuyAmount(cfg, own?.available ?? "0", own?.reserved ?? "0");
   if (!holding && (!own || amount <= 0n || amount > parseEther(own.available)))
-    errors.push("Não há saldo liberado para a próxima compra deste robô.");
-  if (balance === 0n) errors.push("A carteira está sem BNB para pagar as operações e as taxas.");
+    block("values", "Não há saldo liberado para a próxima compra deste robô.");
+  if (balance === 0n) block("fund", "A carteira está sem BNB para pagar as operações e as taxas.");
   if (errors.length) return result();
   warnings.push(
     "A taxa futura da venda depende da rede e será estimada ao executar. Valores em reais e a posição aberta são estimativas.",
@@ -183,9 +207,10 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
     });
     feeBnb = Number(formatEther(gas * gasPrice));
     if (balance < amount + gas * gasPrice)
-      errors.push("O saldo não cobre a compra e a taxa estimada da rede.");
+      block("fund", "O saldo não cobre a compra e a taxa estimada da rede.");
   } catch {
-    errors.push(
+    block(
+      "fees",
       "Não foi possível estimar uma compra válida. Confira saldo, taxas da moeda e disponibilidade do contrato. Nada foi enviado.",
     );
   }
@@ -211,7 +236,8 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
       feeBnb,
     )
   )
-    errors.push(
+    block(
+      bot.mode === "grade" ? "range" : "costs",
       "Os custos já estimados consomem a margem desta operação. Aumente o espaçamento/meta ou revise o valor; a taxa da venda ainda pode aumentar esse custo.",
     );
   if (
@@ -225,6 +251,6 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
       cfg.sellTaxPct ?? 0,
     ) <= 0
   )
-    errors.push("O espaçamento da faixa não cobre as taxas informadas da moeda.");
+    block("range", "O espaçamento da faixa não cobre as taxas informadas da moeda.");
   return result();
 }

@@ -1,3 +1,4 @@
+import type { ReadinessAction } from "@/lib/readinessIssues";
 import { useCurrency } from "@/hooks/currencyContext";
 import { TokenPicker } from "@/components/TokenPicker";
 import { getTokenTax } from "@/lib/userTokens.functions";
@@ -42,6 +43,8 @@ const initial: GuidedForm = {
   profitPct: 4,
   stopPct: 8,
   reserve: 0.0001,
+  minLiquidityUsd: 5000,
+  maxGasGwei: 5,
   buyTax: 0,
   sellTax: 0,
   taxConfirmed: false,
@@ -57,11 +60,13 @@ function NumberField({
   value,
   onChange,
   hint,
+  field,
 }: {
   label: string;
   value: number;
   onChange: (n: number) => void;
   hint?: string;
+  field?: string;
 }) {
   const id = useId();
   return (
@@ -69,6 +74,7 @@ function NumberField({
       <label htmlFor={id}>{label}</label>
       <Input
         id={id}
+        data-setup-field={field}
         aria-describedby={hint ? `${id}-hint` : undefined}
         className="mt-1"
         type="number"
@@ -104,6 +110,8 @@ export function GuidedBotSetup({
   onSelectToken,
   walletOptions,
   onSelectWallet,
+  problemTarget,
+  onExecutionIssue,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -118,6 +126,8 @@ export function GuidedBotSetup({
   onSelectToken?: (address: string) => void;
   walletOptions?: { id: string; label: string }[];
   onSelectWallet?: (id: string) => void;
+  problemTarget?: ReadinessAction | undefined;
+  onExecutionIssue?: () => void;
 }) {
   const [step, setStep] = useState(0),
     [form, setForm] = useState(initial),
@@ -131,6 +141,57 @@ export function GuidedBotSetup({
     [locked, setLocked] = useState(false),
     [currency, setCurrency] = useState<"BNB" | "BRL">("BNB");
   const session = useRef(0);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const [focusField, setFocusField] = useState<string | null>(null);
+  const goToField = (field: string) => {
+    setStep(
+      ["token"].includes(field)
+        ? 0
+        : ["capital", "buyAmount", "maxEntries", "reserve", "wallet"].includes(field)
+          ? 1
+          : 2,
+    );
+    setSaved(false);
+    setAck(false);
+    setFocusField(field);
+    setError("");
+  };
+  const resolveProblem = (action: ReadinessAction = "rules") => {
+    if (action === "execution" && onExecutionIssue) {
+      onExecutionIssue();
+      return;
+    }
+    goToField(
+      {
+        token: "token",
+        values: "capital",
+        liquidity: "minLiquidityUsd",
+        fees: "buyTax",
+        rules: "profitPct",
+        fund: "wallet",
+        costs: "profitPct",
+        range: "lower",
+        gas: "maxGasGwei",
+        execution: "wallet",
+        refresh: "profitPct",
+      }[action],
+    );
+  };
+  useEffect(() => {
+    if (!focusField || !loaded || !open) return;
+    const el = dialogRef.current?.querySelector<HTMLElement>(`[data-setup-field="${focusField}"]`);
+    if (!el) return;
+    const details = el.closest("details");
+    if (details) details.open = true;
+    el.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    el.focus({ preventScroll: true });
+    setFocusField(null);
+  }, [focusField, step, loaded, open]);
+  useEffect(() => {
+    if (open && loaded && problemTarget) resolveProblem(problemTarget);
+    // Destination applies once when the saved editor finishes loading.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, loaded, problemTarget]);
   const [loadedKey, setLoadedKey] = useState("");
   const [storageFailed, setStorageFailed] = useState(false);
   const [conflict, setConflict] = useState(false);
@@ -206,6 +267,8 @@ export function GuidedBotSetup({
           profitPct: tp ? Math.max(0, ((1 + tp / 100) * taxRetention - 1) * 100) : 4,
           stopPct: c.stopLossPct ?? 8,
           reserve: c.gasReserveBnb ?? 0.0001,
+          minLiquidityUsd: c.minLiquidityUsd ?? 5000,
+          maxGasGwei: c.maxGasGwei ?? 5,
           buyTax: c.buyTaxPct ?? 0,
           sellTax: c.sellTaxPct ?? 0,
           taxConfirmed: c.taxVerified === true,
@@ -258,7 +321,9 @@ export function GuidedBotSetup({
   const validation = guidedInputSchema.safeParse(form);
   const issue = validation.success
     ? ""
-    : (validation.error.issues[0]?.message ?? "Revise os campos.");
+    : validation.error.issues[0]?.path[0] === "taxConfirmed"
+      ? "Confirme as taxas da moeda antes de continuar."
+      : (validation.error.issues[0]?.message ?? "Revise os campos.");
   const unsupported = incompatibleBotToken(token);
   const compatible = market.data?.pools.some((p) => p.supported && Number(p.priceUsd) > 0);
   const amount = (n: number) => (currency === "BRL" && rate ? Number((n * rate).toFixed(2)) : n);
@@ -328,6 +393,7 @@ export function GuidedBotSetup({
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent
+        ref={dialogRef}
         className="max-h-[92dvh] w-[calc(100vw-1rem)] max-w-2xl overflow-y-auto p-4 sm:p-6 [&>button.absolute]:size-11 [&>button.absolute]:grid [&>button.absolute]:place-items-center"
         onInteractOutside={(e) => e.preventDefault()}
       >
@@ -370,7 +436,17 @@ export function GuidedBotSetup({
               aria-current={step === i ? "step" : undefined}
               className={`rounded border p-2 ${step === i ? "border-primary text-primary" : "text-muted-foreground"}`}
             >
-              {i + 1}. {s}
+              <button
+                type="button"
+                className="w-full"
+                disabled={busy || !loaded}
+                onClick={() => {
+                  setStep(i);
+                  setError("");
+                }}
+              >
+                {i + 1}. {s}
+              </button>
             </li>
           ))}
         </ol>
@@ -403,7 +479,7 @@ export function GuidedBotSetup({
               </p>
             )}
             {step === 0 && (
-              <div className="space-y-3">
+              <div data-setup-field="token" tabIndex={-1} className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
                   {walletOptions && onSelectWallet && (
                     <label className="text-sm">
@@ -577,23 +653,27 @@ export function GuidedBotSetup({
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <NumberField
+                    field="capital"
                     label={`Capital máximo (${currency === "BRL" ? fiatUnit : "BNB"})`}
                     value={amount(form.capital)}
                     onChange={(n) => set("capital", fromInput(n))}
                   />
                   <NumberField
+                    field="buyAmount"
                     label={`Valor de cada compra (${currency === "BRL" ? fiatUnit : "BNB"})`}
                     value={amount(form.buyAmount)}
                     onChange={(n) => set("buyAmount", fromInput(n))}
                   />
                   {form.model !== "grid" && form.model !== "recovery" && (
                     <NumberField
+                      field="maxEntries"
                       label="Máximo de compras antes de vender"
                       value={form.maxEntries}
                       onChange={(n) => set("maxEntries", n)}
                     />
                   )}
                   <NumberField
+                    field="reserve"
                     label="Reserva para taxas (BNB)"
                     value={form.reserve}
                     onChange={(n) => set("reserve", n)}
@@ -603,7 +683,7 @@ export function GuidedBotSetup({
                 <p className="text-sm">
                   Capital: {quote(form.capital)}. Compra: {quote(form.buyAmount)}.
                 </p>
-                <div className="rounded border p-3 text-sm">
+                <div data-setup-field="wallet" tabIndex={-1} className="rounded border p-3 text-sm">
                   <b>Carteira automática</b>
                   <p className="mt-1 break-all">{wallet?.address ?? "Ainda não criada."}</p>
                   {!wallet?.address ? (
@@ -645,16 +725,19 @@ export function GuidedBotSetup({
                         fixa em BNB; o equivalente em dólares varia com o BNB.
                       </p>
                       <NumberField
+                        field="lower"
                         label="Preço mínimo (BNB por moeda)"
                         value={form.lower}
                         onChange={(n) => set("lower", n)}
                       />
                       <NumberField
+                        field="upper"
                         label="Preço máximo (BNB por moeda)"
                         value={form.upper}
                         onChange={(n) => set("upper", n)}
                       />
                       <NumberField
+                        field="levels"
                         label="Quantidade de intervalos"
                         value={form.levels}
                         onChange={(n) => set("levels", n)}
@@ -662,6 +745,7 @@ export function GuidedBotSetup({
                     </>
                   ) : (
                     <NumberField
+                      field="dropPct"
                       label={
                         form.model === "recovery"
                           ? "Queda mínima antes de recuperar (%)"
@@ -673,6 +757,7 @@ export function GuidedBotSetup({
                     />
                   )}
                   <NumberField
+                    field="profitPct"
                     label="Meta de ganho após taxas da moeda (%)"
                     value={form.profitPct}
                     onChange={(n) => set("profitPct", n)}
@@ -683,6 +768,7 @@ export function GuidedBotSetup({
                     }
                   />
                   <NumberField
+                    field="stopPct"
                     label="Vender para proteger após queda de (%)"
                     value={form.stopPct}
                     onChange={(n) => set("stopPct", n)}
@@ -691,16 +777,19 @@ export function GuidedBotSetup({
                   {form.model === "recovery" && (
                     <>
                       <NumberField
+                        field="reboundPct"
                         label="Recuperação mínima da queda (%)"
                         value={form.reboundPct}
                         onChange={(n) => set("reboundPct", n)}
                       />
                       <NumberField
+                        field="maxReboundPct"
                         label="Recuperação máxima permitida (%)"
                         value={form.maxReboundPct}
                         onChange={(n) => set("maxReboundPct", n)}
                       />
                       <NumberField
+                        field="confirmationBars"
                         label="Fechamentos em alta para confirmar"
                         value={form.confirmationBars}
                         onChange={(n) => set("confirmationBars", n)}
@@ -718,11 +807,13 @@ export function GuidedBotSetup({
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <NumberField
+                      field="buyTax"
                       label="Taxa na compra (%)"
                       value={form.buyTax}
                       onChange={(n) => set("buyTax", n)}
                     />
                     <NumberField
+                      field="sellTax"
                       label="Taxa na venda (%)"
                       value={form.sellTax}
                       onChange={(n) => set("sellTax", n)}
@@ -730,14 +821,35 @@ export function GuidedBotSetup({
                   </div>
                 </details>
                 <details className="rounded border p-3 text-sm">
+                  <summary className="cursor-pointer">Segurança do mercado e da rede</summary>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <NumberField
+                      field="minLiquidityUsd"
+                      label="Liquidez mínima do par (US$)"
+                      value={form.minLiquidityUsd ?? 5000}
+                      onChange={(n) => set("minLiquidityUsd", n)}
+                      hint="É o dinheiro disponível no par de negociação, não o saldo da carteira. Reduzir este limite aumenta o risco de impacto e dificuldade para vender. Não é reduzido automaticamente."
+                    />
+                    <NumberField
+                      field="maxGasGwei"
+                      label="Limite da taxa de rede (Gwei)"
+                      value={form.maxGasGwei ?? 5}
+                      onChange={(n) => set("maxGasGwei", n)}
+                      hint="Teto do preço do gás; é diferente da reserva de BNB para taxas. Aumentar permite custos maiores."
+                    />
+                  </div>
+                </details>
+                <details className="rounded border p-3 text-sm">
                   <summary className="cursor-pointer">Intervalo e limite diário</summary>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <NumberField
+                      field="cooldownMin"
                       label="Intervalo mínimo entre compras (min)"
                       value={form.cooldownMin}
                       onChange={(n) => set("cooldownMin", n)}
                     />
                     <NumberField
+                      field="maxTradesPerDay"
                       label="Limite de operações para novas compras"
                       value={form.maxTradesPerDay}
                       onChange={(n) => set("maxTradesPerDay", n)}
@@ -779,6 +891,7 @@ export function GuidedBotSetup({
                 <label className="flex items-start gap-2 text-sm">
                   <input
                     type="checkbox"
+                    data-setup-field="taxConfirmed"
                     checked={form.taxConfirmed}
                     onChange={(e) => set("taxConfirmed", e.target.checked)}
                   />
@@ -822,6 +935,16 @@ export function GuidedBotSetup({
                     <p className="text-sm text-warning">
                       {issue || "Regras prontas para salvar. Isso ainda não inicia operações."}
                     </p>
+                    {!validation.success && (
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          goToField(String(validation.error.issues[0]?.path[0] ?? "profitPct"))
+                        }
+                      >
+                        Ir ao campo com problema
+                      </Button>
+                    )}
                     <Button
                       className="w-full"
                       disabled={busy || conflict || !validation.success || unsupported}
@@ -832,13 +955,14 @@ export function GuidedBotSetup({
                   </>
                 ) : (
                   <>
+                    <p className="text-sm font-medium">
+                      Regras salvas. Confira as verificações abaixo para iniciar, ou conclua
+                      mantendo o robô pausado.
+                    </p>
                     <BotReadiness
                       walletScope={walletScope}
                       token={token}
-                      onConfigure={() => {
-                        setSaved(false);
-                        setStep(1);
-                      }}
+                      onConfigure={resolveProblem}
                     />
                     <label className="flex items-start gap-2 text-sm">
                       <input
@@ -883,6 +1007,16 @@ export function GuidedBotSetup({
                     onClick={() => {
                       if (step === 1 && (!(form.capital > 0) || !(form.buyAmount > 0)))
                         return setError("Informe o capital e o valor por compra.");
+                      if (step === 2 && !validation.success) {
+                        const problem = validation.error.issues[0];
+                        goToField(String(problem?.path[0] ?? "profitPct"));
+                        setError(
+                          problem?.path[0] === "taxConfirmed"
+                            ? "Confirme as taxas da moeda antes de continuar."
+                            : issue,
+                        );
+                        return;
+                      }
                       setError("");
                       setStep((n) => n + 1);
                     }}

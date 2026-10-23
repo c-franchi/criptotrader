@@ -28,7 +28,14 @@ vi.mock("@/lib/bot.functions", () => ({
 }));
 vi.mock("@/lib/capital.functions", () => ({ getWalletCapital: mocks.capital }));
 vi.mock("./FundBotDialog", () => ({ FundBotDialog: () => <button>Adicionar saldo</button> }));
-vi.mock("./BotReadiness", () => ({ BotReadiness: () => <p>Verificações do servidor</p> }));
+vi.mock("./BotReadiness", () => ({
+  BotReadiness: ({ onConfigure }: { onConfigure: (action: "liquidity") => void }) => (
+    <div>
+      <p>Verificações do servidor</p>
+      <button onClick={() => onConfigure("liquidity")}>Revisar liquidez</button>
+    </div>
+  ),
+}));
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -293,4 +300,49 @@ it("lets X close during an explicitly requested save without starting the bot", 
   expect(mocks.start).not.toHaveBeenCalled();
   finish({ id: "bot", version: 3 });
   expect(await screen.findByRole("button", { name: "Confirmar e iniciar robô" })).toBeDisabled();
+});
+
+it("takes a saved liquidity problem directly to the visible safety field without losing purchase values", async () => {
+  show();
+  await screen.findByText("Comprar em etapas");
+  for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+  fireEvent.click(screen.getByRole("button", { name: "Salvar regras e preparar robô" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Revisar liquidez" }));
+  const field = await screen.findByRole("spinbutton", { name: "Liquidez mínima do par (US$)" });
+  expect(field).toHaveFocus();
+  expect(field.closest("details")).toHaveAttribute("open");
+  fireEvent.click(screen.getByRole("button", { name: "2. Valores" }));
+  expect(screen.getByRole("spinbutton", { name: "Capital máximo (BNB)" })).toHaveValue(0.01);
+  expect(mocks.start).not.toHaveBeenCalled();
+});
+
+it("retains older unfinished forms when adding the new safety fields", async () => {
+  const first = show();
+  await screen.findByText("Comprar em etapas");
+  fireEvent.click(screen.getByRole("button", { name: "2. Valores" }));
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Capital máximo (BNB)" }), {
+    target: { value: "0.0123" },
+  });
+  const key = "bot-setup:v1:user-a:scope:0x1111111111111111111111111111111111111111";
+  const older = JSON.parse(localStorage.getItem(key)!);
+  delete older.form.minLiquidityUsd;
+  delete older.form.maxGasGwei;
+  localStorage.setItem(key, JSON.stringify(older));
+  first.unmount();
+  show();
+  expect(await screen.findByRole("spinbutton", { name: "Capital máximo (BNB)" })).toHaveValue(
+    0.0123,
+  );
+});
+
+it("takes an incomplete grid directly to the range field instead of proceeding without an explanation", async () => {
+  show();
+  await screen.findByText("Comprar em etapas");
+  fireEvent.click(screen.getByRole("radio", { name: /Comprar e vender numa faixa/ }));
+  fireEvent.click(screen.getByRole("button", { name: "3. Regras" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+  expect(await screen.findByText(/Defina uma faixa válida/)).toBeTruthy();
+  expect(screen.getByRole("spinbutton", { name: "Preço mínimo (BNB por moeda)" })).toHaveFocus();
+  expect(mocks.save).not.toHaveBeenCalled();
+  expect(mocks.start).not.toHaveBeenCalled();
 });

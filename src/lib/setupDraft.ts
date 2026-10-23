@@ -33,13 +33,16 @@ export function readSetupDraft(key: string, defaults: Form): SetupDraft | null {
       return null;
     for (const [field, value] of Object.entries(defaults)) {
       if (
+        !(d.form[field] === undefined && ["minLiquidityUsd", "maxGasGwei"].includes(field)) &&
         typeof value === "number" &&
         (typeof d.form[field] !== "number" || !Number.isFinite(d.form[field]))
       )
         return null;
     }
     // Only copy known form fields. No saved/start flags, acknowledgments or wallet state.
-    const form = Object.fromEntries(Object.keys(defaults).map((k) => [k, d.form[k]])) as Form;
+    const form = Object.fromEntries(
+      Object.keys(defaults).map((k) => [k, d.form[k] ?? defaults[k as keyof Form]]),
+    ) as Form;
     return { form, step: d.step, currency: d.currency, version: d.version, revision: d.revision };
   } catch {
     return null;
