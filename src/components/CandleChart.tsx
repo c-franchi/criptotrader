@@ -50,6 +50,7 @@ function ChartBody({
   trades = [],
   tall = false,
   alignStrategy = false,
+  liveQuote,
 }: {
   candles: Candle[];
   now: number;
@@ -61,6 +62,7 @@ function ChartBody({
   trades?: ChartTrade[];
   tall?: boolean;
   alignStrategy?: boolean;
+  liveQuote?: { price: number; at: number } | undefined;
 }) {
   const [minutes, setMinutes] = useState(alignStrategy ? strategyMinutes : 5);
   const [height, setHeight] = useState(tall ? 420 : 320);
@@ -187,7 +189,16 @@ function ChartBody({
   const visibleTrades = trades.filter((t) => t.time >= v.start && t.time <= v.end);
 
   // Escala vertical recalculada a partir do trecho visível — picos nunca são cortados.
+  const quote =
+    liveQuote &&
+    Number.isFinite(liveQuote.price) &&
+    liveQuote.price > 0 &&
+    now - liveQuote.at <= 15000 &&
+    liveQuote.at <= now + 5000
+      ? liveQuote
+      : null;
   const points = [
+    ...(quote ? [quote.price] : []),
     ...visibleBars.flatMap((b) => [b.candle[2], b.candle[3]]),
     ...levels.filter((l) => l.price > 0).map((l) => l.price),
     ...marks.map((m) => m.price),
@@ -674,6 +685,30 @@ function ChartBody({
               </g>
             );
           })}
+          {quote && (
+            <g
+              className="text-warning"
+              aria-label={`Cotação atual independente das velas: US$ ${usd(quote.price)}`}
+            >
+              <line
+                x1={0}
+                x2={plot}
+                y1={y(quote.price)}
+                y2={y(quote.price)}
+                stroke="currentColor"
+                strokeDasharray="3 3"
+              />
+              <circle
+                cx={Math.max(0, Math.min(plot, x(quote.at)))}
+                cy={y(quote.price)}
+                r={4}
+                fill="currentColor"
+              />
+              <text x={8} y={y(quote.price) - 5} fill="currentColor" fontSize={11}>
+                Agora · US$ {usd(quote.price)}
+              </text>
+            </g>
+          )}
           {marks
             .filter((m) => m.price >= min && m.price <= max)
             .map((m, i) => (
@@ -1038,6 +1073,7 @@ export function CandleChart(props: {
   now: number;
   strategyMinutes?: number;
   alignStrategy?: boolean;
+  liveQuote?: { price: number; at: number } | undefined;
   rulesVersion?: 1 | 2;
   fastLength?: number;
   slowLength?: number;

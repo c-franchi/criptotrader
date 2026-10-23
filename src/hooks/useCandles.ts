@@ -42,9 +42,9 @@ export function useCandles(pool: string | undefined, token: string) {
     },
     placeholderData: () =>
       pool && typeof window !== "undefined" ? readLocal(pool, token) : undefined,
-    staleTime: 60_000,
+    staleTime: 30_000,
     gcTime: 30 * 60_000,
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
     retry: 4,
     retryDelay: (n) => Math.min(2000 * 2 ** n, 15_000),
   });

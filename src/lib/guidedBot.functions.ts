@@ -169,7 +169,9 @@ export const getGuidedBotPerformance = createServerFn({ method: "GET" })
     const { readMarket } = await import("./market.server");
     const { getFxQuote } = await import("./fx.functions");
     const [market, fx] = await Promise.all([
-      readMarket(data.token, process.env["BSC_RPC_URL"] || "https://bsc-dataseed.bnbchain.org"),
+      readMarket(data.token, process.env["BSC_RPC_URL"] || "https://bsc-dataseed.bnbchain.org", {
+        live: true,
+      }),
       getFxQuote(),
     ]);
     const price = Number(market.pools.find((p) => p.supported)?.priceUsd);

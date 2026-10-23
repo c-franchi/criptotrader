@@ -131,3 +131,13 @@ export const getMarket = createServerFn({ method: "GET" })
     const { readMarket } = await import("./market.server");
     return readMarket(data.address ?? GTE_ADDRESS, process.env["BSC_RPC_URL"] || DEFAULT_RPC);
   });
+
+/** Same block-pinned pool quote consumed by the real executor; never signs or starts a bot. */
+export const getTradingMarket = createServerFn({ method: "GET" })
+  .inputValidator((d: { address: string }) =>
+    z.object({ address: z.string().regex(/^0x[0-9a-fA-F]{40}$/) }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { readMarket } = await import("./market.server");
+    return readMarket(data.address, process.env["BSC_RPC_URL"] || DEFAULT_RPC, { live: true });
+  });

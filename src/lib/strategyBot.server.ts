@@ -50,7 +50,7 @@ async function runStrategyStepImpl(
       patch: { last_error: INCOMPATIBLE_BNB, last_reason: "Moeda incompatível com compra em BNB" },
       order: null,
     };
-  const now = Date.now();
+  let now = Date.now();
   const { data: strat } = await admin
     .from("strategies")
     .select("config")
@@ -78,8 +78,10 @@ async function runStrategyStepImpl(
   const token = getAddress(bot.token);
   const rpc = process.env["BSC_RPC_URL"] || "https://bsc-dataseed.bnbchain.org";
 
-  const market = await readMarket(token, rpc);
-  const pool = await poolState(token);
+  const [market, pool] = await Promise.all([
+    readMarket(token, rpc, { live: true }),
+    poolState(token),
+  ]);
   const best = market.pools.find(
     (p) => p.supported && p.pairAddress.toLowerCase() === pool?.pair.toLowerCase() && p.priceUsd,
   );
@@ -100,13 +102,14 @@ async function runStrategyStepImpl(
   } catch {
     /* history unavailable */
   }
+  now = Date.now();
   const observation = strategyObservation(cfg, candles, priceUsd, best.liquidityUsd, now);
   const { high, closes, historyFresh: fresh } = observation;
   if (state.tokens > 0) state.peakUsd = Math.max(state.peakUsd, priceUsd);
   if (
     market.error ||
     !Number.isFinite(Date.parse(market.fetchedAt)) ||
-    now - Date.parse(market.fetchedAt) > 60_000
+    now - Date.parse(market.fetchedAt) > 15_000
   )
     return { patch: { last_error: "Preço desatualizado: aguardando nova consulta" }, order: null };
   if (fresh) state = updateEntryLatch(cfg, state, observation);

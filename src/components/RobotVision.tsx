@@ -1,7 +1,8 @@
+import { formatUsd, formatDistancePct } from "@/lib/display";
 import { incompatibleBotToken, INCOMPATIBLE_BNB } from "@/lib/guidedBot";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getMarket } from "@/lib/chain.functions";
+import { getTradingMarket } from "@/lib/chain.functions";
 import { useCandles } from "@/hooks/useCandles";
 import {
   closesAt,
@@ -37,7 +38,7 @@ const TONE: Record<Line["tone"], string> = {
   avg: "text-muted-foreground",
   grid: "text-muted-foreground",
 };
-const usd = (n: number) => `US$ ${n.toPrecision(4)}`;
+const usd = formatUsd;
 
 /** Robot trigger lines for the saved strategy (same rules as decide()). */
 export function robotLines(
@@ -100,21 +101,20 @@ export function RobotVision(props: {
   const [audited, setAudited] = useState<Awaited<ReturnType<typeof auditOrder>>[]>([]);
   useEffect(() => {
     setNow(Date.now());
-    const t = setInterval(() => setNow(Date.now()), 15_000);
+    const t = setInterval(() => setNow(Date.now()), 3_000);
     return () => clearInterval(t);
   }, []);
   const market = useQuery({
-    queryKey: ["market", token],
-    queryFn: () => getMarket({ data: { address: token } }),
-    staleTime: 10_000,
-    refetchInterval: 15_000,
+    queryKey: ["trading-market", token],
+    queryFn: () => getTradingMarket({ data: { address: token } }),
+    staleTime: 2_000,
+    refetchInterval: 3_000,
     retry: 1,
   });
   const pool = market.data?.pools.find((p) => p.supported) ?? market.data?.pools[0];
   const candles = useCandles(pool?.pairAddress, token);
-  const serverStale = !evaluatedAt || now - Date.parse(evaluatedAt) > 180_000;
-  const analysisStale =
-    !props.serverAnalysis || now - Date.parse(props.serverAnalysis.at) > 120_000;
+  const serverStale = !evaluatedAt || now - Date.parse(evaluatedAt) > 30_000;
+  const analysisStale = !props.serverAnalysis || now - Date.parse(props.serverAnalysis.at) > 20_000;
   const observation = cfg
     ? strategyObservation(
         cfg,
@@ -127,7 +127,10 @@ export function RobotVision(props: {
   const ms = 24 * 3_600_000;
   const all = (candles.data ?? []).filter((c) => c[0] * 1000 >= now - ms);
   const lastAt = candles.data?.at(-1)?.[0] != null ? (candles.data.at(-1)?.[0] ?? 0) * 1000 : null;
-  const live = Number(pool?.priceUsd) > 0 ? Number(pool?.priceUsd) : (all.at(-1)?.[4] ?? null);
+  const priceAt = market.data?.fetchedAt ? Date.parse(market.data.fetchedAt) : 0;
+  const priceFresh =
+    !market.isError && !market.data?.error && priceAt > 0 && now - priceAt <= 15_000;
+  const live = priceFresh && Number(pool?.priceUsd) > 0 ? Number(pool?.priceUsd) : null;
   const high = candles.data?.length
     ? referenceHigh(candles.data, (now - (cfg?.windowHours ?? 24) * 3_600_000) / 1000)
     : null;
@@ -167,6 +170,7 @@ export function RobotVision(props: {
       ? Number(pool?.priceUsd) / Number(pool?.priceNative)
       : null;
   const signalsAvailable =
+    priceFresh &&
     !incompatibleBotToken(token) &&
     !props.executionBlocked &&
     !analysisStale &&
@@ -260,6 +264,7 @@ export function RobotVision(props: {
         fastLength={cfg?.maFast ?? 9}
         slowLength={cfg?.maSlow ?? 21}
         levels={lines}
+        liveQuote={live != null ? { price: live, at: priceAt } : undefined}
         trades={orders
           .filter((o) => o.status === "confirmada" && o.token.toLowerCase() === token.toLowerCase())
           .map((o) => {
@@ -289,6 +294,22 @@ export function RobotVision(props: {
             };
           })}
       />
+      <p className="text-xs text-muted-foreground">
+        Cotação do par negociado: consulta a cada 3s · {market.data?.source ?? "consultando"}.
+        {priceAt > 0 ? ` Preço observado às ${new Date(priceAt).toLocaleTimeString("pt-BR")}.` : ""}
+        {cfg?.entryType === "queda"
+          ? ` A compra segue a queda de ${cfg.dropPct}% da referência; SMA 9/21 são apenas indicadores visuais nesta estratégia.`
+          : ""}
+        {cfg?.entryType === "medias"
+          ? ` As médias usam velas fechadas de ${cfg.candleInterval}; a cotação do preço é atualizada entre os fechamentos.`
+          : ""}
+      </p>
+      {!priceFresh && (
+        <p role="alert" className="text-warning text-sm">
+          Cotação atual indisponível ou antiga. Aguardando nova consulta; não há confirmação de
+          ponto de compra.
+        </p>
+      )}
       <OrderAudit
         hashes={orders
           .filter((o) => o.token.toLowerCase() === token.toLowerCase())
@@ -349,7 +370,7 @@ export function RobotVision(props: {
         <p role="status" className="text-xs text-warning">
           Gráfico com dados até{" "}
           {new Date(lastAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} —
-          buscando atualização. O preço agora continua ao vivo.
+          buscando atualização. A linha de cotação atual é independente das velas históricas.
         </p>
       )}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
@@ -395,7 +416,8 @@ export function RobotVision(props: {
               </p>
             ) : (
               <p className="text-success">
-                Distância do gatilho de compra: {((1 - buyLine.price / live) * 100).toFixed(1)}%
+                Distância do gatilho de compra:{" "}
+                {formatDistancePct((1 - buyLine.price / live) * 100)}
                 abaixo do preço atual. A execução ainda depende das verificações do servidor.
               </p>
             ))}
@@ -519,7 +541,7 @@ export function RobotVision(props: {
                   t:
                     live <= buyLine.price
                       ? "Preço no ponto de compra"
-                      : `Faltam ${((live / buyLine.price - 1) * 100).toFixed(1)}% de queda`,
+                      : `Faltam ${formatDistancePct((live / buyLine.price - 1) * 100)} de queda`,
                 });
               if (regime)
                 checks.push({
@@ -532,18 +554,18 @@ export function RobotVision(props: {
                 t:
                   live <= buyLine.price
                     ? "Preço abaixo do ponto de compra"
-                    : `Faltam ${((live / buyLine.price - 1) * 100).toFixed(1)}% de queda`,
+                    : `Faltam ${formatDistancePct((live / buyLine.price - 1) * 100)} de queda`,
               });
             }
           }
           return (
             <div className="rounded-md border border-border p-3 text-xs space-y-3">
               <div className="flex items-center justify-between">
-                <p className="font-semibold">Análise em tempo real</p>
+                <p className="font-semibold">Acompanhamento rápido</p>
                 <span className="text-[10px] text-muted-foreground">
-                  atualiza a cada 15s
-                  {now
-                    ? ` · ${new Date(now).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+                  preço a cada 3s · executor a cada 5s
+                  {priceAt
+                    ? ` · ${new Date(priceAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
                     : ""}
                 </span>
               </div>
