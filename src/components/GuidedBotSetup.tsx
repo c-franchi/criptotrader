@@ -1,3 +1,5 @@
+import { useCurrency } from "@/hooks/currencyContext";
+import { TokenPicker } from "@/components/TokenPicker";
 import { getTokenTax } from "@/lib/userTokens.functions";
 import { useEffect, useId, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -134,6 +136,8 @@ export function GuidedBotSetup({
   const [conflict, setConflict] = useState(false);
   const [reload, setReload] = useState(0);
   const draftKey = setupDraftKey(userId, walletScope, token);
+  const { currency: displayCurrency } = useCurrency();
+  const fiatUnit = displayCurrency === "BRL" ? "R$" : displayCurrency === "USD" ? "US$" : "€";
   const qc = useQueryClient();
   const capital = useQuery({
     queryKey: ["guided-wallet-capital", userId, walletScope],
@@ -162,7 +166,9 @@ export function GuidedBotSetup({
     enabled: open,
     staleTime: 60000,
   });
-  const rate = fx.data?.bnbUsd && fx.data.usdBrl ? fx.data.bnbUsd * fx.data.usdBrl : null;
+  const fiatRate =
+    displayCurrency === "USD" ? 1 : displayCurrency === "BRL" ? fx.data?.usdBrl : fx.data?.usdEur;
+  const rate = fx.data?.bnbUsd && fiatRate ? fx.data.bnbUsd * fiatRate : null;
   const readiness = useQuery({
     queryKey: ["bot-readiness", walletScope, token],
     queryFn: () => getBotReadiness({ data: { walletScope, token } }),
@@ -258,7 +264,7 @@ export function GuidedBotSetup({
   const amount = (n: number) => (currency === "BRL" && rate ? Number((n * rate).toFixed(2)) : n);
   const fromInput = (n: number) => (currency === "BRL" && rate ? n / rate : n);
   const quote = (n: number) =>
-    `${n.toLocaleString("pt-BR", { maximumFractionDigits: 8 })} BNB${rate ? ` (≈ ${(n * rate).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})` : ""}`;
+    `${n.toLocaleString("pt-BR", { maximumFractionDigits: 8 })} BNB${rate ? ` (≈ ${(n * rate).toLocaleString("pt-BR", { style: "currency", currency: displayCurrency })})` : ""}`;
   const createWallet = async () => {
     setBusy(true);
     try {
@@ -417,21 +423,13 @@ export function GuidedBotSetup({
                     </label>
                   )}
                   {tokens && onSelectToken && (
-                    <label className="text-sm">
-                      Moeda que quero comprar
-                      <select
-                        aria-label="Moeda que quero comprar"
-                        className="mt-1 w-full rounded border border-input bg-background p-3"
-                        value={token}
-                        onChange={(e) => onSelectToken(e.target.value)}
-                      >
-                        {tokens.map((t) => (
-                          <option key={t.address} value={t.address}>
-                            {t.symbol}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    <TokenPicker
+                      tokens={tokens}
+                      value={token}
+                      onChange={onSelectToken}
+                      label="Moeda que quero comprar"
+                      disabled={busy}
+                    />
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -569,17 +567,22 @@ export function GuidedBotSetup({
                     variant={currency === "BRL" ? "default" : "outline"}
                     onClick={() => setCurrency("BRL")}
                   >
-                    Reais · estimativa
+                    {displayCurrency === "BRL"
+                      ? "Reais"
+                      : displayCurrency === "USD"
+                        ? "Dólares"
+                        : "Euros"}{" "}
+                    · estimativa
                   </Button>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <NumberField
-                    label={`Capital máximo (${currency === "BRL" ? "R$" : "BNB"})`}
+                    label={`Capital máximo (${currency === "BRL" ? fiatUnit : "BNB"})`}
                     value={amount(form.capital)}
                     onChange={(n) => set("capital", fromInput(n))}
                   />
                   <NumberField
-                    label={`Valor de cada compra (${currency === "BRL" ? "R$" : "BNB"})`}
+                    label={`Valor de cada compra (${currency === "BRL" ? fiatUnit : "BNB"})`}
                     value={amount(form.buyAmount)}
                     onChange={(n) => set("buyAmount", fromInput(n))}
                   />

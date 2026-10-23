@@ -1,3 +1,5 @@
+import { FiatValue } from "@/hooks/useCurrency";
+import { TokenPicker } from "@/components/TokenPicker";
 import { useEffect, useState } from "react";
 import { formatPrice, formatUsd } from "@/lib/display";
 import { TokenChart } from "@/components/TokenChart";
@@ -141,16 +143,7 @@ function Dashboard() {
   return (
     <AppShell>
       <div data-token-picker className="mb-4 flex flex-wrap gap-2">
-        {tokens.map((x) => (
-          <Button
-            key={x.address}
-            className="flex-none"
-            variant={x.address === addr ? "default" : "secondary"}
-            onClick={() => setAddr(x.address)}
-          >
-            {x.symbol}
-          </Button>
-        ))}
+        <TokenPicker tokens={tokens} value={addr} onChange={setAddr} />
         <AddTokenDialog />
       </div>
 
@@ -180,12 +173,18 @@ function Dashboard() {
         </div>
         <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">{addr}</p>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Preço USD" value={best?.priceUsd ? formatUsd(best.priceUsd) : null} />
+          <div>
+            <Stat label="Preço USD" value={best?.priceUsd ? formatUsd(best.priceUsd) : null} />
+            <FiatValue usd={best?.priceUsd} hideUsdDuplicate />
+          </div>
           <Stat
             label={`Preço ${best?.quoteSymbol ?? "BNB"}`}
             value={best?.priceNative ? formatPrice(best.priceNative) : null}
           />
-          <Stat label="Liquidez" value={fmtUsd(best?.liquidityUsd ?? null)} />
+          <div>
+            <Stat label="Liquidez" value={fmtUsd(best?.liquidityUsd ?? null)} />
+            <FiatValue usd={best?.liquidityUsd} hideUsdDuplicate />
+          </div>
           <Stat
             label="Variação 24h"
             value={best?.priceChange24h == null ? null : `${best.priceChange24h}%`}

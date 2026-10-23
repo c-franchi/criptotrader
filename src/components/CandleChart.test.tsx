@@ -194,3 +194,26 @@ it("offers a simple candle/area switch and keeps trade preferences separate from
   fireEvent.click(screen.getByRole("button", { name: "Ferramentas" }));
   expect(screen.getByLabelText("Visualização do gráfico")).toBeTruthy();
 });
+it("preserves robot buy/sell/protection levels and executed points in the compact line view", () => {
+  render(
+    <CandleChart
+      compact
+      preferenceKey="cryptobot:robot-chart-view"
+      candles={candles}
+      now={9000000}
+      levels={[
+        { price: 99, label: "Compra do robô", tone: "buy" },
+        { price: 101, label: "Venda do robô", tone: "sell" },
+        { price: 98, label: "Proteção do robô", tone: "stop" },
+      ]}
+      trades={[{ time: 6000000, side: "compra", details: ["Confirmada"] }]}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Linha" }));
+  expect(screen.getByText(/Compra do robô: US\$ 99,00/)).toBeTruthy();
+  expect(screen.getByText(/Venda do robô: US\$ 101,00/)).toBeTruthy();
+  expect(screen.getByText(/Proteção do robô: US\$ 98,00/)).toBeTruthy();
+  expect(screen.getByText("C")).toBeTruthy();
+  expect(JSON.parse(localStorage.getItem("cryptobot:robot-chart-view")!).mode).toBe("line");
+  expect(localStorage.getItem("cryptobot:trade-chart-view")).toBeNull();
+});

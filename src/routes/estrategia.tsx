@@ -1,3 +1,4 @@
+import { TokenPicker } from "@/components/TokenPicker";
 import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
@@ -586,16 +587,7 @@ function StrategyForm() {
         <fieldset disabled={!walletOk} className={walletOk ? "space-y-4" : "space-y-4 opacity-50"}>
           <Panel title="Passo 2 · Escolha o token">
             <div className="flex flex-wrap gap-2">
-              {tokens.map((t) => (
-                <Button
-                  key={t.address}
-                  size="sm"
-                  variant={t.address === token.address ? "default" : "outline"}
-                  onClick={() => selectToken(t.address)}
-                >
-                  {t.symbol}
-                </Button>
-              ))}
+              <TokenPicker tokens={tokens} value={token.address} onChange={selectToken} />
               <AddTokenDialog wallet={wallet || null} />
             </div>
             <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">

@@ -1,3 +1,4 @@
+import { FiatValue } from "@/hooks/useCurrency";
 import { formatPrice } from "@/lib/display";
 import { technicalSeries } from "@/lib/technicalSeries";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -52,6 +53,7 @@ function ChartBody({
   alignStrategy = false,
   liveQuote,
   compact = false,
+  preferenceKey,
 }: {
   candles: Candle[];
   now: number;
@@ -65,6 +67,7 @@ function ChartBody({
   alignStrategy?: boolean;
   liveQuote?: { price: number; at: number } | undefined;
   compact?: boolean;
+  preferenceKey?: string;
 }) {
   const [minutes, setMinutes] = useState(compact ? 30 : alignStrategy ? strategyMinutes : 5);
   const [height, setHeight] = useState(tall ? 420 : 320);
@@ -72,6 +75,8 @@ function ChartBody({
   const [showSma, setShowSma] = useState(!compact);
   const [controls, setControls] = useState(false);
   const areaId = useId();
+  const storageKey =
+    preferenceKey ?? (compact ? "cryptobot:trade-chart-view" : "cryptobot:chart-view");
   const W = compact ? 400 : 760,
     plot = compact ? 300 : 640;
   const [technical, setTechnical] = useState(false);
@@ -100,10 +105,7 @@ function ChartBody({
 
   useEffect(() => {
     try {
-      const saved = JSON.parse(
-        localStorage.getItem(compact ? "cryptobot:trade-chart-view" : "cryptobot:chart-view") ??
-          "null",
-      );
+      const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null");
       if (!alignStrategy && [5, 15, 30, 60].includes(saved?.minutes)) setMinutes(saved.minutes);
       if ([1, 4, 12, 24].includes(saved?.hours)) setHours(saved.hours);
       if ([260, 320, 420, 560].includes(saved?.height)) setHeight(saved.height);
@@ -117,18 +119,18 @@ function ChartBody({
     }
     if (alignStrategy) setMinutes(strategyMinutes);
     setReady(true);
-  }, [alignStrategy, strategyMinutes, compact]);
+  }, [alignStrategy, strategyMinutes, storageKey]);
   useEffect(() => {
     if (ready)
       try {
         localStorage.setItem(
-          compact ? "cryptobot:trade-chart-view" : "cryptobot:chart-view",
+          storageKey,
           JSON.stringify({ minutes, hours, height, mode, showSma, technical, showEma, showBands }),
         );
       } catch {
         /* unavailable */
       }
-  }, [minutes, hours, ready, height, mode, showSma, technical, showEma, showBands, compact]);
+  }, [minutes, hours, ready, height, mode, showSma, technical, showEma, showBands, storageKey]);
 
   // Enquadramento previsível: seguir o presente dentro da janela escolhida.
   const frame = useCallback(
@@ -1155,6 +1157,7 @@ function ChartBody({
             .map((l, i) => (
               <li key={i} className={tones[l.tone]}>
                 {l.label}: US$ {usd(l.price)}
+                <FiatValue usd={l.price} hideUsdDuplicate />
               </li>
             ))}
         </ul>
@@ -1206,6 +1209,7 @@ export function CandleChart(props: {
   strategyMinutes?: number;
   alignStrategy?: boolean;
   compact?: boolean;
+  preferenceKey?: string;
   liveQuote?: { price: number; at: number } | undefined;
   rulesVersion?: 1 | 2;
   fastLength?: number;

@@ -1,3 +1,4 @@
+import { FiatValue } from "@/hooks/useCurrency";
 import { useQuery } from "@tanstack/react-query";
 import { getGuidedBotPerformance } from "@/lib/guidedBot.functions";
 import { Panel } from "./AppShell";
@@ -34,15 +35,7 @@ export function BotPerformancePanel({
               <div key={String(label)}>
                 <dt className="text-muted-foreground">{label}</dt>
                 <dd className="mt-1 font-semibold tabular-nums">{money(n as number | null)}</dd>
-                {n != null && q.data!.bnbBrl != null && (
-                  <p className="text-xs text-muted-foreground">
-                    ≈{" "}
-                    {(Number(n) * q.data!.bnbBrl).toLocaleString("pt-BR", {
-                      style: "currency",
-                      currency: "BRL",
-                    })}
-                  </p>
-                )}
+                {n != null && <FiatValue bnb={Number(n)} />}
               </div>
             ))}
           </dl>

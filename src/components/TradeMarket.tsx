@@ -1,3 +1,5 @@
+import { FiatValue } from "@/hooks/useCurrency";
+import { TokenPicker } from "@/components/TokenPicker";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownLeft, ArrowUpRight, RefreshCw } from "lucide-react";
@@ -60,37 +62,18 @@ export function TradeMarket({
       aria-label={`Negociar ${token.symbol}`}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <span
-            aria-hidden
-            className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-lg font-bold text-primary"
-          >
-            {token.symbol.slice(0, 1)}
-          </span>
-          <div className="min-w-0">
-            <label htmlFor="trade-token" className="sr-only">
-              Token para comprar ou vender
-            </label>
-            <select
-              id="trade-token"
-              value={token.address}
-              disabled={disabled}
-              onChange={(e) => onSelect(e.target.value)}
-              className="max-w-full rounded-lg bg-transparent py-1 pr-1 text-lg font-bold sm:text-2xl"
-            >
-              {tokens.map((t) => (
-                <option key={t.address} value={t.address}>
-                  {t.symbol}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground">{token.name}</p>
-          </div>
-        </div>
+        <TokenPicker
+          tokens={tokens}
+          value={token.address}
+          onChange={onSelect}
+          disabled={disabled}
+          label="Token para comprar ou vender"
+        />
         <div className="min-w-0 text-right">
           <p className="text-xl font-bold tracking-tight sm:text-3xl">
             {price > 0 ? formatUsd(price) : "Consultando…"}
           </p>
+          {price > 0 && <FiatValue usd={price} hideUsdDuplicate />}
           <p
             className={
               change == null
