@@ -1,3 +1,5 @@
+import Decimal from "decimal.js";
+import { incompatibleBotToken, INCOMPATIBLE_BNB, guidedGridExit } from "./guidedBot";
 import { readWalletCapital } from "./walletCapital.server";
 import { LEGACY_WALLET_SCOPE } from "./walletScope";
 import { withExecutionPhase } from "./executionPhase";
@@ -136,16 +138,52 @@ async function runGridStepImpl(
   analysisOnly: boolean,
   beginSigning: () => void,
 ) {
+  if (incompatibleBotToken(bot.token))
+    return { patch: { last_error: INCOMPATIBLE_BNB }, order: null };
   const token = getAddress(bot.token);
+  const { data: strategy, error: strategyError } = await admin
+    .from("strategies")
+    .select("config")
+    .eq("user_id", bot.user_id)
+    .eq("wallet_scope", bot.wallet_scope ?? LEGACY_WALLET_SCOPE)
+    .ilike("token", token)
+    .maybeSingle();
+  if (strategyError) throw new Error("Não foi possível conferir as regras da faixa");
+  const { normalizeState } = await import("./autoStrategy");
+  const state = normalizeState(bot.strat_state, Date.now());
   const pool = await poolState(token);
   if (!pool) return { patch: { last_error: "Pool inexistente" }, order: null };
-  const d = gridDecision(
+  let d = gridDecision(
     pool.price,
     Number(bot.lower_price),
     Number(bot.upper_price),
     bot.levels,
     bot.last_level,
   );
+  const exitReason = guidedGridExit(strategy?.config, state, pool.price);
+  if (strategy?.config?.guidedModel === "grid" && !exitReason && d.action === "compra") {
+    const c = strategy.config;
+    if (Number(c.maxTradesPerDay) > 0 && state.tradesToday >= Number(c.maxTradesPerDay))
+      return {
+        patch: {
+          last_price: pool.price,
+          last_error: null,
+          last_reason:
+            "Limite diário atingido: novas compras aguardam o próximo dia. Saídas continuam sendo avaliadas.",
+        },
+        order: null,
+      };
+    if (Date.now() - state.lastTradeAt < Number(c.cooldownMin ?? 0) * 60000)
+      return {
+        patch: {
+          last_price: pool.price,
+          last_error: null,
+          last_reason: "Aguardando o intervalo mínimo entre compras da faixa.",
+        },
+        order: null,
+      };
+  }
+  if (exitReason) d = { ...d, action: "venda", steps: 1 };
   const patch: { last_price?: number; last_level?: number | null; last_error?: string | null } = {
     last_price: pool.price,
     last_level:
@@ -159,9 +197,10 @@ async function runGridStepImpl(
       patch: {
         last_price: pool.price,
         last_reason:
-          pool.price < Number(bot.lower_price) || pool.price > Number(bot.upper_price)
+          exitReason ??
+          (pool.price < Number(bot.lower_price) || pool.price > Number(bot.upper_price)
             ? "Preço fora da faixa: grade pausada até retornar"
-            : `Grade: ${d.action} · nível ${d.level}. Prévia sem envio de ordem.`,
+            : `Grade: ${d.action} · nível ${d.level}. Prévia sem envio de ordem.`),
         last_error: null,
       },
       order: null,
@@ -172,31 +211,22 @@ async function runGridStepImpl(
   const { account, wallet } = await botSigner(enc);
   const me = account.address;
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
-  if (pool.price < Number(bot.lower_price) || pool.price > Number(bot.upper_price))
+  if (!exitReason && (pool.price < Number(bot.lower_price) || pool.price > Number(bot.upper_price)))
     return {
       patch: { last_error: "Preço fora da faixa: grade pausada até retornar" },
       order: null,
     };
-  const reserve = parseEther(String(bot.gas_reserve_bnb));
+  const reserve = parseEther(new Decimal(bot.gas_reserve_bnb).toFixed(18, Decimal.ROUND_DOWN));
   const bnbBal = await pub.getBalance({ address: me });
   const dec = (await tokenMeta(token)).decimals;
   // One installment per tick even if multiple bands were crossed.
   const steps = Math.min(d.steps, 1);
-  const { data: strategy } = await admin
-    .from("strategies")
-    .select("config")
-    .eq("user_id", bot.user_id)
-    .eq("wallet_scope", bot.wallet_scope ?? LEGACY_WALLET_SCOPE)
-    .ilike("token", token)
-    .maybeSingle();
   const { hasVerifiedTax } = await import("./tokens");
   if (!hasVerifiedTax(token, strategy?.config))
     return {
       patch: { last_error: "Confirme as taxas do token na estratégia antes de automatizar" },
       order: null,
     };
-  const { normalizeState } = await import("./autoStrategy");
-  const state = normalizeState(bot.strat_state, Date.now());
   const cap = Number(strategy?.config?.allocationBnb || strategy?.config?.maxExposureQuote || 0);
   if (d.action === "compra" && cap > 0 && state.costBnb + Number(bot.order_bnb) > cap)
     return { patch: { last_error: "Limite de capital da grade atingido" }, order: null };
@@ -241,7 +271,7 @@ async function runGridStepImpl(
         order: null,
       };
   } else {
-    if (bnbBal < reserve)
+    if (bnbBal <= 0n || (strategy?.config?.guidedModel !== "grid" && bnbBal < reserve))
       return {
         patch: { ...patch, last_level: bot.last_level, last_error: "BNB insuficiente para gas" },
         order: null,
@@ -252,11 +282,15 @@ async function runGridStepImpl(
       functionName: "balanceOf",
       args: [me],
     });
-    const want = parseUnits(
-      ((Number(bot.order_bnb) * steps) / pool.price).toFixed(dec > 8 ? 8 : dec),
+    const owned = parseUnits(
+      new Decimal(Math.max(0, state.tokens)).toFixed(dec, Decimal.ROUND_DOWN),
       dec,
     );
-    amountIn = want > tokBal ? tokBal : want;
+    const want = exitReason
+      ? owned
+      : parseUnits(((Number(bot.order_bnb) * steps) / pool.price).toFixed(dec > 8 ? 8 : dec), dec);
+    const usable = strategy?.config?.guidedModel === "grid" && tokBal > owned ? owned : tokBal;
+    amountIn = want > usable ? usable : want;
     if (amountIn === 0n)
       return { patch: { ...patch, last_error: "Sem tokens para vender" }, order: null };
     path = [token, WBNB];
@@ -307,10 +341,17 @@ async function runGridStepImpl(
     intent: {
       botId: bot.id,
       mode: "grade",
-      nextLevel: patch.last_level,
+      nextLevel: exitReason ? null : patch.last_level,
       state,
       decimals: dec,
       priceBnb: pool.price,
+      ...(strategy?.config?.guidedModel === "grid"
+        ? {
+            feeTargetGrossPct:
+              ((Number(bot.upper_price) - Number(bot.lower_price)) / bot.levels / pool.price) * 100,
+            sellTaxPct: strategy.config.sellTaxPct ?? 0,
+          }
+        : {}),
     },
     maxGasGwei: Number(strategy?.config?.maxGasGwei ?? 5),
   });
@@ -321,7 +362,7 @@ async function runGridStepImpl(
   const order = res.order;
   // The journal transaction already updated last_level when confirmed.
   delete patch.last_level;
-  return { patch, order };
+  return { patch: { ...patch, ...(exitReason ? { last_reason: exitReason } : {}) }, order };
 }
 
 type Pub = ReturnType<typeof pubClient>;
@@ -400,6 +441,23 @@ export async function sendSwap(o: {
   const net =
     (gross * BigInt(Math.round((100 - Math.min(Math.max(o.taxPct, 0), 99)) * 100))) / 10000n;
   const min = minOut(net, o.slippagePct);
+  let maxBuyFeeRaw: string | undefined;
+  if (o.side === "compra" && Number.isFinite(o.intent["feeTargetGrossPct"])) {
+    const sellTax = Number(o.intent["sellTaxPct"] ?? 0);
+    const sellAmount = (net * BigInt(Math.floor((100 - sellTax) * 100))) / 10000n;
+    const back = await pub.readContract({
+      address: PANCAKE_V2_ROUTER,
+      abi: routerAbi,
+      functionName: "getAmountsOut",
+      args: [sellAmount, [token, WBNB]],
+    });
+    const target =
+      (back.at(-1)! * BigInt(Math.floor((1 + o.intent["feeTargetGrossPct"] / 100) * 1e6))) /
+      1000000n;
+    if (target <= amountIn)
+      throw new Error("Custos de troca consomem a margem configurada; compra não enviada.");
+    maxBuyFeeRaw = (target - amountIn).toString();
+  }
   const order = {
     user_id: o.userId,
     side: o.side,
@@ -432,6 +490,7 @@ export async function sendSwap(o: {
     .toString();
   const intent = {
     ...o.intent,
+    ...(maxBuyFeeRaw ? { maxBuyFeeRaw } : {}),
     approvalGasRaw,
     kind: "swap",
     token,

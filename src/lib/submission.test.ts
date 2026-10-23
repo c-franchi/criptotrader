@@ -199,3 +199,12 @@ it("the real viem local account signs a BSC transaction without touching a real 
   expect(tx.to?.toLowerCase()).toBe(token.toLowerCase());
   expect(tx.nonce).toBe(0);
 });
+
+it("rechecks the guided profit margin against the actual fee before signing or broadcast", async () => {
+  const f = setup();
+  await expect(
+    submitTransaction({ ...f, intent: { kind: "swap", side: "compra", maxBuyFeeRaw: "20000" } }),
+  ).rejects.toThrow("consome a margem");
+  expect(f.wallet.signTransaction).not.toHaveBeenCalled();
+  expect(f.pub.sendRawTransaction).not.toHaveBeenCalled();
+});

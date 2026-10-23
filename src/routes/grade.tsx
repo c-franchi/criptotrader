@@ -1,3 +1,8 @@
+import { GuidedBotSetup } from "@/components/GuidedBotSetup";
+import { BotReadiness } from "@/components/BotReadiness";
+import { BotPerformancePanel } from "@/components/BotPerformancePanel";
+import { startGuidedBot } from "@/lib/guidedBot.functions";
+import { incompatibleBotToken, INCOMPATIBLE_BNB } from "@/lib/guidedBot";
 import { recoverStrategyExecution } from "@/lib/strategy.functions";
 import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { LEGACY_WALLET_SCOPE } from "@/lib/walletScope";
@@ -77,36 +82,6 @@ const blank = {
   gas_reserve_bnb: "0.005",
 };
 
-function Step({
-  n,
-  done,
-  title,
-  children,
-}: {
-  n: number;
-  done: boolean;
-  title: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <li
-      className={`flex gap-3 rounded-md border p-2.5 ${done ? "border-success/40 bg-success/5" : "border-border"}`}
-    >
-      <span
-        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${done ? "bg-success text-success-foreground" : "bg-secondary text-muted-foreground"}`}
-      >
-        {done ? "✓" : n}
-      </span>
-      <div className="min-w-0 flex-1 text-sm">
-        <p className="font-medium">
-          {title} {done && <span className="text-xs text-success">· pronto</span>}
-        </p>
-        {!done && children && <div className="mt-1 text-xs text-muted-foreground">{children}</div>}
-      </div>
-    </li>
-  );
-}
-
 function Robo() {
   const { user } = useAuth();
   const {
@@ -167,6 +142,7 @@ function Robo() {
   const { wallets: saved } = useSavedWallets();
   const [dest, setDest] = useState("");
   const [fullscreen, setFullscreen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
   const selectionKey = `${walletScope}:${token}`;
   const selectionRef = useRef(selectionKey);
   selectionRef.current = selectionKey;
@@ -255,7 +231,16 @@ function Robo() {
 
   const persist = async (armed?: boolean) => {
     if (!user || !walletReady) return;
-    if (armed && !w?.address) return void toast.error("Crie a carteira do robô antes de ligar");
+    if (armed) {
+      try {
+        await startGuidedBot({ data: { walletScope, token, confirmation: "INICIAR ROBÔ" } });
+        toast.success("Robô iniciado após conferir moeda, mercado, saldo e custos.");
+        await load();
+      } catch (e) {
+        toast.error((e as Error).message);
+      }
+      return;
+    }
     let row: Record<string, unknown> = {
       user_id: user.id,
       archived_at: null,
@@ -265,12 +250,7 @@ function Robo() {
       armed: armed ?? bot?.armed ?? false,
       updated_at: new Date().toISOString(),
     };
-    if (armed && !cfg)
-      return void toast.error(`Configure e salve a estratégia de ${sym} antes de iniciar`);
-    if (mode === "estrategia") {
-      if (armed && !cfg)
-        return void toast.error(`Salve uma estratégia para ${sym} antes de ligar o robô`);
-    } else {
+    if (mode === "grade") {
       const lo = Number(f.lower_price),
         hi = Number(f.upper_price),
         lv = Number(f.levels),
@@ -350,9 +330,16 @@ function Robo() {
         ? requiredBotBnb({ reserve, sizingMode: cfg.sizingMode, buyAmount: cfg.buyAmount })
         : null
       : { reserve, trade: Number(f.order_bnb) || 0, total: reserve + (Number(f.order_bnb) || 0) };
-  const hasFunds = bnb != null && bnb > reserve;
   const st = normalizeState(bot?.strat_state, Date.now());
   const preset = cfg?.presetId ? PRESETS.find((p) => p.id === cfg.presetId) : undefined;
+  const modelName =
+    cfg?.guidedModel === "dca"
+      ? "Comprar em etapas"
+      : cfg?.guidedModel === "grid"
+        ? "Comprar e vender numa faixa"
+        : cfg?.guidedModel === "recovery"
+          ? "Recuperação confirmada"
+          : (preset?.name ?? "Regras personalizadas");
   const armed = !!bot?.armed;
   const lo = Number(f.lower_price),
     hi = Number(f.upper_price),
@@ -371,7 +358,7 @@ function Robo() {
       <div className="mx-auto w-full max-w-[1700px] space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold">Sala do robô</h1>
+            <h1 className="text-2xl font-semibold">Meus robôs</h1>
             <p className="text-sm text-muted-foreground">
               {sym} · {walletName} · gráfico, saldo, análise e operações juntos
             </p>
@@ -380,14 +367,12 @@ function Robo() {
             <Button variant="outline" onClick={() => setFullscreen(!fullscreen)}>
               {fullscreen ? "Sair da tela cheia" : "Abrir em tela cheia"}
             </Button>
-            <ResetStrategiesButton
-              key={walletScope}
-              walletScope={walletScope}
-              onDone={() => {
-                void load();
-                setAnalysis(null);
-              }}
-            />
+            <Button
+              disabled={!walletReady || busy || saving || cfg === undefined}
+              onClick={() => setSetupOpen(true)}
+            >
+              {bot ? "Configurar regras aqui" : "Criar robô passo a passo"}
+            </Button>
           </div>
         </div>
         <div>
@@ -410,6 +395,99 @@ function Robo() {
           </div>
         </div>
 
+        <GuidedBotSetup
+          key={selectionKey}
+          open={setupOpen}
+          onOpenChange={setSetupOpen}
+          walletScope={walletScope}
+          walletName={walletName}
+          token={token}
+          symbol={sym}
+          wallet={w}
+          onDone={load}
+          tokens={tokens}
+          onSelectToken={setToken}
+          walletOptions={[
+            { id: LEGACY_WALLET_SCOPE, label: "Robô original" },
+            ...scopeWallets.map((w) => ({ id: w.id, label: w.label || w.address.slice(0, 10) })),
+          ]}
+          onSelectWallet={selectWallet}
+        />
+        {incompatibleBotToken(token) && (
+          <p
+            role="alert"
+            className="rounded-lg border border-warning/50 bg-warning/10 p-3 text-sm text-warning"
+          >
+            {INCOMPATIBLE_BNB}
+          </p>
+        )}
+        <Panel
+          title={`Meus robôs (${allBots.filter((b) => b.armed).length} ligado${allBots.filter((b) => b.armed).length === 1 ? "" : "s"})`}
+        >
+          <p className="mb-2 text-xs text-muted-foreground">
+            Você pode ter <strong className="text-foreground">um robô para cada token</strong>, em
+            cada carteira. Eles continuam ativos ao trocar a visualização. Toque em um robô para
+            abrir a carteira e o token correspondentes.
+          </p>
+          {allBots.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Nenhum robô criado ainda. Escolha um token abaixo e siga os passos.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {allBots.map((b) => {
+                const tk = tokens.find((t) => t.address.toLowerCase() === b.token.toLowerCase());
+                const active =
+                  b.wallet_scope === walletScope && b.token.toLowerCase() === token.toLowerCase();
+                const scopeName =
+                  b.wallet_scope === LEGACY_WALLET_SCOPE
+                    ? "Robô original"
+                    : scopeWallets.find((w) => w.id === b.wallet_scope)?.label || "Outra carteira";
+                return (
+                  <li key={b.id}>
+                    <button
+                      onClick={() => {
+                        selectWallet(b.wallet_scope);
+                        setToken(tk?.address ?? b.token);
+                      }}
+                      className={`w-full rounded-md border p-3 text-left text-xs ${active ? "border-primary bg-primary/10" : b.armed ? "border-success/50 bg-success/5" : "border-border"}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold">
+                          🤖 {tk?.symbol ?? `${b.token.slice(0, 6)}…`}
+                          {active && (
+                            <span className="ml-2 text-[10px] text-primary">● vendo agora</span>
+                          )}
+                        </span>
+                        <span
+                          className={b.armed ? "font-medium text-success" : "text-muted-foreground"}
+                        >
+                          {b.armed ? (b.last_error ? "● Requer atenção" : "● Ligado") : "○ Pausado"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-muted-foreground">
+                        {scopeName} · {b.mode === "grade" ? "Grade de preços" : "Minha estratégia"}
+                        {b.last_run_at
+                          ? ` · conferiu às ${new Date(b.last_run_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+                          : ""}
+                      </p>
+                    </button>
+                    <div className="mt-2">
+                      <RemoveBotButton
+                        botId={b.id}
+                        walletScope={b.wallet_scope}
+                        symbol={tk?.symbol ?? b.token.slice(0, 8)}
+                        armed={b.armed}
+                        onDone={() => void load()}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Panel>
+
         <WalletCapitalPanel
           key={selectionKey}
           walletScope={walletScope}
@@ -422,24 +500,28 @@ function Robo() {
             <p role="status" className="text-lg font-semibold">
               {!execution
                 ? "Consultando estado…"
-                : execution.locked
-                  ? "Conciliação pendente na carteira"
-                  : !armed
-                    ? "Pausado"
-                    : bot?.last_error
-                      ? "Precisa de atenção"
-                      : !bot?.last_run_at || Date.now() - Date.parse(bot.last_run_at) > 180000
-                        ? "Aguardando o executor"
-                        : "Ligado · acompanhando o mercado"}
+                : incompatibleBotToken(token)
+                  ? "Impedido de operar · moeda incompatível"
+                  : execution.locked
+                    ? "Aguardando confirmação de operação"
+                    : !armed
+                      ? "Pausado"
+                      : bot?.last_error
+                        ? "Precisa de atenção"
+                        : !bot?.last_run_at || Date.now() - Date.parse(bot.last_run_at) > 180000
+                          ? "Aguardando o executor"
+                          : "Ligado · acompanhando o mercado"}
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
-              {execution?.locked
-                ? "A carteira está conferindo uma operação. Você pode pausar o robô; novas operações aguardam a confirmação."
-                : !armed
-                  ? "Escolha a estratégia e toque em Iniciar robô quando estiver pronto."
-                  : bot?.last_error ||
-                    bot?.last_reason ||
-                    "O robô confere as condições de compra e venda a cada minuto."}
+              {incompatibleBotToken(token)
+                ? INCOMPATIBLE_BNB
+                : execution?.locked
+                  ? "A carteira está conferindo uma operação. Você pode pausar o robô; novas operações aguardam a confirmação."
+                  : !armed
+                    ? "Escolha a estratégia e toque em Iniciar robô quando estiver pronto."
+                    : bot?.last_error ||
+                      bot?.last_reason ||
+                      "O robô confere as condições de compra e venda a cada minuto."}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {armed ? (
@@ -449,7 +531,14 @@ function Robo() {
               ) : (
                 <Button
                   disabled={
-                    saving || !walletReady || !execution || execution.locked || !w?.address || !cfg
+                    saving ||
+                    !walletReady ||
+                    !execution ||
+                    execution.locked ||
+                    !w?.address ||
+                    !cfg ||
+                    !bot ||
+                    incompatibleBotToken(token)
                   }
                   onClick={() =>
                     confirm(
@@ -490,17 +579,14 @@ function Robo() {
               >
                 {execution?.locked ? "Verificar e recuperar" : "Atualizar estado"}
               </Button>
-              <Link
-                to="/estrategia"
-                className="inline-flex items-center px-2 text-sm text-primary underline"
-              >
-                Editar estratégia
-              </Link>
+              <Button variant="outline" onClick={() => setSetupOpen(true)}>
+                Editar regras aqui
+              </Button>
             </div>
             {!cfg && (
               <p className="mt-3 rounded-md border border-warning/40 p-2 text-sm text-warning">
-                Estratégia não configurada. Salve novas regras em Editar estratégia antes de
-                iniciar. O reset mantém o bot pausado.
+                Ainda não há regras salvas para esta moeda. Toque em “Criar robô passo a passo” para
+                definir valores, compras e saídas sem sair desta tela.
               </p>
             )}
             <p className="mt-3 text-xs text-muted-foreground">
@@ -517,12 +603,8 @@ function Robo() {
                 }
               />
               <Info
-                label="Estratégia"
-                value={
-                  mode === "grade"
-                    ? "Grade de preços"
-                    : (preset?.name ?? (cfg ? "Personalizada" : "Não configurada"))
-                }
+                label="Modelo de regras"
+                value={mode === "grade" ? "Grade de preços" : cfg ? modelName : "Não configurada"}
               />
             </div>
             <details open className="mt-3 text-xs text-muted-foreground">
@@ -562,6 +644,14 @@ function Robo() {
               </div>
             </details>
           </Panel>
+          {!armed && (
+            <BotReadiness
+              walletScope={walletScope}
+              token={token}
+              onConfigure={() => setSetupOpen(true)}
+            />
+          )}
+          <BotPerformancePanel walletScope={walletScope} token={token} />
           <Panel title="Gráfico ao vivo e análise do robô">
             <p className="mb-2 text-sm">
               {analysisError
@@ -630,17 +720,20 @@ function Robo() {
                   Faixa atual: {bot?.last_level ?? "—"} de {bot?.levels ?? "—"}
                 </p>
               )}
-              <Button
-                variant="secondary"
-                disabled={busy || !bot || !armed || execution?.locked}
-                onClick={() =>
-                  confirm(
-                    "Executar uma avaliação agora? Se houver um sinal válido, o robô poderá enviar uma operação real.",
-                  ) && act(() => runNow({ data: { token, walletScope } }), "Avaliação executada")
-                }
-              >
-                Avaliar e operar agora
-              </Button>
+              <details className="text-xs">
+                <summary className="cursor-pointer">Execução manual avançada</summary>{" "}
+                <Button
+                  variant="secondary"
+                  disabled={busy || !bot || !armed || execution?.locked}
+                  onClick={() =>
+                    confirm(
+                      "Executar uma avaliação agora? Se houver um sinal válido, o robô poderá enviar uma operação real.",
+                    ) && act(() => runNow({ data: { token, walletScope } }), "Avaliação executada")
+                  }
+                >
+                  Avaliar e operar agora
+                </Button>
+              </details>
             </div>
           </Panel>
           <Panel title={`Operações do robô (${orders.length})`}>
@@ -708,84 +801,9 @@ function Robo() {
         </div>
         <details className="rounded-lg border border-border p-3">
           <summary className="cursor-pointer text-sm font-semibold">
-            Meus bots, configurações, depósitos e histórico de auditoria
+            Avançado · regras antigas, operação manual e histórico de segurança
           </summary>
           <div className="mt-4 space-y-4">
-            <Panel
-              collapsible
-              title={`Meus robôs (${allBots.filter((b) => b.armed).length} ligado${allBots.filter((b) => b.armed).length === 1 ? "" : "s"})`}
-            >
-              <p className="mb-2 text-xs text-muted-foreground">
-                Você pode ter <strong className="text-foreground">um robô para cada token</strong>,
-                em cada carteira. Eles continuam ativos ao trocar a visualização. Toque em um robô
-                para abrir a carteira e o token correspondentes.
-              </p>
-              {allBots.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  Nenhum robô criado ainda. Escolha um token abaixo e siga os passos.
-                </p>
-              ) : (
-                <ul className="space-y-2">
-                  {allBots.map((b) => {
-                    const tk = tokens.find(
-                      (t) => t.address.toLowerCase() === b.token.toLowerCase(),
-                    );
-                    const active =
-                      b.wallet_scope === walletScope &&
-                      b.token.toLowerCase() === token.toLowerCase();
-                    const scopeName =
-                      b.wallet_scope === LEGACY_WALLET_SCOPE
-                        ? "Robô original"
-                        : scopeWallets.find((w) => w.id === b.wallet_scope)?.label ||
-                          "Outra carteira";
-                    return (
-                      <li key={b.id}>
-                        <button
-                          onClick={() => {
-                            selectWallet(b.wallet_scope);
-                            setToken(tk?.address ?? b.token);
-                          }}
-                          className={`w-full rounded-md border p-3 text-left text-xs ${active ? "border-primary bg-primary/10" : b.armed ? "border-success/50 bg-success/5" : "border-border"}`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-semibold">
-                              🤖 {tk?.symbol ?? `${b.token.slice(0, 6)}…`}
-                              {active && (
-                                <span className="ml-2 text-[10px] text-primary">● vendo agora</span>
-                              )}
-                            </span>
-                            <span
-                              className={
-                                b.armed ? "font-medium text-success" : "text-muted-foreground"
-                              }
-                            >
-                              {b.armed ? "● Ligado" : "○ Desligado"}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-muted-foreground">
-                            {scopeName} ·{" "}
-                            {b.mode === "grade" ? "Grade de preços" : "Minha estratégia"}
-                            {b.last_run_at
-                              ? ` · conferiu às ${new Date(b.last_run_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
-                              : ""}
-                          </p>
-                        </button>
-                        <div className="mt-2">
-                          <RemoveBotButton
-                            botId={b.id}
-                            walletScope={b.wallet_scope}
-                            symbol={tk?.symbol ?? b.token.slice(0, 8)}
-                            armed={b.armed}
-                            onDone={() => void load()}
-                          />
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </Panel>
-
             <Panel collapsible title="Como funciona a carteira do robô (leia antes)">
               <div className="grid gap-3 text-sm sm:grid-cols-3">
                 <div className="rounded-md border border-border p-3">
@@ -829,55 +847,6 @@ function Robo() {
                 </li>
               </ul>
             </Panel>
-
-            {(!w?.address || !hasFunds || !cfg) && (
-              <Panel title="Preparar robô">
-                <ol className="space-y-2">
-                  <Step n={1} done={!!w?.address} title="Criar a carteira do robô">
-                    Crie uma carteira automática separada para {walletName}. Ela usa apenas o saldo
-                    que você enviar; as outras carteiras continuam independentes.
-                    <div className="mt-2">
-                      <Button
-                        size="sm"
-                        disabled={busy || !walletReady}
-                        onClick={() =>
-                          act(
-                            () => createW({ data: { walletScope } }),
-                            "Carteira automática criada",
-                          )
-                        }
-                      >
-                        Criar carteira automática
-                      </Button>
-                    </div>
-                  </Step>
-                  <Step n={2} done={hasFunds} title="Colocar BNB na carteira do robô">
-                    Toque em "Enviar BNB da minha carteira" (abaixo), escolha o valor e confirme no
-                    app da sua carteira. Ele precisa de BNB para comprar e um pouquinho para o gás (
-                    {reserve} BNB fica guardado para isso).
-                    {w?.address && (
-                      <div className="mt-2">
-                        <FundBotDialog
-                          botAddress={w.address}
-                          onDone={load}
-                          botBnb={bnb}
-                          need={need}
-                        />
-                      </div>
-                    )}
-                  </Step>
-                  <Step n={3} done={!!cfg} title={`Salvar uma estratégia para ${sym}`}>
-                    O robô faz exatamente o que a estratégia diz.{" "}
-                    <Link to="/estrategia" className="text-primary underline">
-                      Criar estratégia ›
-                    </Link>
-                  </Step>
-                  <Step n={4} done={armed} title="Iniciar o robô">
-                    Revise o resumo abaixo e toque em "Iniciar robô".
-                  </Step>
-                </ol>
-              </Panel>
-            )}
 
             <div className="grid gap-4 md:grid-cols-2">
               <Panel
@@ -935,7 +904,7 @@ function Robo() {
                     <div className="rounded-md border border-primary/40 p-3">
                       <div className="flex items-center justify-between gap-2">
                         <p className="min-w-0 text-sm font-semibold text-primary">
-                          ✓ {preset ? preset.name : "Estratégia manual"} · {sym}
+                          ✓ {modelName} · {sym}
                         </p>
                         <Link
                           to="/estrategia"

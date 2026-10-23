@@ -41,7 +41,13 @@ import { runGridStep } from "./bot.server";
 it("releases proven pre-broadcast failures but retains unresolved earlier submissions", async () => {
   mocks.acquire.mockResolvedValue("owner");
   vi.mocked(runGridStep).mockRejectedValue(new BeforeBroadcastError("RPC unavailable before send"));
-  const bot = { id: "b", user_id: "u", armed: true, mode: "grade" };
+  const bot = {
+    id: "b",
+    user_id: "u",
+    armed: true,
+    mode: "grade",
+    token: "0x1111111111111111111111111111111111111111",
+  };
   for (const unresolved of [false, true]) {
     mocks.release.mockClear();
     const admin = {
@@ -50,6 +56,7 @@ it("releases proven pre-broadcast failures but retains unresolved earlier submis
           table === "execution_submissions" ? (unresolved ? [{ finished_at: null }] : []) : null;
         const q: any = {
           select: () => q,
+          insert: async () => ({ error: null }),
           eq: () => q,
           is: () => q,
           update: () => q,
@@ -68,4 +75,48 @@ it("releases proven pre-broadcast failures but retains unresolved earlier submis
     });
     expect(mocks.release).toHaveBeenCalledTimes(unresolved ? 0 : 1);
   }
+});
+
+it("notifies a new inability to operate once, retaining the bot configuration and not resending orders", async () => {
+  mocks.acquire.mockResolvedValue("owner");
+  vi.mocked(runGridStep).mockResolvedValue({
+    patch: { last_error: "Moeda incompatível com compra em BNB" },
+    order: null,
+  });
+  const bot: any = {
+    id: "b",
+    user_id: "u",
+    armed: true,
+    mode: "grade",
+    token: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+    last_error: null,
+  };
+  const notices: any[] = [];
+  const admin = {
+    from: (table: string) => {
+      const q: any = {
+        select: () => q,
+        eq: () => q,
+        insert: async (row: any) => {
+          if (table === "notifications") notices.push(row);
+          return { error: null };
+        },
+        update: (patch: any) => {
+          Object.assign(bot, patch);
+          return q;
+        },
+        maybeSingle: async () => ({
+          data: table === "grid_bots" ? bot : { enc_key: "unused" },
+          error: null,
+        }),
+        then: (resolve: any) => resolve({ data: [], error: null }),
+      };
+      return q;
+    },
+  };
+  await tickBot(admin, bot);
+  await tickBot(admin, bot);
+  expect(notices).toHaveLength(1);
+  expect(notices[0].title).toMatch(/WBNB/);
+  expect(bot.armed).toBe(true);
 });

@@ -32,6 +32,81 @@ export type Database = {
         };
         Relationships: [];
       };
+      strategy_drafts: {
+        Row: {
+          user_id: string;
+          wallet_scope: string;
+          token: string;
+          config: Json;
+          tracked_wallet: string | null;
+          base_version: number;
+          revision: number;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          wallet_scope?: string;
+          token: string;
+          config: Json;
+          tracked_wallet?: string | null;
+          base_version: number;
+          revision: number;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          wallet_scope?: string;
+          token?: string;
+          config?: Json;
+          tracked_wallet?: string | null;
+          base_version?: number;
+          revision?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      execution_submissions: {
+        Row: {
+          id: string;
+          user_id: string;
+          wallet_scope: string;
+          lock_owner: string;
+          tx_hash: string;
+          nonce: number;
+          intent: Json;
+          receipt: Json | null;
+          checked_at: string | null;
+          created_at: string;
+          finished_at: string | null;
+        };
+        Insert: {
+          id: string;
+          user_id: string;
+          wallet_scope?: string;
+          lock_owner: string;
+          tx_hash: string;
+          nonce: number;
+          intent: Json;
+          receipt?: Json | null;
+          checked_at?: string | null;
+          created_at?: string;
+          finished_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          wallet_scope?: string;
+          lock_owner?: string;
+          tx_hash?: string;
+          nonce?: number;
+          intent?: Json;
+          receipt?: Json | null;
+          checked_at?: string | null;
+          created_at?: string;
+          finished_at?: string | null;
+        };
+        Relationships: [];
+      };
       bot_execution_locks: {
         Row: {
           acquired_at: string;

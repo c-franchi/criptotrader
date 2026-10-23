@@ -31,15 +31,25 @@ const nav = [
   },
   {
     to: "/metricas",
-    label: "Métricas",
+    label: "Métricas avançadas",
     desc: "Evolução em 1h, 12h, 24h e histórico de preços",
     icon: LineChart,
   },
-  { to: "/estrategia", label: "Estratégia", desc: "Regras de compra, venda e risco", icon: Target },
-  { to: "/operar", label: "Operar", desc: "Trade real com sua carteira", icon: ArrowLeftRight },
+  {
+    to: "/estrategia",
+    label: "Regras avançadas",
+    desc: "Regras de compra, venda e risco",
+    icon: Target,
+  },
+  {
+    to: "/operar",
+    label: "Operação manual",
+    desc: "Trade real com sua carteira",
+    icon: ArrowLeftRight,
+  },
   {
     to: "/grade",
-    label: "Robô automático",
+    label: "Meus robôs",
     desc: "Compra e vende sozinho seguindo sua estratégia",
     icon: Bot,
   },
@@ -98,7 +108,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
       >
         {nav
-          .filter((n) => ["/", "/estrategia", "/grade"].includes(n.to))
+          .filter((n) => ["/", "/grade", "/carteiras"].includes(n.to))
           .map((n) => (
             <Link
               key={n.to}
@@ -108,7 +118,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               activeOptions={{ exact: true }}
             >
               <n.icon className="h-5 w-5" />
-              {n.to === "/grade" ? "Robô" : n.label}
+              {n.to === "/grade" ? "Meus robôs" : n.to === "/carteiras" ? "Carteiras" : n.label}
             </Link>
           ))}
       </nav>

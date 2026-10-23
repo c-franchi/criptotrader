@@ -1,0 +1,104 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- isolated read-only gateway test doubles */
+import { beforeEach, it, expect, vi } from "vitest";
+import { EMPTY_CONFIG } from "./strategy";
+const m = vi.hoisted(() => ({
+  pool: vi.fn(),
+  market: vi.fn(),
+  capital: vi.fn(),
+  balance: vi.fn(),
+  estimate: vi.fn(),
+  quote: vi.fn(),
+}));
+vi.mock("./bot.server", () => ({
+  poolState: m.pool,
+  pubClient: () => ({
+    getBalance: m.balance,
+    getGasPrice: async () => 1000000000n,
+    estimateContractGas: m.estimate,
+    readContract: m.quote,
+  }),
+}));
+vi.mock("./market.server", () => ({ readMarket: m.market }));
+vi.mock("./walletCapital.server", () => ({ readWalletCapital: m.capital }));
+import { readBotReadiness } from "./botReadiness.server";
+const token = "0x1111111111111111111111111111111111111111",
+  pair = "0x2222222222222222222222222222222222222222";
+function admin() {
+  return {
+    from: (t: string) => {
+      const rows: any = {
+        grid_bots: {
+          id: "b",
+          updated_at: "2026-10-23",
+          mode: "estrategia",
+          strat_state: { tokens: 0 },
+        },
+        strategies: {
+          version: 1,
+          config: {
+            ...EMPTY_CONFIG,
+            buyAmount: 0.001,
+            sizingMode: "fixo",
+            takeProfits: [{ pct: 4, sellPct: 100 }],
+            taxVerified: true,
+          },
+        },
+        bot_wallets: { address: token },
+        bot_execution_locks: null,
+      };
+      const q: any = {
+        select: () => q,
+        eq: () => q,
+        ilike: () => q,
+        is: () => q,
+        maybeSingle: async () => ({ data: rows[t], error: null }),
+      };
+      return q;
+    },
+  };
+}
+beforeEach(() => {
+  vi.clearAllMocks();
+  m.pool.mockResolvedValue({ pair, price: 0.01 });
+  m.market.mockResolvedValue({
+    error: null,
+    fetchedAt: new Date().toISOString(),
+    pools: [{ pairAddress: pair, supported: true, priceUsd: "100", liquidityUsd: 100000 }],
+  });
+  m.balance.mockResolvedValue(100000000000000000n);
+  m.capital.mockResolvedValue({
+    shortfall: "0",
+    rows: [{ id: "b", available: "0.09", reserved: "0.001" }],
+  });
+  m.estimate.mockResolvedValue(100000n);
+  m.quote.mockResolvedValue([1000000000000000n, 990000000000000n]);
+});
+it("blocks incompatible assets before market, wallet or gas calls", async () => {
+  const a = { from: vi.fn() };
+  const r = await readBotReadiness(a, "u", "s", "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c");
+  expect(r.ready).toBe(false);
+  expect(r.errors[0]).toMatch(/mesmo ativo/);
+  expect(a.from).not.toHaveBeenCalled();
+  expect(m.balance).not.toHaveBeenCalled();
+});
+it("does not call a market chart a tradeable execution price", async () => {
+  m.pool.mockResolvedValue(null);
+  const r = await readBotReadiness(admin(), "u", "s", token);
+  expect(r.ready).toBe(false);
+  expect(r.errors.join(" ")).toMatch(/par BNB compatível/);
+  expect(m.estimate).not.toHaveBeenCalled();
+});
+it("blocks when known costs eat the target and reports the actual buy fee", async () => {
+  const r = await readBotReadiness(admin(), "u", "s", token);
+  expect(r.ready).toBe(false);
+  expect(r.feeBnb).toBeCloseTo(0.0001);
+  expect(r.errors.join(" ")).toMatch(/consomem a margem/);
+});
+it("allows a viable setup after read-only checks and fails closed on unavailable gas estimation", async () => {
+  m.estimate.mockResolvedValue(1000n);
+  expect((await readBotReadiness(admin(), "u", "s", token)).ready).toBe(true);
+  m.estimate.mockRejectedValue(new Error("unavailable"));
+  const r = await readBotReadiness(admin(), "u", "s", token);
+  expect(r.ready).toBe(false);
+  expect(r.errors.join(" ")).toMatch(/Nada foi enviado/);
+});

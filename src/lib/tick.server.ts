@@ -1,3 +1,4 @@
+import { incompatibleBotToken } from "./guidedBot";
 import { runWalletQueues } from "./walletQueues";
 import { LEGACY_WALLET_SCOPE } from "./walletScope";
 import { BeforeBroadcastError, BeforeSigningError } from "./executionPhase";
@@ -57,6 +58,17 @@ export async function tickBot(admin: any, bot: any) {
         },
         order: null,
       };
+    }
+    const attention = res.patch["last_error"];
+    if (typeof attention === "string" && attention && attention !== bot.last_error) {
+      await admin.from("notifications").insert({
+        user_id: bot.user_id,
+        title: incompatibleBotToken(bot.token)
+          ? "WBNB não pode ser comprado com BNB neste robô"
+          : "Robô precisa de atenção",
+        body: `${String(bot.token).slice(0, 10)}…: ${attention}`,
+        link: "/grade",
+      });
     }
     if (res.order) {
       retain = true;

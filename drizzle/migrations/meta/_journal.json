@@ -141,6 +141,13 @@
       "when": 1792714800000,
       "tag": "0019_execution_preflight_recovery",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792725748400,
+      "tag": "0020_guided_bot_setup",
+      "breakpoints": true
     }
   ]
 }

@@ -435,6 +435,13 @@ function StrategyForm() {
   return (
     <div className="grid w-full min-w-0 grid-cols-1 gap-4 [&>*]:min-w-0 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="space-y-4">
+        <div className="rounded-lg border border-primary/40 p-3 text-sm">
+          <b>Configuração avançada</b>
+          <p>Para criar e configurar o robô em um só lugar, use o assistente em Meus robôs.</p>
+          <Button className="mt-2" onClick={() => navigate({ to: "/grade" })}>
+            Abrir Meus robôs
+          </Button>
+        </div>
         <nav
           onClick={(e) => {
             const a = (e.target as HTMLElement).closest("a");
