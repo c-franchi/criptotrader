@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   save: vi.fn(),
   start: vi.fn(),
   ready: vi.fn(),
+  capital: vi.fn(),
+  execution: vi.fn(),
 }));
 vi.mock("@/lib/guidedBot.functions", () => ({
   getGuidedBotSettings: mocks.settings,
@@ -20,17 +22,24 @@ vi.mock("@/lib/chain.functions", () => ({
 }));
 vi.mock("@/lib/userTokens.functions", () => ({ getTokenTax: vi.fn() }));
 vi.mock("@/lib/fx.functions", () => ({ getFxQuote: async () => ({ bnbUsd: 700, usdBrl: 5 }) }));
-vi.mock("@/lib/bot.functions", () => ({ createBotWallet: vi.fn() }));
+vi.mock("@/lib/bot.functions", () => ({
+  createBotWallet: vi.fn(),
+  getExecutionStatus: mocks.execution,
+}));
+vi.mock("@/lib/capital.functions", () => ({ getWalletCapital: mocks.capital }));
 vi.mock("./FundBotDialog", () => ({ FundBotDialog: () => <button>Adicionar saldo</button> }));
 vi.mock("./BotReadiness", () => ({ BotReadiness: () => <p>Verificações do servidor</p> }));
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.restoreAllMocks();
+  localStorage.clear();
 });
 function show(
   token = "0x1111111111111111111111111111111111111111",
   armed = false,
   select?: (v: string) => void,
+  options: { userId?: string; walletScope?: string; onClose?: (v: boolean) => void } = {},
 ) {
   mocks.settings.mockResolvedValue({
     strategy: {
@@ -40,6 +49,7 @@ function show(
         sizingMode: "fixo",
         buyAmount: 0.002,
         allocationBnb: 0.01,
+        gasReserveBnb: 0.0001,
         maxEntries: 3,
         dropPct: 5,
         stopLossPct: 8,
@@ -53,14 +63,25 @@ function show(
   mocks.save.mockResolvedValue({ id: "bot", version: 3 });
   mocks.start.mockResolvedValue({ ok: true });
   mocks.ready.mockResolvedValue({ ready: true });
-  render(
+  mocks.capital.mockResolvedValue({
+    balance: "0.1",
+    invested: "0.02",
+    gas: "0.001",
+    reserved: "0.03",
+    free: "0.069",
+    at: "2026-10-23T04:00:00Z",
+    rows: [],
+  });
+  mocks.execution.mockResolvedValue({ locked: false });
+  return render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
       <GuidedBotSetup
         open
-        onOpenChange={vi.fn()}
-        walletScope="scope"
+        onOpenChange={options.onClose ?? vi.fn()}
+        userId={options.userId ?? "user-a"}
+        walletScope={options.walletScope ?? "scope"}
         walletName="Carteira teste"
         token={token}
         symbol="TEST"
@@ -98,6 +119,7 @@ it("saves configuration in one screen and never starts until the separate author
     }),
   );
   expect(mocks.start).not.toHaveBeenCalled();
+  expect(localStorage.length).toBe(0);
   const button = await screen.findByRole("button", { name: "Confirmar e iniciar robô" });
   expect(button).toBeDisabled();
   fireEvent.click(screen.getByRole("checkbox", { name: /Revisei as regras e autorizo/ }));
@@ -135,4 +157,140 @@ it("lets an incompatible running bot select another asset in the same assistant 
   expect(select).toHaveBeenCalledWith("0x3333333333333333333333333333333333333333");
   expect(mocks.save).not.toHaveBeenCalled();
   expect(mocks.start).not.toHaveBeenCalled();
+});
+
+it("shows spendable balance before amount fields and updates it with the fee reserve", async () => {
+  show();
+  await screen.findByText("Comprar em etapas");
+  fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+  expect(await screen.findByText(/Livre para configurar: 0,0689 BNB/)).toHaveTextContent(
+    "R$ 241,15",
+  );
+  expect(screen.getByText(/Saldo na carteira: 0,1 BNB/)).toBeTruthy();
+  expect(screen.getByText(/Em posições.*0,02 BNB/)).toBeTruthy();
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Reserva para taxas (BNB)" }), {
+    target: { value: "0.002" },
+  });
+  expect(screen.getByText(/Livre para configurar: 0,067 BNB/)).toBeTruthy();
+});
+it("closes with X without a browser confirmation and restores amounts, currency and step after unmount", async () => {
+  const close = vi.fn();
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+  const view = show(undefined, false, undefined, { onClose: close });
+  await screen.findByText("Comprar em etapas");
+  fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+  fireEvent.click(screen.getByRole("button", { name: "Reais · estimativa" }));
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Capital máximo (R$)" }), {
+    target: { value: "70" },
+  });
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Valor de cada compra (R$)" }), {
+    target: { value: "14" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(close).toHaveBeenCalledWith(false);
+  expect(confirm).not.toHaveBeenCalled();
+  view.unmount();
+  show();
+  expect(await screen.findByRole("spinbutton", { name: "Capital máximo (R$)" })).toHaveValue(70);
+  expect(screen.getByRole("spinbutton", { name: "Valor de cada compra (R$)" })).toHaveValue(14);
+  expect(mocks.save).not.toHaveBeenCalled();
+  expect(mocks.start).not.toHaveBeenCalled();
+});
+it("isolates unfinished input by account, wallet and asset", async () => {
+  let view = show();
+  await screen.findByText("Comprar em etapas");
+  fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Capital máximo (BNB)" }), {
+    target: { value: "0.045" },
+  });
+  view.unmount();
+  for (const options of [{ userId: "user-b" }, { walletScope: "other-scope" }]) {
+    view = show(undefined, false, undefined, options);
+    await screen.findByText("Comprar em etapas");
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByRole("spinbutton", { name: "Capital máximo (BNB)" })).toHaveValue(0.01);
+    view.unmount();
+  }
+  view = show("0x3333333333333333333333333333333333333333");
+  await screen.findByText("Comprar em etapas");
+  view.unmount();
+  show();
+  expect(await screen.findByRole("spinbutton", { name: "Capital máximo (BNB)" })).toHaveValue(
+    0.045,
+  );
+});
+it("does not show a spendable amount while execution is pending", async () => {
+  show();
+  mocks.execution.mockResolvedValue({ locked: true });
+  await screen.findByText("Comprar em etapas");
+  fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+  fireEvent.click(screen.getByRole("button", { name: "Atualizar saldo" }));
+  await screen.findByText(/Novas compras bloqueadas/);
+  expect(screen.queryByText(/Livre para configurar:/)).toBeNull();
+});
+it("keeps the close action available when storage is denied", async () => {
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new Error("denied");
+  });
+  const close = vi.fn();
+  show(undefined, false, undefined, { onClose: close });
+  await screen.findByText(/navegador não permitiu/);
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(close).toHaveBeenCalledWith(false);
+});
+
+it("preserves input when saved rules changed in another session and requires an explicit reload", async () => {
+  const view = show();
+  await screen.findByText("Comprar em etapas");
+  fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Capital máximo (BNB)" }), {
+    target: { value: "0.045" },
+  });
+  const key = localStorage.key(0)!;
+  const draft = JSON.parse(localStorage.getItem(key)!);
+  localStorage.setItem(key, JSON.stringify({ ...draft, version: 1 }));
+  view.unmount();
+  show();
+  expect(await screen.findByRole("spinbutton", { name: "Capital máximo (BNB)" })).toHaveValue(
+    0.045,
+  );
+  expect(screen.getByText(/As regras foram alteradas em outra sessão/)).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Descartar preenchimento e carregar regras atuais" }),
+  );
+  await screen.findByText("Comprar em etapas");
+  fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+  expect(screen.getByRole("spinbutton", { name: "Capital máximo (BNB)" })).toHaveValue(0.01);
+  expect(mocks.save).not.toHaveBeenCalled();
+});
+it("shows unavailable instead of a fabricated free balance on request failure", async () => {
+  show();
+  await screen.findByText("Comprar em etapas");
+  fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+  mocks.capital.mockRejectedValue(new Error("offline"));
+  fireEvent.click(screen.getByRole("button", { name: "Atualizar saldo" }));
+  await screen.findByText(/Não foi possível confirmar o saldo disponível/);
+  expect(screen.queryByText(/Livre para configurar:/)).toBeNull();
+});
+it("lets X close during an explicitly requested save without starting the bot", async () => {
+  const close = vi.fn();
+  show(undefined, false, undefined, { onClose: close });
+  await screen.findByText("Comprar em etapas");
+  fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+  let finish!: (value: unknown) => void;
+  mocks.save.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Salvar regras e preparar robô" }));
+  await screen.findByRole("button", { name: "Salvando…" });
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(close).toHaveBeenCalledWith(false);
+  expect(mocks.start).not.toHaveBeenCalled();
+  finish({ id: "bot", version: 3 });
+  expect(await screen.findByRole("button", { name: "Confirmar e iniciar robô" })).toBeDisabled();
 });
