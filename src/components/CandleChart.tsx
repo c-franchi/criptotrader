@@ -54,6 +54,7 @@ function ChartBody({
   liveQuote,
   compact = false,
   preferenceKey,
+  minimal = false,
 }: {
   candles: Candle[];
   now: number;
@@ -68,6 +69,7 @@ function ChartBody({
   liveQuote?: { price: number; at: number } | undefined;
   compact?: boolean;
   preferenceKey?: string;
+  minimal?: boolean;
 }) {
   const [minutes, setMinutes] = useState(compact ? 30 : alignStrategy ? strategyMinutes : 5);
   const [height, setHeight] = useState(tall ? 420 : 320);
@@ -407,7 +409,12 @@ function ChartBody({
     });
 
   return (
-    <div className="min-w-0 space-y-3">
+    <div
+      className={cn(
+        "min-w-0 space-y-3",
+        minimal && "[&>div]:hidden [&>p]:hidden [&>details]:hidden",
+      )}
+    >
       {(!compact || controls) && (
         <>
           <div className="flex flex-wrap items-center gap-2">
@@ -690,6 +697,7 @@ function ChartBody({
           viewBox={`0 0 ${W} ${volBase + 20}`}
           className={cn(
             "w-full touch-pan-y select-none overflow-hidden",
+            minimal && "max-h-[calc(100dvh-14rem)] min-h-56",
             tool !== "inspect" && "cursor-crosshair",
           )}
           onPointerDown={onPointerDown}
@@ -1261,6 +1269,8 @@ export function CandleChart(props: {
   alignStrategy?: boolean;
   compact?: boolean;
   preferenceKey?: string;
+  minimal?: boolean;
+  position?: { symbol: string; quantity: number; costBnb: number; averageUsd: number };
   liveQuote?: { price: number; at: number } | undefined;
   rulesVersion?: 1 | 2;
   fastLength?: number;
@@ -1289,6 +1299,7 @@ export function CandleChart(props: {
   return (
     <div
       ref={overlayRef}
+      data-robot-chart
       className={
         expanded ? "fixed inset-0 z-50 overflow-auto bg-background p-3 sm:p-6" : "min-w-0 space-y-2"
       }
@@ -1296,13 +1307,38 @@ export function CandleChart(props: {
       aria-modal={expanded ? true : undefined}
       aria-label={expanded ? "Gráfico ampliado" : undefined}
     >
-      <div className="mb-2 flex justify-end">
+      <div className={cn("mb-2 flex justify-end", props.minimal && !expanded && "hidden")}>
         <Button size="sm" variant="outline" onClick={expanded ? closeExpanded : openExpanded}>
           {expanded ? <X className="mr-1 h-4 w-4" /> : <Maximize2 className="mr-1 h-4 w-4" />}
           {expanded ? "Fechar" : "Ampliar gráfico"}
         </Button>
       </div>
-      <ChartBody {...props} />
+      {(expanded || props.minimal) && props.position && (
+        <dl
+          aria-label="Dados da posição mantida"
+          className="mb-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3"
+        >
+          <div>
+            <dt>Compra · {props.position.symbol}</dt>
+            <dd>
+              {props.position.quantity.toLocaleString("pt-BR", { maximumSignificantDigits: 8 })}
+            </dd>
+          </div>
+          <div>
+            <dt>Preço médio</dt>
+            <dd>US$ {usd(props.position.averageUsd)}</dd>
+            <FiatValue usd={props.position.averageUsd} hideUsdDuplicate />
+          </div>
+          <div>
+            <dt>Custo registrado</dt>
+            <dd>
+              {props.position.costBnb.toLocaleString("pt-BR", { maximumSignificantDigits: 8 })} BNB
+            </dd>
+            <FiatValue bnb={props.position.costBnb} />
+          </div>
+        </dl>
+      )}
+      <ChartBody {...props} minimal={expanded || !!props.minimal} />
     </div>
   );
 }

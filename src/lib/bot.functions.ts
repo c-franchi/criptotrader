@@ -35,7 +35,11 @@ export const getBotWallet = createServerFn({ method: "GET" })
       .maybeSingle();
     if (walletError) throw new Error("Não foi possível consultar a carteira do robô");
     if (!bw)
-      return { address: null, bnb: null, tokens: [] as { symbol: string; amount: string }[] };
+      return {
+        address: null,
+        bnb: null,
+        tokens: [] as { address: string; symbol: string; amount: string }[],
+      };
     const { pubClient } = await import("./bot.server");
     const { erc20Abi } = await import("./pancake");
     const { formatEther, formatUnits } = await import("viem");
@@ -46,6 +50,7 @@ export const getBotWallet = createServerFn({ method: "GET" })
       const bnb = formatEther(await pub.getBalance({ address: addr }));
       const tokens = await Promise.all(
         list.map(async (t) => ({
+          address: t.address,
           symbol: t.symbol,
           amount: formatUnits(
             await pub.readContract({

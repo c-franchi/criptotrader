@@ -272,3 +272,23 @@ it("includes recorded fill prices in the focused view without changing trade evi
   expect(Number(point.getAttribute("cy"))).toBeLessThan(308);
   expect(point.parentElement!.textContent).toContain("Preço registrado");
 });
+
+it("includes held quantity, average, cost and sale/protection levels in the expanded chart", () => {
+  render(
+    <CandleChart
+      compact
+      candles={candles}
+      now={9000000}
+      position={{ symbol: "TEST", quantity: 2, costBnb: 0.01, averageUsd: 100 }}
+      levels={[
+        { price: 103, label: "Venda", tone: "sell" },
+        { price: 90, label: "Stop", tone: "stop" },
+      ]}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Ampliar gráfico" }));
+  expect(screen.getByRole("dialog", { name: "Gráfico ampliado" })).toBeTruthy();
+  expect(screen.getByLabelText("Dados da posição mantida")).toHaveTextContent("Preço médio");
+  expect(screen.getByText(/Venda: US\$ 103,00/)).toBeTruthy();
+  expect(screen.getByText(/Stop: US\$ 90,00/)).toBeTruthy();
+});

@@ -1,3 +1,4 @@
+import { BotPerformancePanel } from "@/components/BotPerformancePanel";
 import { FiatValue } from "@/hooks/useCurrency";
 import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -229,6 +230,25 @@ function BotWallet() {
             )}
             {bnb !== null && <FiatValue bnb={bnb} />}
           </p>
+          {held.length > 0 && (
+            <section aria-label="Resultado dos ativos mantidos" className="mt-4 space-y-3">
+              <h3 className="text-sm font-semibold">Ativos mantidos · compras do robô</h3>
+              <p className="text-xs text-muted-foreground">
+                Finalizar a automação mantém as moedas e seu custo registrado. A valorização ou
+                desvalorização aparece como resultado em aberto; lucro realizado exige venda
+                confirmada.
+              </p>
+              {held.map((asset) => (
+                <div key={asset.address}>
+                  <p className="text-sm font-semibold">
+                    {asset.symbol} ·{" "}
+                    {Number(asset.amount).toLocaleString("pt-BR", { maximumSignificantDigits: 8 })}
+                  </p>
+                  <BotPerformancePanel walletScope={walletScope} token={asset.address} />
+                </div>
+              ))}
+            </section>
+          )}
           <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
             <li>
               🔒 O robô compra e vende só com o que está nesta carteira. Ela não mexe na sua

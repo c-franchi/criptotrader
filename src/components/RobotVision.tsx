@@ -95,6 +95,7 @@ export function RobotVision(props: {
   reason?: string | null | undefined;
   evaluatedAt?: string | null | undefined;
   executionBlocked?: boolean | undefined;
+  chartOnly?: boolean;
   serverAnalysis?: { reason: string; error: string | null; at: string } | null | undefined;
 }) {
   const { token, symbol, cfg, state, mode, grid, orders, armed, reason, evaluatedAt } = props;
@@ -224,7 +225,7 @@ export function RobotVision(props: {
   const nextSell = lines.filter((l) => l.tone === "sell").sort((a, b) => a.price - b.price)[0];
 
   return (
-    <div className="space-y-3">
+    <div className={cn("space-y-3", props.chartOnly && "[&>*:not([data-robot-chart])]:hidden")}>
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="text-sm font-semibold">{symbol} · últimas 24h</p>
@@ -296,6 +297,14 @@ export function RobotVision(props: {
       <CandleChart
         key={`${token}:${cfg?.candleInterval}`}
         compact
+        minimal={!!props.chartOnly}
+        position={{
+          symbol,
+          quantity: state.tokens,
+          costBnb: state.costBnb,
+          averageUsd:
+            mode === "grade" && quoteUsd ? state.avgPriceUsd * quoteUsd : state.avgPriceUsd,
+        }}
         preferenceKey="cryptobot:robot-chart-view"
         alignStrategy
         candles={candles.data ?? []}
@@ -304,7 +313,26 @@ export function RobotVision(props: {
         rulesVersion={cfg?.recovery?.enabled ? 2 : (cfg?.rulesVersion ?? 1)}
         fastLength={cfg?.maFast ?? 9}
         slowLength={cfg?.maSlow ?? 21}
-        levels={lines}
+        levels={
+          props.chartOnly
+            ? mode === "grade"
+              ? quoteUsd == null
+                ? []
+                : [
+                    ...grid.map((p, i) => ({
+                      price: p * quoteUsd,
+                      label: `Nível ${i + 1}`,
+                      tone: "grid" as const,
+                    })),
+                    ...robotLines(
+                      cfg,
+                      { ...state, avgPriceUsd: state.avgPriceUsd * quoteUsd },
+                      null,
+                    ).filter((l) => l.tone !== "buy"),
+                  ]
+              : robotLines(cfg, state, high)
+            : lines
+        }
         liveQuote={live != null ? { price: live, at: priceAt } : undefined}
         trades={orders
           .filter((o) => o.status === "confirmada" && o.token.toLowerCase() === token.toLowerCase())
