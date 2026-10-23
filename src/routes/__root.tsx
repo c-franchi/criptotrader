@@ -1,3 +1,4 @@
+import { THEME_INIT } from "@/lib/theme";
 import { SelectedWalletProvider } from "@/hooks/useSelectedWallet";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -115,9 +116,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
       </head>
       <body>
         {children}
