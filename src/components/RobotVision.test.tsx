@@ -64,7 +64,7 @@ it("explains the saved drop trigger and uses an actually observed quote time wit
     screen.getByText(/SMA 9\/21 são apenas indicadores visuais nesta estratégia/),
   ).toBeTruthy();
   expect(screen.getByText(/Distância do gatilho de compra: < 0,001%/)).toBeTruthy();
-  expect(screen.getByText(/preço a cada 3s · executor a cada 5s/)).toBeTruthy();
+  expect(screen.getByText(/preço a cada 2s · executor programado a cada 2s/)).toBeTruthy();
   expect(market).toHaveBeenCalledWith({
     data: { address: "0x1111111111111111111111111111111111111111" },
   });
@@ -73,4 +73,27 @@ it("does not label stale or historical prices as the current price", async () =>
   show(60000);
   await screen.findByText(/Cotação atual indisponível ou antiga/);
   expect(screen.queryByText(/Preço agora:/)).toBeNull();
+});
+
+it("distinguishes the saved sale target from the current-price line even when preview is unavailable", async () => {
+  market.mockResolvedValue({ fetchedAt: new Date().toISOString(), error: null, pools: [] });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <RobotVision
+        token="0x1111111111111111111111111111111111111111"
+        symbol="TEST"
+        cfg={{ ...EMPTY_CONFIG, takeProfits: [{ pct: 3, sellPct: 100 }] }}
+        state={{ ...EMPTY_STATE, tokens: 1, avgPriceUsd: 81661.64798828923 }}
+        mode="estrategia"
+        grid={[]}
+        orders={[]}
+        armed
+        serverAnalysis={null}
+      />
+    </QueryClientProvider>,
+  );
+  expect(screen.getByRole("region", { name: "Alvo de venda salvo" })).toBeTruthy();
+  expect(screen.getByText(/Próxima venda · US\$ 84.111,50/)).toBeTruthy();
+  expect(screen.getByText(/A linha “Agora” é a cotação atual, não o alvo/)).toBeTruthy();
+  expect(screen.getByText(/Alvo da estratégia salva; a execução não está confirmada/)).toBeTruthy();
 });

@@ -96,24 +96,37 @@ async function runStrategyStepImpl(
       },
       order: null,
     };
+  const quoteFresh = () =>
+    !market.error &&
+    Number.isFinite(Date.parse(market.fetchedAt)) &&
+    Date.now() - Date.parse(market.fetchedAt) <= 15_000 &&
+    Date.parse(market.fetchedAt) <= Date.now() + 5_000;
+  if (!quoteFresh())
+    return { patch: { last_error: "Preço desatualizado: aguardando nova consulta" }, order: null };
+
+  // Fixed exits depend on the live pool quote, never on a candle close or history service.
+  const immediate =
+    cfg.entryType !== "adaptativa" && state.tokens > 0
+      ? decide(cfg, state, strategyObservation(cfg, [], priceUsd, best.liquidityUsd, Date.now()))
+      : null;
   let candles: Awaited<ReturnType<typeof readCandles>> = [];
-  try {
-    candles = await readCandles(best.pairAddress.toLowerCase(), token.toLowerCase());
-  } catch {
-    /* history unavailable */
+  if (immediate?.action !== "venda") {
+    try {
+      candles = await readCandles(best.pairAddress.toLowerCase(), token.toLowerCase(), {
+        fast: true,
+      });
+    } catch {
+      /* Fixed exits remain available without history; new entries still require fresh closes. */
+    }
   }
   now = Date.now();
   const observation = strategyObservation(cfg, candles, priceUsd, best.liquidityUsd, now);
   const { high, closes, historyFresh: fresh } = observation;
   if (state.tokens > 0) state.peakUsd = Math.max(state.peakUsd, priceUsd);
-  if (
-    market.error ||
-    !Number.isFinite(Date.parse(market.fetchedAt)) ||
-    now - Date.parse(market.fetchedAt) > 15_000
-  )
+  if (!quoteFresh())
     return { patch: { last_error: "Preço desatualizado: aguardando nova consulta" }, order: null };
   if (fresh) state = updateEntryLatch(cfg, state, observation);
-  const d = decide(cfg, state, observation);
+  const d = immediate?.action === "venda" ? immediate : decide(cfg, state, observation);
   if (
     d.action === "compra" &&
     (!fresh || (cfg.entryType !== "queda" && observation.completeCount < cfg.maSlow + 1))
@@ -177,8 +190,8 @@ async function runStrategyStepImpl(
   const reserve = parseEther(
     new Decimal(cfg.gasReserveBnb ?? 0.005).toFixed(18, Decimal.ROUND_DOWN),
   );
-  const bnbBal = await pub.getBalance({ address: me });
-  const dec = (await tokenMeta(token)).decimals;
+  const [bnbBal, meta] = await Promise.all([pub.getBalance({ address: me }), tokenMeta(token)]);
+  const dec = meta.decimals;
   const tax = taxFor(token, cfg);
   let amountIn: bigint;
 

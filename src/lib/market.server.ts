@@ -52,7 +52,10 @@ async function onChainPool(
   const info = await tokenMeta(address);
   const client = createPublicClient({
     chain: bsc,
-    transport: http(rpcUrl, { timeout: 8000, retryCount: 1 }),
+    transport: http(rpcUrl, {
+      timeout: blockNumber != null ? 4000 : 8000,
+      retryCount: blockNumber != null ? 0 : 1,
+    }),
   });
   const pair = await client.readContract({
     address: PANCAKE_V2_FACTORY,
@@ -62,9 +65,10 @@ async function onChainPool(
     args: [token, WBNB],
   });
   if (pair === ZERO) return [];
-  const [[r0, r1], token0] = await Promise.all([
+  const [[r0, r1], token0, bnbUsd] = await Promise.all([
     client.readContract({ address: pair, abi: pairAbi, blockNumber, functionName: "getReserves" }),
     client.readContract({ address: pair, abi: pairAbi, blockNumber, functionName: "token0" }),
+    bnbUsdPrice(client, blockNumber).catch(() => null),
   ]);
   const isToken0 = token0.toLowerCase() === token.toLowerCase();
   const tokenReserve = isToken0 ? r0 : r1;
@@ -75,7 +79,6 @@ async function onChainPool(
           Number(formatUnits(bnbReserve, 18)) / Number(formatUnits(tokenReserve, info.decimals)),
         )
       : null;
-  const bnbUsd = await bnbUsdPrice(client, blockNumber).catch(() => null);
   const priceUsd = price && bnbUsd ? String(Number(price) * bnbUsd) : null;
   const liquidityUsd = bnbUsd ? Number(formatUnits(bnbReserve, 18)) * bnbUsd * 2 : null;
   return [

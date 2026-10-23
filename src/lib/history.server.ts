@@ -43,7 +43,7 @@ async function saveCandles(pool: string, token: string, candles: Candle[]) {
   }
 }
 
-async function fetchGecko(pool: string, token?: string): Promise<Candle[]> {
+async function fetchGecko(pool: string, token?: string, fast = false): Promise<Candle[]> {
   const url = new URL(
     `https://api.geckoterminal.com/api/v2/networks/bsc/pools/${pool}/ohlcv/minute`,
   );
@@ -55,11 +55,11 @@ async function fetchGecko(pool: string, token?: string): Promise<Candle[]> {
     include_empty_intervals: "true",
   }).toString();
   let lastError: unknown;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < (fast ? 1 : 3); attempt++) {
     try {
       const res = await fetch(url, {
         headers: { accept: "application/json", "user-agent": "CryptoBot/1.0" },
-        signal: AbortSignal.timeout(8_000),
+        signal: AbortSignal.timeout(fast ? 1_500 : 8_000),
       });
       if (!res.ok) throw new Error(`Histórico indisponível (${res.status})`);
       const json = (await res.json()) as { data?: { attributes?: { ohlcv_list?: number[][] } } };
@@ -80,36 +80,43 @@ async function fetchGecko(pool: string, token?: string): Promise<Candle[]> {
         .sort((a, b) => a[0] - b[0]);
     } catch (e) {
       lastError = e;
-      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
+      if (!fast && attempt < 2)
+        await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
     }
   }
   throw lastError instanceof Error ? lastError : new Error("Histórico indisponível");
 }
 
 /** Coalesce public history reads; failed refreshes never replace good data (memory, then database). */
-export async function readCandles(pool: string, token?: string): Promise<Candle[]> {
+export async function readCandles(
+  pool: string,
+  token?: string,
+  options?: { fast?: boolean },
+): Promise<Candle[]> {
   const p = pool.toLowerCase(),
     t = token?.toLowerCase() ?? "base";
   const key = `${p}:${t}`;
   const saved = cache.get(key);
   if (saved && saved.expires > Date.now()) return saved.candles;
-  const active = pending.get(key);
+  // A robot must not join the chart's potentially long retry queue.
+  const requestKey = options?.fast ? `fast:${key}` : key;
+  const active = pending.get(requestKey);
   if (active) return active;
   const request = (async () => {
-    if ((failures.get(key) ?? 0) <= Date.now()) {
+    if ((failures.get(requestKey) ?? 0) <= Date.now()) {
       try {
-        const candles = await fetchGecko(pool, token);
+        const candles = await fetchGecko(pool, token, options?.fast);
         if (!candles.length) throw new Error("Histórico vazio");
         if (cache.size >= 100) {
           cache.clear();
           failures.clear();
         }
         cache.set(key, { candles, expires: Date.now() + 30_000 });
-        failures.delete(key);
+        failures.delete(requestKey);
         if (candles.length) await saveCandles(p, t, candles);
         return candles;
       } catch {
-        failures.set(key, Date.now() + 20_000);
+        failures.set(requestKey, Date.now() + 20_000);
       }
     }
     if (saved?.candles.length) return saved.candles;
@@ -119,7 +126,7 @@ export async function readCandles(pool: string, token?: string): Promise<Candle[
       return stored;
     }
     throw new Error("Fonte de histórico temporariamente indisponível");
-  })().finally(() => pending.delete(key));
-  pending.set(key, request);
+  })().finally(() => pending.delete(requestKey));
+  pending.set(requestKey, request);
   return request;
 }
