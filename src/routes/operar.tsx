@@ -1,3 +1,5 @@
+import { FiatValue } from "@/hooks/useCurrency";
+import { TokenPicker } from "@/components/TokenPicker";
 import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { formatPrice } from "@/lib/display";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -743,6 +745,7 @@ function Operar() {
                   : `${fmtGte(bal.gte)} ${sym}`
                 : "conecte a carteira"}
             </p>
+            {bal && side === "compra" && <FiatValue bnb={formatEther(spendable)} />}
             <Slider
               className="mt-4"
               min={0}
@@ -781,6 +784,12 @@ function Operar() {
 
           {quote && (
             <Panel title="Revisar antes de assinar">
+              <p className="text-sm">
+                Equivalente estimado da operação:
+                <FiatValue
+                  bnb={formatEther(quote.side === "compra" ? quote.amountIn : quote.out)}
+                />
+              </p>
               {(() => {
                 const hasTax = quote.tax != null && quote.tax > 0.5;
                 const gross = hasTax
@@ -922,6 +931,7 @@ function Operar() {
             {fmtGte(bal.gte)} {sym}
             <br />
             <span className="text-muted-foreground">{fmtBnb(bal.bnb)} BNB</span>
+            <FiatValue bnb={formatEther(bal.bnb)} />
           </span>
         </div>
       )}
@@ -1166,25 +1176,16 @@ function Operar() {
 
       <Panel title={`Histórico de operações (${orders.length})`} collapsible>
         <div className="mb-3 flex flex-wrap gap-2 text-xs">
-          <label>
+          <div>
             Ativo{" "}
-            <select
-              aria-label="Filtrar histórico por ativo"
-              className="rounded border border-border bg-background p-2"
+            <TokenPicker
+              label="Filtrar token no histórico"
+              tokens={[{ address: "all", symbol: "Todos os tokens" }, ...tokens]}
               value={historyToken}
-              onChange={(e) => setHistoryToken(e.target.value)}
-            >
-              <option value="all">Todos</option>
-              {Array.from(new Set(orders.map((o) => o.token).filter((t): t is string => !!t))).map(
-                (t) => (
-                  <option key={t} value={t}>
-                    {tokens.find((x) => x.address.toLowerCase() === t.toLowerCase())?.symbol ??
-                      `${t.slice(0, 6)}…${t.slice(-4)}`}
-                  </option>
-                ),
-              )}
-            </select>
-          </label>
+              onChange={setHistoryToken}
+              showName={false}
+            />
+          </div>
           <label>
             Situação{" "}
             <select

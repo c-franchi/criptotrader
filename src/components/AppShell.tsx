@@ -1,3 +1,4 @@
+import { PreferencesDialog } from "./PreferencesDialog";
 import { ThemeToggle } from "./ThemeToggle";
 import { WalletSelector } from "./WalletSelector";
 import { AppUpdateNotice } from "@/components/AppUpdateNotice";
@@ -109,7 +110,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
       >
         {nav
-          .filter((n) => ["/", "/grade", "/carteiras"].includes(n.to))
+          .filter((n) => ["/", "/grade", "/operar", "/carteiras"].includes(n.to))
           .map((n) => (
             <Link
               key={n.to}
@@ -119,7 +120,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               activeOptions={{ exact: true }}
             >
               <n.icon className="h-5 w-5" />
-              {n.to === "/grade" ? "Meus robôs" : n.to === "/carteiras" ? "Carteiras" : n.label}
+              {n.to === "/grade"
+                ? "Robô"
+                : n.to === "/operar"
+                  ? "Operar"
+                  : n.to === "/carteiras"
+                    ? "Carteiras"
+                    : n.label}
             </Link>
           ))}
       </nav>
@@ -194,11 +201,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             CRYPTO·BOT
           </Link>
           {current && (
-            <span className="min-w-0 truncate text-sm text-muted-foreground">
+            <span className="hidden min-w-0 truncate text-sm text-muted-foreground sm:block">
               / {current.label}
             </span>
           )}
           <div className="ml-auto flex shrink-0 items-center">
+            <PreferencesDialog />
             <ThemeToggle />
             <AppUpdateNotice />
             <NotificationBell />

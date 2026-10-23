@@ -1,3 +1,4 @@
+import { CurrencyProvider } from "@/hooks/useCurrency";
 import { THEME_INIT } from "@/lib/theme";
 import { SelectedWalletProvider } from "@/hooks/useSelectedWallet";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -89,7 +90,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "theme-color", content: "#030816" },
+      { name: "theme-color", content: "#fafafa" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-title", content: "CryptoBot" },
     ],
@@ -116,7 +117,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
+    <html lang="pt-BR" data-theme="light" suppressHydrationWarning>
       <head>
         <HeadContent />
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
@@ -135,11 +136,13 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <SelectedTokenProvider>
-        <SelectedWalletProvider>
-          <Outlet />
-        </SelectedWalletProvider>
-      </SelectedTokenProvider>
+      <CurrencyProvider>
+        <SelectedTokenProvider>
+          <SelectedWalletProvider>
+            <Outlet />
+          </SelectedWalletProvider>
+        </SelectedTokenProvider>
+      </CurrencyProvider>
       <Toaster />
       <PushAfterInstall />
     </QueryClientProvider>

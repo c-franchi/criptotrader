@@ -1,10 +1,11 @@
+import { FiatValue } from "@/hooks/useCurrency";
 import { useQuery } from "@tanstack/react-query";
 import { getWalletCapital } from "@/lib/capital.functions";
 import { Panel } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 
 const bnb = (value: string) =>
-  `${Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 10 })} BNB`;
+  `${Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 8 })} BNB`;
 export function WalletCapitalPanel({
   walletScope,
   previewId,
@@ -61,6 +62,7 @@ export function WalletCapitalPanel({
               <div key={label} className="rounded-lg border border-border bg-secondary/20 p-3">
                 <p className="text-xs text-muted-foreground">{label}</p>
                 <p className="mt-1 break-words text-lg font-semibold">{bnb(value!)}</p>
+                <FiatValue bnb={value} />
               </div>
             ))}
           </div>
@@ -109,6 +111,7 @@ export function WalletCapitalPanel({
                     <dd className="mt-1 font-medium tabular-nums">
                       {row.mode === "grade" ? "Consultar histórico" : bnb(row.invested)}
                     </dd>
+                    {row.mode !== "grade" && <FiatValue bnb={row.invested} />}
                     {row.mode !== "grade" && (
                       <p className="text-[11px] text-muted-foreground">
                         {row.estimated ? "Custo estimado" : "Custo registrado"}
@@ -117,11 +120,17 @@ export function WalletCapitalPanel({
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">Reservado para compra</dt>
-                    <dd className="mt-1 font-medium tabular-nums">{bnb(row.reserved)}</dd>
+                    <dd className="mt-1 font-medium tabular-nums">
+                      {bnb(row.reserved)}
+                      <FiatValue bnb={row.reserved} />
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">Reserva para gás</dt>
-                    <dd className="mt-1 font-medium tabular-nums">{bnb(row.gas)}</dd>
+                    <dd className="mt-1 font-medium tabular-nums">
+                      {bnb(row.gas)}
+                      <FiatValue bnb={row.gas} />
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">Disponível para o bot</dt>
@@ -134,6 +143,9 @@ export function WalletCapitalPanel({
                           ? bnb(row.available)
                           : "Sem reserva"}
                     </dd>
+                    {locked === false && (row.armed || row.id === previewId) && (
+                      <FiatValue bnb={row.available} />
+                    )}
                   </div>
                 </dl>
               </article>
@@ -175,8 +187,14 @@ export function WalletCapitalPanel({
                         ? "Ver tokens e histórico da grade"
                         : `${bnb(row.invested)}${row.estimated ? " (estimado)" : " (custo registrado)"}`}
                     </td>
-                    <td className="p-2">{bnb(row.reserved)}</td>
-                    <td className="p-2">{bnb(row.gas)}</td>
+                    <td className="p-2">
+                      {bnb(row.reserved)}
+                      <FiatValue bnb={row.reserved} />
+                    </td>
+                    <td className="p-2">
+                      {bnb(row.gas)}
+                      <FiatValue bnb={row.gas} />
+                    </td>
                     <td className="p-2">
                       {locked !== false
                         ? "Bloqueado"

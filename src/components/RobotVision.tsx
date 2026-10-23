@@ -1,3 +1,4 @@
+import { FiatValue } from "@/hooks/useCurrency";
 import { formatUsd, formatDistancePct } from "@/lib/display";
 import { incompatibleBotToken, INCOMPATIBLE_BNB } from "@/lib/guidedBot";
 import { useEffect, useState } from "react";
@@ -219,7 +220,15 @@ export function RobotVision(props: {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold">{symbol} · últimas 24h</p>
+        <div>
+          <p className="text-sm font-semibold">{symbol} · últimas 24h</p>
+          {live != null && (
+            <>
+              <p className="text-2xl font-bold">{usd(live)}</p>
+              <FiatValue usd={live} hideUsdDuplicate />
+            </>
+          )}
+        </div>
         <span
           className={cn(
             "flex items-center gap-1.5 text-xs font-medium",
@@ -256,6 +265,8 @@ export function RobotVision(props: {
       )}
       <CandleChart
         key={`${token}:${cfg?.candleInterval}`}
+        compact
+        preferenceKey="cryptobot:robot-chart-view"
         alignStrategy
         candles={candles.data ?? []}
         now={now}
@@ -395,6 +406,7 @@ export function RobotVision(props: {
         <div className="rounded-md border border-border p-3 text-xs space-y-1">
           <p>
             Preço agora: <strong>{usd(live)}</strong>
+            <FiatValue usd={live} hideUsdDuplicate />
           </p>
           {mode !== "grade" &&
             cfg?.stopLossMode === "liquido" &&

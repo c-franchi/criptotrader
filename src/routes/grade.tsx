@@ -1,3 +1,5 @@
+import { FiatValue } from "@/hooks/useCurrency";
+import { TokenPicker } from "@/components/TokenPicker";
 import { formatUsd } from "@/lib/display";
 import { GuidedBotSetup } from "@/components/GuidedBotSetup";
 import { BotReadiness } from "@/components/BotReadiness";
@@ -375,6 +377,11 @@ function Robo() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {armed && (
+              <Button variant="destructive" disabled={saving} onClick={() => save(false)}>
+                Pausar robô
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setFullscreen(!fullscreen)}>
               {fullscreen ? "Sair da tela cheia" : "Abrir em tela cheia"}
             </Button>
@@ -382,26 +389,14 @@ function Robo() {
               disabled={!walletReady || busy || saving || cfg === undefined}
               onClick={() => setSetupOpen(true)}
             >
-              {bot ? "Configurar regras aqui" : "Criar robô passo a passo"}
+              {armed ? "Configurar regras" : "Preparar e iniciar robô"}
             </Button>
           </div>
         </div>
         <div>
           <p className="mb-2 text-xs text-muted-foreground">Criar ou abrir robô para o token:</p>
           <div data-token-picker className="flex flex-wrap gap-2">
-            {tokens.map((t) => (
-              <Button
-                key={t.address}
-                size="sm"
-                variant={t.address === token ? "default" : "secondary"}
-                onClick={() => setToken(t.address)}
-              >
-                {allBots.some((b) => b.armed && b.token.toLowerCase() === t.address.toLowerCase())
-                  ? "● "
-                  : ""}
-                {t.symbol}
-              </Button>
-            ))}
+            <TokenPicker tokens={tokens} value={token} onChange={setToken} />
             <AddTokenDialog />
           </div>
         </div>
@@ -433,6 +428,193 @@ function Robo() {
             {INCOMPATIBLE_BNB}
           </p>
         )}
+        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_350px]">
+          <Panel title="Gráfico ao vivo e análise do robô">
+            <p className="mb-2 text-sm">
+              {analysisError
+                ? "Análise indisponível no momento."
+                : (analysis?.error ?? analysis?.reason ?? "Consultando mercado…")}
+            </p>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Veja no gráfico onde o robô vai comprar e vender, e cada operação que ele já fez.
+            </p>
+            <div className="mt-3">
+              <RobotVision
+                token={token}
+                symbol={sym}
+                cfg={cfg}
+                state={st}
+                mode={mode}
+                grid={lines}
+                orders={orders}
+                armed={armed}
+                reason={bot?.last_reason}
+                evaluatedAt={bot?.last_run_at}
+                executionBlocked={execution?.locked}
+                serverAnalysis={analysisError ? null : analysis}
+              />
+            </div>
+          </Panel>
+          <div className="space-y-4">
+            <Panel title={`Robô · ${sym} · ${walletName}`}>
+              <p role="status" className="text-lg font-semibold">
+                {!execution
+                  ? "Consultando estado…"
+                  : incompatibleBotToken(token)
+                    ? "Impedido de operar · moeda incompatível"
+                    : execution.locked
+                      ? "Aguardando confirmação de operação"
+                      : !armed
+                        ? "Pausado"
+                        : bot?.last_error
+                          ? "Precisa de atenção"
+                          : !bot?.last_run_at || Date.now() - Date.parse(bot.last_run_at) > 180000
+                            ? "Aguardando o executor"
+                            : "Ligado · acompanhando o mercado"}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {incompatibleBotToken(token)
+                  ? INCOMPATIBLE_BNB
+                  : execution?.locked
+                    ? "A carteira está conferindo uma operação. Você pode pausar o robô; novas operações aguardam a confirmação."
+                    : !armed
+                      ? "Escolha a estratégia e toque em Iniciar robô quando estiver pronto."
+                      : bot?.last_error ||
+                        bot?.last_reason ||
+                        "O robô confere as condições de compra e venda a cada 5 segundos."}
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {armed ? (
+                  <Button disabled={saving} variant="destructive" onClick={() => save(false)}>
+                    Pausar robô
+                  </Button>
+                ) : (
+                  <Button
+                    disabled={
+                      saving ||
+                      !walletReady ||
+                      !execution ||
+                      execution.locked ||
+                      !w?.address ||
+                      !cfg ||
+                      !bot ||
+                      incompatibleBotToken(token)
+                    }
+                    onClick={() =>
+                      confirm(
+                        `Iniciar o robô para ${sym}? Ele comprará e venderá automaticamente com dinheiro real, seguindo a configuração salva.`,
+                      ) && save(true)
+                    }
+                  >
+                    {saving ? "Salvando…" : "Iniciar robô"}
+                  </Button>
+                )}
+                {bot && (
+                  <RemoveBotButton
+                    key={bot.id}
+                    botId={bot.id}
+                    walletScope={walletScope}
+                    symbol={sym}
+                    armed={armed}
+                    onDone={() => {
+                      setBot(null);
+                      void load();
+                    }}
+                  />
+                )}
+                <Button
+                  variant="outline"
+                  disabled={busy || saving}
+                  onClick={async () => {
+                    setSaving(true);
+                    try {
+                      await recoverStrategyExecution({ data: { walletScope } });
+                      await load();
+                    } catch (e) {
+                      toast.error((e as Error).message);
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                >
+                  {execution?.locked ? "Verificar e recuperar" : "Atualizar estado"}
+                </Button>
+                <Button variant="outline" onClick={() => setSetupOpen(true)}>
+                  Editar regras aqui
+                </Button>
+              </div>
+              {!cfg && (
+                <p className="mt-3 rounded-md border border-warning/40 p-2 text-sm text-warning">
+                  Ainda não há regras salvas para esta moeda. Toque em “Criar robô passo a passo”
+                  para definir valores, compras e saídas sem sair desta tela.
+                </p>
+              )}
+              <p className="mt-3 text-xs text-muted-foreground">
+                Operações com dinheiro real. Nenhuma estratégia garante lucro. Bots da mesma
+                carteira compartilham o saldo; os quadros de saldo abaixo mostram o capital
+                reservado e o livre.
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Info
+                  label="Saldo da carteira"
+                  value={
+                    bnb === null
+                      ? "Consultando…"
+                      : `${bnb.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB`
+                  }
+                />
+                <Info
+                  label="Modelo de regras"
+                  value={mode === "grade" ? "Grade de preços" : cfg ? modelName : "Não configurada"}
+                />
+              </div>
+              <details open className="mt-3 text-xs text-muted-foreground">
+                <summary className="cursor-pointer">Última análise e execução</summary>
+                <div className="mt-2 space-y-2">
+                  <p>
+                    Última avaliação:{" "}
+                    {bot?.last_run_at
+                      ? new Date(bot.last_run_at).toLocaleString("pt-BR")
+                      : "aguardando"}
+                    .
+                  </p>
+                  {bot?.last_error && <p className="text-warning">{bot.last_error}</p>}
+                  {execution?.lockAcquiredAt && (
+                    <p>
+                      Conferência iniciada em{" "}
+                      {new Date(execution.lockAcquiredAt).toLocaleString("pt-BR")}.
+                    </p>
+                  )}
+                  {execution?.pending.map((p) => (
+                    <a
+                      key={p.tx_hash}
+                      className="block text-primary underline"
+                      target="_blank"
+                      rel="noreferrer"
+                      href={`https://bscscan.com/tx/${p.tx_hash}`}
+                    >
+                      Ver transação na rede
+                    </a>
+                  ))}
+                  {st.accountingEstimated && (
+                    <p>
+                      A posição contém valores estimados; consulte a auditoria para os valores
+                      confirmados.
+                    </p>
+                  )}
+                </div>
+              </details>
+            </Panel>
+            {!armed && (
+              <BotReadiness
+                walletScope={walletScope}
+                token={token}
+                onConfigure={() => setSetupOpen(true)}
+              />
+            )}
+            <BotPerformancePanel walletScope={walletScope} token={token} />
+          </div>
+        </div>
         <Panel
           title={`Meus robôs (${allBots.filter((b) => b.armed).length} ligado${allBots.filter((b) => b.armed).length === 1 ? "" : "s"})`}
         >
@@ -507,190 +689,7 @@ function Robo() {
           locked={execution?.locked}
           tokens={tokens}
         />
-        <div className="grid items-start gap-4 xl:grid-cols-[350px_minmax(0,1fr)]">
-          <Panel title={`Robô · ${sym} · ${walletName}`}>
-            <p role="status" className="text-lg font-semibold">
-              {!execution
-                ? "Consultando estado…"
-                : incompatibleBotToken(token)
-                  ? "Impedido de operar · moeda incompatível"
-                  : execution.locked
-                    ? "Aguardando confirmação de operação"
-                    : !armed
-                      ? "Pausado"
-                      : bot?.last_error
-                        ? "Precisa de atenção"
-                        : !bot?.last_run_at || Date.now() - Date.parse(bot.last_run_at) > 180000
-                          ? "Aguardando o executor"
-                          : "Ligado · acompanhando o mercado"}
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {incompatibleBotToken(token)
-                ? INCOMPATIBLE_BNB
-                : execution?.locked
-                  ? "A carteira está conferindo uma operação. Você pode pausar o robô; novas operações aguardam a confirmação."
-                  : !armed
-                    ? "Escolha a estratégia e toque em Iniciar robô quando estiver pronto."
-                    : bot?.last_error ||
-                      bot?.last_reason ||
-                      "O robô confere as condições de compra e venda a cada minuto."}
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {armed ? (
-                <Button disabled={saving} variant="destructive" onClick={() => save(false)}>
-                  Pausar robô
-                </Button>
-              ) : (
-                <Button
-                  disabled={
-                    saving ||
-                    !walletReady ||
-                    !execution ||
-                    execution.locked ||
-                    !w?.address ||
-                    !cfg ||
-                    !bot ||
-                    incompatibleBotToken(token)
-                  }
-                  onClick={() =>
-                    confirm(
-                      `Iniciar o robô para ${sym}? Ele comprará e venderá automaticamente com dinheiro real, seguindo a configuração salva.`,
-                    ) && save(true)
-                  }
-                >
-                  {saving ? "Salvando…" : "Iniciar robô"}
-                </Button>
-              )}
-              {bot && (
-                <RemoveBotButton
-                  key={bot.id}
-                  botId={bot.id}
-                  walletScope={walletScope}
-                  symbol={sym}
-                  armed={armed}
-                  onDone={() => {
-                    setBot(null);
-                    void load();
-                  }}
-                />
-              )}
-              <Button
-                variant="outline"
-                disabled={busy || saving}
-                onClick={async () => {
-                  setSaving(true);
-                  try {
-                    await recoverStrategyExecution({ data: { walletScope } });
-                    await load();
-                  } catch (e) {
-                    toast.error((e as Error).message);
-                  } finally {
-                    setSaving(false);
-                  }
-                }}
-              >
-                {execution?.locked ? "Verificar e recuperar" : "Atualizar estado"}
-              </Button>
-              <Button variant="outline" onClick={() => setSetupOpen(true)}>
-                Editar regras aqui
-              </Button>
-            </div>
-            {!cfg && (
-              <p className="mt-3 rounded-md border border-warning/40 p-2 text-sm text-warning">
-                Ainda não há regras salvas para esta moeda. Toque em “Criar robô passo a passo” para
-                definir valores, compras e saídas sem sair desta tela.
-              </p>
-            )}
-            <p className="mt-3 text-xs text-muted-foreground">
-              Operações com dinheiro real. Nenhuma estratégia garante lucro. Bots da mesma carteira
-              compartilham o saldo; a tabela acima mostra o capital reservado e o livre.
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Info
-                label="Saldo da carteira"
-                value={
-                  bnb === null
-                    ? "Consultando…"
-                    : `${bnb.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB`
-                }
-              />
-              <Info
-                label="Modelo de regras"
-                value={mode === "grade" ? "Grade de preços" : cfg ? modelName : "Não configurada"}
-              />
-            </div>
-            <details open className="mt-3 text-xs text-muted-foreground">
-              <summary className="cursor-pointer">Última análise e execução</summary>
-              <div className="mt-2 space-y-2">
-                <p>
-                  Última avaliação:{" "}
-                  {bot?.last_run_at
-                    ? new Date(bot.last_run_at).toLocaleString("pt-BR")
-                    : "aguardando"}
-                  .
-                </p>
-                {bot?.last_error && <p className="text-warning">{bot.last_error}</p>}
-                {execution?.lockAcquiredAt && (
-                  <p>
-                    Conferência iniciada em{" "}
-                    {new Date(execution.lockAcquiredAt).toLocaleString("pt-BR")}.
-                  </p>
-                )}
-                {execution?.pending.map((p) => (
-                  <a
-                    key={p.tx_hash}
-                    className="block text-primary underline"
-                    target="_blank"
-                    rel="noreferrer"
-                    href={`https://bscscan.com/tx/${p.tx_hash}`}
-                  >
-                    Ver transação na rede
-                  </a>
-                ))}
-                {st.accountingEstimated && (
-                  <p>
-                    A posição contém valores estimados; consulte a auditoria para os valores
-                    confirmados.
-                  </p>
-                )}
-              </div>
-            </details>
-          </Panel>
-          {!armed && (
-            <BotReadiness
-              walletScope={walletScope}
-              token={token}
-              onConfigure={() => setSetupOpen(true)}
-            />
-          )}
-          <BotPerformancePanel walletScope={walletScope} token={token} />
-          <Panel title="Gráfico ao vivo e análise do robô">
-            <p className="mb-2 text-sm">
-              {analysisError
-                ? "Análise indisponível no momento."
-                : (analysis?.error ?? analysis?.reason ?? "Consultando mercado…")}
-            </p>
-            <p className="mb-2 text-xs text-muted-foreground">
-              Veja no gráfico onde o robô vai comprar e vender, e cada operação que ele já fez.
-            </p>
-            <div className="mt-3">
-              <RobotVision
-                token={token}
-                symbol={sym}
-                cfg={cfg}
-                state={st}
-                mode={mode}
-                grid={lines}
-                orders={orders}
-                armed={armed}
-                reason={bot?.last_reason}
-                evaluatedAt={bot?.last_run_at}
-                executionBlocked={execution?.locked}
-                serverAnalysis={analysisError ? null : analysis}
-              />
-            </div>
-          </Panel>
-        </div>
+
         <div className="grid items-start gap-4 lg:grid-cols-2">
           <Panel title={`Posição e operações · ${sym}`}>
             <div className="space-y-2 text-sm">
@@ -703,6 +702,7 @@ function Robo() {
                   <Info
                     label="Preço médio de compra"
                     value={st.avgPriceUsd > 0 ? formatUsd(st.avgPriceUsd) : "sem posição"}
+                    usd={st.avgPriceUsd > 0 ? st.avgPriceUsd : undefined}
                   />
                   <Info
                     label={`${sym} comprados`}
@@ -714,6 +714,7 @@ function Robo() {
                   />
                   <Info
                     label="BNB investido"
+                    bnb={st.costBnb}
                     value={st.costBnb.toLocaleString("pt-BR", { maximumFractionDigits: 6 })}
                   />
                   <Info
@@ -723,6 +724,7 @@ function Robo() {
                   <Info
                     label="Último preço visto"
                     value={bot?.last_price ? formatUsd(bot.last_price) : "—"}
+                    usd={bot?.last_price ? Number(bot.last_price) : undefined}
                   />
                 </div>
               ) : (
@@ -1129,9 +1131,9 @@ function Robo() {
             <Panel collapsible title="Dúvidas comuns">
               <div className="space-y-3 text-sm">
                 <Faq q="O robô usa a estratégia que eu salvei?">
-                  Sim. No modo "Minha estratégia" ele lê a estratégia salva do token a cada minuto.
-                  Se você aplicar uma nova versão da estratégia, o robô passa a segui-la na próxima
-                  verificação. Um rascunho salvo ainda não altera as operações reais.
+                  Sim. No modo "Minha estratégia" ele lê a estratégia salva do token a cada 5
+                  segundos. Se você aplicar uma nova versão da estratégia, o robô passa a segui-la
+                  na próxima verificação. Um rascunho salvo ainda não altera as operações reais.
                 </Faq>
                 <Faq q="Ele considera a taxa do token?">
                   Sim. A taxa medida no contrato (ex.: 8% em alguns tokens) é descontada do valor
@@ -1248,11 +1250,22 @@ function AuditPanel() {
   );
 }
 
-function Info({ label, value }: { label: string; value: string }) {
+function Info({
+  label,
+  value,
+  bnb,
+  usd,
+}: {
+  label: string;
+  value: string;
+  bnb?: number | undefined;
+  usd?: number | undefined;
+}) {
   return (
     <div className="rounded border border-border p-2">
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="truncate font-mono">{value}</p>
+      {(bnb !== undefined || usd !== undefined) && <FiatValue bnb={bnb} usd={usd} />}
     </div>
   );
 }

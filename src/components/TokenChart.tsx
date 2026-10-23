@@ -1,3 +1,4 @@
+import { FiatValue } from "@/hooks/useCurrency";
 import { formatUsd } from "@/lib/display";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -93,6 +94,7 @@ function PriceChart({
           <p className="break-words font-mono text-xl font-bold">
             {price != null ? usd(price) : "—"}
           </p>
+          <FiatValue usd={price} hideUsdDuplicate />
           <p
             className={cn(
               "text-sm font-medium",
@@ -143,7 +145,7 @@ function PriceChart({
         {last && <span>Última vela: {time(last[0] * 1000)} · abertura da vela de 5m</span>}
       </div>
       <p className="text-[11px] text-muted-foreground">
-        Preço: consulta a cada 15s · Histórico: a cada 1 min
+        Preço: consulta a cada 15s · Histórico: a cada 30s
       </p>
       {!all.length && (
         <div

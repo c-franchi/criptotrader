@@ -1,3 +1,4 @@
+import { TokenPicker } from "@/components/TokenPicker";
 import { formatUsd } from "@/lib/display";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -68,16 +69,7 @@ function Metrics() {
     <div className="space-y-4">
       <Panel title="Métricas de evolução">
         <div className="flex flex-wrap gap-2">
-          {tokens.map((t) => (
-            <Button
-              key={t.address}
-              size="sm"
-              variant={t.address === token.address ? "default" : "outline"}
-              onClick={() => selectToken(t.address)}
-            >
-              {t.symbol}
-            </Button>
-          ))}
+          <TokenPicker tokens={tokens} value={token.address} onChange={selectToken} />
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2">
           {WINDOWS.map((w) => (

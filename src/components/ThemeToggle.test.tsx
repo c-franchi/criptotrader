@@ -32,6 +32,14 @@ it("still changes appearance when browser storage is unavailable", () => {
     throw new Error("denied");
   });
   render(<ThemeToggle />);
-  fireEvent.click(screen.getByRole("button", { name: "Ativar tema claro" }));
+  fireEvent.click(screen.getByRole("button", { name: "Ativar tema escuro" }));
+  expect(document.documentElement.dataset["theme"]).toBe("dark");
+});
+
+it("defaults to light without overwriting an explicitly selected dark theme", () => {
+  new Function(THEME_INIT)();
   expect(document.documentElement.dataset["theme"]).toBe("light");
+  localStorage.setItem(THEME_KEY, "dark");
+  new Function(THEME_INIT)();
+  expect(document.documentElement.dataset["theme"]).toBe("dark");
 });

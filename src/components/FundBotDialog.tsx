@@ -1,3 +1,4 @@
+import { TokenPicker } from "@/components/TokenPicker";
 import { useEffect, useRef, useState } from "react";
 import { Slider } from "@/components/ui/slider";
 import { getFxQuote } from "@/lib/fx.functions";
@@ -312,19 +313,16 @@ export function FundBotDialog({
             className={`rounded-md border p-3 ${account ? "border-primary/40" : "border-border opacity-60"}`}
           >
             <p className="font-medium">2. O que e quanto enviar?</p>
-            <select
-              className="mt-2 w-full rounded-md border border-border bg-background p-2 text-sm"
-              disabled={!account}
+            <TokenPicker
+              label="Ativo a enviar"
+              tokens={[
+                { address: "BNB", symbol: "BNB", name: "Para comprar e pagar o gás" },
+                ...tokens,
+              ]}
               value={asset}
-              onChange={(e) => setAsset(e.target.value)}
-            >
-              <option value="BNB">BNB (para comprar e pagar o gás)</option>
-              {tokens.map((t) => (
-                <option key={t.address} value={t.address}>
-                  {t.symbol} — {t.name}
-                </option>
-              ))}
-            </select>
+              onChange={setAsset}
+              disabled={!account || !!busy}
+            />
             {isBnb && (
               <div className="mt-2 grid grid-cols-2 gap-1 rounded-md bg-secondary p-1">
                 {(["BRL", "BNB"] as const).map((u) => (

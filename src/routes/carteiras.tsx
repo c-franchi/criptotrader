@@ -1,3 +1,4 @@
+import { FiatValue } from "@/hooks/useCurrency";
 import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -226,6 +227,7 @@ function BotWallet() {
                   .join(" · ")}
               </>
             )}
+            {bnb !== null && <FiatValue bnb={bnb} />}
           </p>
           <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
             <li>
