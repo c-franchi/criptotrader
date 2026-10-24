@@ -213,7 +213,7 @@ it("preserves robot buy/sell/protection levels and executed points in the compac
   expect(screen.getByText(/Compra do robô: US\$ 99,00/)).toBeTruthy();
   expect(screen.getByText(/Venda do robô: US\$ 101,00/)).toBeTruthy();
   expect(screen.getByText(/Proteção do robô: US\$ 98,00/)).toBeTruthy();
-  expect(screen.getByText("C")).toBeTruthy();
+  expect(screen.getByText("C1")).toBeTruthy();
   expect(JSON.parse(localStorage.getItem("cryptobot:robot-chart-view")!).mode).toBe("line");
   expect(localStorage.getItem("cryptobot:trade-chart-view")).toBeNull();
 });
@@ -291,4 +291,74 @@ it("includes held quantity, average, cost and sale/protection levels in the expa
   expect(screen.getByLabelText("Dados da posição mantida")).toHaveTextContent("Preço médio");
   expect(screen.getByText(/Venda: US\$ 103,00/)).toBeTruthy();
   expect(screen.getByText(/Stop: US\$ 90,00/)).toBeTruthy();
+});
+
+it("numbers every entry chronologically and keeps multiple fills in the same candle clickable", () => {
+  render(
+    <CandleChart
+      compact
+      candles={candles}
+      now={9000000}
+      trades={[
+        { id: "second", time: 6100000, side: "compra", details: ["Segunda compra"] },
+        { id: "first", time: 6000000, side: "compra", details: ["Primeira compra"] },
+      ]}
+    />,
+  );
+  const first = screen.getByRole("button", { name: /C1 · compra/ });
+  const second = screen.getByRole("button", { name: /C2 · compra/ });
+  expect(first).toHaveAttribute("data-trade-id", "first");
+  expect(second).toHaveAttribute("data-trade-id", "second");
+  expect(first.querySelector("circle")?.getAttribute("cy")).not.toBe(
+    second.querySelector("circle")?.getAttribute("cy"),
+  );
+  fireEvent.click(first);
+  expect(screen.getByLabelText("Detalhes da operação selecionada")).toHaveTextContent(
+    "Primeira compra",
+  );
+});
+it("preserves an old entry without fabricating a price and can locate it from the external history", () => {
+  const old = {
+    id: "old",
+    time: -100000000,
+    side: "compra",
+    details: ["Compra antiga registrada"],
+  };
+  const props = {
+    compact: true,
+    candles,
+    now: 9000000,
+    trades: [old, { id: "new", time: 6000000, side: "compra", details: [] }],
+  };
+  const view = render(<CandleChart {...props} />);
+  expect(screen.getByRole("button", { name: /C1.*fora do período/ })).toBeTruthy();
+  view.rerender(<CandleChart {...props} focusRequest={{ id: "old", request: 1 }} />);
+  expect(
+    screen.getByRole("button", { name: /C1 · compra.*cotação histórica indisponível/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByLabelText("Detalhes da operação selecionada")).toHaveTextContent(
+    "Sem vela histórica",
+  );
+  expect(screen.getByLabelText("Detalhes da operação selecionada")).toHaveTextContent(
+    "Compra antiga registrada",
+  );
+});
+it("initially frames all held entries but still honors a manually chosen period", () => {
+  render(
+    <CandleChart
+      compact
+      candles={candles}
+      now={9000000}
+      fitTradeIds={["old", "new"]}
+      trades={[
+        { id: "old", time: -100000000, side: "compra", details: [] },
+        { id: "new", time: 6000000, side: "compra", details: [] },
+      ]}
+    />,
+  );
+  expect(screen.getByRole("button", { name: /C1 · compra/ })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "1h" }));
+  expect(screen.getByRole("button", { name: /C1.*fora do período/ })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Mostrar todas as entradas da posição" }));
+  expect(screen.getByRole("button", { name: /C1 · compra/ })).toBeTruthy();
 });
