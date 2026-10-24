@@ -19,20 +19,32 @@ async function fetchQuote(): Promise<FxQuote> {
   const [bnbRes, brlRes] = await Promise.allSettled([
     fetch(`https://api.dexscreener.com/latest/dex/tokens/${WBNB}`, {
       headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(8000),
     }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
     fetch("https://open.er-api.com/v6/latest/USD", {
       headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(8000),
     }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
   ]);
-  const bnbUsd =
+  let bnbUsd =
     bnbRes.status === "fulfilled"
       ? (bnbRes.value?.pairs?.find(
           (p: { chainId?: string; priceUsd?: string }) => p.chainId === "bsc" && p.priceUsd,
         )?.priceUsd ?? null)
       : null;
+  if (!(Number(bnbUsd) > 0)) {
+    try {
+      const { bnbUsdPrice } = await import("./market.server");
+      bnbUsd = await bnbUsdPrice(
+        createPublicClient({ chain: bsc, transport: http(RPC, { timeout: 5000, retryCount: 0 }) }),
+      );
+    } catch {
+      bnbUsd = null;
+    }
+  }
   const usdBrl = brlRes.status === "fulfilled" ? (brlRes.value?.rates?.BRL ?? null) : null;
   return {
-    bnbUsd: bnbUsd === null ? null : Number(bnbUsd),
+    bnbUsd: Number.isFinite(Number(bnbUsd)) && Number(bnbUsd) > 0 ? Number(bnbUsd) : null,
     usdBrl: usdBrl === null ? null : Number(usdBrl),
     usdEur: brlRes.status === "fulfilled" ? Number(brlRes.value?.rates?.EUR) || null : null,
     at: Date.now(),

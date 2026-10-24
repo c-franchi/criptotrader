@@ -24,7 +24,7 @@ const pending = new Map<string, Promise<Market>>();
 const USDT = "0x55d398326f99059fF775485246999027B3197955" as const;
 /** BNB price in USD from the PancakeSwap V2 WBNB/USDT pool (both 18 decimals). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function bnbUsdPrice(client: any, blockNumber?: bigint): Promise<number | null> {
+export async function bnbUsdPrice(client: any, blockNumber?: bigint): Promise<number | null> {
   const pair = await client.readContract({
     address: PANCAKE_V2_FACTORY,
     blockNumber,

@@ -1,3 +1,4 @@
+import { FundsOverview } from "@/components/FundsOverview";
 import { PageHeading } from "@/components/PageHeading";
 import { FiatValue } from "@/hooks/useCurrency";
 import { TokenPicker } from "@/components/TokenPicker";
@@ -143,7 +144,8 @@ function Dashboard() {
 
   return (
     <AppShell>
-      <PageHeading title="Painel" description="Seu mercado, preços e gráfico." />
+      <PageHeading title="Painel" description="Seus fundos, robôs e mercado." />
+      <FundsOverview />
       <div data-token-picker className="mb-4 flex flex-wrap gap-2">
         <TokenPicker tokens={tokens} value={addr} onChange={setAddr} />
         <AddTokenDialog />

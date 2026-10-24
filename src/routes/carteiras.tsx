@@ -1,3 +1,4 @@
+import { FundsOverview } from "@/components/FundsOverview";
 import { PageHeading } from "@/components/PageHeading";
 import { BotPerformancePanel } from "@/components/BotPerformancePanel";
 import { FiatValue } from "@/hooks/useCurrency";
@@ -69,6 +70,7 @@ function Wallets() {
         </p>
       </Panel>
 
+      <FundsOverview />
       <BotWallet />
 
       <Panel title="Adicionar carteira">

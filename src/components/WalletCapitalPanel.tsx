@@ -54,7 +54,7 @@ export function WalletCapitalPanel({
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
             {[
               ["BNB na carteira", c.balance],
-              ["Em posições registradas", c.invested],
+              ["Compras abertas · custo registrado", c.invested],
               ["Reservado para compras", c.reserved],
               ["Reserva para gás", c.gas],
               ["Livre para outro trade", locked !== false ? "0" : c.free],
@@ -66,6 +66,10 @@ export function WalletCapitalPanel({
               </div>
             ))}
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Reservas de compra e gás já fazem parte do BNB na carteira. O custo das compras abertas
+            é uma referência; o valor atual dos tokens aparece no total de fundos do painel.
+          </p>
           {previewId && (
             <p className="mt-2 text-xs text-primary">
               Prévia de início: inclui o capital do bot selecionado, mesmo pausado. Os outros bots
