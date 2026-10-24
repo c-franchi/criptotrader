@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ user: { id: "owner" } as any, error: false, rows: [] as any[] }));
+vi.mock("@/hooks/useSelectedToken", () => ({
+  useSelectedToken: () => ({ tokens: [{ address: "t", name: "Token de teste", symbol: "T" }] }),
+}));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: state.user }) }));
 vi.mock("@/hooks/useSelectedWallet", () => ({
   useSelectedWallet: () => ({ walletScope: "one", name: "Master" }),
@@ -74,4 +77,39 @@ it("marks retained values as the last successful query if a refresh fails", () =
   render(<FundsOverview />);
   expect(screen.getByText("Último total consultado")).toBeTruthy();
   expect(screen.getByRole("alert").textContent).toContain("última consulta");
+});
+
+it("shows each token quantity and fiat value without opening details, separately for robot wallets", () => {
+  state.rows = [
+    wallet,
+    {
+      ...wallet,
+      address: "0xrobot",
+      label: "Master robô",
+      personal: false,
+      bot: true,
+      bnb: "2",
+      assets: [{ address: "t", symbol: "T", amount: "100", priceBnb: "0.002" }],
+    },
+  ];
+  render(<FundsOverview />);
+  const personal = within(screen.getByRole("region", { name: "Suas carteiras" }));
+  const robots = within(screen.getByRole("region", { name: "Carteiras dos robôs" }));
+  expect(personal.getByText("Pessoal")).toBeTruthy();
+  expect(personal.queryByText("Token de teste")).toBeNull();
+  const token = robots.getByText("Token de teste").closest("li")!;
+  expect(within(token).getByText("100 T")).toBeTruthy();
+  expect(within(token).getByText(/10,00/)).toBeTruthy();
+  expect(token.closest("details")).toBeNull();
+  expect(robots.getByText(/110,00/)).toBeTruthy();
+});
+it("keeps an unpriced token visible with its quantity and an explicit unavailable value", () => {
+  state.rows = [
+    { ...wallet, assets: [{ address: "t", symbol: "T", amount: "100", priceBnb: null }] },
+  ];
+  render(<FundsOverview />);
+  const token = screen.getByText("Token de teste").closest("li")!;
+  expect(within(token).getByText("100 T")).toBeTruthy();
+  expect(within(token).getByText("Não apurado")).toBeTruthy();
+  expect(token.closest("details")).toBeNull();
 });
