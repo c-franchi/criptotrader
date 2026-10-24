@@ -181,6 +181,7 @@ function PriceChart({
           <CandleChart
             compact
             preferenceKey="cryptobot:panel-chart-view"
+            history={candles.history}
             candles={all}
             now={now}
             strategyMinutes={strategyMinutes}

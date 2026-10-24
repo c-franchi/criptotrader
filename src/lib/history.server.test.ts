@@ -35,3 +35,39 @@ it("keeps robot history independent of a stalled chart request, bounded to one s
     [100, 10, 11, 9, 10, 1],
   ]);
 });
+
+it("paginates historical OHLCV by seconds without contaminating the live robot cache", async () => {
+  vi.stubEnv("SUPABASE_URL", "");
+  const { readCandleHistoryPage } = await import("./history.server");
+  const fetcher = vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ data: { attributes: { ohlcv_list: [[3000, 10, 11, 9, 10, 1]] } } }),
+  });
+  vi.stubGlobal("fetch", fetcher);
+  expect(await readCandleHistoryPage("pool-old-page", "token", 6000)).toHaveLength(1);
+  const url = new URL(String(fetcher.mock.calls[0]?.[0]));
+  expect(url.searchParams.get("before_timestamp")).toBe("6000");
+  expect(url.searchParams.get("limit")).toBe("1000");
+  await readCandleHistoryPage("pool-old-page", "token", 6000);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  await readCandles("pool-old-page", "token", { fast: true });
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(new URL(String(fetcher.mock.calls[1]?.[0])).searchParams.has("before_timestamp")).toBe(
+    false,
+  );
+});
+it("keeps an exhausted page distinct from provider failure", async () => {
+  const { readCandleHistoryPage } = await import("./history.server");
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: { attributes: { ohlcv_list: [] } } }),
+      })
+      .mockResolvedValueOnce({ ok: false, status: 429 }),
+  );
+  expect(await readCandleHistoryPage("pool-empty-page", "token", 6000)).toEqual([]);
+  await expect(readCandleHistoryPage("pool-error-page", "token", 6000)).rejects.toThrow("429");
+});

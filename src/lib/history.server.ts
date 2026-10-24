@@ -43,19 +43,25 @@ async function saveCandles(pool: string, token: string, candles: Candle[]) {
   }
 }
 
-async function fetchGecko(pool: string, token?: string, fast = false): Promise<Candle[]> {
+async function fetchGecko(
+  pool: string,
+  token?: string,
+  fast = false,
+  before?: number,
+): Promise<Candle[]> {
   const url = new URL(
     `https://api.geckoterminal.com/api/v2/networks/bsc/pools/${pool}/ohlcv/minute`,
   );
   url.search = new URLSearchParams({
     aggregate: "5",
-    limit: "300",
+    limit: before != null ? "1000" : "300",
     currency: "usd",
     token: token ?? "base",
     include_empty_intervals: "true",
   }).toString();
+  if (before != null) url.searchParams.set("before_timestamp", String(before));
   let lastError: unknown;
-  for (let attempt = 0; attempt < (fast ? 1 : 3); attempt++) {
+  for (let attempt = 0; attempt < (fast || before != null ? 1 : 3); attempt++) {
     try {
       const res = await fetch(url, {
         headers: { accept: "application/json", "user-agent": "CryptoBot/1.0" },
@@ -80,7 +86,7 @@ async function fetchGecko(pool: string, token?: string, fast = false): Promise<C
         .sort((a, b) => a[0] - b[0]);
     } catch (e) {
       lastError = e;
-      if (!fast && attempt < 2)
+      if (!fast && before == null && attempt < 2)
         await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
     }
   }
@@ -128,5 +134,31 @@ export async function readCandles(
     throw new Error("Fonte de histórico temporariamente indisponível");
   })().finally(() => pending.delete(requestKey));
   pending.set(requestKey, request);
+  return request;
+}
+
+// Older chart pages never enter the latest/robot cache or overwrite its saved snapshot.
+const olderCache = new Map<string, { candles: Candle[]; expires: number }>();
+const olderPending = new Map<string, Promise<Candle[]>>();
+export async function readCandleHistoryPage(
+  pool: string,
+  token: string | undefined,
+  before: number,
+): Promise<Candle[]> {
+  const cursor = Math.min(Math.ceil(before / 300) * 300, Math.ceil(Date.now() / 300000) * 300);
+  const key = `${pool.toLowerCase()}:${token?.toLowerCase() ?? "base"}:${cursor}`;
+  const saved = olderCache.get(key);
+  if (saved && saved.expires > Date.now()) return saved.candles;
+  const active = olderPending.get(key);
+  if (active) return active;
+  const request = fetchGecko(pool, token, false, cursor)
+    .then((rows) => {
+      const candles = rows.filter((c) => c[0] < cursor);
+      if (olderCache.size >= 200) olderCache.clear();
+      olderCache.set(key, { candles, expires: Date.now() + 15 * 60000 });
+      return candles;
+    })
+    .finally(() => olderPending.delete(key));
+  olderPending.set(key, request);
   return request;
 }

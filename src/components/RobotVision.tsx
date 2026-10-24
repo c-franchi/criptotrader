@@ -367,6 +367,7 @@ export function RobotVision(props: {
         }}
         preferenceKey="cryptobot:robot-chart-view"
         alignStrategy
+        history={candles.history}
         candles={candles.data ?? []}
         now={now}
         strategyMinutes={intervalMinutes(cfg?.candleInterval ?? "15m")}
