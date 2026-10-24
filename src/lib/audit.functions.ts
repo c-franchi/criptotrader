@@ -24,6 +24,14 @@ export const auditOrder = createServerFn({ method: "GET" })
       .maybeSingle();
     return {
       ...receipt,
+      nativeReceived:
+        order.accounting_status === "confirmado" && order.actual_bnb_received != null
+          ? String(order.actual_bnb_received)
+          : receipt.nativeReceived,
+      nativeReceivedStatus:
+        order.accounting_status === "confirmado" && order.actual_bnb_received != null
+          ? "BNB recebido confirmado pelas transferências da transação"
+          : receipt.nativeReceivedStatus,
       side: order.side,
       quotedOutRaw: order.quoted_out,
       approvalHash: order.approve_hash,
@@ -88,4 +96,36 @@ export const reconcileUserOrders = createServerFn({ method: "POST" })
         /* missing receipt is pending, never failure */
       }
     }
+  });
+
+/** Recheck an already-confirmed sale without sending another transaction. */
+export const reconcileOrderAccounting = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/) }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: order, error } = await context.supabase
+      .from("orders")
+      .select("id,tx_hash,wallet,wallet_scope,actual_bnb_received,side,status")
+      .eq("user_id", context.userId)
+      .eq("tx_hash", data.hash)
+      .maybeSingle();
+    if (
+      error ||
+      !order ||
+      order.side !== "venda" ||
+      order.status !== "confirmada" ||
+      !order.tx_hash
+    )
+      throw new Error("Venda confirmada não encontrada no seu histórico.");
+    if (order.actual_bnb_received != null)
+      return { confirmed: true, message: "BNB recebido já confirmado." };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { pubClient } = await import("./bot.server");
+    const { reconcileAccounting } = await import("./reconcileAccounting.server");
+    return reconcileAccounting(supabaseAdmin, pubClient(), context.userId, {
+      ...order,
+      tx_hash: order.tx_hash,
+    });
   });

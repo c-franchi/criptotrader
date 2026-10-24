@@ -1,3 +1,4 @@
+import { ReconcileSaleButton } from "@/components/ReconcileSaleButton";
 import { useRobotChartOrders } from "@/hooks/useRobotChartOrders";
 import { TradingTour } from "@/components/TradingTour";
 import { FinishAutomationButton } from "@/components/FinishAutomationButton";
@@ -720,7 +721,11 @@ function Robo() {
                 }}
               />
             )}
-            <BotPerformancePanel walletScope={walletScope} token={token} />
+            <BotPerformancePanel
+              walletScope={walletScope}
+              token={token}
+              onUpdated={() => void load()}
+            />
           </div>
         </div>
         <div className="trade-tabs" role="tablist" aria-label="Dados dos robôs">
@@ -948,7 +953,7 @@ function Robo() {
                           BNB recebido:{" "}
                           <b>
                             {o.actual_bnb_received == null
-                              ? "Não apurado no receipt/trace"
+                              ? "Recebimento pendente de apuração"
                               : `${o.actual_bnb_received} BNB`}
                           </b>
                         </p>
@@ -958,6 +963,12 @@ function Robo() {
                         {o.accounting_status ?? "Registro legado; conferir auditoria"}
                       </p>
                     </div>
+                    {o.side === "venda" &&
+                      o.status === "confirmada" &&
+                      o.actual_bnb_received == null &&
+                      o.tx_hash && (
+                        <ReconcileSaleButton hash={o.tx_hash} onUpdated={() => void load()} />
+                      )}
                     {o.tx_hash && (
                       <a
                         className="break-all font-mono text-primary underline"

@@ -35,3 +35,24 @@ it("continues valuing retained purchases without treating the automation stop as
   expect(report.open).toBeCloseTo(0.19);
   expect(report.total).toBeCloseTo(0.19);
 });
+
+it("does not mistake a full sale for an oversell due to raw token rounding", () => {
+  const raw = "10000000000000000000123";
+  const result = botPerformance(
+    [
+      { ...buy, actual_token_delta: raw },
+      {
+        ...buy,
+        side: "venda",
+        actual_token_delta: "-" + raw,
+        actual_bnb_received: "1.2",
+        gas_bnb: "0.02",
+      },
+    ],
+    0,
+    0,
+    null,
+    null,
+  );
+  expect(result.realized).toBeCloseTo(0.17);
+});
