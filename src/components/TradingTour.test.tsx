@@ -1,0 +1,30 @@
+import { afterEach, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { TradingTour } from "./TradingTour";
+afterEach(cleanup);
+it("explains three bot steps and only opens configuration after the final action", () => {
+  const complete = vi.fn();
+  render(<TradingTour kind="bot" onComplete={complete} />);
+  fireEvent.click(screen.getByRole("button", { name: "Como usar" }));
+  expect(screen.getByText("Defina seu robô")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Seguinte" }));
+  expect(screen.getByRole("img", { name: /Exemplo ilustrativo/ })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
+  expect(screen.getByText("Defina seu robô")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Seguinte" }));
+  fireEvent.click(screen.getByRole("button", { name: "Seguinte" }));
+  expect(screen.getByText(/também desativa metas e stop/)).toBeTruthy();
+  expect(complete).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Configurar robô" }));
+  expect(complete).toHaveBeenCalledOnce();
+});
+it("closing a manual tutorial does not request an operation and reopening starts at step one", () => {
+  const complete = vi.fn();
+  render(<TradingTour kind="manual" onComplete={complete} />);
+  fireEvent.click(screen.getByRole("button", { name: "Como usar" }));
+  fireEvent.click(screen.getByRole("button", { name: "Seguinte" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(complete).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Como usar" }));
+  expect(screen.getByText("Escolha a moeda")).toBeTruthy();
+});

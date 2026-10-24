@@ -29,6 +29,8 @@ import {
 import type { StrategyConfig } from "@/lib/strategy";
 import { FundBotDialog } from "./FundBotDialog";
 import { BotReadiness } from "./BotReadiness";
+import { useCandles } from "@/hooks/useCandles";
+import { CandleChart } from "./CandleChart";
 
 type Wallet = Awaited<ReturnType<typeof getBotWallet>>;
 type GuidedForm = Omit<GuidedInput, "taxConfirmed"> & { taxConfirmed: boolean };
@@ -89,10 +91,30 @@ function NumberField({
         onChange={(e) => onChange(Number(e.target.value))}
       />
       {hint && (
-        <p id={`${id}-hint`} className="mt-1 text-xs font-normal text-muted-foreground">
-          {hint}
-        </p>
+        <details className="setup-hint mt-1 font-normal">
+          <summary>Como funciona</summary>
+          <p id={`${id}-hint`}>{hint}</p>
+        </details>
       )}
+    </div>
+  );
+}
+function SetupChart({ pool, token }: { pool: string | undefined; token: string }) {
+  const candles = useCandles(pool, token);
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 3000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <div className="border-b pb-4">
+      <CandleChart
+        compact
+        candles={candles.data ?? []}
+        now={now}
+        preferenceKey="cryptobot:setup-chart"
+      />
     </div>
   );
 }
@@ -394,21 +416,20 @@ export function GuidedBotSetup({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent
         ref={dialogRef}
-        className="max-h-[92dvh] w-[calc(100vw-1rem)] max-w-2xl overflow-y-auto p-4 sm:p-6 [&>button.absolute]:size-11 [&>button.absolute]:grid [&>button.absolute]:place-items-center"
+        className="exchange-workspace exchange-setup max-h-[92dvh] w-[calc(100vw-1rem)] max-w-2xl overflow-y-auto p-4 sm:p-6 [&>button.absolute]:size-11 [&>button.absolute]:grid [&>button.absolute]:place-items-center"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader className="pr-10">
           <DialogTitle>Configurar robô · {symbol}</DialogTitle>
           <DialogDescription>
-            Carteira {walletName}. Você paga com BNB e recebe {symbol}. Toda a preparação acontece
-            aqui.
+            {symbol} / BNB · {walletName}
           </DialogDescription>
         </DialogHeader>
         {loaded && !saved && (
           <p className="text-xs text-muted-foreground" role="status">
             {storageFailed
               ? "O navegador não permitiu guardar o preenchimento. Salve as regras antes de sair da página."
-              : "Preenchimento salvo neste dispositivo por carteira e moeda. Fechar não inicia o robô."}
+              : "Rascunho salvo · fechar não inicia o robô."}
           </p>
         )}
         {conflict && (
@@ -429,27 +450,22 @@ export function GuidedBotSetup({
             </Button>
           </div>
         )}
-        <ol className="grid grid-cols-4 gap-1 text-center text-xs" aria-label="Etapas">
-          {["Modelo", "Valores", "Regras", "Revisar"].map((s, i) => (
-            <li
-              key={s}
-              aria-current={step === i ? "step" : undefined}
-              className={`rounded border p-2 ${step === i ? "border-primary text-primary" : "text-muted-foreground"}`}
-            >
-              <button
-                type="button"
-                className="w-full"
-                disabled={busy || !loaded}
-                onClick={() => {
-                  setStep(i);
-                  setError("");
-                }}
-              >
-                {i + 1}. {s}
-              </button>
-            </li>
-          ))}
-        </ol>
+        <div className="trade-tabs text-sm" aria-label="Etapas">
+          <button
+            type="button"
+            aria-selected={step < 3}
+            disabled={busy || !loaded}
+            onClick={() => {
+              setStep(0);
+              setError("");
+            }}
+          >
+            Configurar
+          </button>
+          <span className={`px-3 py-2 ${step === 3 ? "text-primary" : "text-muted-foreground"}`}>
+            Revisar e iniciar
+          </span>
+        </div>
         {unsupported && (
           <p role="alert" className="rounded border border-warning p-3 text-sm text-warning">
             {INCOMPATIBLE_BNB}
@@ -478,7 +494,7 @@ export function GuidedBotSetup({
                 substituir as regras; ou escolha outra moeda para criar outro robô.
               </p>
             )}
-            {step === 0 && (
+            {step < 3 && (
               <div data-setup-field="token" tabIndex={-1} className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
                   {walletOptions && onSelectWallet && (
@@ -508,13 +524,11 @@ export function GuidedBotSetup({
                     />
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Trocar carteira ou moeda preserva o preenchimento de cada uma neste dispositivo.
-                </p>
-                <p className="text-sm">
-                  Escolha como o robô vai agir. As porcentagens e os valores serão revisados antes
-                  de iniciar.
-                </p>
+                <SetupChart
+                  pool={market.data?.pools.find((p) => p.supported)?.pairAddress}
+                  token={token}
+                />
+                <h3 className="font-semibold">Modelo de operação</h3>
                 {(
                   [
                     [
@@ -536,7 +550,7 @@ export function GuidedBotSetup({
                 ).map(([id, name, desc]) => (
                   <label
                     key={id}
-                    className={`flex cursor-pointer gap-3 rounded-lg border p-3 ${form.model === id ? "border-primary" : "border-border"}`}
+                    className={`flex cursor-pointer gap-3 rounded-xl p-3 ${form.model === id ? "bg-primary/10 text-primary" : "bg-secondary"}`}
                   >
                     <input
                       type="radio"
@@ -547,7 +561,9 @@ export function GuidedBotSetup({
                     />
                     <span>
                       <b className="block text-sm">{name}</b>
-                      <span className="text-xs text-muted-foreground">{desc}</span>
+                      {form.model === id && (
+                        <span className="text-xs text-muted-foreground">{desc}</span>
+                      )}
                     </span>
                   </label>
                 ))}
@@ -567,7 +583,7 @@ export function GuidedBotSetup({
                 )}
               </div>
             )}
-            {step === 1 && (
+            {step < 3 && (
               <div className="space-y-4">
                 <div
                   className="rounded-lg border border-primary/40 p-3 text-sm space-y-2"
@@ -580,14 +596,17 @@ export function GuidedBotSetup({
                       const available = Math.max(0, Number(report.free) - form.reserve);
                       return (
                         <>
-                          <p>Saldo na carteira: {quote(Number(report.balance))}</p>
-                          <p>Em posições (custo registrado): {quote(Number(report.invested))}</p>
-                          <p>
-                            Reservado para compras de robôs ligados:{" "}
-                            {quote(Number(report.reserved))}
-                          </p>
-                          <p>Reservas para taxas de robôs ligados: {quote(Number(report.gas))}</p>
-                          <p>Reserva para taxas desta configuração: {quote(form.reserve)}</p>
+                          <details className="setup-hint">
+                            <summary>Ver divisão do saldo</summary>{" "}
+                            <p>Saldo na carteira: {quote(Number(report.balance))}</p>
+                            <p>Em posições (custo registrado): {quote(Number(report.invested))}</p>
+                            <p>
+                              Reservado para compras de robôs ligados:{" "}
+                              {quote(Number(report.reserved))}
+                            </p>
+                            <p>Reservas para taxas de robôs ligados: {quote(Number(report.gas))}</p>
+                            <p>Reserva para taxas desta configuração: {quote(form.reserve)}</p>
+                          </details>{" "}
                           <p className="font-semibold text-primary">
                             {capital.data.locked
                               ? "Novas compras bloqueadas: há execução pendente de conferência."
@@ -625,10 +644,7 @@ export function GuidedBotSetup({
                     Atualizar saldo
                   </Button>
                 </div>
-                <p className="text-sm">
-                  O capital é o teto de compras deste robô. A reserva para taxas fica fora desse
-                  valor; outros robôs não podem usar o mesmo saldo duas vezes.
-                </p>
+                <h3 className="font-semibold">Investimento</h3>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
@@ -708,12 +724,9 @@ export function GuidedBotSetup({
                 </div>
               </div>
             )}
-            {step === 2 && (
+            {step < 3 && (
               <div className="space-y-4">
-                <p className="text-sm">
-                  Os valores iniciais são editáveis. As metas não garantem o preço de execução nem
-                  lucro após todos os custos.
-                </p>
+                <h3 className="font-semibold">Compra, venda e proteção</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   {form.model === "grid" ? (
                     <>
@@ -901,34 +914,58 @@ export function GuidedBotSetup({
             )}
             {step === 3 && (
               <div className="space-y-4">
-                <div className="rounded-lg border border-primary/40 p-3 text-sm">
-                  <p>
-                    <b>{symbol}</b> · carteira {walletName} · compra com BNB
+                <div className="rounded-xl bg-secondary p-4 text-sm">
+                  <dl className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <dt className="text-muted-foreground">Investimento máximo</dt>
+                      <dd className="font-semibold">{quote(form.capital)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Por compra</dt>
+                      <dd className="font-semibold">{quote(form.buyAmount)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Meta de ganho</dt>
+                      <dd className="text-success font-semibold">{form.profitPct}%</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Stop loss</dt>
+                      <dd className="text-destructive font-semibold">{form.stopPct}%</dd>
+                    </div>
+                  </dl>
+                  <p className="text-xs mb-3">
+                    Metas não garantem execução nem lucro após os custos.
                   </p>
-                  <p className="mt-2">
-                    Pode usar até <b>{quote(form.capital)}</b>, mais {quote(form.reserve)}{" "}
-                    reservados para taxas. Cada compra usa até {quote(form.buyAmount)}, respeitando
-                    o capital disponível.
-                  </p>
-                  <p className="mt-2">
-                    {form.model === "grid"
-                      ? `Faixa de ${form.lower} a ${form.upper} BNB por moeda, em ${form.levels} intervalos. A primeira avaliação apenas registra o nível; nenhuma compra imediata é prometida.`
-                      : form.model === "recovery"
-                        ? `Espera queda de ${form.dropPct}%, recuperação entre ${form.reboundPct}% e ${form.maxReboundPct}% e ${form.confirmationBars} fechamentos em alta. Apenas uma entrada por fundo.`
-                        : `Primeira compra após queda de ${form.dropPct}% da referência de 24h. Até ${form.maxEntries} compras; novas entradas exigem mais queda. Não compra imediatamente ao iniciar.`}
-                  </p>
-                  <p className="mt-2">
-                    Meta de ganho: {form.profitPct}% após taxas do token, antes dos demais custos.
-                    Proteção: vender após queda de {form.stopPct}% do preço médio. Pausar não vende
-                    a posição.
-                  </p>
-                  <p className="mt-2 text-xs">
-                    As regras guiadas usam velas de 15 minutos e janela de 24 horas. Esperam{" "}
-                    {form.cooldownMin} minutos entre compras; novas entradas param após{" "}
-                    {form.maxTradesPerDay} operações no dia, preservando as saídas da posição. Ao
-                    salvar, substituem as regras anteriores deste robô pausado e sem posição,
-                    incluindo parâmetros avançados. O histórico permanece.
-                  </p>
+                  <details className="setup-hint">
+                    <summary>Ver todas as regras</summary>
+                    <p>
+                      <b>{symbol}</b> · carteira {walletName} · compra com BNB
+                    </p>
+                    <p className="mt-2">
+                      Pode usar até <b>{quote(form.capital)}</b>, mais {quote(form.reserve)}{" "}
+                      reservados para taxas. Cada compra usa até {quote(form.buyAmount)},
+                      respeitando o capital disponível.
+                    </p>
+                    <p className="mt-2">
+                      {form.model === "grid"
+                        ? `Faixa de ${form.lower} a ${form.upper} BNB por moeda, em ${form.levels} intervalos. A primeira avaliação apenas registra o nível; nenhuma compra imediata é prometida.`
+                        : form.model === "recovery"
+                          ? `Espera queda de ${form.dropPct}%, recuperação entre ${form.reboundPct}% e ${form.maxReboundPct}% e ${form.confirmationBars} fechamentos em alta. Apenas uma entrada por fundo.`
+                          : `Primeira compra após queda de ${form.dropPct}% da referência de 24h. Até ${form.maxEntries} compras; novas entradas exigem mais queda. Não compra imediatamente ao iniciar.`}
+                    </p>
+                    <p className="mt-2">
+                      Meta de ganho: {form.profitPct}% após taxas do token, antes dos demais custos.
+                      Proteção: vender após queda de {form.stopPct}% do preço médio. Pausar não
+                      vende a posição.
+                    </p>
+                    <p className="mt-2 text-xs">
+                      As regras guiadas usam velas de 15 minutos e janela de 24 horas. Esperam{" "}
+                      {form.cooldownMin} minutos entre compras; novas entradas param após{" "}
+                      {form.maxTradesPerDay} operações no dia, preservando as saídas da posição. Ao
+                      salvar, substituem as regras anteriores deste robô pausado e sem posição,
+                      incluindo parâmetros avançados. O histórico permanece.
+                    </p>
+                  </details>
                 </div>
                 {!saved ? (
                   <>
@@ -993,21 +1030,22 @@ export function GuidedBotSetup({
               </div>
             )}
             {!saved && (
-              <div className="flex items-center justify-between gap-2 border-t pt-3">
-                <Button
-                  variant="outline"
-                  disabled={busy || step === 0}
-                  onClick={() => setStep((n) => n - 1)}
-                >
-                  Voltar
-                </Button>
-                {step < 3 && (
+              <div className="sticky bottom-0 flex gap-2 border-t bg-background py-3">
+                {step === 3 ? (
                   <Button
-                    disabled={busy || unsupported || locked || (step === 0 && !compatible)}
+                    variant="secondary"
+                    className="w-full"
+                    disabled={busy}
+                    onClick={() => setStep(0)}
+                  >
+                    Editar parâmetros
+                  </Button>
+                ) : (
+                  <Button
+                    className="h-12 w-full"
+                    disabled={busy || unsupported || locked || !compatible}
                     onClick={() => {
-                      if (step === 1 && (!(form.capital > 0) || !(form.buyAmount > 0)))
-                        return setError("Informe o capital e o valor por compra.");
-                      if (step === 2 && !validation.success) {
+                      if (!validation.success) {
                         const problem = validation.error.issues[0];
                         goToField(String(problem?.path[0] ?? "profitPct"));
                         setError(
@@ -1018,10 +1056,10 @@ export function GuidedBotSetup({
                         return;
                       }
                       setError("");
-                      setStep((n) => n + 1);
+                      setStep(3);
                     }}
                   >
-                    Continuar
+                    Revisar robô
                   </Button>
                 )}
               </div>
