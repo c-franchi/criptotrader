@@ -1,3 +1,4 @@
+import { useRobotChartOrders } from "@/hooks/useRobotChartOrders";
 import { TradingTour } from "@/components/TradingTour";
 import { FinishAutomationButton } from "@/components/FinishAutomationButton";
 import type { ReadinessAction } from "@/lib/readinessIssues";
@@ -13,7 +14,7 @@ import { recoverStrategyExecution } from "@/lib/strategy.functions";
 import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { LEGACY_WALLET_SCOPE } from "@/lib/walletScope";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -104,6 +105,18 @@ function Robo() {
   const { token: selected, selectToken: setToken, tokens } = useSelectedToken();
   const token = selected.address;
   const sym = selected.symbol;
+  const chartOrders = useRobotChartOrders(user?.id, walletScope, token);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [chartFocus, setChartFocus] = useState<{ id: string; request: number } | null>(null);
+  useEffect(() => {
+    setChartFocus(null);
+  }, [walletScope, token]);
+  const locateOrder = (id: string) => {
+    setChartFocus((previous) => ({ id, request: (previous?.request ?? 0) + 1 }));
+    requestAnimationFrame(() =>
+      chartRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }),
+    );
+  };
   const [w, setW] = useState<Wallet | null>(null);
   const [bot, setBot] = useState<Bot | null>(null);
   const [mode, setMode] = useState<Mode>("estrategia");
@@ -111,6 +124,16 @@ function Robo() {
   const [f, setF] = useState(blank);
   const [orderLimit, setOrderLimit] = useState(20);
   const [orders, setOrders] = useState<Tables<"orders">[]>([]);
+  const plotOrders = useMemo(
+    () => [
+      ...new Map(
+        [...(chartOrders.data ?? []), ...orders.filter((o) => o.status === "confirmada")].map(
+          (o) => [o.id, o],
+        ),
+      ).values(),
+    ],
+    [chartOrders.data, orders],
+  );
   const [analysis, setAnalysis] = useState<Awaited<ReturnType<typeof getBotAnalysis>> | null>(null);
   const [analysisError, setAnalysisError] = useState(false);
   useEffect(() => {
@@ -395,13 +418,16 @@ function Robo() {
         </div>
         <RobotVision
           chartOnly
+          key={selectionKey}
+          focusRequest={chartFocus}
+          tokenDecimals={selected.decimals}
           token={token}
           symbol={sym}
           cfg={cfg}
           state={st}
           mode={mode}
           grid={lines}
-          orders={orders}
+          orders={plotOrders}
           armed={armed}
           reason={bot?.last_reason}
           evaluatedAt={bot?.last_run_at}
@@ -490,16 +516,31 @@ function Robo() {
         )}
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_350px]">
           <Panel title="Mercado">
-            <div className="mt-3">
+            <div ref={chartRef} className="mt-3 scroll-mt-24">
+              {chartOrders.isError && (
+                <p role="alert" className="mb-2 text-sm text-warning">
+                  Não foi possível atualizar todas as marcações. Os registros já recebidos foram
+                  mantidos.{" "}
+                  <button
+                    className="text-primary underline"
+                    onClick={() => void chartOrders.refetch()}
+                  >
+                    Tentar novamente
+                  </button>
+                </p>
+              )}
               <RobotVision
                 streamlined
+                key={selectionKey}
+                focusRequest={chartFocus}
+                tokenDecimals={selected.decimals}
                 token={token}
                 symbol={sym}
                 cfg={cfg}
                 state={st}
                 mode={mode}
                 grid={lines}
-                orders={orders}
+                orders={plotOrders}
                 armed={armed}
                 reason={bot?.last_reason}
                 evaluatedAt={bot?.last_run_at}
@@ -869,6 +910,17 @@ function Robo() {
                         {new Date(o.created_at).toLocaleString("pt-BR")}
                       </span>
                     </div>
+                    {o.status === "confirmada" && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="mt-2 w-full"
+                        aria-pressed={chartFocus?.id === o.id}
+                        onClick={() => locateOrder(o.id)}
+                      >
+                        Ver {o.side} no gráfico ↗
+                      </Button>
+                    )}
                     <div className="my-2 grid grid-cols-2 gap-2">
                       <p>
                         Valor da ordem:{" "}
@@ -877,6 +929,16 @@ function Robo() {
                           {o.side === "compra" ? "BNB" : sym}
                         </b>
                       </p>
+                      {o.side === "compra" && (
+                        <p>
+                          Quantidade recebida:{" "}
+                          <b>
+                            {o.actual_token_delta == null
+                              ? "Não apurada"
+                              : `${rawAmount(o.actual_token_delta, selected.decimals)} ${sym}`}
+                          </b>
+                        </p>
+                      )}
                       <p>
                         Gás registrado:{" "}
                         <b>{o.gas_bnb == null ? "Não apurado" : `${o.gas_bnb} BNB`}</b>
@@ -912,6 +974,14 @@ function Robo() {
               )}
             </Panel>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={orders.length < orderLimit}
+            onClick={() => setOrderLimit((n) => n + 20)}
+          >
+            Carregar mais operações
+          </Button>
         </section>
         <details className="rounded-lg border border-border p-3">
           <summary className="cursor-pointer text-sm font-semibold">
@@ -1267,14 +1337,6 @@ function Robo() {
             </Panel>
           </div>
         </details>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={orders.length < orderLimit}
-          onClick={() => setOrderLimit((n) => n + 20)}
-        >
-          Carregar mais operações
-        </Button>
       </div>
     </div>
   );

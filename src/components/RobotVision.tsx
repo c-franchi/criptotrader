@@ -1,3 +1,4 @@
+import { formatUnits } from "viem";
 import { FiatValue } from "@/hooks/useCurrency";
 import { formatUsd, formatDistancePct } from "@/lib/display";
 import { incompatibleBotToken, INCOMPATIBLE_BNB } from "@/lib/guidedBot";
@@ -22,6 +23,8 @@ import { strategyObservation } from "@/lib/strategyObservation";
 import type { auditOrder } from "@/lib/audit.functions";
 
 type Order = {
+  id?: string;
+  actual_token_delta?: string | null;
   side: string;
   status: string;
   token: string;
@@ -55,7 +58,7 @@ export function robotLines(
       if (t.pct > 0 && !s.tpDone.includes(i))
         out.push({
           price: s.avgPriceUsd * (1 + t.pct / 100),
-          label: `Venda ${i + 1} (+${t.pct}%)`,
+          label: `Venda ${i + 1} (+${formatDistancePct(t.pct)})`,
           tone: "sell",
         });
     });
@@ -97,6 +100,8 @@ export function RobotVision(props: {
   executionBlocked?: boolean | undefined;
   chartOnly?: boolean;
   streamlined?: boolean;
+  focusRequest?: { id: string; request: number } | null;
+  tokenDecimals?: number;
   serverAnalysis?: { reason: string; error: string | null; at: string } | null | undefined;
 }) {
   const { token, symbol, cfg, state, mode, grid, orders, armed, reason, evaluatedAt } = props;
@@ -342,6 +347,16 @@ export function RobotVision(props: {
       <CandleChart
         key={`${token}:${cfg?.candleInterval}`}
         compact
+        focusRequest={props.focusRequest ?? null}
+        fitTradeIds={
+          state.tokens > 0
+            ? orders
+                .filter((o) => o.status === "confirmada" && o.side === "compra")
+                .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+                .slice(0, state.entries)
+                .map((o) => o.id ?? o.tx_hash ?? `${o.side}:${Date.parse(o.created_at)}`)
+            : []
+        }
         minimal={!!props.chartOnly}
         position={{
           symbol,
@@ -385,12 +400,27 @@ export function RobotVision(props: {
             const evidence = audited.find(
               (r) => r.hash === o.tx_hash && r.token.toLowerCase() === token.toLowerCase(),
             );
+            const quantity = (raw: string | null | undefined, decimals: number) => {
+              try {
+                return Number(formatUnits(BigInt(raw ?? ""), decimals)).toLocaleString("pt-BR", {
+                  maximumSignificantDigits: 10,
+                });
+              } catch {
+                return "Não apurado";
+              }
+            };
+            const summary = [
+              `Valor enviado: ${quantity(o.amount_in, o.side === "compra" ? 18 : (props.tokenDecimals ?? 18))} ${o.side === "compra" ? "BNB" : symbol}.`,
+              `Quantidade efetiva de ${symbol}: ${quantity(o.actual_token_delta, props.tokenDecimals ?? 18)}.`,
+            ];
             return {
+              id: o.id ?? o.tx_hash ?? `${o.side}:${Date.parse(o.created_at)}`,
               time: evidence?.timestamp ?? Date.parse(o.created_at),
               side: o.side,
               hash: o.tx_hash,
               details: evidence
                 ? [
+                    ...summary,
                     `Comprovante BSC: ${evidence.symbol}, quantidade efetiva ${evidence.tokenDelta}.`,
                     `BNB enviado ${evidence.bnbSpent ?? "indisponível"}; gás confirmado ${evidence.gasBnb} BNB.`,
                     evidence.nativeReceivedStatus,
@@ -400,6 +430,7 @@ export function RobotVision(props: {
                     "Posição vertical aproximada pelo histórico, não preço de execução.",
                   ]
                 : [
+                    ...summary,
                     "Reconstruído: horário do registro; consulte a auditoria para horário da transação e quantidades efetivas.",
                     `Valor de entrada registrado (unidades mínimas): ${o.amount_in ?? "indisponível"}`,
                     "Preço vertical aproximado pelo histórico; não é preço efetivo de execução.",

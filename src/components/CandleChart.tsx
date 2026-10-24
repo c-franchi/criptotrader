@@ -15,6 +15,7 @@ export type ChartLevel = {
   tone: "buy" | "sell" | "stop" | "avg" | "grid";
 };
 export type ChartTrade = {
+  id?: string;
   time: number;
   side: string;
   hash?: string | null | undefined;
@@ -55,6 +56,8 @@ function ChartBody({
   compact = false,
   preferenceKey,
   minimal = false,
+  focusRequest,
+  fitTradeIds = [],
 }: {
   candles: Candle[];
   now: number;
@@ -64,6 +67,8 @@ function ChartBody({
   slowLength?: number;
   levels?: ChartLevel[];
   trades?: ChartTrade[];
+  focusRequest?: { id: string; request: number } | null;
+  fitTradeIds?: string[];
   tall?: boolean;
   alignStrategy?: boolean;
   liveQuote?: { price: number; at: number } | undefined;
@@ -94,6 +99,24 @@ function ChartBody({
   const [hours, setHours] = useState(24);
   const [ready, setReady] = useState(false);
   const [selected, setSelected] = useState<ChartTrade | null>(null);
+  const numberedTrades = useMemo(() => {
+    let buys = 0,
+      sells = 0;
+    return [...trades]
+      .filter((t) => Number.isFinite(t.time))
+      .sort((a, b) => a.time - b.time || (a.id ?? a.hash ?? "").localeCompare(b.id ?? b.hash ?? ""))
+      .map((t) => ({
+        ...t,
+        id: t.id ?? t.hash ?? `${t.side}:${t.time}`,
+        label: t.side === "compra" ? `C${++buys}` : `V${++sells}`,
+      }));
+  }, [trades]);
+  const fitted = numberedTrades.filter((t) => fitTradeIds.includes(t.id));
+  const firstFit = fitted.length ? Math.min(...fitted.map((t) => t.time)) : null;
+  const lastFit = fitted.length ? Math.max(...fitted.map((t) => t.time)) : null;
+  const lastFocus = useRef<string>("");
+
+  const [fitEntries, setFitEntries] = useState(true);
   const [follow, setFollow] = useState(true);
   const [view, setView] = useState<View | null>(null);
   const [probe, setProbe] = useState<{ t: number; px: number } | null>(null);
@@ -164,8 +187,21 @@ function ChartBody({
     [],
   );
   useEffect(() => {
-    if (follow) setView(frame(hours));
-  }, [follow, hours, now, frame]);
+    if (follow) {
+      const normal = frame(hours);
+      // Preserve all entries of the held position when following the market.
+
+      const padding = Math.max(minutes * 60000, MIN_SPAN / 4);
+      setView(
+        fitEntries && firstFit != null && lastFit != null
+          ? {
+              start: Math.min(normal.start, firstFit - padding),
+              end: Math.max(normal.end, lastFit + padding),
+            }
+          : normal,
+      );
+    }
+  }, [follow, hours, now, frame, minutes, firstFit, lastFit, fitEntries]);
 
   const v: View = view ?? frame(hours);
   const span = v.end - v.start;
@@ -223,7 +259,7 @@ function ChartBody({
     (b) => (b.candle[0] + minutes * 60) * 1000 > v.start && b.candle[0] * 1000 < v.end,
   );
   const visibleSeries = series.filter((s) => s.time >= v.start && s.time <= v.end);
-  const visibleTrades = trades.filter((t) => t.time >= v.start && t.time <= v.end);
+  const visibleTrades = numberedTrades.filter((t) => t.time >= v.start && t.time <= v.end);
 
   // Escala vertical recalculada a partir do trecho visível — picos nunca são cortados.
   const quote =
@@ -399,6 +435,18 @@ function ChartBody({
     setFollow(false);
   };
 
+  useEffect(() => {
+    if (!focusRequest) return;
+    const target = numberedTrades.find((t) => t.id === focusRequest.id);
+    const key = `${focusRequest.id}:${focusRequest.request}`;
+    if (!target || lastFocus.current === key) return;
+    lastFocus.current = key;
+    setSelected(target);
+    const half = Math.max(MIN_SPAN, minutes * 60000 * 12) / 2;
+    setView({ start: target.time - half, end: target.time + half });
+    setFollow(false);
+  }, [focusRequest, numberedTrades, minutes]);
+
   const fmtTime = (t: number) =>
     new Date(t).toLocaleString("pt-BR", {
       hour: "2-digit",
@@ -438,6 +486,7 @@ function ChartBody({
                 variant={hours === w.hours ? "secondary" : "ghost"}
                 aria-pressed={hours === w.hours}
                 onClick={() => {
+                  setFitEntries(false);
                   setHours(w.hours);
                   setFollow(true);
                 }}
@@ -726,6 +775,7 @@ function ChartBody({
               variant={hours === w.hours ? "secondary" : "ghost"}
               aria-pressed={hours === w.hours}
               onClick={() => {
+                setFitEntries(false);
                 setHours(w.hours);
                 setFollow(true);
               }}
@@ -760,7 +810,7 @@ function ChartBody({
           </Button>
         </div>
       )}
-      {bars.length ? (
+      {bars.length || visibleTrades.length ? (
         <svg
           ref={svgRef}
           role="img"
@@ -816,7 +866,7 @@ function ChartBody({
             if (pointers.current.size === 0) setProbe(null);
           }}
         >
-          {[0, 1, 2, 3, 4].map((i) => {
+          {(points.length ? [0, 1, 2, 3, 4] : []).map((i) => {
             const p = min + ((max - min) * i) / 4;
             return (
               <g key={i} className="text-muted-foreground">
@@ -1022,29 +1072,94 @@ function ChartBody({
             className="text-chart-4"
           />
           {visibleTrades.map((t, i) => {
-            const nearby = visibleBars.find(
+            const nearby = bars.find(
               (b) => b.candle[0] * 1000 <= t.time && (b.candle[0] + minutes * 60) * 1000 > t.time,
             );
             const price = t.price ?? nearby?.candle[4];
-            return price == null ? null : (
+            const overlap = visibleTrades
+              .slice(0, i)
+              .filter(
+                (other) =>
+                  Math.floor(other.time / (minutes * 60000)) ===
+                  Math.floor(t.time / (minutes * 60000)),
+              ).length;
+            const anchorY = price == null ? H + 8 : y(price);
+            const markerY =
+              price == null
+                ? H + 8 + (overlap % 2) * 20
+                : Math.max(16, Math.min(H - 24, anchorY - overlap * 26));
+            const active = (selected?.id ?? selected?.hash) === t.id;
+            return (
               <g
-                key={t.hash ?? i}
-                className={t.side === "compra" ? "text-success" : "text-destructive"}
+                key={t.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`${t.label} · ${t.side} · ${fmtTime(t.time)}${price == null ? " · cotação histórica indisponível" : ""}`}
+                aria-pressed={active}
+                data-trade-id={t.id}
+                className={cn(
+                  "cursor-pointer",
+                  t.side === "compra" ? "text-success" : "text-destructive",
+                )}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  focusTrade(t);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    focusTrade(t);
+                  }
+                }}
               >
                 <title>
-                  {t.side} · {t.hash} ·{" "}
-                  {t.price == null
-                    ? "Posição vertical aproximada pelo histórico"
-                    : "Preço registrado"}
+                  {t.label} · {t.side} · {t.hash} ·{" "}
+                  {price == null
+                    ? "Horário da operação; sem cotação histórica. Sem posicionamento de preço."
+                    : t.price == null
+                      ? "Posição vertical aproximada pelo histórico"
+                      : "Preço registrado"}
                 </title>
-                <circle cx={x(t.time)} cy={y(price)} r={5} fill="currentColor" />
+                {price != null && markerY !== anchorY && (
+                  <line
+                    x1={x(t.time)}
+                    x2={x(t.time)}
+                    y1={anchorY}
+                    y2={markerY}
+                    stroke="currentColor"
+                    strokeDasharray="2 2"
+                  />
+                )}
+                {active && (
+                  <line
+                    x1={x(t.time)}
+                    x2={x(t.time)}
+                    y1={8}
+                    y2={H}
+                    stroke="currentColor"
+                    strokeDasharray="3 3"
+                    opacity={0.6}
+                  />
+                )}
+                <circle
+                  cx={x(t.time)}
+                  cy={markerY}
+                  r={5}
+                  fill={price == null ? "var(--background)" : "currentColor"}
+                  stroke="currentColor"
+                  strokeWidth={active ? 3 : 1}
+                />
+                <circle cx={x(t.time)} cy={markerY} r={12} fill="transparent" />
                 <text
-                  x={x(t.time)}
-                  y={y(price) + (t.side === "compra" ? 17 : -10)}
+                  x={Math.min(plot - 18, Math.max(4, x(t.time)))}
+                  y={markerY + 17}
                   fill="currentColor"
                   fontSize={11}
+                  fontWeight={active ? 700 : 500}
                 >
-                  {t.side === "compra" ? "C" : "V"}
+                  {t.label}
+                  {price == null ? " ?" : ""}
                 </text>
               </g>
             );
@@ -1221,25 +1336,67 @@ function ChartBody({
             ))}
         </ul>
       )}
-      {trades.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {trades.map((t, i) => (
-            <Button
-              key={t.hash ?? i}
-              size="sm"
-              variant="outline"
-              onClick={() => focusTrade(t)}
-              className={cn(t.side === "compra" ? "text-success" : "text-destructive")}
-            >
-              {t.side} · {new Date(t.time).toLocaleTimeString("pt-BR")}
-            </Button>
-          ))}
+      {fitted.length > 0 && !minimal && (
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => {
+            setFitEntries(true);
+            setFollow(true);
+          }}
+        >
+          Mostrar todas as entradas da posição
+        </Button>
+      )}
+      {numberedTrades.length > 0 && (
+        <div className="space-y-2" aria-label="Todas as operações registradas">
+          <p className="text-xs text-muted-foreground">
+            {visibleTrades.length} de {numberedTrades.length} operações neste período. Toque para
+            localizar; “?” indica ausência de cotação histórica.
+          </p>
+          <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto">
+            {numberedTrades.map((t) => (
+              <Button
+                key={t.id}
+                aria-pressed={selected?.id === t.id}
+                size="sm"
+                variant="outline"
+                onClick={() => focusTrade(t)}
+                className={cn(t.side === "compra" ? "text-success" : "text-destructive")}
+              >
+                {t.label} ·{" "}
+                {new Date(t.time).toLocaleString("pt-BR", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+                {t.time < v.start || t.time > v.end ? " · fora do período" : ""}
+              </Button>
+            ))}
+          </div>
         </div>
       )}
       {selected && (
-        <div className="border-t border-border pt-3 text-xs">
+        <div
+          role="status"
+          aria-label="Detalhes da operação selecionada"
+          className="border-t border-border pt-3 text-sm"
+        >
           <p className="font-semibold">
-            {selected.side} · {new Date(selected.time).toLocaleString("pt-BR")}
+            {numberedTrades.find((t) => t.id === selected.id)?.label} · {selected.side} ·{" "}
+            {new Date(selected.time).toLocaleString("pt-BR")}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {selected.price != null
+              ? `Preço registrado: US$ ${usd(selected.price)}`
+              : bars.some(
+                    (b) =>
+                      b.candle[0] * 1000 <= selected.time &&
+                      (b.candle[0] + minutes * 60) * 1000 > selected.time,
+                  )
+                ? "Ponto de referência da vela; não é o preço efetivo da execução."
+                : "Sem vela histórica para este horário. A marca indica a data da operação, sem estimar o preço."}
           </p>
           {selected.details.map((d, i) => (
             <p key={i} className="mt-1 break-words">
@@ -1277,6 +1434,8 @@ export function CandleChart(props: {
   slowLength?: number;
   levels?: ChartLevel[];
   trades?: ChartTrade[];
+  focusRequest?: { id: string; request: number } | null;
+  fitTradeIds?: string[];
 }) {
   const [expanded, setExpanded] = useState(false);
   const overlayRef = useRef<HTMLDivElement | null>(null);
