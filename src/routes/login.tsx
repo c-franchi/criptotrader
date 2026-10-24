@@ -99,14 +99,13 @@ function Login() {
   return (
     <AppShell>
       <div className="relative mx-auto max-w-sm">
-        <div className="pointer-events-none absolute -inset-8 -z-10 rounded-full bg-primary/10 blur-3xl" />
         <div className="flex flex-col items-center text-center">
           <img
             src={icon}
             alt="CryptoBot"
             width={1024}
             height={1024}
-            className="h-20 w-20 rounded-2xl border border-primary/40 shadow-lg shadow-primary/20"
+            className="h-20 w-20 rounded-2xl"
           />
           <h1 className="mt-4 text-2xl font-semibold">
             {recovering
@@ -123,7 +122,7 @@ function Login() {
               : "Entre para acessar suas estratégias e operações."}
           </p>
         </div>
-        <div className="mt-6 rounded-2xl border border-border bg-card/80 p-6 shadow-xl backdrop-blur">
+        <div className="mt-6 space-y-1 rounded-2xl bg-card py-4">
           <Button
             variant="outline"
             className="h-11 w-full"

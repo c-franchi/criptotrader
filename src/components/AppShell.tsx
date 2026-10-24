@@ -1,3 +1,5 @@
+import { AppTour } from "./AppTour";
+import { useAppTour } from "@/hooks/useAppTour";
 import { PreferencesDialog } from "./PreferencesDialog";
 import { ThemeToggle } from "./ThemeToggle";
 import { WalletSelector } from "./WalletSelector";
@@ -6,6 +8,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import {
   Bell,
+  CircleHelp,
   ChevronDown,
   Download,
   ArrowLeftRight,
@@ -66,14 +69,19 @@ const nav = [
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
   const current = nav.find((n) => n.to === pathname);
+  const tour = useAppTour(user?.id, !loading && pathname !== "/login");
+  const openTour = () => {
+    setOpen(false);
+    tour.setOpen(true);
+  };
   return (
     <div
       data-app-shell
-      className={`min-h-screen w-full min-w-0 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64 ${["/grade", "/operar"].includes(pathname) ? "exchange-shell" : ""}`}
+      className="exchange-shell min-h-screen w-full min-w-0 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64"
     >
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-card lg:flex">
         <Link
@@ -101,6 +109,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             ))}
         </nav>
+        <button
+          onClick={openTour}
+          className="mx-3 mb-3 flex min-h-11 items-center gap-3 rounded-xl bg-secondary px-3 py-3 text-sm font-medium text-foreground"
+        >
+          <CircleHelp className="size-5 text-primary" />
+          Tour guiado
+        </button>
         <p className="truncate border-t border-border p-4 text-xs text-muted-foreground">
           {user?.email ?? "Mercado público · entre para salvar"}
         </p>
@@ -138,14 +153,21 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[85vw] max-w-xs p-0">
+            <SheetContent
+              side="left"
+              className="exchange-workspace flex w-[85vw] max-w-xs flex-col overflow-y-auto p-0"
+              aria-describedby={undefined}
+              onCloseAutoFocus={(event) => {
+                if (tour.open) event.preventDefault();
+              }}
+            >
               <SheetHeader className="border-b border-border px-4 py-4 text-left">
                 <SheetTitle className="font-mono text-sm tracking-wider text-primary">
                   CRYPTO·BOT
                 </SheetTitle>
                 {user && <p className="truncate text-xs text-muted-foreground">{user.email}</p>}
               </SheetHeader>
-              <nav className="flex flex-col gap-1 p-2">
+              <nav className="flex flex-col gap-1 p-2" aria-label="Menu de ferramentas">
                 {nav
                   .filter(
                     (n) =>
@@ -171,7 +193,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                     </Link>
                   ))}
               </nav>
-              <div className="border-t border-border p-3">
+              <button
+                onClick={openTour}
+                className="mx-3 mb-3 flex min-h-11 items-center gap-3 rounded-xl bg-secondary px-3 py-3 text-left text-sm font-medium"
+              >
+                <CircleHelp className="size-5 text-primary" />
+                <span>
+                  Tour guiado
+                  <span className="block text-xs font-normal text-muted-foreground">
+                    Aprenda a usar as ferramentas
+                  </span>
+                </span>
+              </button>
+              <div className="mt-auto border-t border-border p-3">
                 {user ? (
                   <Button
                     variant="outline"
@@ -220,11 +254,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
       <main
         data-app-content
-        className="mx-auto w-full min-w-0 max-w-[1600px] px-3 py-4 sm:px-4 sm:py-6"
+        className="exchange-workspace mx-auto w-full min-w-0 max-w-[1600px] px-3 py-4 sm:px-4 sm:py-6"
       >
         <WalletSelector />
         {children}
       </main>
+      <AppTour open={tour.open} onOpenChange={tour.setOpen} />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { PageHeading } from "@/components/PageHeading";
 import { BotPerformancePanel } from "@/components/BotPerformancePanel";
 import { FiatValue } from "@/hooks/useCurrency";
 import { useSelectedWallet } from "@/hooks/useSelectedWallet";
@@ -61,6 +62,7 @@ function Wallets() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
+      <PageHeading title="Carteiras" description="Endereços, saldos e ativos em um só lugar." />
       <Panel title="Perfil">
         <p className="text-sm">
           Conta: <strong>{user?.email}</strong>

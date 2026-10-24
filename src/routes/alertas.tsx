@@ -1,3 +1,4 @@
+import { PageHeading } from "@/components/PageHeading";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -166,6 +167,7 @@ function Alerts() {
 
   return (
     <div className="space-y-4">
+      <PageHeading title="Avisos de preço" description="Acompanhe suas metas pelo celular." />
       <Panel title="1. Ativar avisos neste celular">
         {hasDevice && pushOn ? (
           <p className="rounded-md border border-primary bg-primary/10 p-3 text-sm font-medium text-primary">
