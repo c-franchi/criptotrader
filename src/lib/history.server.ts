@@ -145,7 +145,7 @@ export async function readCandleHistoryPage(
   token: string | undefined,
   before: number,
 ): Promise<Candle[]> {
-  const cursor = Math.min(Math.ceil(before / 300) * 300, Math.ceil(Date.now() / 300000) * 300);
+  const cursor = Math.min(Math.ceil(before / 300) * 300, Math.floor(Date.now() / 1000));
   const key = `${pool.toLowerCase()}:${token?.toLowerCase() ?? "base"}:${cursor}`;
   const saved = olderCache.get(key);
   if (saved && saved.expires > Date.now()) return saved.candles;

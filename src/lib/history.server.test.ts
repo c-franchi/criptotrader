@@ -71,3 +71,20 @@ it("keeps an exhausted page distinct from provider failure", async () => {
   expect(await readCandleHistoryPage("pool-empty-page", "token", 6000)).toEqual([]);
   await expect(readCandleHistoryPage("pool-error-page", "token", 6000)).rejects.toThrow("429");
 });
+
+it("never sends a future timestamp to the history source", async () => {
+  vi.resetModules();
+  const fetcher = vi.fn(async (_input: string | URL | Request) => ({
+    ok: true,
+    json: async () => ({ data: { attributes: { ohlcv_list: [] } } }),
+  }));
+  vi.stubGlobal("fetch", fetcher);
+  const { readCandleHistoryPage } = await import("./history.server");
+  const before = Math.floor(Date.now() / 1000);
+  await readCandleHistoryPage("0xfuture", "0xtoken", before + 300);
+  const cursor = Number(
+    new URL(String(fetcher.mock.calls[0]?.[0])).searchParams.get("before_timestamp"),
+  );
+  expect(cursor).toBeGreaterThanOrEqual(before);
+  expect(cursor).toBeLessThanOrEqual(Math.floor(Date.now() / 1000));
+});
