@@ -68,3 +68,18 @@ it("prevents changing the token or side while an operation is in progress", () =
   expect(screen.getByRole("button", { name: "Vender TEST" })).toBeDisabled();
   expect(screen.getByLabelText("Token para comprar ou vender")).toBeDisabled();
 });
+it("keeps the chart without duplicate trade actions when the integrated ticket is present", () => {
+  render(
+    <TradeMarket
+      token={token}
+      tokens={[token]}
+      onSelect={vi.fn()}
+      onSide={vi.fn()}
+      disabled={false}
+      showActions={false}
+    />,
+  );
+  expect(screen.getByText("Gráfico com alternância simples")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Comprar TEST" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Vender TEST" })).toBeNull();
+});

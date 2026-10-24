@@ -20,6 +20,7 @@ export function TradeMarket({
   extra,
   strategyMinutes = 15,
   rulesVersion = 1,
+  showActions = true,
 }: {
   token: TokenInfo;
   tokens: TokenInfo[];
@@ -29,6 +30,7 @@ export function TradeMarket({
   extra?: React.ReactNode;
   strategyMinutes?: number;
   rulesVersion?: 1 | 2;
+  showActions?: boolean;
 }) {
   const [now, setNow] = useState(0);
   useEffect(() => {
@@ -57,10 +59,7 @@ export function TradeMarket({
   const change =
     fresh && window.covered && window.baseline ? (price / window.baseline - 1) * 100 : null;
   return (
-    <section
-      className="rounded-2xl border border-border bg-card p-3 sm:p-5"
-      aria-label={`Negociar ${token.symbol}`}
-    >
+    <section className="bg-card py-3" aria-label={`Negociar ${token.symbol}`}>
       <div className="flex items-start justify-between gap-3">
         <TokenPicker
           tokens={tokens}
@@ -107,7 +106,7 @@ export function TradeMarket({
           <RefreshCw className="size-4" />
         </Button>
       </div>
-      <div className="mx-auto w-full max-w-[520px]">
+      <div className="mx-auto w-full">
         <CandleChart
           key={token.address}
           compact
@@ -135,28 +134,34 @@ export function TradeMarket({
         </p>
         {extra}
       </details>
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        <Button
-          size="lg"
-          disabled={disabled}
-          className="min-h-14 rounded-full bg-emerald-700 text-white hover:bg-emerald-800"
-          onClick={() => onSide("compra")}
-        >
-          Comprar {token.symbol} <ArrowDownLeft />
-        </Button>
-        <Button
-          size="lg"
-          disabled={disabled}
-          className="min-h-14 rounded-full"
-          variant="destructive"
-          onClick={() => onSide("venda")}
-        >
-          Vender {token.symbol} <ArrowUpRight />
-        </Button>
-      </div>
-      <p className="mt-2 text-center text-xs text-muted-foreground">
-        Escolha a operação para informar os valores e revisar.
-      </p>
+      {showActions && (
+        <>
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <Button
+              size="lg"
+              disabled={disabled}
+              className="min-h-14 rounded-full bg-emerald-700 text-white hover:bg-emerald-800"
+              onClick={() => onSide("compra")}
+            >
+              Comprar {token.symbol} <ArrowDownLeft />
+            </Button>
+            <Button
+              size="lg"
+              disabled={disabled}
+              className="min-h-14 rounded-full"
+              variant="destructive"
+              onClick={() => onSide("venda")}
+            >
+              Vender {token.symbol} <ArrowUpRight />
+            </Button>
+          </div>
+        </>
+      )}
+      {showActions && (
+        <p className="mt-2 text-center text-xs text-muted-foreground">
+          Escolha a operação para informar os valores e revisar.
+        </p>
+      )}
     </section>
   );
 }

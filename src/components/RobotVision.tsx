@@ -96,10 +96,12 @@ export function RobotVision(props: {
   evaluatedAt?: string | null | undefined;
   executionBlocked?: boolean | undefined;
   chartOnly?: boolean;
+  streamlined?: boolean;
   serverAnalysis?: { reason: string; error: string | null; at: string } | null | undefined;
 }) {
   const { token, symbol, cfg, state, mode, grid, orders, armed, reason, evaluatedAt } = props;
   const [now, setNow] = useState(0);
+  const [showAnalysis, setShowAnalysis] = useState(false);
   const [audited, setAudited] = useState<Awaited<ReturnType<typeof auditOrder>>[]>([]);
   useEffect(() => {
     setNow(Date.now());
@@ -225,7 +227,15 @@ export function RobotVision(props: {
   const nextSell = lines.filter((l) => l.tone === "sell").sort((a, b) => a.price - b.price)[0];
 
   return (
-    <div className={cn("space-y-3", props.chartOnly && "[&>*:not([data-robot-chart])]:hidden")}>
+    <div
+      className={cn(
+        "space-y-3",
+        props.chartOnly && "[&>*:not([data-robot-chart])]:hidden",
+        props.streamlined &&
+          !showAnalysis &&
+          "[&>*:not([data-robot-chart]):not([data-robot-analysis-toggle]):not([data-robot-summary]):not([role=alert]):not(:first-child)]:hidden",
+      )}
+    >
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="text-sm font-semibold">{symbol} · últimas 24h</p>
@@ -293,6 +303,41 @@ export function RobotVision(props: {
             dependem da rede.
           </p>
         </section>
+      )}
+      {props.streamlined && (
+        <div data-robot-summary className="grid gap-2 text-sm">
+          <p
+            className={
+              props.executionBlocked || serverStale ? "text-warning" : "text-muted-foreground"
+            }
+            role="status"
+          >
+            {props.executionBlocked
+              ? "Execução bloqueada — confira Estado e controles do robô."
+              : serverStale && armed
+                ? "Sem avaliação recente do executor."
+                : live == null
+                  ? "Cotação atual indisponível — aguardando atualização."
+                  : props.reason ||
+                    (armed ? "Aguardando condições das regras salvas." : "Robô pausado")}
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <p>
+              <span className="block text-xs text-muted-foreground">Próxima compra</span>
+              <b className="text-success">
+                {buyLine ? usd(buyLine.price) : "Sem gatilho confirmado"}
+              </b>
+            </p>
+            <p>
+              <span className="block text-xs text-muted-foreground">Próxima venda</span>
+              <b className="text-destructive">
+                {nextSell || savedSell
+                  ? usd((nextSell || savedSell)!.price)
+                  : "Sem alvo confirmado"}
+              </b>
+            </p>
+          </div>
+        </div>
       )}
       <CandleChart
         key={`${token}:${cfg?.candleInterval}`}
@@ -450,7 +495,7 @@ export function RobotVision(props: {
           <span className="text-success">- -</span> Onde compra
         </span>
         <span>
-          <span className="text-primary">- -</span> Onde vende
+          <span className="text-destructive">- -</span> Onde vende
         </span>
         <span>
           <span className="text-destructive">- -</span> Stop (proteção)
@@ -707,6 +752,17 @@ export function RobotVision(props: {
             </div>
           );
         })()}
+      {props.streamlined && (
+        <button
+          data-robot-analysis-toggle
+          className="w-full border-t border-border py-3 text-sm text-muted-foreground"
+          aria-expanded={showAnalysis}
+          onClick={() => setShowAnalysis(!showAnalysis)}
+        >
+          {showAnalysis ? "Recolher análise e auditoria" : "Análise e auditoria"}{" "}
+          {showAnalysis ? "−" : "+"}
+        </button>
+      )}
     </div>
   );
 }

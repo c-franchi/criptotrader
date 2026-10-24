@@ -1,3 +1,4 @@
+import { TradingTour } from "@/components/TradingTour";
 import { FiatValue } from "@/hooks/useCurrency";
 import { TokenPicker } from "@/components/TokenPicker";
 import { useSelectedWallet } from "@/hooks/useSelectedWallet";
@@ -150,7 +151,8 @@ function Operar() {
   const [side, setSide] = useState<"compra" | "venda">("compra");
   const [hasStrategy, setHasStrategy] = useState(false);
   const { entrada } = Route.useSearch();
-  const [tradeOpen, setTradeOpen] = useState(!!entrada);
+  const [tradeOpen, setTradeOpen] = useState(true);
+  const [marketTab, setMarketTab] = useState<"orders" | "assets">("orders");
   const marketRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
@@ -624,688 +626,721 @@ function Operar() {
   const status = total == null ? null : total > 1e-9 ? "pos" : total < -1e-9 ? "neg" : "zero";
 
   return (
-    <div className="space-y-4">
-      <div className="rounded border border-destructive/50 bg-destructive/10 p-3 text-sm">
-        <strong>Compra e venda com sua carteira.</strong> Você revisa os valores e assina cada
-        transação na carteira.
+    <div className="exchange-workspace mx-auto max-w-6xl space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Spot · operação manual</h1>
+          <p className="mt-1 text-xs text-muted-foreground">PancakeSwap V2 · BNB Smart Chain</p>
+        </div>
+        <TradingTour kind="manual" onComplete={() => selectSide("compra")} />
       </div>
+      <div className="manual-workspace-grid">
+        <div ref={marketRef} className="scroll-mt-24">
+          <TradeMarket
+            showActions={false}
+            strategyMinutes={intervalMinutes(cfg.candleInterval)}
+            rulesVersion={cfg.rulesVersion ?? 1}
+            token={selected}
+            tokens={tokens}
+            disabled={!!busy}
+            onSide={selectSide}
+            onSelect={(address) => {
+              setGTE(address);
+              setQuote(null);
+              setPair(undefined);
+              setReserves(null);
+              setBal(null);
+              setSellAmt("");
+              setBuyAmt("");
+              setTradeOpen(true);
+            }}
+            extra={<AddTokenDialog wallet={account} />}
+          />
+        </div>
 
-      <div ref={marketRef} className="scroll-mt-24">
-        <TradeMarket
-          strategyMinutes={intervalMinutes(cfg.candleInterval)}
-          rulesVersion={cfg.rulesVersion ?? 1}
-          token={selected}
-          tokens={tokens}
-          disabled={!!busy}
-          onSide={selectSide}
-          onSelect={(address) => {
-            setGTE(address);
-            setQuote(null);
-            setPair(undefined);
-            setReserves(null);
-            setBal(null);
-            setSellAmt("");
-            setBuyAmt("");
-            setTradeOpen(false);
-          }}
-          extra={<AddTokenDialog wallet={account} />}
-        />
-      </div>
-
-      {tradeOpen && (
-        <>
-          <div
-            ref={formRef}
-            className="scroll-mt-24 rounded-2xl border border-border bg-card p-4"
-            aria-label={`Valores para ${side === "compra" ? "comprar" : "vender"} ${sym}`}
-          >
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <h2 className="text-lg font-bold">
-                {side === "compra" ? "Comprar" : "Vender"} {sym}
-              </h2>
-              <Button
-                variant="ghost"
-                disabled={!!busy}
-                onClick={() => {
-                  setTradeOpen(false);
-                  setQuote(null);
-                  requestAnimationFrame(() =>
-                    marketRef.current?.scrollIntoView({ block: "start" }),
-                  );
-                }}
-              >
-                Voltar ao gráfico
-              </Button>
-            </div>
-            {!account && (
-              <Button className="mb-3 w-full" onClick={connect} disabled={!!busy}>
-                {busy === "conectando" ? "Conectando…" : "Conectar carteira para continuar"}
-              </Button>
-            )}
-            {!ready && <p className="mb-3 text-sm text-warning">{blocks.join(" ")}</p>}
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                className={
-                  side === "compra" ? "bg-emerald-700 text-white hover:bg-emerald-800" : ""
-                }
-                variant={side === "compra" ? "default" : "secondary"}
-                disabled={!!busy}
-                onClick={() => {
-                  setSide("compra");
-                  setQuote(null);
-                }}
-              >
-                Comprar
-              </Button>
-              <Button
-                variant={side === "venda" ? "destructive" : "secondary"}
-                disabled={!!busy}
-                onClick={() => {
-                  setSide("venda");
-                  setQuote(null);
-                }}
-              >
-                Vender
-              </Button>
-            </div>
-            <p className="mt-3 text-sm text-muted-foreground">
-              {side === "compra" ? (
-                <>
-                  Você paga <b>BNB</b> e recebe <b>{sym}</b>.
-                </>
-              ) : (
-                <>
-                  Você entrega <b>{sym}</b> e recebe <b>BNB</b>.
-                </>
-              )}
-            </p>
-            <Label htmlFor="manual-trade-amount" className="mt-3 block">
-              {side === "compra" ? "Quanto BNB usar" : `Quantidade de ${sym}`}
-            </Label>
-            <Input
-              ref={amountRef}
-              id="manual-trade-amount"
-              inputMode="decimal"
-              min="0"
-              disabled={!!busy}
-              className="mt-1 text-lg"
-              type="number"
-              step="any"
-              value={side === "compra" ? buyAmt : sellAmt}
-              onChange={(e) => {
-                (side === "compra" ? setBuyAmt : setSellAmt)(e.target.value);
-                setQuote(null);
-              }}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Disponível:{" "}
-              {bal
-                ? side === "compra"
-                  ? `${fmtBnb(spendable)} BNB (já descontada a reserva de gás)`
-                  : `${fmtGte(bal.gte)} ${sym}`
-                : "conecte a carteira"}
-            </p>
-            {bal && side === "compra" && <FiatValue bnb={formatEther(spendable)} />}
-            <Slider
-              className="mt-4"
-              min={0}
-              max={100}
-              step={1}
-              value={[pctNow]}
-              disabled={!bal || !!busy}
-              onValueChange={([v]) => applyPct(v ?? 0)}
-            />
-            <div className="mt-3 grid grid-cols-4 gap-2">
-              {[25, 50, 75, 100].map((p) => (
-                <Button
-                  key={p}
-                  size="sm"
-                  variant={Math.round(pctNow) === p ? "default" : "outline"}
-                  disabled={!bal || !!busy}
-                  onClick={() => applyPct(p)}
-                >
-                  {p === 100 ? "Máx" : `${p}%`}
-                </Button>
-              ))}
-            </div>
-            <Button
-              className={cn(
-                "mt-4 w-full rounded-full",
-                side === "compra" && "bg-emerald-700 text-white hover:bg-emerald-800",
-              )}
-              size="lg"
-              variant={side === "venda" ? "destructive" : "default"}
-              onClick={() => prepare(side)}
-              disabled={!ready || !!busy}
+        {tradeOpen && (
+          <div className="manual-ticket">
+            <div
+              ref={formRef}
+              className="scroll-mt-24 bg-card py-4"
+              aria-label={`Valores para ${side === "compra" ? "comprar" : "vender"} ${sym}`}
             >
-              {side === "compra" ? `Cotar compra de ${sym}` : `Cotar venda de ${sym}`}
-            </Button>
-          </div>
-
-          {quote && (
-            <Panel title="Revisar antes de assinar">
-              <p className="text-sm">
-                Equivalente estimado da operação:
-                <FiatValue
-                  bnb={formatEther(quote.side === "compra" ? quote.amountIn : quote.out)}
-                />
-              </p>
-              {(() => {
-                const hasTax = quote.tax != null && quote.tax > 0.5;
-                const gross = hasTax
-                  ? (quote.out * 10000n) / BigInt(Math.round((100 - quote.tax!) * 100))
-                  : null;
-                const envia =
-                  quote.side === "compra"
-                    ? `${fmtBnb(quote.amountIn)} BNB`
-                    : `${fmtGte(quote.amountIn)} ${sym}`;
-                const recebe =
-                  quote.side === "compra"
-                    ? `${fmtGte(quote.out)} ${sym}`
-                    : `${fmtBnb(quote.out)} BNB`;
-                const bruto =
-                  gross == null
-                    ? null
-                    : quote.side === "compra"
-                      ? `${fmtGte(gross)} ${sym}`
-                      : `${fmtBnb(gross)} BNB`;
-                const bnbIn = Number(formatEther(quote.amountIn));
-                const tkOut = Number(formatUnits(quote.out, selected.decimals));
-                return (
-                  <div className="rounded-lg border border-primary/60 bg-primary/10 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Você envia
-                    </p>
-                    <p className="font-mono text-2xl font-bold">{envia}</p>
-                    <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {quote.side === "compra"
-                        ? `Você recebe — ${sym}, taxa do token já descontada`
-                        : quote.tax == null
-                          ? "Você recebe — BNB (taxa será medida depois da aprovação)"
-                          : quote.estimated
-                            ? "Você recebe — BNB, taxa do token já descontada (conferida de novo antes de assinar)"
-                            : "Você recebe — BNB, taxa do token já descontada"}
-                    </p>
-                    <p className="font-mono text-2xl font-bold text-success">{recebe}</p>
-                    {quote.side === "compra" && quote.out > 0n && bnbIn > 0 ? (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Câmbio desta troca: 1 BNB ≈ {n2(tkOut / bnbIn)} {sym} (taxa incluída).
-                      </p>
-                    ) : null}
-                    {quote.side === "venda" && quote.amountIn > 0n && tkOut > 0 ? (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Câmbio desta troca: 1 {sym} ≈ {n6(bnbIn / tkOut)} BNB (taxa incluída).
-                      </p>
-                    ) : null}
-                    {bruto != null ? (
-                      <p className="mt-2 text-sm text-warning">
-                        Sem a taxa de ~{quote.tax!.toFixed(1)}%, seriam {bruto} — a diferença fica
-                        com o token.
-                      </p>
-                    ) : quote.tax != null && quote.tax <= 0.5 ? (
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Taxa do token: nenhuma detectada nesta troca.
-                      </p>
-                    ) : null}
-                  </div>
-                );
-              })()}
-              <ul className="mt-3 space-y-1 text-sm">
-                {quote.side === "compra" &&
-                  pnl.lastSell &&
-                  (() => {
-                    const bnbIn = Number(formatEther(quote.amountIn)),
-                      tk = Number(formatUnits(quote.out, selected.decimals));
-                    const edge = rebuyEdgePct(pnl.lastSell, bnbIn, tk);
-                    const atSellRate = bnbIn * (pnl.lastSell.tokens / pnl.lastSell.bnb);
-                    return edge == null ? null : (
-                      <li className={edge >= 0 ? "text-success" : "text-destructive"}>
-                        Na última venda, {n6(bnbIn)} BNB valiam {n2(atSellRate)} {sym}. Agora você
-                        compra {n2(tk)} {sym}: {edge >= 0 ? "+" : ""}
-                        {edge.toFixed(1)}% {edge >= 0 ? "a mais" : "a menos"}.
-                      </li>
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <h2 className="text-lg font-bold">
+                  {side === "compra" ? "Comprar" : "Vender"} {sym}
+                </h2>
+                <Button
+                  variant="ghost"
+                  disabled={!!busy}
+                  onClick={() => {
+                    setTradeOpen(true);
+                    setQuote(null);
+                    requestAnimationFrame(() =>
+                      marketRef.current?.scrollIntoView({ block: "start" }),
                     );
-                  })()}
-                {quote.side === "venda" &&
-                  pnl.avgCost &&
-                  (() => {
-                    const tk = Number(formatUnits(quote.amountIn, selected.decimals)),
-                      bnb = Number(formatEther(quote.out));
-                    const res = bnb - tk * pnl.avgCost;
-                    return (
-                      <li className={res >= 0 ? "text-success" : "text-destructive"}>
-                        Pelo seu preço médio, esta venda dá {res >= 0 ? "lucro" : "prejuízo"} de ~
-                        {n6(Math.abs(res))} BNB.
-                      </li>
-                    );
-                  })()}
-                <li>
-                  Mínimo aceito (slippage {cfg.maxSlippagePct}%):{" "}
-                  {quote.side === "compra"
-                    ? `${fmtGte(quote.min)} ${sym}`
-                    : `${fmtBnb(quote.min)} BNB`}
-                </li>
-                {slippageLevel(cfg.maxSlippagePct) !== "ok" && (
-                  <li
-                    className={cn(
-                      "rounded-md border p-2 font-medium",
-                      slippageLevel(cfg.maxSlippagePct) === "critico"
-                        ? "border-destructive/50 bg-destructive/10 text-destructive"
-                        : "border-warning/50 bg-warning/10 text-warning",
-                    )}
-                  >
-                    {slippageLevel(cfg.maxSlippagePct) === "critico"
-                      ? `Perigo: slippage de ${cfg.maxSlippagePct}% é muito alto. Robôs de mineradores podem "espremer" sua ordem (ataque sanduíche) e você receber bem menos. Reduza na estratégia, se a taxa do token permitir.`
-                      : `Cautela: slippage de ${cfg.maxSlippagePct}% acima de 5%. Você pode receber menos que o previsto.`}
-                  </li>
-                )}
-                <li>Impacto de preço estimado: {quote.impact.toFixed(2)}%</li>
-                <li>
-                  Validade: 5 minutos.{" "}
-                  {quote.side === "venda" &&
-                    "Pode exigir uma aprovação limitada a esta quantidade."}
-                </li>
-              </ul>
-              <div className="mt-3 flex gap-2">
-                <Button onClick={execute} disabled={!ready || !!busy}>
-                  {busy === "assinatura"
-                    ? "Aguardando assinatura…"
-                    : busy === "confirmando"
-                      ? "Confirmando…"
-                      : "Assinar na carteira"}
-                </Button>
-                <Button variant="ghost" onClick={() => setQuote(null)} disabled={!!busy}>
-                  Cancelar
+                  }}
+                >
+                  Voltar ao gráfico
                 </Button>
               </div>
-            </Panel>
-          )}
-        </>
-      )}
-
-      <ContractRisk address={GTE} />
-      {bal && (
-        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
-          <span className="font-semibold">Seu saldo</span>
-          <span className="text-right font-mono text-sm">
-            {fmtGte(bal.gte)} {sym}
-            <br />
-            <span className="text-muted-foreground">{fmtBnb(bal.bnb)} BNB</span>
-            <FiatValue bnb={formatEther(bal.bnb)} />
-          </span>
-        </div>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Panel
-          title="Carteira"
-          right={
-            account ? (
-              <Button size="sm" variant="ghost" onClick={disconnect}>
-                Desconectar
+              {!account && (
+                <Button className="mb-3 w-full" onClick={connect} disabled={!!busy}>
+                  {busy === "conectando" ? "Conectando…" : "Conectar carteira para continuar"}
+                </Button>
+              )}
+              {!ready && <p className="mb-3 text-sm text-warning">{blocks.join(" ")}</p>}
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  className={
+                    side === "compra" ? "bg-emerald-700 text-white hover:bg-emerald-800" : ""
+                  }
+                  variant={side === "compra" ? "default" : "secondary"}
+                  disabled={!!busy}
+                  onClick={() => {
+                    setSide("compra");
+                    setQuote(null);
+                  }}
+                >
+                  Comprar
+                </Button>
+                <Button
+                  variant={side === "venda" ? "destructive" : "secondary"}
+                  disabled={!!busy}
+                  onClick={() => {
+                    setSide("venda");
+                    setQuote(null);
+                  }}
+                >
+                  Vender
+                </Button>
+              </div>
+              <p className="mt-3 text-sm text-muted-foreground">
+                {side === "compra" ? (
+                  <>
+                    Você paga <b>BNB</b> e recebe <b>{sym}</b>.
+                  </>
+                ) : (
+                  <>
+                    Você entrega <b>{sym}</b> e recebe <b>BNB</b>.
+                  </>
+                )}
+              </p>
+              <Label htmlFor="manual-trade-amount" className="mt-3 block">
+                {side === "compra" ? "Quanto BNB usar" : `Quantidade de ${sym}`}
+              </Label>
+              <Input
+                ref={amountRef}
+                id="manual-trade-amount"
+                inputMode="decimal"
+                min="0"
+                disabled={!!busy}
+                className="mt-1 text-lg"
+                type="number"
+                step="any"
+                value={side === "compra" ? buyAmt : sellAmt}
+                onChange={(e) => {
+                  (side === "compra" ? setBuyAmt : setSellAmt)(e.target.value);
+                  setQuote(null);
+                }}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Disponível:{" "}
+                {bal
+                  ? side === "compra"
+                    ? `${fmtBnb(spendable)} BNB (já descontada a reserva de gás)`
+                    : `${fmtGte(bal.gte)} ${sym}`
+                  : "conecte a carteira"}
+              </p>
+              {bal && side === "compra" && <FiatValue bnb={formatEther(spendable)} />}
+              <Slider
+                className="mt-4"
+                min={0}
+                max={100}
+                step={1}
+                value={[pctNow]}
+                disabled={!bal || !!busy}
+                onValueChange={([v]) => applyPct(v ?? 0)}
+              />
+              <div className="mt-3 grid grid-cols-4 gap-2">
+                {[25, 50, 75, 100].map((p) => (
+                  <Button
+                    key={p}
+                    size="sm"
+                    variant={Math.round(pctNow) === p ? "default" : "outline"}
+                    disabled={!bal || !!busy}
+                    onClick={() => applyPct(p)}
+                  >
+                    {p === 100 ? "Máx" : `${p}%`}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                className={cn(
+                  "mt-4 w-full rounded-full",
+                  side === "compra" && "bg-emerald-700 text-white hover:bg-emerald-800",
+                )}
+                size="lg"
+                variant={side === "venda" ? "destructive" : "default"}
+                onClick={() => prepare(side)}
+                disabled={!ready || !!busy}
+              >
+                {side === "compra" ? `Cotar compra de ${sym}` : `Cotar venda de ${sym}`}
               </Button>
-            ) : null
+            </div>
+
+            {quote && (
+              <Panel title="Revisar antes de assinar">
+                <p className="text-sm">
+                  Equivalente estimado da operação:
+                  <FiatValue
+                    bnb={formatEther(quote.side === "compra" ? quote.amountIn : quote.out)}
+                  />
+                </p>
+                {(() => {
+                  const hasTax = quote.tax != null && quote.tax > 0.5;
+                  const gross = hasTax
+                    ? (quote.out * 10000n) / BigInt(Math.round((100 - quote.tax!) * 100))
+                    : null;
+                  const envia =
+                    quote.side === "compra"
+                      ? `${fmtBnb(quote.amountIn)} BNB`
+                      : `${fmtGte(quote.amountIn)} ${sym}`;
+                  const recebe =
+                    quote.side === "compra"
+                      ? `${fmtGte(quote.out)} ${sym}`
+                      : `${fmtBnb(quote.out)} BNB`;
+                  const bruto =
+                    gross == null
+                      ? null
+                      : quote.side === "compra"
+                        ? `${fmtGte(gross)} ${sym}`
+                        : `${fmtBnb(gross)} BNB`;
+                  const bnbIn = Number(formatEther(quote.amountIn));
+                  const tkOut = Number(formatUnits(quote.out, selected.decimals));
+                  return (
+                    <div className="rounded-lg border border-primary/60 bg-primary/10 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Você envia
+                      </p>
+                      <p className="font-mono text-2xl font-bold">{envia}</p>
+                      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {quote.side === "compra"
+                          ? `Você recebe — ${sym}, taxa do token já descontada`
+                          : quote.tax == null
+                            ? "Você recebe — BNB (taxa será medida depois da aprovação)"
+                            : quote.estimated
+                              ? "Você recebe — BNB, taxa do token já descontada (conferida de novo antes de assinar)"
+                              : "Você recebe — BNB, taxa do token já descontada"}
+                      </p>
+                      <p className="font-mono text-2xl font-bold text-success">{recebe}</p>
+                      {quote.side === "compra" && quote.out > 0n && bnbIn > 0 ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Câmbio desta troca: 1 BNB ≈ {n2(tkOut / bnbIn)} {sym} (taxa incluída).
+                        </p>
+                      ) : null}
+                      {quote.side === "venda" && quote.amountIn > 0n && tkOut > 0 ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Câmbio desta troca: 1 {sym} ≈ {n6(bnbIn / tkOut)} BNB (taxa incluída).
+                        </p>
+                      ) : null}
+                      {bruto != null ? (
+                        <p className="mt-2 text-sm text-warning">
+                          Sem a taxa de ~{quote.tax!.toFixed(1)}%, seriam {bruto} — a diferença fica
+                          com o token.
+                        </p>
+                      ) : quote.tax != null && quote.tax <= 0.5 ? (
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          Taxa do token: nenhuma detectada nesta troca.
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })()}
+                <ul className="mt-3 space-y-1 text-sm">
+                  {quote.side === "compra" &&
+                    pnl.lastSell &&
+                    (() => {
+                      const bnbIn = Number(formatEther(quote.amountIn)),
+                        tk = Number(formatUnits(quote.out, selected.decimals));
+                      const edge = rebuyEdgePct(pnl.lastSell, bnbIn, tk);
+                      const atSellRate = bnbIn * (pnl.lastSell.tokens / pnl.lastSell.bnb);
+                      return edge == null ? null : (
+                        <li className={edge >= 0 ? "text-success" : "text-destructive"}>
+                          Na última venda, {n6(bnbIn)} BNB valiam {n2(atSellRate)} {sym}. Agora você
+                          compra {n2(tk)} {sym}: {edge >= 0 ? "+" : ""}
+                          {edge.toFixed(1)}% {edge >= 0 ? "a mais" : "a menos"}.
+                        </li>
+                      );
+                    })()}
+                  {quote.side === "venda" &&
+                    pnl.avgCost &&
+                    (() => {
+                      const tk = Number(formatUnits(quote.amountIn, selected.decimals)),
+                        bnb = Number(formatEther(quote.out));
+                      const res = bnb - tk * pnl.avgCost;
+                      return (
+                        <li className={res >= 0 ? "text-success" : "text-destructive"}>
+                          Pelo seu preço médio, esta venda dá {res >= 0 ? "lucro" : "prejuízo"} de ~
+                          {n6(Math.abs(res))} BNB.
+                        </li>
+                      );
+                    })()}
+                  <li>
+                    Mínimo aceito (slippage {cfg.maxSlippagePct}%):{" "}
+                    {quote.side === "compra"
+                      ? `${fmtGte(quote.min)} ${sym}`
+                      : `${fmtBnb(quote.min)} BNB`}
+                  </li>
+                  {slippageLevel(cfg.maxSlippagePct) !== "ok" && (
+                    <li
+                      className={cn(
+                        "rounded-md border p-2 font-medium",
+                        slippageLevel(cfg.maxSlippagePct) === "critico"
+                          ? "border-destructive/50 bg-destructive/10 text-destructive"
+                          : "border-warning/50 bg-warning/10 text-warning",
+                      )}
+                    >
+                      {slippageLevel(cfg.maxSlippagePct) === "critico"
+                        ? `Perigo: slippage de ${cfg.maxSlippagePct}% é muito alto. Robôs de mineradores podem "espremer" sua ordem (ataque sanduíche) e você receber bem menos. Reduza na estratégia, se a taxa do token permitir.`
+                        : `Cautela: slippage de ${cfg.maxSlippagePct}% acima de 5%. Você pode receber menos que o previsto.`}
+                    </li>
+                  )}
+                  <li>Impacto de preço estimado: {quote.impact.toFixed(2)}%</li>
+                  <li>
+                    Validade: 5 minutos.{" "}
+                    {quote.side === "venda" &&
+                      "Pode exigir uma aprovação limitada a esta quantidade."}
+                  </li>
+                </ul>
+                <div className="mt-3 flex gap-2">
+                  <Button onClick={execute} disabled={!ready || !!busy}>
+                    {busy === "assinatura"
+                      ? "Aguardando assinatura…"
+                      : busy === "confirmando"
+                        ? "Confirmando…"
+                        : "Assinar na carteira"}
+                  </Button>
+                  <Button variant="ghost" onClick={() => setQuote(null)} disabled={!!busy}>
+                    Cancelar
+                  </Button>
+                </div>
+              </Panel>
+            )}
+          </div>
+        )}
+      </div>
+
+      <details className="border-t border-border py-4">
+        <summary className="cursor-pointer text-sm font-medium">
+          Carteira, taxas e segurança
+        </summary>
+        <ContractRisk address={GTE} />
+        {bal && (
+          <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+            <span className="font-semibold">Seu saldo</span>
+            <span className="text-right font-mono text-sm">
+              {fmtGte(bal.gte)} {sym}
+              <br />
+              <span className="text-muted-foreground">{fmtBnb(bal.bnb)} BNB</span>
+              <FiatValue bnb={formatEther(bal.bnb)} />
+            </span>
+          </div>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <Panel
+            title="Carteira"
+            right={
+              account ? (
+                <Button size="sm" variant="ghost" onClick={disconnect}>
+                  Desconectar
+                </Button>
+              ) : null
+            }
+          >
+            {account ? (
+              <div className="space-y-1 text-sm">
+                <p className="break-all font-mono text-xs">{account}</p>
+                <p>
+                  Rede:{" "}
+                  {chainId === 56 ? (
+                    <span className="text-success">BNB Smart Chain (56)</span>
+                  ) : (
+                    <span className="text-destructive">chain {chainId}</span>
+                  )}
+                </p>
+                <p>
+                  BNB:{" "}
+                  {bal ? (
+                    <span className="font-mono">{fmtBnb(bal.bnb)}</span>
+                  ) : (
+                    <Unavailable reason="carregando" />
+                  )}
+                </p>
+                <p>
+                  {sym}:{" "}
+                  {bal ? (
+                    <span className="font-mono">{fmtGte(bal.gte)}</span>
+                  ) : (
+                    <Unavailable reason="carregando" />
+                  )}
+                </p>
+                {bal && gasPrice && (
+                  <p
+                    className={bal.bnb < gasReserve ? "text-destructive" : "text-muted-foreground"}
+                  >
+                    Gás estimado por transação: ~{fmtBnb(gasPrice * 21000n)} BNB
+                    {bal.bnb < gasReserve
+                      ? " — BNB insuficiente para a reserva de gás"
+                      : bal.bnb < gasPrice * 21000n * 5n
+                        ? " — saldo de BNB baixo para várias transações"
+                        : ""}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <Button onClick={connect} disabled={!!busy}>
+                {busy === "conectando" ? "Conectando…" : "Conectar via WalletConnect"}
+              </Button>
+            )}
+            <p className="mt-2 text-xs text-muted-foreground">
+              Cadastrada: <span className="font-mono">{tracked ?? "nenhuma"}</span>
+            </p>
+          </Panel>
+
+          <Panel title="Rota PancakeSwap V2">
+            <div className="space-y-1 text-sm">
+              <p>
+                Pool {sym}/WBNB:{" "}
+                {pair ? (
+                  <span className="break-all font-mono text-xs">{pair}</span>
+                ) : (
+                  <Unavailable reason={pair === null ? "pool não existe" : "falha de consulta"} />
+                )}
+              </p>
+              <p>
+                Reserva:{" "}
+                {reserves ? (
+                  <span className="font-mono">
+                    {fmtBnb(reserves.bnb)} WBNB / {fmtGte(reserves.gte)} {sym}
+                  </span>
+                ) : (
+                  <Unavailable reason="sem pool" />
+                )}
+              </p>
+              <p>
+                Gas:{" "}
+                {gasPrice ? (
+                  <span className="font-mono">{formatUnits(gasPrice, 9)} gwei</span>
+                ) : (
+                  <Unavailable reason="sem dados" />
+                )}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Router oficial {PANCAKE_V2_ROUTER}. Limites da estratégia: slippage{" "}
+                {cfg.maxSlippagePct}%, impacto {cfg.maxPriceImpactPct}%, reserva {cfg.gasReserveBnb}{" "}
+                BNB.
+              </p>
+            </div>
+          </Panel>
+        </div>
+
+        {!ready && (
+          <div className="rounded border border-warning/40 bg-warning/10 p-3 text-sm text-warning">
+            Operações bloqueadas: {blocks.join(" ")}
+          </div>
+        )}
+
+        <div
+          className={
+            hasStrategy
+              ? "rounded border border-primary/60 bg-primary/10 p-3 text-sm"
+              : "rounded border border-border p-3 text-sm"
           }
         >
-          {account ? (
-            <div className="space-y-1 text-sm">
-              <p className="break-all font-mono text-xs">{account}</p>
-              <p>
-                Rede:{" "}
-                {chainId === 56 ? (
-                  <span className="text-success">BNB Smart Chain (56)</span>
-                ) : (
-                  <span className="text-destructive">chain {chainId}</span>
-                )}
-              </p>
-              <p>
-                BNB:{" "}
-                {bal ? (
-                  <span className="font-mono">{fmtBnb(bal.bnb)}</span>
-                ) : (
-                  <Unavailable reason="carregando" />
-                )}
-              </p>
-              <p>
-                {sym}:{" "}
-                {bal ? (
-                  <span className="font-mono">{fmtGte(bal.gte)}</span>
-                ) : (
-                  <Unavailable reason="carregando" />
-                )}
-              </p>
-              {bal && gasPrice && (
-                <p className={bal.bnb < gasReserve ? "text-destructive" : "text-muted-foreground"}>
-                  Gás estimado por transação: ~{fmtBnb(gasPrice * 21000n)} BNB
-                  {bal.bnb < gasReserve
-                    ? " — BNB insuficiente para a reserva de gás"
-                    : bal.bnb < gasPrice * 21000n * 5n
-                      ? " — saldo de BNB baixo para várias transações"
-                      : ""}
-                </p>
-              )}
-            </div>
-          ) : (
-            <Button onClick={connect} disabled={!!busy}>
-              {busy === "conectando" ? "Conectando…" : "Conectar via WalletConnect"}
-            </Button>
-          )}
-          <p className="mt-2 text-xs text-muted-foreground">
-            Cadastrada: <span className="font-mono">{tracked ?? "nenhuma"}</span>
-          </p>
-        </Panel>
-
-        <Panel title="Rota PancakeSwap V2">
-          <div className="space-y-1 text-sm">
-            <p>
-              Pool {sym}/WBNB:{" "}
-              {pair ? (
-                <span className="break-all font-mono text-xs">{pair}</span>
-              ) : (
-                <Unavailable reason={pair === null ? "pool não existe" : "falha de consulta"} />
-              )}
-            </p>
-            <p>
-              Reserva:{" "}
-              {reserves ? (
-                <span className="font-mono">
-                  {fmtBnb(reserves.bnb)} WBNB / {fmtGte(reserves.gte)} {sym}
-                </span>
-              ) : (
-                <Unavailable reason="sem pool" />
-              )}
-            </p>
-            <p>
-              Gas:{" "}
-              {gasPrice ? (
-                <span className="font-mono">{formatUnits(gasPrice, 9)} gwei</span>
-              ) : (
-                <Unavailable reason="sem dados" />
-              )}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Router oficial {PANCAKE_V2_ROUTER}. Limites da estratégia: slippage{" "}
-              {cfg.maxSlippagePct}%, impacto {cfg.maxPriceImpactPct}%, reserva {cfg.gasReserveBnb}{" "}
-              BNB.
-            </p>
-          </div>
-        </Panel>
-      </div>
-
-      {!ready && (
-        <div className="rounded border border-warning/40 bg-warning/10 p-3 text-sm text-warning">
-          Operações bloqueadas: {blocks.join(" ")}
-        </div>
-      )}
-
-      <div
-        className={
-          hasStrategy
-            ? "rounded border border-primary/60 bg-primary/10 p-3 text-sm"
-            : "rounded border border-border p-3 text-sm"
-        }
-      >
-        {hasStrategy ? (
-          <>
-            <Link to="/estrategia" className="block hover:underline">
-              <strong>✓ Estratégia em uso para {sym}:</strong>{" "}
-              {preset ? preset.name : "personalizada"}{" "}
-              <span className="text-xs text-primary">· ver/editar ›</span>
-            </Link>
-            <p className="text-xs text-muted-foreground">
-              {cfg.sizingMode === "fixo" && cfg.buyAmount > 0
-                ? `Primeira entrada sugerida: ${cfg.buyAmount} BNB. `
-                : ""}
-              Slippage máx. {cfg.maxSlippagePct}%, impacto máx. {cfg.maxPriceImpactPct}%, reserva de
-              gás {cfg.gasReserveBnb} BNB — já aplicados aqui.
-            </p>
-          </>
-        ) : (
-          <p>
-            Nenhuma estratégia salva para {sym}.{" "}
-            <Link to="/estrategia" className="text-primary underline">
-              Criar estratégia
-            </Link>{" "}
-            (opcional).
-          </p>
-        )}
-      </div>
-
-      <Panel title={`Seus resultados com ${sym}`}>
-        {pnl.buys + pnl.sells === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nenhuma troca confirmada de {sym} ainda. Depois da primeira compra ou venda, o resultado
-            aparece aqui.
-          </p>
-        ) : (
-          <div className="space-y-3 text-sm">
-            <div
-              className={cn(
-                "rounded border p-3",
-                status === "pos"
-                  ? "border-success/50 bg-success/10"
-                  : status === "neg"
-                    ? "border-destructive/50 bg-destructive/10"
-                    : "border-border",
-              )}
-            >
+          {hasStrategy ? (
+            <>
+              <Link to="/estrategia" className="block hover:underline">
+                <strong>✓ Estratégia em uso para {sym}:</strong>{" "}
+                {preset ? preset.name : "personalizada"}{" "}
+                <span className="text-xs text-primary">· ver/editar ›</span>
+              </Link>
               <p className="text-xs text-muted-foreground">
-                Situação geral (vendido + valor atual do que sobrou − gasto)
+                {cfg.sizingMode === "fixo" && cfg.buyAmount > 0
+                  ? `Primeira entrada sugerida: ${cfg.buyAmount} BNB. `
+                  : ""}
+                Slippage máx. {cfg.maxSlippagePct}%, impacto máx. {cfg.maxPriceImpactPct}%, reserva
+                de gás {cfg.gasReserveBnb} BNB — já aplicados aqui.
               </p>
-              <p
+            </>
+          ) : (
+            <p>
+              Nenhuma estratégia salva para {sym}.{" "}
+              <Link to="/estrategia" className="text-primary underline">
+                Criar estratégia
+              </Link>{" "}
+              (opcional).
+            </p>
+          )}
+        </div>
+      </details>
+      <div className="trade-tabs" role="tablist" aria-label="Dados da operação manual">
+        <button
+          role="tab"
+          aria-selected={marketTab === "orders"}
+          onClick={() => setMarketTab("orders")}
+        >
+          Histórico ({orders.length})
+        </button>
+        <button
+          role="tab"
+          aria-selected={marketTab === "assets"}
+          onClick={() => setMarketTab("assets")}
+        >
+          Ativos e resultado
+        </button>
+        <Link className="self-center text-sm text-muted-foreground" to="/grade">
+          Robôs →
+        </Link>
+      </div>
+      <section hidden={marketTab !== "assets"} role="tabpanel" aria-label="Ativos e resultado">
+        <Panel title={`Seus resultados com ${sym}`}>
+          {pnl.buys + pnl.sells === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhuma troca confirmada de {sym} ainda. Depois da primeira compra ou venda, o
+              resultado aparece aqui.
+            </p>
+          ) : (
+            <div className="space-y-3 text-sm">
+              <div
                 className={cn(
-                  "text-2xl font-bold",
-                  status === "pos" ? "text-success" : status === "neg" ? "text-destructive" : "",
+                  "rounded border p-3",
+                  status === "pos"
+                    ? "border-success/50 bg-success/10"
+                    : status === "neg"
+                      ? "border-destructive/50 bg-destructive/10"
+                      : "border-border",
                 )}
               >
-                {total == null
-                  ? "—"
-                  : `${total >= 0 ? "+" : ""}${total.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB`}
-                {total != null && pnl.bnbSpent > 0 ? (
-                  <span className="ml-2 text-base">
-                    ({((total / pnl.bnbSpent) * 100).toFixed(1)}%)
-                  </span>
-                ) : null}
-              </p>
-              <p className="text-xs text-warning">
-                {hasEstimatedFills
-                  ? "Amostra do histórico exibido: inclui estimativas, sem representar todo o resultado da carteira."
-                  : "Confira taxas e a auditoria das transações."}
-              </p>
-              <p>
-                {status === "pos"
-                  ? "Estimativa positiva."
-                  : status === "neg"
-                    ? "Estimativa negativa."
-                    : total == null
-                      ? "Sem preço atual para calcular."
-                      : "Empatado."}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <p>
-                Compras: <b>{pnl.buys}</b> · gasto {n6(pnl.bnbSpent)} BNB
-              </p>
-              <p>
-                Vendas: <b>{pnl.sells}</b> · recebido {n6(pnl.bnbReceived)} BNB
-              </p>
-              <p>
-                Resultado estimado das operações exibidas:{" "}
-                <b className={pnl.realized >= 0 ? "text-success" : "text-destructive"}>
-                  {pnl.realized >= 0 ? "+" : ""}
-                  {n6(pnl.realized)} BNB
-                </b>
-              </p>
-              <p>
-                Ainda com você (destas compras):{" "}
-                <b>
-                  {n2(pnl.position)} {sym}
-                </b>
-                {pnl.avgCost ? <> · preço médio {pnl.avgCost.toPrecision(4)} BNB</> : null}
-              </p>
-            </div>
-            {pnl.lastSell && (
-              <p className="rounded border border-border p-2 text-xs">
-                <b>Última venda:</b> {n2(pnl.lastSell.tokens)} {sym} → {n6(pnl.lastSell.bnb)} BNB (1
-                BNB = {n2(pnl.lastSell.tokens / pnl.lastSell.bnb)} {sym}).
-                {spot ? (
-                  <>
-                    {" "}
-                    Agora 1 BNB compra ~{n2(spot)} {sym}:{" "}
-                    <b
-                      className={
-                        spot >= pnl.lastSell.tokens / pnl.lastSell.bnb
-                          ? "text-success"
-                          : "text-destructive"
-                      }
-                    >
-                      {spot >= pnl.lastSell.tokens / pnl.lastSell.bnb ? "mais" : "menos"} tokens
-                    </b>{" "}
-                    do que você vendeu.
-                  </>
-                ) : null}
-              </p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Valores em BNB pela cotação de cada troca (com taxa do token), sem o gás. Tokens que
-              já estavam na carteira antes não entram no lucro.
-            </p>
-          </div>
-        )}
-      </Panel>
-
-      <Panel title={`Histórico de operações (${orders.length})`} collapsible>
-        <div className="mb-3 flex flex-wrap gap-2 text-xs">
-          <div>
-            Ativo{" "}
-            <TokenPicker
-              label="Filtrar token no histórico"
-              tokens={[{ address: "all", symbol: "Todos os tokens" }, ...tokens]}
-              value={historyToken}
-              onChange={setHistoryToken}
-              showName={false}
-            />
-          </div>
-          <label>
-            Situação{" "}
-            <select
-              aria-label="Filtrar histórico por situação"
-              className="rounded border border-border bg-background p-2"
-              value={historyStatus}
-              onChange={(e) => setHistoryStatus(e.target.value)}
-            >
-              <option value="all">Todas</option>
-              {Array.from(new Set(orders.map((o) => o.status))).map((x) => (
-                <option key={x} value={x}>
-                  {x}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Operação{" "}
-            <select
-              aria-label="Filtrar histórico por operação"
-              className="rounded border border-border bg-background p-2"
-              value={historySide}
-              onChange={(e) => setHistorySide(e.target.value)}
-            >
-              <option value="all">Todas</option>
-              <option value="compra">Compra</option>
-              <option value="venda">Venda</option>
-            </select>
-          </label>
-          <label>
-            Período{" "}
-            <select
-              aria-label="Filtrar histórico por período"
-              className="rounded border border-border bg-background p-2"
-              value={historyDays}
-              onChange={(e) => setHistoryDays(e.target.value)}
-            >
-              <option value="all">Todo o histórico carregado</option>
-              <option value="1">24 horas</option>
-              <option value="7">7 dias</option>
-              <option value="30">30 dias</option>
-            </select>
-          </label>
-        </div>
-        <p className="mb-2 text-xs text-muted-foreground">
-          {historyOrders.length} resultados nas {orders.length} operações carregadas. Use “Carregar
-          mais” para pesquisar registros anteriores.
-        </p>
-        {historyOrders.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma ordem.</p>
-        ) : (
-          <div className="space-y-2">
-            {historyOrders.map((o) => (
-              <div key={o.id} className="rounded border border-border p-2 text-xs">
-                <div className="flex flex-wrap justify-between gap-2">
-                  <span className={o.side === "compra" ? "text-success" : "text-destructive"}>
-                    {o.side}
-                  </span>
-                  <span className="font-mono">{o.status}</span>
-                  <span className="text-muted-foreground">
-                    {new Date(o.created_at).toLocaleString("pt-BR")}
-                  </span>
-                </div>
-                {o.tx_hash && (
-                  <a
-                    className="break-all font-mono text-primary underline"
-                    href={`https://bscscan.com/tx/${o.tx_hash}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {o.tx_hash}
-                  </a>
-                )}
-                <details className="mt-2 rounded border border-border p-2">
-                  <summary className="cursor-pointer">
-                    Detalhes ·{" "}
-                    {o.accounting_status === "confirmado"
-                      ? "Valores confirmados"
-                      : "Valores estimados ou ainda não conciliados"}
-                  </summary>
-                  <p className="mt-2 break-all">
-                    Ativo:{" "}
-                    {tokens.find((t) => t.address.toLowerCase() === o.token?.toLowerCase())
-                      ?.symbol ??
-                      o.token ??
-                      "Não identificado"}
-                  </p>
-                  <p>
-                    Gás: {o.gas_bnb == null ? "Não disponível" : `${formatPrice(o.gas_bnb)} BNB`}
-                  </p>
-                  <p>
-                    BNB recebido:{" "}
-                    {o.actual_bnb_received == null
-                      ? "Não confirmado pelo recibo/trace"
-                      : formatPrice(o.actual_bnb_received)}
-                  </p>
-                  <p>
-                    Taxas do token e da DEX: não registradas separadamente neste histórico; não
-                    representam o gás acima.
-                  </p>
-                  <p>Slippage configurado: {o.slippage_pct}%</p>
-                  <p className="break-all">
-                    Variação de tokens no recibo (unidades mínimas):{" "}
-                    {o.actual_token_delta ?? "Não disponível"}
-                  </p>
-                  <p>
-                    Resultado líquido: consulte o resumo do ativo acima; ordens isoladas não
-                    representam um ciclo completo.
-                  </p>
-                </details>
-                {o.error && <p className="text-destructive">{o.error}</p>}
+                <p className="text-xs text-muted-foreground">
+                  Situação geral (vendido + valor atual do que sobrou − gasto)
+                </p>
+                <p
+                  className={cn(
+                    "text-2xl font-bold",
+                    status === "pos" ? "text-success" : status === "neg" ? "text-destructive" : "",
+                  )}
+                >
+                  {total == null
+                    ? "—"
+                    : `${total >= 0 ? "+" : ""}${total.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB`}
+                  {total != null && pnl.bnbSpent > 0 ? (
+                    <span className="ml-2 text-base">
+                      ({((total / pnl.bnbSpent) * 100).toFixed(1)}%)
+                    </span>
+                  ) : null}
+                </p>
+                <p className="text-xs text-warning">
+                  {hasEstimatedFills
+                    ? "Amostra do histórico exibido: inclui estimativas, sem representar todo o resultado da carteira."
+                    : "Confira taxas e a auditoria das transações."}
+                </p>
+                <p>
+                  {status === "pos"
+                    ? "Estimativa positiva."
+                    : status === "neg"
+                      ? "Estimativa negativa."
+                      : total == null
+                        ? "Sem preço atual para calcular."
+                        : "Empatado."}
+                </p>
               </div>
-            ))}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <p>
+                  Compras: <b>{pnl.buys}</b> · gasto {n6(pnl.bnbSpent)} BNB
+                </p>
+                <p>
+                  Vendas: <b>{pnl.sells}</b> · recebido {n6(pnl.bnbReceived)} BNB
+                </p>
+                <p>
+                  Resultado estimado das operações exibidas:{" "}
+                  <b className={pnl.realized >= 0 ? "text-success" : "text-destructive"}>
+                    {pnl.realized >= 0 ? "+" : ""}
+                    {n6(pnl.realized)} BNB
+                  </b>
+                </p>
+                <p>
+                  Ainda com você (destas compras):{" "}
+                  <b>
+                    {n2(pnl.position)} {sym}
+                  </b>
+                  {pnl.avgCost ? <> · preço médio {pnl.avgCost.toPrecision(4)} BNB</> : null}
+                </p>
+              </div>
+              {pnl.lastSell && (
+                <p className="rounded border border-border p-2 text-xs">
+                  <b>Última venda:</b> {n2(pnl.lastSell.tokens)} {sym} → {n6(pnl.lastSell.bnb)} BNB
+                  (1 BNB = {n2(pnl.lastSell.tokens / pnl.lastSell.bnb)} {sym}).
+                  {spot ? (
+                    <>
+                      {" "}
+                      Agora 1 BNB compra ~{n2(spot)} {sym}:{" "}
+                      <b
+                        className={
+                          spot >= pnl.lastSell.tokens / pnl.lastSell.bnb
+                            ? "text-success"
+                            : "text-destructive"
+                        }
+                      >
+                        {spot >= pnl.lastSell.tokens / pnl.lastSell.bnb ? "mais" : "menos"} tokens
+                      </b>{" "}
+                      do que você vendeu.
+                    </>
+                  ) : null}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Valores em BNB pela cotação de cada troca (com taxa do token), sem o gás. Tokens que
+                já estavam na carteira antes não entram no lucro.
+              </p>
+            </div>
+          )}
+        </Panel>
+      </section>
+      <section hidden={marketTab !== "orders"} role="tabpanel" aria-label="Histórico">
+        <Panel title={`Histórico de operações (${orders.length})`}>
+          <div className="mb-3 flex flex-wrap gap-2 text-xs">
+            <div>
+              Ativo{" "}
+              <TokenPicker
+                label="Filtrar token no histórico"
+                tokens={[{ address: "all", symbol: "Todos os tokens" }, ...tokens]}
+                value={historyToken}
+                onChange={setHistoryToken}
+                showName={false}
+              />
+            </div>
+            <label>
+              Situação{" "}
+              <select
+                aria-label="Filtrar histórico por situação"
+                className="rounded border border-border bg-background p-2"
+                value={historyStatus}
+                onChange={(e) => setHistoryStatus(e.target.value)}
+              >
+                <option value="all">Todas</option>
+                {Array.from(new Set(orders.map((o) => o.status))).map((x) => (
+                  <option key={x} value={x}>
+                    {x}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Operação{" "}
+              <select
+                aria-label="Filtrar histórico por operação"
+                className="rounded border border-border bg-background p-2"
+                value={historySide}
+                onChange={(e) => setHistorySide(e.target.value)}
+              >
+                <option value="all">Todas</option>
+                <option value="compra">Compra</option>
+                <option value="venda">Venda</option>
+              </select>
+            </label>
+            <label>
+              Período{" "}
+              <select
+                aria-label="Filtrar histórico por período"
+                className="rounded border border-border bg-background p-2"
+                value={historyDays}
+                onChange={(e) => setHistoryDays(e.target.value)}
+              >
+                <option value="all">Todo o histórico carregado</option>
+                <option value="1">24 horas</option>
+                <option value="7">7 dias</option>
+                <option value="30">30 dias</option>
+              </select>
+            </label>
           </div>
-        )}
-        <p className="mt-2 text-xs text-muted-foreground">
-          Transações já enviadas podem continuar mesmo se você sair. Aprovações existentes precisam
-          ser revogadas separadamente (ex.: revoke.cash).
-        </p>
-      </Panel>
+          <p className="mb-2 text-xs text-muted-foreground">
+            {historyOrders.length} resultados nas {orders.length} operações carregadas. Use
+            “Carregar mais” para pesquisar registros anteriores.
+          </p>
+          {historyOrders.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma ordem.</p>
+          ) : (
+            <div className="space-y-2">
+              {historyOrders.map((o) => (
+                <div key={o.id} className="rounded border border-border p-2 text-xs">
+                  <div className="flex flex-wrap justify-between gap-2">
+                    <span className={o.side === "compra" ? "text-success" : "text-destructive"}>
+                      {o.side}
+                    </span>
+                    <span className="font-mono">{o.status}</span>
+                    <span className="text-muted-foreground">
+                      {new Date(o.created_at).toLocaleString("pt-BR")}
+                    </span>
+                  </div>
+                  {o.tx_hash && (
+                    <a
+                      className="break-all font-mono text-primary underline"
+                      href={`https://bscscan.com/tx/${o.tx_hash}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {o.tx_hash}
+                    </a>
+                  )}
+                  <details className="mt-2 rounded border border-border p-2">
+                    <summary className="cursor-pointer">
+                      Detalhes ·{" "}
+                      {o.accounting_status === "confirmado"
+                        ? "Valores confirmados"
+                        : "Valores estimados ou ainda não conciliados"}
+                    </summary>
+                    <p className="mt-2 break-all">
+                      Ativo:{" "}
+                      {tokens.find((t) => t.address.toLowerCase() === o.token?.toLowerCase())
+                        ?.symbol ??
+                        o.token ??
+                        "Não identificado"}
+                    </p>
+                    <p>
+                      Gás: {o.gas_bnb == null ? "Não disponível" : `${formatPrice(o.gas_bnb)} BNB`}
+                    </p>
+                    <p>
+                      BNB recebido:{" "}
+                      {o.actual_bnb_received == null
+                        ? "Não confirmado pelo recibo/trace"
+                        : formatPrice(o.actual_bnb_received)}
+                    </p>
+                    <p>
+                      Taxas do token e da DEX: não registradas separadamente neste histórico; não
+                      representam o gás acima.
+                    </p>
+                    <p>Slippage configurado: {o.slippage_pct}%</p>
+                    <p className="break-all">
+                      Variação de tokens no recibo (unidades mínimas):{" "}
+                      {o.actual_token_delta ?? "Não disponível"}
+                    </p>
+                    <p>
+                      Resultado líquido: consulte o resumo do ativo acima; ordens isoladas não
+                      representam um ciclo completo.
+                    </p>
+                  </details>
+                  {o.error && <p className="text-destructive">{o.error}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            Transações já enviadas podem continuar mesmo se você sair. Aprovações existentes
+            precisam ser revogadas separadamente (ex.: revoke.cash).
+          </p>
+        </Panel>
+      </section>
       <Button
         variant="outline"
         size="sm"

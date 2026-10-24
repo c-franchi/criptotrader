@@ -73,7 +73,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div
       data-app-shell
-      className="min-h-screen w-full min-w-0 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64"
+      className={`min-h-screen w-full min-w-0 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64 ${["/grade", "/operar"].includes(pathname) ? "exchange-shell" : ""}`}
     >
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-card lg:flex">
         <Link

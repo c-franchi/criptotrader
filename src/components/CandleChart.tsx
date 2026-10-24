@@ -23,7 +23,7 @@ export type ChartTrade = {
 };
 const tones = {
   buy: "text-success",
-  sell: "text-primary",
+  sell: "text-destructive",
   stop: "text-destructive",
   avg: "text-chart-4",
   grid: "text-muted-foreground",
@@ -81,7 +81,7 @@ function ChartBody({
   const storageKey =
     preferenceKey ?? (compact ? "cryptobot:trade-chart-view" : "cryptobot:chart-view");
   const W = compact ? 400 : 760,
-    plot = compact ? 300 : 640;
+    plot = compact ? 330 : 640;
   const [technical, setTechnical] = useState(false);
   const [showEma, setShowEma] = useState(true);
   const [showBands, setShowBands] = useState(true);
@@ -689,6 +689,77 @@ function ChartBody({
           </Button>
         </div>
       )}
+      {compact && (
+        <div
+          className="flex flex-wrap items-center gap-2"
+          aria-label="Controles rápidos do gráfico"
+        >
+          <div
+            className="flex rounded-full bg-secondary p-1"
+            role="group"
+            aria-label="Tipo de gráfico"
+          >
+            <Button
+              size="sm"
+              variant={mode === "candles" ? "default" : "ghost"}
+              className="rounded-full"
+              aria-pressed={mode === "candles"}
+              onClick={() => setMode("candles")}
+            >
+              Velas
+            </Button>
+            <Button
+              size="sm"
+              variant={mode === "line" ? "default" : "ghost"}
+              className="rounded-full"
+              aria-pressed={mode === "line"}
+              onClick={() => setMode("line")}
+            >
+              Linha
+            </Button>
+          </div>
+          {windows.map((w) => (
+            <Button
+              key={w.hours}
+              size="sm"
+              className="rounded-full"
+              variant={hours === w.hours ? "secondary" : "ghost"}
+              aria-pressed={hours === w.hours}
+              onClick={() => {
+                setHours(w.hours);
+                setFollow(true);
+              }}
+            >
+              {w.id}
+            </Button>
+          ))}
+          {mode === "candles" && (
+            <select
+              aria-label="Intervalo das velas"
+              value={minutes}
+              onChange={(e) => setMinutes(Number(e.target.value))}
+              className="rounded-full border border-border bg-background px-3 py-2"
+            >
+              {[5, 15, 30, 60].map((m) => (
+                <option key={m} value={m}>
+                  {m === 60 ? "1h" : `${m}m`}
+                </option>
+              ))}
+            </select>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-expanded={controls}
+            onClick={() => {
+              setControls(!controls);
+              if (controls) setTool("inspect");
+            }}
+          >
+            {controls ? "Ocultar ferramentas" : "Ferramentas"}
+          </Button>
+        </div>
+      )}
       {bars.length ? (
         <svg
           ref={svgRef}
@@ -1033,77 +1104,6 @@ function ChartBody({
         <p className="flex h-48 items-center justify-center text-sm text-muted-foreground">
           Histórico indisponível neste período.
         </p>
-      )}
-      {compact && (
-        <div
-          className="flex flex-wrap items-center gap-2"
-          aria-label="Controles rápidos do gráfico"
-        >
-          <div
-            className="flex rounded-full bg-secondary p-1"
-            role="group"
-            aria-label="Tipo de gráfico"
-          >
-            <Button
-              size="sm"
-              variant={mode === "candles" ? "default" : "ghost"}
-              className="rounded-full"
-              aria-pressed={mode === "candles"}
-              onClick={() => setMode("candles")}
-            >
-              Velas
-            </Button>
-            <Button
-              size="sm"
-              variant={mode === "line" ? "default" : "ghost"}
-              className="rounded-full"
-              aria-pressed={mode === "line"}
-              onClick={() => setMode("line")}
-            >
-              Linha
-            </Button>
-          </div>
-          {windows.map((w) => (
-            <Button
-              key={w.hours}
-              size="sm"
-              className="rounded-full"
-              variant={hours === w.hours ? "secondary" : "ghost"}
-              aria-pressed={hours === w.hours}
-              onClick={() => {
-                setHours(w.hours);
-                setFollow(true);
-              }}
-            >
-              {w.id}
-            </Button>
-          ))}
-          {mode === "candles" && (
-            <select
-              aria-label="Intervalo das velas"
-              value={minutes}
-              onChange={(e) => setMinutes(Number(e.target.value))}
-              className="rounded-full border border-border bg-background px-3 py-2"
-            >
-              {[5, 15, 30, 60].map((m) => (
-                <option key={m} value={m}>
-                  {m === 60 ? "1h" : `${m}m`}
-                </option>
-              ))}
-            </select>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-expanded={controls}
-            onClick={() => {
-              setControls(!controls);
-              if (controls) setTool("inspect");
-            }}
-          >
-            {controls ? "Ocultar ferramentas" : "Ferramentas"}
-          </Button>
-        </div>
       )}
       {technical && (
         <div className="rounded-md border border-border p-2">

@@ -278,3 +278,106 @@
   overflow-wrap: normal;
   word-break: normal;
 }
+
+/* Trading surfaces: a compact spot-market workspace, scoped to robot/manual screens. */
+.exchange-workspace,
+.exchange-shell {
+  --primary: oklch(0.53 0.24 262);
+  --primary-foreground: oklch(1 0 0);
+  --ring: oklch(0.53 0.24 262);
+  --success: oklch(0.62 0.16 165);
+  --destructive: oklch(0.62 0.21 15);
+  --radius: 0.8rem;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+:root[data-theme="light"] .exchange-workspace,
+:root[data-theme="light"] .exchange-shell {
+  --background: oklch(1 0 0);
+  --card: oklch(1 0 0);
+  --foreground: oklch(0.16 0.005 260);
+  --secondary: oklch(0.965 0.003 260);
+  --muted: oklch(0.965 0.003 260);
+  --muted-foreground: oklch(0.53 0.005 260);
+  --border: oklch(0.94 0.003 260);
+  --input: oklch(0.965 0.003 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.16 0.005 260);
+}
+.exchange-workspace {
+  background: var(--background);
+  color: var(--foreground);
+}
+.exchange-workspace [data-panel] {
+  border-radius: 0;
+  border-width: 0 0 1px;
+  box-shadow: none;
+  padding: 1.25rem 0;
+}
+.exchange-workspace [data-panel] h2 {
+  font-size: 1rem;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--foreground);
+}
+.exchange-workspace input:not([type="checkbox"]):not([type="radio"]),
+.exchange-workspace select {
+  border: 0;
+  border-radius: 0.8rem;
+  background: var(--secondary);
+  min-height: 3rem;
+  box-shadow: none;
+}
+.exchange-workspace button {
+  box-shadow: none;
+}
+.exchange-workspace [data-slot="button"]:not([data-size="icon"]) {
+  border-radius: 0.75rem;
+}
+.exchange-workspace .trade-tabs {
+  display: flex;
+  gap: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.exchange-workspace .trade-tabs button {
+  padding: 0.8rem 0.1rem;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+  border-bottom: 3px solid transparent;
+  font-weight: 600;
+}
+.exchange-workspace .trade-tabs button[aria-selected="true"] {
+  color: var(--foreground);
+  border-bottom-color: var(--primary);
+}
+.exchange-setup {
+  max-width: 46rem;
+  border-radius: 1.5rem;
+}
+.exchange-setup > [role="status"] {
+  font-size: 0.7rem;
+}
+.exchange-setup [data-robot-chart] svg[role="img"] {
+  max-height: 16rem;
+}
+.exchange-setup .setup-hint {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+.exchange-setup .setup-hint summary {
+  cursor: pointer;
+}
+@media (min-width: 1024px) {
+  .exchange-workspace .manual-workspace-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.8fr);
+    align-items: start;
+    gap: 2rem;
+  }
+}

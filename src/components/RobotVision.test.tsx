@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RobotVision } from "./RobotVision";
 import { EMPTY_CONFIG } from "@/lib/strategy";
@@ -24,7 +24,7 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
-function show(age = 0) {
+function show(age = 0, streamlined = false) {
   market.mockResolvedValue({
     fetchedAt: new Date(Date.now() - age).toISOString(),
     source: "on-chain · bloco 123",
@@ -43,6 +43,7 @@ function show(age = 0) {
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
       <RobotVision
+        streamlined={streamlined}
         token="0x1111111111111111111111111111111111111111"
         symbol="TEST"
         cfg={{ ...EMPTY_CONFIG, entryType: "queda", dropPct: 1.5 }}
@@ -96,4 +97,16 @@ it("distinguishes the saved sale target from the current-price line even when pr
   expect(screen.getByText(/Próxima venda · US\$ 84.111,50/)).toBeTruthy();
   expect(screen.getByText(/A linha “Agora” é a cotação atual, não o alvo/)).toBeTruthy();
   expect(screen.getByText(/Alvo da estratégia salva; a execução não está confirmada/)).toBeTruthy();
+});
+
+it("keeps the market concise and lets the user expand its analysis", async () => {
+  show(0, true);
+  const toggle = await screen.findByRole("button", { name: "Análise e auditoria +" });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(screen.getByText("Próxima compra")).toBeTruthy();
+  expect(screen.getByText("Próxima venda")).toBeTruthy();
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
 });
