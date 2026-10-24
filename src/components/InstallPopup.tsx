@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { Download, Share, PlusSquare } from "lucide-react";
 import {
@@ -17,6 +18,7 @@ const WAIT_DAYS = 3;
 export function InstallPopup() {
   const [open, setOpen] = useState(false);
   const [ios, setIos] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (window.self !== window.top) return;
@@ -31,7 +33,8 @@ export function InstallPopup() {
     const check = () => {
       const s = getInstallState();
       if (s.installed) setOpen(false);
-      else if (s.canInstall) setOpen(true);
+      else if (s.canInstall && !document.querySelector('[role="dialog"][data-state="open"]'))
+        setOpen(true);
     };
     const t = setTimeout(() => {
       if (isIos) setOpen(true);
@@ -49,8 +52,17 @@ export function InstallPopup() {
     setOpen(false);
   };
   const install = async () => {
-    await runInstall();
-    setOpen(false);
+    setBusy(true);
+    try {
+      await runInstall();
+      setOpen(false);
+    } catch {
+      toast.error(
+        "O navegador não abriu o instalador. Use Instalar o app no menu para ver outras opções.",
+      );
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -81,7 +93,7 @@ export function InstallPopup() {
             </li>
           </ol>
         ) : (
-          <Button size="lg" className="h-14 w-full text-base" onClick={install}>
+          <Button size="lg" className="h-14 w-full text-base" disabled={busy} onClick={install}>
             <Download className="mr-2 h-5 w-5" /> Instalar agora
           </Button>
         )}
