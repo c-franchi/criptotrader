@@ -1,10 +1,12 @@
+import { getInstallState, runInstall } from "@/lib/installPrompt";
+import { toast } from "sonner";
 import { AppTour } from "./AppTour";
 import { useAppTour } from "@/hooks/useAppTour";
 import { PreferencesDialog } from "./PreferencesDialog";
 import { ThemeToggle } from "./ThemeToggle";
 import { WalletSelector } from "./WalletSelector";
 import { AppUpdateNotice } from "@/components/AppUpdateNotice";
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import {
   Bell,
@@ -72,6 +74,28 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const handleNavClick = (event: React.MouseEvent, to: string) => {
+    setOpen(false);
+    if (
+      to !== "/instalar" ||
+      !getInstallState().canInstall ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    // Start the native prompt inside this gesture, before routing can consume activation.
+    void runInstall()
+      .catch(() =>
+        toast.error("Não foi possível abrir o instalador. Veja as opções de instalação."),
+      )
+      .finally(() => {
+        void navigate({ to: "/instalar" });
+      });
+  };
   const current = nav.find((n) => n.to === pathname);
   const tour = useAppTour(user?.id, !loading && pathname !== "/login");
   const openTour = () => {
@@ -100,6 +124,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={n.to}
                 to={n.to}
+                onClick={(event) => handleNavClick(event, n.to)}
                 className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
                 activeProps={{ className: "bg-primary/10 text-primary font-semibold" }}
                 activeOptions={{ exact: true }}
@@ -178,7 +203,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <Link
                       key={n.to}
                       to={n.to}
-                      onClick={() => setOpen(false)}
+                      onClick={(event) => handleNavClick(event, n.to)}
                       className="flex items-center gap-3 rounded-md px-3 py-2.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
                       activeProps={{ className: "bg-secondary text-foreground" }}
                       activeOptions={{ exact: true }}
