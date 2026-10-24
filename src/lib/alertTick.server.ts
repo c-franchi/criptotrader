@@ -54,8 +54,9 @@ export async function runAlertTick() {
       p_next: next,
       p_price: price,
       p_checked: checkedAt,
-      p_title: notify ? title : null,
-      p_body: notify ? body : null,
+      // SQL function accepts NULL (no notification); generated types omit nullability.
+      p_title: (notify ? title : null) as string,
+      p_body: (notify ? body : null) as string,
     });
     if (error) console.error("Alert transition not saved", error.code);
   }
