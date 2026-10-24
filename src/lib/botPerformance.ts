@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+const LedgerDecimal = Decimal.clone({ precision: 100 });
 export type PerformanceOrder = {
   side: string;
   status: string;
@@ -16,16 +17,16 @@ export function botPerformance(
   bnbUsd: number | null,
   truncated = false,
 ) {
-  let quantity = new Decimal(0),
-    cost = new Decimal(0),
-    realized = new Decimal(0),
-    fees = new Decimal(0),
+  let quantity = new LedgerDecimal(0),
+    cost = new LedgerDecimal(0),
+    realized = new LedgerDecimal(0),
+    fees = new LedgerDecimal(0),
     complete = !truncated;
   for (const o of orders) {
     if (o.gas_bnb == null) {
       complete = false;
     } else fees = fees.plus(o.gas_bnb);
-    const gas = new Decimal(o.gas_bnb ?? 0);
+    const gas = new LedgerDecimal(o.gas_bnb ?? 0);
     if (o.status === "falhou") {
       realized = realized.minus(gas);
       continue;
@@ -35,10 +36,10 @@ export function botPerformance(
       complete = false;
       continue;
     }
-    const delta = new Decimal(o.actual_token_delta).abs();
+    const delta = new LedgerDecimal(o.actual_token_delta).abs();
     if (o.side === "compra") {
       quantity = quantity.plus(delta);
-      cost = cost.plus(new Decimal(o.amount_in).div("1e18")).plus(gas);
+      cost = cost.plus(new LedgerDecimal(o.amount_in).div("1e18")).plus(gas);
     } else {
       if (quantity.lte(0) || delta.gt(quantity) || o.actual_bnb_received == null) {
         complete = false;

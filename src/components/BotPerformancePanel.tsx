@@ -1,3 +1,4 @@
+import { ReconcileSaleButton } from "./ReconcileSaleButton";
 import { FiatValue } from "@/hooks/useCurrency";
 import { useQuery } from "@tanstack/react-query";
 import { getGuidedBotPerformance } from "@/lib/guidedBot.functions";
@@ -5,9 +6,11 @@ import { Panel } from "./AppShell";
 export function BotPerformancePanel({
   walletScope,
   token,
+  onUpdated,
 }: {
   walletScope: string;
   token: string;
+  onUpdated?: () => void;
 }) {
   const q = useQuery({
     queryKey: ["bot-performance", walletScope, token],
@@ -16,7 +19,7 @@ export function BotPerformancePanel({
     retry: false,
   });
   const money = (n: number | null | undefined) =>
-    n == null ? "Não apurado" : `${n.toLocaleString("pt-BR", { maximumFractionDigits: 8 })} BNB`;
+    n == null ? "Não apurado" : `${n.toLocaleString("pt-BR", { maximumFractionDigits: 10 })} BNB`;
   return (
     <Panel title="Resultado deste robô">
       {q.isError ? (
@@ -43,6 +46,54 @@ export function BotPerformancePanel({
             A posição aberta varia com o preço e ainda não desconta o custo futuro de venda.
             Depósitos não são lucro. Valores sem confirmação ficam como “Não apurado”.
           </p>
+          {(q.data.cycles ?? []).map((cycle, index) => (
+            <section
+              key={cycle.id}
+              className="mt-4 rounded-xl border border-border p-3"
+              aria-label="Resultado da operação encerrada"
+            >
+              <div className="flex flex-wrap justify-between gap-2 text-sm font-semibold">
+                <span>
+                  Operação encerrada · {cycle.buys} {cycle.buys === 1 ? "compra" : "compras"}
+                </span>
+                <time>{new Date(cycle.closedAt).toLocaleString("pt-BR")}</time>
+              </div>
+              <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                {[
+                  ["Total das compras", cycle.invested],
+                  ["BNB recebido na venda", cycle.received],
+                  ["Gás total · já descontado", cycle.gas],
+                  ["Lucro ou prejuízo líquido", cycle.net],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-muted-foreground">{label}</dt>
+                    <dd className="font-semibold tabular-nums">
+                      {money(value == null ? null : Number(value))}
+                    </dd>
+                    {value != null && <FiatValue bnb={Number(value)} />}
+                  </div>
+                ))}
+              </dl>
+              {cycle.percent != null && (
+                <p className="mt-2 text-sm font-semibold">
+                  Resultado sobre o valor das compras: {cycle.percent}%
+                </p>
+              )}
+              {!cycle.complete && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Operação encerrada. O resultado líquido aguarda a confirmação dos valores na rede.
+                </p>
+              )}
+              {cycle.pendingHashes.map((hash, hashIndex) => (
+                <ReconcileSaleButton
+                  key={hash}
+                  hash={hash}
+                  auto={index === 0 && hashIndex === 0}
+                  onUpdated={onUpdated}
+                />
+              ))}
+            </section>
+          ))}
           <details className="mt-2 text-xs">
             <summary>Detalhes da apuração</summary>
             {q.data.scope}

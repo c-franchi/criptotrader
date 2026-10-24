@@ -159,7 +159,9 @@ export const getGuidedBotPerformance = createServerFn({ method: "GET" })
     const { data: orders, error: orderError } = hashes.length
       ? await admin
           .from("orders")
-          .select("side,status,amount_in,actual_token_delta,actual_bnb_received,gas_bnb")
+          .select(
+            "id,created_at,tx_hash,side,status,amount_in,actual_token_delta,actual_bnb_received,gas_bnb",
+          )
           .eq("user_id", context.userId)
           .eq("wallet_scope", data.walletScope)
           .in("tx_hash", hashes.slice(0, 1000))
@@ -189,9 +191,11 @@ export const getGuidedBotPerformance = createServerFn({ method: "GET" })
       fx.bnbUsd,
       (journal?.length ?? 0) > 1000,
     );
+    const { closedBotCycles } = await import("./closedBotCycles");
     return {
       ...report,
-      total: state?.accountingEstimated ? null : report.total,
+      cycles: closedBotCycles(orders ?? [], (journal?.length ?? 0) > 1000),
+      total: state?.accountingEstimated && Number(state?.tokens ?? 0) > 0 ? null : report.total,
       openEstimated: true,
       at: new Date().toISOString(),
       bnbBrl: fx.bnbUsd && fx.usdBrl ? fx.bnbUsd * fx.usdBrl : null,
