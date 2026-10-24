@@ -1,3 +1,4 @@
+import { PageHeading } from "@/components/PageHeading";
 import { TokenPicker } from "@/components/TokenPicker";
 import { formatUsd } from "@/lib/display";
 import { createFileRoute } from "@tanstack/react-router";
@@ -67,6 +68,7 @@ function Metrics() {
 
   return (
     <div className="space-y-4">
+      <PageHeading title="Métricas" description="Compare a evolução da moeda por período." />
       <Panel title="Métricas de evolução">
         <div className="flex flex-wrap gap-2">
           <TokenPicker tokens={tokens} value={token.address} onChange={selectToken} />
@@ -151,6 +153,8 @@ function Metrics() {
           </Panel>
 
           <CandleChart
+            compact
+            preferenceKey="cryptobot:metrics-chart-view"
             key={token.address}
             candles={candles.data ?? []}
             now={clock}

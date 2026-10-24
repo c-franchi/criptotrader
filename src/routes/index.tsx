@@ -1,3 +1,4 @@
+import { PageHeading } from "@/components/PageHeading";
 import { FiatValue } from "@/hooks/useCurrency";
 import { TokenPicker } from "@/components/TokenPicker";
 import { useEffect, useState } from "react";
@@ -142,6 +143,7 @@ function Dashboard() {
 
   return (
     <AppShell>
+      <PageHeading title="Painel" description="Seu mercado, preços e gráfico." />
       <div data-token-picker className="mb-4 flex flex-wrap gap-2">
         <TokenPicker tokens={tokens} value={addr} onChange={setAddr} />
         <AddTokenDialog />
@@ -157,11 +159,11 @@ function Dashboard() {
       </div>
       <StrategyAlert address={addr} symbol={info.symbol} pools={market.data?.pools ?? []} />
 
-      <section className="mb-4 rounded-lg border border-primary/30 bg-card p-4">
+      <section className="mb-4 border-b border-border bg-card py-5">
         <div className="flex items-baseline justify-between gap-2">
-          <h1 className="min-w-0 truncate text-lg font-semibold sm:text-2xl">
+          <h2 className="min-w-0 truncate text-lg font-semibold sm:text-2xl">
             {info.name} <span className="text-muted-foreground">({info.symbol})</span>
-          </h1>
+          </h2>
           <a
             className="shrink-0 text-xs text-primary underline"
             href={`https://bscscan.com/token/${addr}`}

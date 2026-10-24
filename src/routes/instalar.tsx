@@ -57,7 +57,7 @@ function Instalar() {
             alt="Ícone do CryptoBot"
             width={1024}
             height={1024}
-            className="h-28 w-28 rounded-3xl border border-primary/40 shadow-lg shadow-primary/20"
+            className="h-28 w-28 rounded-3xl"
           />
           <h1 className="mt-4 text-2xl font-semibold">Instale o CryptoBot</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -82,7 +82,7 @@ function Instalar() {
           </p>
         )}
 
-        <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+        <div className="space-y-3 rounded-2xl bg-secondary p-5">
           <h2 className="font-semibold">{ios ? "No iPhone (Safari)" : "No Android (Chrome)"}</h2>
           {ios ? (
             <ol className="space-y-3 text-sm">

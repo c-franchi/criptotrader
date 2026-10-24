@@ -7,7 +7,7 @@ export function WalletSelector() {
   const { walletScope, wallets, selectWallet, ready } = useSelectedWallet();
   if (!user) return null;
   return (
-    <section className="mb-4 rounded-lg border border-border bg-card p-3">
+    <section className="mb-5 rounded-2xl bg-secondary/50 p-4">
       <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-end sm:gap-3">
         <label className="min-w-0 flex-1 text-sm font-medium" htmlFor="active-wallet">
           Carteira selecionada

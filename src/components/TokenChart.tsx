@@ -84,10 +84,7 @@ function PriceChart({
     if (pool) void candles.refetch();
   };
   return (
-    <section
-      aria-label={`Gráfico de ${symbol}`}
-      className="rounded-lg border border-border bg-card p-4"
-    >
+    <section aria-label={`Gráfico de ${symbol}`} className="border-b border-border bg-card py-5">
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 break-all text-xl font-bold">{symbol}</p>
         <div className="min-w-0 text-right">
@@ -182,6 +179,8 @@ function PriceChart({
       <div className="mt-3">
         {all.length > 0 && (
           <CandleChart
+            compact
+            preferenceKey="cryptobot:panel-chart-view"
             candles={all}
             now={now}
             strategyMinutes={strategyMinutes}

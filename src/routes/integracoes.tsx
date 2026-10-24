@@ -1,3 +1,4 @@
+import { PageHeading } from "@/components/PageHeading";
 import { useQuery } from "@tanstack/react-query";
 import { getIntegrationHealth } from "@/lib/health.functions";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,7 @@ function Integrations() {
     );
   return (
     <AppShell>
-      <h1 className="mb-4 text-2xl font-semibold">Integrações</h1>
+      <PageHeading title="Integrações" description="Conexões e disponibilidade dos serviços." />
       <Button
         variant="outline"
         size="sm"
