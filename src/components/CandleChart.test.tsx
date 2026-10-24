@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, it, expect, vi } from "vitest";
 import { CandleChart } from "./CandleChart";
 import type { Candle } from "@/lib/marketStats";
@@ -343,7 +343,7 @@ it("preserves an old entry without fabricating a price and can locate it from th
     "Compra antiga registrada",
   );
 });
-it("initially frames all held entries but still honors a manually chosen period", () => {
+it("keeps the selected initial period and can explicitly show all held entries", () => {
   render(
     <CandleChart
       compact
@@ -356,9 +356,42 @@ it("initially frames all held entries but still honors a manually chosen period"
       ]}
     />,
   );
-  expect(screen.getByRole("button", { name: /C1 · compra/ })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /C1 · compra/ })).toBeNull();
+  expect(screen.getByRole("button", { name: /C1.*fora do período/ })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "1h" }));
   expect(screen.getByRole("button", { name: /C1.*fora do período/ })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Mostrar todas as entradas da posição" }));
   expect(screen.getByRole("button", { name: /C1 · compra/ })).toBeTruthy();
+});
+
+it("requests earlier real candles when panning beyond the initial window", async () => {
+  const loadRange = vi.fn();
+  render(
+    <CandleChart
+      candles={candles}
+      now={1700000000000}
+      history={{ loadRange, loading: false, error: null, empty: false }}
+    />,
+  );
+  await waitFor(() => expect(loadRange).toHaveBeenCalled());
+  const initial = loadRange.mock.calls.at(-1)!;
+  const svg = screen.getByRole("img", {
+    name: "Velas OHLCV, escala de preços e médias SMA do robô",
+  });
+  vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({
+    left: 0,
+    top: 0,
+    width: 760,
+    height: 396,
+    right: 760,
+    bottom: 396,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  });
+  pointer(svg, "pointerdown", 100, 150);
+  pointer(svg, "pointermove", 650, 150);
+  pointer(svg, "pointerup", 650, 150, 0, 0);
+  await waitFor(() => expect(loadRange.mock.calls.at(-1)![0]).toBeLessThan(initial[0]));
+  expect(screen.getByRole("button", { name: "Voltar ao tempo real" })).toBeTruthy();
 });

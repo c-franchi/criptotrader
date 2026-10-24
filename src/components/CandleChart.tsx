@@ -22,6 +22,12 @@ export type ChartTrade = {
   price?: number | null;
   details: string[];
 };
+export type ChartHistory = {
+  loadRange: (start: number, end: number, force?: boolean) => void | Promise<void>;
+  loading: boolean;
+  error: string | null;
+  empty: boolean;
+};
 const tones = {
   buy: "text-success",
   sell: "text-destructive",
@@ -37,7 +43,7 @@ const windows = [
 ];
 const usd = formatPrice;
 const MIN_SPAN = 30 * 60_000; // 30 min — velas continuam legíveis
-const MAX_SPAN = 26 * 3_600_000; // limite do histórico (~25h) com folga
+const MAX_SPAN = 365 * 24 * 3_600_000; // Zoom amplitude only; panning is independent of loaded history.
 
 type View = { start: number; end: number };
 
@@ -58,8 +64,10 @@ function ChartBody({
   minimal = false,
   focusRequest,
   fitTradeIds = [],
+  history,
 }: {
   candles: Candle[];
+  history?: ChartHistory | undefined;
   now: number;
   strategyMinutes?: number;
   rulesVersion?: 1 | 2;
@@ -116,7 +124,7 @@ function ChartBody({
   const lastFit = fitted.length ? Math.max(...fitted.map((t) => t.time)) : null;
   const lastFocus = useRef<string>("");
 
-  const [fitEntries, setFitEntries] = useState(true);
+  const [fitEntries, setFitEntries] = useState(false);
   const [follow, setFollow] = useState(true);
   const [view, setView] = useState<View | null>(null);
   const [probe, setProbe] = useState<{ t: number; px: number } | null>(null);
@@ -205,6 +213,15 @@ function ChartBody({
 
   const v: View = view ?? frame(hours);
   const span = v.end - v.start;
+  const requestHistory = history?.loadRange;
+  const loadingHistory = history?.loading;
+  useEffect(() => {
+    if (!requestHistory || loadingHistory || !(v.end > 0)) return;
+    const timer = setTimeout(() => {
+      void requestHistory(v.start - span * 0.25, v.end);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [v.start, v.end, span, requestHistory, loadingHistory]);
   const clampView = (next: View): View => {
     const s = Math.min(MAX_SPAN, Math.max(MIN_SPAN, next.end - next.start));
     const mid = (next.start + next.end) / 2;
@@ -303,8 +320,6 @@ function ChartBody({
   const width = Math.max(1.5, Math.min(22, ((minutes * 60_000) / (span || 1)) * plot * 0.7));
   const volumeMax = Math.max(0, ...visibleBars.map((b) => b.candle[5] ?? 0));
   const volBase = H + 56;
-  const historyStart = bars.length ? (bars[0]?.candle[0] ?? 0) * 1000 : null;
-  const atHistoryLimit = historyStart != null && v.start <= historyStart + 1;
 
   const indicatorPath = (key: "fast" | "slow") => {
     let prev = 0;
@@ -460,7 +475,7 @@ function ChartBody({
     <div
       className={cn(
         "min-w-0 space-y-3",
-        minimal && "[&>div]:hidden [&>p]:hidden [&>details]:hidden",
+        minimal && "[&>div]:hidden [&>p:not([data-history-status])]:hidden [&>details]:hidden",
       )}
     >
       {(!compact || controls) && (
@@ -700,9 +715,6 @@ function ChartBody({
             Gráfico: {minutes === 60 ? "1h" : `${minutes}m`} | Estratégia:{" "}
             {strategyMinutes === 60 ? "1h" : `${strategyMinutes}m`}
           </p>
-          {atHistoryLimit && (
-            <p className="text-xs text-warning">Limite do histórico disponível.</p>
-          )}
           {tool !== "inspect" && (
             <div
               role="status"
@@ -809,6 +821,27 @@ function ChartBody({
             {controls ? "Ocultar ferramentas" : "Ferramentas"}
           </Button>
         </div>
+      )}
+      {history?.loading && (
+        <p data-history-status role="status" className="text-xs text-muted-foreground">
+          Carregando velas do trecho… Você pode continuar arrastando.
+        </p>
+      )}
+      {history?.error && (
+        <p data-history-status role="alert" className="text-xs text-warning">
+          {history.error}{" "}
+          <button
+            className="text-primary underline"
+            onClick={() => void history.loadRange(v.start - span * 0.25, v.end, true)}
+          >
+            Tentar novamente
+          </button>
+        </p>
+      )}
+      {history?.empty && !history.loading && !history.error && (
+        <p data-history-status className="text-xs text-muted-foreground">
+          A fonte não disponibilizou mais velas para este trecho.
+        </p>
       )}
       {bars.length || visibleTrades.length ? (
         <svg
@@ -1421,6 +1454,7 @@ function ChartBody({
 
 export function CandleChart(props: {
   candles: Candle[];
+  history?: ChartHistory | undefined;
   now: number;
   strategyMinutes?: number;
   alignStrategy?: boolean;
