@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const network = vi.hoisted(() => ({
@@ -56,11 +57,13 @@ it.each([20, 0.01])(
   "permits an R$%s partial deposit and shows the estimated fee and reserve link",
   async (amount) => {
     render(
-      <FundBotDialog
-        botAddress="0x2222222222222222222222222222222222222222"
-        botBnb={0}
-        need={{ reserve: 0.005, trade: 0.001, total: 0.006 }}
-      />,
+      <QueryClientProvider client={new QueryClient()}>
+        <FundBotDialog
+          botAddress="0x2222222222222222222222222222222222222222"
+          botBnb={0}
+          need={{ reserve: 0.005, trade: 0.001, total: 0.006 }}
+        />
+      </QueryClientProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Enviar da minha carteira" }));
     fireEvent.click(screen.getByRole("button", { name: "Conectar carteira" }));

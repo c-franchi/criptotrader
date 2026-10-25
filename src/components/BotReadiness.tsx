@@ -5,15 +5,17 @@ import { Panel } from "./AppShell";
 import { Button } from "./ui/button";
 export function BotReadiness({
   walletScope,
+  userId,
   token,
   onConfigure,
 }: {
   walletScope: string;
+  userId: string;
   token: string;
   onConfigure: (action?: ReadinessAction) => void;
 }) {
   const q = useQuery({
-    queryKey: ["bot-readiness", walletScope, token],
+    queryKey: ["bot-readiness", userId, walletScope, token],
     queryFn: () => getBotReadiness({ data: { walletScope, token } }),
     refetchInterval: 30000,
     retry: false,
