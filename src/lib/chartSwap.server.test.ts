@@ -73,7 +73,7 @@ it("passes a whole-plan actual gas cap to the persistent submission path without
   await sendSwap(o);
   expect(io.contract).toHaveBeenCalledTimes(1);
   const intent = io.contract.mock.calls[0]![0].intent;
-  expect(BigInt(intent.maxBuyFeeRaw)).toBeGreaterThan(parseEther(".00001"));
+  expect(BigInt(intent.maxBuyFeeRaw)).toBe(parseEther(".00001"));
   expect(intent.chartPlanExecution).toEqual(basis);
   expect(intent.amountIn).toBe(parseEther(".01").toString());
 });

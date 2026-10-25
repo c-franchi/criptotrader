@@ -17,6 +17,7 @@ const basisSchema = z.object({
   decimals: z.number().int().min(0).max(255),
   futureTokens: decimal,
   futureCostBnb: decimal,
+  liquidGasLimitBnb: decimal,
   targetPriceBnb: decimal.refine((v) => new Decimal(v).gt(0)),
   spotPriceBnb: decimal.refine((v) => new Decimal(v).gt(0)),
   sellTaxPct: z.number().finite().min(0).lt(100),
@@ -30,6 +31,7 @@ export function chartExecutionBasis(
   index: number,
   spot: number,
   decimals: number,
+  freeBnb = "0",
 ) {
   const rule = cfg.chartRule;
   if (rule?.version !== 2 || rule.projectionVersion !== 2 || !rule.entries || !rule.exits)
@@ -56,6 +58,7 @@ export function chartExecutionBasis(
     decimals,
     futureTokens: tokens.toFixed(),
     futureCostBnb: cost.toFixed(),
+    liquidGasLimitBnb: new Decimal(rule.gasBuyBnb).plus(freeBnb).toFixed(),
     targetPriceBnb: rule.exits
       .reduce(
         (sum, e) => sum.plus(new Decimal(e.priceBnb).mul(e.sharePct).div(100)),
@@ -87,7 +90,7 @@ export function chartMaxBuyFeeRaw(
     throw new Error(
       "A cotação atual consome a margem estimada do conjunto. Compra não enviada; os pontos de saída foram mantidos.",
     );
-  const fee = parseEther(budget.toFixed(18, Decimal.ROUND_DOWN));
+  const fee = parseEther(Decimal.min(budget, b.liquidGasLimitBnb).toFixed(18, Decimal.ROUND_DOWN));
   if (fee <= 0n)
     throw new Error("A margem do conjunto não cobre a taxa da compra. Nada foi enviado.");
   return fee.toString();

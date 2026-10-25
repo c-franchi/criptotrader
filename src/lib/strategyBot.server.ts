@@ -313,6 +313,7 @@ async function runStrategyStepImpl(
                       d.chartEntryIndex,
                       priceBnb,
                       dec,
+                      capital.free ?? "0",
                     ),
                   }
                 : {}),
