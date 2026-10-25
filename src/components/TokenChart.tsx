@@ -29,6 +29,7 @@ export function TokenChart(props: {
   symbol: string;
   strategyMinutes?: number;
   rulesVersion?: 1 | 2;
+  showHeading?: boolean;
 }) {
   return <PriceChart key={props.address} {...props} />;
 }
@@ -38,11 +39,13 @@ function PriceChart({
   symbol,
   strategyMinutes = 15,
   rulesVersion = 1,
+  showHeading = true,
 }: {
   address: string;
   symbol: string;
   strategyMinutes?: number;
   rulesVersion?: 1 | 2;
+  showHeading?: boolean;
 }) {
   const [period, setPeriod] = useState<(typeof PERIODS)[number]["id"]>("1D");
   const [now, setNow] = useState(0);
@@ -85,7 +88,7 @@ function PriceChart({
   };
   return (
     <section aria-label={`Gráfico de ${symbol}`} className="border-b border-border bg-card py-5">
-      <div className="flex items-start justify-between gap-3">
+      {showHeading && <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 break-all text-xl font-bold">{symbol}</p>
         <div className="min-w-0 text-right">
           <p className="break-words font-mono text-xl font-bold">
@@ -108,7 +111,7 @@ function PriceChart({
             </p>
           )}
         </div>
-      </div>
+      </div>}
       <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
         <span>
           {market.data

@@ -85,7 +85,7 @@ function ChartBody({
   minimal?: boolean;
 }) {
   const [minutes, setMinutes] = useState(compact ? 30 : alignStrategy ? strategyMinutes : 5);
-  const [height, setHeight] = useState(tall ? 420 : 320);
+  const [height, setHeight] = useState(tall ? 420 : compact ? 260 : 320);
   const [mode, setMode] = useState("candles");
   const [showSma, setShowSma] = useState(!compact);
   const [controls, setControls] = useState(false);
@@ -93,8 +93,19 @@ function ChartBody({
   const areaId = useId();
   const storageKey =
     preferenceKey ?? (compact ? "cryptobot:trade-chart-view" : "cryptobot:chart-view");
-  const W = compact ? 400 : 760,
-    plot = compact ? 330 : 640;
+  const chartContainerRef = useRef<HTMLDivElement | null>(null);
+  const [chartWidth, setChartWidth] = useState(compact ? 400 : 760);
+  const W = chartWidth,
+    plot = Math.max(160, W - (compact ? 70 : 120));
+  useEffect(() => {
+    const container = chartContainerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry && entry.contentRect.width > 0) setChartWidth(entry.contentRect.width);
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
   const [technical, setTechnical] = useState(false);
   const [showEma, setShowEma] = useState(true);
   const [showBands, setShowBands] = useState(true);
@@ -473,6 +484,7 @@ function ChartBody({
 
   return (
     <div
+      ref={chartContainerRef}
       className={cn(
         "min-w-0 space-y-3",
         minimal && "[&>div]:hidden [&>p:not([data-history-status])]:hidden [&>details]:hidden",

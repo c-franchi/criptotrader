@@ -10,6 +10,7 @@
 <!-- LOVABLE:END -->
 
 ## Rules
+- Dashboard market presentation is composed separately from FundsOverview; shared charts measure their actual container width for SVG coordinates so desktop width never inflates chart height or misaligns interactions.
 - Shared OHLC charts aggregate five-minute pool history in candleSeries.ts; legacy SMA remains explicitly identified while live recovery signals require contiguous complete closes.
 - All bot signing paths acquire the persistent wallet-wide execution mutex; unresolved submissions retain it until reconciliation to prevent duplicate orders and withdrawals racing swaps.
 - Audit observations are append-only and distinguish receipt token transfers/gas from native proceeds requiring traces; never label router outputs or legacy quote accounting as confirmed wallet results.

@@ -424,6 +424,40 @@
 .app-tour {
   gap: 1.1rem;
 }
+
+/* Dashboard columns follow the market reference; SVG width is measured independently
+   so wider screens add chart history space, never extra chart height. */
+.dashboard-market {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+.dashboard-token {
+  padding-top: 0.75rem;
+}
+.dashboard-chart {
+  min-width: 0;
+}
+@media (min-width: 1024px) {
+  .dashboard-market {
+    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+  .dashboard-token {
+    border-right: 1px solid var(--border);
+    padding-right: 1.5rem;
+  }
+}
+@media (max-width: 767px) {
+  .dashboard-token {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dashboard-chart [data-robot-chart] > div:first-child {
+    margin-bottom: 0;
+  }
+}
 @media (max-width: 639px) {
   .app-tour {
     top: auto;
