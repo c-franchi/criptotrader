@@ -99,7 +99,7 @@ function ChartBody({
     plot = Math.max(160, W - (compact ? 70 : 120));
   useEffect(() => {
     const container = chartContainerRef.current;
-    if (!container) return;
+    if (!container || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(([entry]) => {
       if (entry && entry.contentRect.width > 0) setChartWidth(entry.contentRect.width);
     });
