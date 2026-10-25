@@ -19,6 +19,7 @@ export type BotState = {
   lossTodayBnb: number;
   lastTradeAt: number; // ms
   entryConsumed?: boolean;
+  chartRuleConsumedId?: string;
   recoveryLowAt?: number;
   tokensRaw?: string;
   lastFillHash?: string;
@@ -41,10 +42,11 @@ export const EMPTY_STATE: BotState = {
 
 export type Decision =
   | { action: "nenhuma"; reason: string }
-  | { action: "compra"; reason: string; recoveryLowAt?: number }
+  | { action: "compra"; reason: string; recoveryLowAt?: number; chartRuleId?: string }
   | { action: "venda"; reason: string; sellPct: number; tpIndex?: number; all: boolean };
 
 export type Market = {
+  priceBnb?: number;
   priceUsd: number;
   liquidityUsd: number | null;
   high: number | null;
@@ -154,7 +156,39 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
     return { action: "nenhuma", reason: "Preço indisponível — aguardando" };
 
   const holding = s.tokens > 0 && s.avgPriceUsd > 0;
-  if (holding) {
+  const chart = cfg.chartRule;
+  if (chart) {
+    const native = m.priceBnb;
+    if (!(native != null && Number.isFinite(native) && native > 0))
+      return { action: "nenhuma", reason: "Regra gráfica: cotação atual em BNB indisponível." };
+    if (holding) {
+      if (chart.stopBnb != null && native <= chart.stopBnb)
+        return {
+          action: "venda",
+          reason: "Stop marcado no gráfico atingido em BNB/token.",
+          sellPct: 100,
+          all: true,
+        };
+      if (native >= chart.exitBnb)
+        return {
+          action: "venda",
+          reason:
+            "Saída marcada no gráfico atingida em BNB/token; resultado final depende da execução e dos custos.",
+          sellPct: 100,
+          all: true,
+        };
+      return {
+        action: "nenhuma",
+        reason: "Regra gráfica: posição aberta, aguardando saída ou stop escolhido; sem recompras.",
+      };
+    }
+    if (s.chartRuleConsumedId === chart.id)
+      return {
+        action: "nenhuma",
+        reason: "Regra gráfica já utilizada. Crie e revise outra regra para uma nova entrada.",
+      };
+  }
+  if (holding && !chart) {
     const change = (p / s.avgPriceUsd - 1) * 100;
     const stop = stopPrice(s.avgPriceUsd, cfg);
     if (stop != null && p <= stop + stop * 1e-11)
@@ -243,6 +277,17 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
     return { action: "nenhuma", reason: "Limite de perda do dia atingido — compras pausadas" };
   if (!(cfg.buyAmount > 0)) return { action: "nenhuma", reason: "Estratégia sem valor de compra" };
 
+  if (chart)
+    return m.priceBnb! <= chart.entryBnb
+      ? {
+          action: "compra",
+          reason: "Entrada marcada no gráfico atingida em BNB/token.",
+          chartRuleId: chart.id,
+        }
+      : {
+          action: "nenhuma",
+          reason: `Regra gráfica: aguardando preço de até ${chart.entryBnb} BNB/token.`,
+        };
   if (cfg.recovery?.enabled) {
     if (holding)
       return {
@@ -345,6 +390,7 @@ export function afterTrade(
     return {
       ...base,
       entryConsumed: true,
+      ...(d.chartRuleId ? { chartRuleConsumedId: d.chartRuleId } : {}),
       ...(d.recoveryLowAt != null ? { recoveryLowAt: d.recoveryLowAt } : {}),
       entries: s.entries + 1,
       costBnb: s.costBnb + t.bnb,
@@ -380,6 +426,7 @@ export function afterTrade(
 
 /** Only a new signal cycle may buy again; limits do not themselves rearm the signal. */
 export function updateEntryLatch(cfg: StrategyConfig, s: BotState, m: Market): BotState {
+  if (cfg.chartRule) return s;
   if (cfg.rulesVersion !== 2 || !s.entryConsumed || cfg.entryType === "queda") return s;
   const unrestricted = {
     ...cfg,

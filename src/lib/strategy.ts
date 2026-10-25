@@ -1,7 +1,9 @@
+import type { ChartRule } from "./chartRule";
 export type PresetId = "segura" | "equilibrada" | "ativa" | "adaptativa";
 
 export type StrategyConfig = {
-  guidedModel?: "dca" | "grid" | "recovery" | "trend";
+  guidedModel?: "dca" | "grid" | "recovery" | "trend" | "chart";
+  chartRule?: ChartRule;
   rulesVersion?: 1 | 2;
   /** Explicitly enabled by the owner; absent preserves existing real cycles. */
   recovery?: {
@@ -77,6 +79,15 @@ export const EMPTY_CONFIG: StrategyConfig = {
 };
 
 export function describeStrategy(c: StrategyConfig, quote = "WBNB"): string[] {
+  if (c.chartRule)
+    return [
+      `Regra pelo gráfico em BNB/token: uma compra quando o preço for menor ou igual a ${c.chartRule.entryBnb}; venda total em ${c.chartRule.exitBnb}.`,
+      c.chartRule.stopBnb == null
+        ? "Sem stop fixo. Os tokens podem perder todo o valor; recuperação não é garantida."
+        : `Stop fixo em ${c.chartRule.stopBnb} BNB/token.`,
+      `Uma única entrada de ${c.buyAmount} BNB por regra. Após a venda, não recompra: crie e revise outra regra.`,
+      `Taxas informadas: compra ${c.buyTaxPct}% e venda ${c.sellTaxPct}%. Custos projetados são estimativas; preço e resultado não são garantidos.`,
+    ];
   const lines: string[] = [];
   if (c.recovery?.enabled)
     lines.push(

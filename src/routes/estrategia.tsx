@@ -1,5 +1,6 @@
 import { userMessage } from "@/lib/userMessage";
 import { ExecutionTimingPanel } from "@/components/ExecutionTimingPanel";
+import { ChartRuleLauncher } from "@/components/ChartRuleLauncher";
 import { BotRuleHelp, BotRulesGuide, type GuidedRule } from "@/components/BotRulesGuide";
 import { StopLossDecision } from "@/components/StopLossDecision";
 import { manualRuleKey } from "@/lib/botGuidance";
@@ -547,6 +548,46 @@ function StrategyForm() {
   };
   const [askTrade, setAskTrade] = useState(false);
   const navigate = useNavigate();
+
+  if (c.chartRule)
+    return (
+      <div className="space-y-4">
+        <PageHeading
+          title="Regra criada pelo gráfico"
+          description="Os níveis fixos em BNB/token controlam a entrada e a saída desta moeda."
+        />
+        <ul className="space-y-2 text-sm">
+          {describeStrategy(c).map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+        <ChartRuleLauncher
+          token={token.address}
+          symbol={token.symbol}
+          label="Editar pontos e custos no gráfico"
+        />
+        <ExecutionTimingPanel walletScope={walletScope} token={token.address} />
+        <p className="text-sm text-muted-foreground">
+          Para preparar outro modelo, retire a regra gráfica apenas deste formulário. A configuração
+          real permanece até você revisar e salvar; as proteções de posições e operações pendentes
+          continuam valendo.
+        </p>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setC((previous) => {
+              const next = { ...previous };
+              delete next.chartRule;
+              delete next.guidedModel;
+              return next;
+            });
+            setEdited(true);
+          }}
+        >
+          Preparar substituição por regras manuais
+        </Button>
+      </div>
+    );
 
   return (
     <div className="grid w-full min-w-0 grid-cols-1 gap-4 [&>*]:min-w-0 lg:grid-cols-[minmax(0,1fr)_380px]">

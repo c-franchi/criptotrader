@@ -92,6 +92,7 @@ async function runStrategyStepImpl(
     (p) => p.supported && p.pairAddress.toLowerCase() === pool?.pair.toLowerCase() && p.priceUsd,
   );
   const priceUsd = Number(best?.priceUsd);
+  const priceBnb = pool?.price;
   if (!best || !(priceUsd > 0))
     return {
       patch: {
@@ -113,10 +114,13 @@ async function runStrategyStepImpl(
   // Fixed exits depend on the live pool quote, never on a candle close or history service.
   const immediate =
     cfg.entryType !== "adaptativa" && state.tokens > 0
-      ? decide(cfg, state, strategyObservation(cfg, [], priceUsd, best.liquidityUsd, Date.now()))
+      ? decide(cfg, state, {
+          ...strategyObservation(cfg, [], priceUsd, best.liquidityUsd, Date.now()),
+          ...(priceBnb != null ? { priceBnb } : {}),
+        })
       : null;
   let candles: Awaited<ReturnType<typeof readCandles>> = [];
-  if (immediate?.action !== "venda") {
+  if (immediate?.action !== "venda" && !cfg.chartRule) {
     try {
       candles = await readCandles(best.pairAddress.toLowerCase(), token.toLowerCase(), {
         fast: true,
@@ -126,7 +130,10 @@ async function runStrategyStepImpl(
     }
   }
   now = Date.now();
-  const observation = strategyObservation(cfg, candles, priceUsd, best.liquidityUsd, now);
+  const observation = {
+    ...strategyObservation(cfg, candles, priceUsd, best.liquidityUsd, now),
+    ...(priceBnb != null ? { priceBnb } : {}),
+  };
   timing?.mark("historyReady");
   const { high, closes, historyFresh: fresh } = observation;
   if (state.tokens > 0) state.peakUsd = Math.max(state.peakUsd, priceUsd);
@@ -136,6 +143,7 @@ async function runStrategyStepImpl(
   const d = immediate?.action === "venda" ? immediate : decide(cfg, state, observation);
   if (
     d.action === "compra" &&
+    !cfg.chartRule &&
     (!fresh || (cfg.entryType !== "queda" && observation.completeCount < cfg.maSlow + 1))
   )
     return {
@@ -159,15 +167,20 @@ async function runStrategyStepImpl(
     config: cfg,
     state: { ...state },
     priceUsd,
+    priceBnb,
     high,
     closes,
     decision: d,
     source: market.source,
     historyThrough: candles.at(-1)?.[0] ?? null,
-    indicator:
-      cfg.rulesVersion === 2 ? "SMA; contiguous complete closes" : "SMA; legacy bucket closes",
-    stopFormula:
-      cfg.stopLossMode === "liquido"
+    indicator: cfg.chartRule
+      ? "Fixed BNB/token levels; fresh on-chain quote; no historical signal"
+      : cfg.rulesVersion === 2
+        ? "SMA; contiguous complete closes"
+        : "SMA; legacy bucket closes",
+    stopFormula: cfg.chartRule
+      ? "Fresh pool price in BNB/token <= chosen stopBnb; null disables fixed stop"
+      : cfg.stopLossMode === "liquido"
         ? "(price / avgPriceUsd × (1-buyTax/100) × (1-sellTax/100) - 1) × 100"
         : "(price / avgPriceUsd - 1) × 100",
     proceedsAccounting: "legacy quote estimate; not confirmed native wallet proceeds",
@@ -265,9 +278,11 @@ async function runStrategyStepImpl(
         ...(cfg.guidedModel
           ? {
               feeTargetGrossPct:
-                cfg.guidedModel === "recovery"
-                  ? grossForNet(cfg.recovery?.minNetPct ?? 4, tax)
-                  : Math.min(...cfg.takeProfits.map((t) => t.pct)),
+                cfg.chartRule && priceBnb != null
+                  ? (cfg.chartRule.exitBnb / priceBnb - 1) * 100
+                  : cfg.guidedModel === "recovery"
+                    ? grossForNet(cfg.recovery?.minNetPct ?? 4, tax)
+                    : Math.min(...cfg.takeProfits.map((t) => t.pct)),
               sellTaxPct: tax.sell,
             }
           : {}),

@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { chartRuleSchema } from "./chartRule";
 const pct = z.number().finite().min(0).max(100);
 export const strategySchema = z
   .object({
     sizingMode: z.enum(["fixo", "percentual"]),
+    chartRule: chartRuleSchema.optional(),
     buyAmount: z.number().finite().nonnegative(),
     entryType: z.enum(["queda", "medias", "adaptativa"]),
     dropPct: pct,
@@ -54,6 +56,14 @@ export const strategySchema = z
   })
   .passthrough()
   .superRefine((c, ctx) => {
+    if (
+      c.chartRule &&
+      (c.sizingMode !== "fixo" || c.maxEntries !== 1 || c.recovery?.enabled || c.trailingEnabled)
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "A regra gráfica exige uma entrada fixa, sem recuperação ou stop móvel.",
+      });
     if (c.recovery?.enabled) {
       if (c.entryType !== "adaptativa")
         ctx.addIssue({ code: "custom", message: "Recuperação real exige estratégia adaptativa" });

@@ -18,6 +18,7 @@ vi.mock("./bot.server", () => ({
 import { runStrategyStep } from "./strategyBot.server";
 import { EMPTY_CONFIG } from "./strategy";
 import { EMPTY_STATE } from "./autoStrategy";
+import { buildChartConfig, type ChartRuleInput } from "./chartRule";
 const token = "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c";
 const pair = "0x1111111111111111111111111111111111111111";
 const config = {
@@ -33,7 +34,7 @@ const bot = {
   token,
   strat_state: { ...EMPTY_STATE, tokens: 1, avgPriceUsd: 100, peakUsd: 100 },
 };
-function admin(cfg = config) {
+function admin(cfg: unknown = config) {
   const q: any = {
     select: () => q,
     eq: () => q,
@@ -110,4 +111,49 @@ it("refuses stale exit quotes before consulting history or signing", async () =>
 it("retains closed-history evaluation for adaptive targets", async () => {
   await runStrategyStep(admin({ ...config, entryType: "adaptativa" }), bot, "", "", true);
   expect(io.history).toHaveBeenCalled();
+});
+it("previews chart entries from the fresh native pool snapshot without waiting on candles or signing", async () => {
+  const input: ChartRuleInput = {
+    entryBnb: 0.001,
+    exitBnb: 0.0013,
+    stopBnb: null,
+    stopChoice: "none",
+    amountBnb: 0.01,
+    buyTaxPct: 0,
+    sellTaxPct: 0,
+    taxesConfirmed: true,
+    dexFeePct: 0.25,
+    executionMarginPct: 1,
+    gasBuyBnb: 0.00001,
+    gasSellBnb: 0.00002,
+    costsConfirmed: true,
+    reserveBnb: 0.0001,
+    maxGasGwei: 5,
+    minLiquidityUsd: 5000,
+    acknowledge: true,
+  };
+  const cfg = buildChartConfig(input, "11111111-1111-4111-8111-111111111111");
+  io.pool.mockResolvedValue({ pair, price: 0.001 });
+  io.history.mockImplementation(() => new Promise(() => {}));
+  const result = await runStrategyStep(
+    admin(cfg),
+    { ...bot, strat_state: EMPTY_STATE },
+    "",
+    "",
+    true,
+  );
+  expect(result.patch).toMatchObject({
+    last_reason: expect.stringMatching(/Entrada marcada no gráfico/),
+  });
+  expect(io.history).not.toHaveBeenCalled();
+  expect(io.signer).not.toHaveBeenCalled();
+  io.pool.mockResolvedValue({ pair, price: 0.0011 });
+  const waiting = await runStrategyStep(
+    admin(cfg),
+    { ...bot, strat_state: EMPTY_STATE },
+    "",
+    "",
+    true,
+  );
+  expect(waiting.patch).toMatchObject({ last_reason: expect.stringMatching(/aguardando preço/) });
 });

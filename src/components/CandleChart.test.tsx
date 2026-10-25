@@ -395,3 +395,67 @@ it("requests earlier real candles when panning beyond the initial window", async
   await waitFor(() => expect(loadRange.mock.calls.at(-1)![0]).toBeLessThan(initial[0]));
   expect(screen.getByRole("button", { name: "Voltar ao tempo real" })).toBeTruthy();
 });
+
+it("picks a rule price without adding measurement marks and keeps drag navigation from creating points", () => {
+  const pick = vi.fn();
+  render(<CandleChart candles={candles} now={9000000} pickingPrice onPickPrice={pick} />);
+  const svg = screen.getByRole("img", {
+    name: "Velas OHLCV, escala de preços e médias SMA do robô",
+  });
+  vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({
+    left: 0,
+    top: 0,
+    width: 760,
+    height: 396,
+    right: 760,
+    bottom: 396,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  });
+  fireEvent.click(svg, { clientX: 200, clientY: 120 });
+  expect(pick).toHaveBeenCalledWith({ time: expect.any(Number), price: expect.any(Number) });
+  expect(pick.mock.calls[0]![0].price).toBeGreaterThan(0);
+  pointer(svg, "pointerdown", 100, 150);
+  pointer(svg, "pointermove", 250, 150);
+  pointer(svg, "pointerup", 250, 150, 0, 0);
+  fireEvent.click(svg, { clientX: 250, clientY: 150 });
+  expect(pick).toHaveBeenCalledTimes(1);
+  expect(candles).toHaveLength(30);
+});
+it("adjusts an editable rule level with a drag or keyboard without creating a new entry", () => {
+  const edit = vi.fn(),
+    pick = vi.fn();
+  render(
+    <CandleChart
+      candles={candles}
+      now={9000000}
+      pickingPrice
+      onPickPrice={pick}
+      onEditLevel={edit}
+      levels={[{ id: "entry", label: "Entrada", price: 100, tone: "buy", draggable: true }]}
+    />,
+  );
+  const svg = screen.getByRole("img", {
+    name: "Velas OHLCV, escala de preços e médias SMA do robô",
+  });
+  vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({
+    left: 0,
+    top: 0,
+    width: 760,
+    height: 396,
+    right: 760,
+    bottom: 396,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  });
+  const slider = screen.getByRole("slider", { name: "Ajustar Entrada" });
+  fireEvent.keyDown(slider, { key: "ArrowUp" });
+  expect(edit).toHaveBeenLastCalledWith("entry", expect.closeTo(100.1, 8));
+  pointer(slider, "pointerdown", 600, 150);
+  pointer(svg, "pointermove", 600, 100);
+  pointer(svg, "pointerup", 600, 100, 0, 0);
+  expect(edit.mock.calls.length).toBeGreaterThan(1);
+  expect(pick).not.toHaveBeenCalled();
+});

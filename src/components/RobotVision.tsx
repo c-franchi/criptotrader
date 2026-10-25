@@ -181,6 +181,34 @@ export function RobotVision(props: {
     Number(pool?.priceNative) > 0 && Number(pool?.priceUsd) > 0
       ? Number(pool?.priceUsd) / Number(pool?.priceNative)
       : null;
+  const chartLines: Line[] | null =
+    cfg?.chartRule && quoteUsd != null
+      ? [
+          ...(state.tokens <= 0 && state.chartRuleConsumedId !== cfg.chartRule.id
+            ? [
+                {
+                  price: cfg.chartRule.entryBnb * quoteUsd,
+                  label: "Entrada gráfica · BNB fixo",
+                  tone: "buy" as const,
+                },
+              ]
+            : []),
+          {
+            price: cfg.chartRule.exitBnb * quoteUsd,
+            label: "Saída gráfica · BNB fixo",
+            tone: "sell" as const,
+          },
+          ...(cfg.chartRule.stopBnb != null
+            ? [
+                {
+                  price: cfg.chartRule.stopBnb * quoteUsd,
+                  label: "Stop gráfico · BNB fixo",
+                  tone: "stop" as const,
+                },
+              ]
+            : []),
+        ]
+      : null;
   const signalsAvailable =
     priceFresh &&
     !incompatibleBotToken(token) &&
@@ -190,44 +218,46 @@ export function RobotVision(props: {
     !/indisponível|inexistente|incompatível/i.test(props.serverAnalysis?.reason ?? "");
   const lines: Line[] = !signalsAvailable
     ? []
-    : mode === "grade"
-      ? quoteUsd == null
-        ? []
+    : (chartLines ??
+      (mode === "grade"
+        ? quoteUsd == null
+          ? []
+          : [
+              ...grid.map((p, i) => ({
+                price: p * quoteUsd,
+                label:
+                  i === 0
+                    ? "Faixa · mínimo (USD aproximado)"
+                    : i === grid.length - 1
+                      ? "Faixa · máximo (USD aproximado)"
+                      : "",
+                tone: "grid" as const,
+              })),
+              ...(cfg?.guidedModel === "grid"
+                ? robotLines(
+                    cfg,
+                    { ...state, avgPriceUsd: state.avgPriceUsd * quoteUsd },
+                    null,
+                  ).filter((l) => l.tone !== "buy")
+                : []),
+            ]
         : [
-            ...grid.map((p, i) => ({
-              price: p * quoteUsd,
-              label:
-                i === 0
-                  ? "Faixa · mínimo (USD aproximado)"
-                  : i === grid.length - 1
-                    ? "Faixa · máximo (USD aproximado)"
-                    : "",
-              tone: "grid" as const,
-            })),
-            ...(cfg?.guidedModel === "grid"
-              ? robotLines(
-                  cfg,
-                  { ...state, avgPriceUsd: state.avgPriceUsd * quoteUsd },
-                  null,
-                ).filter((l) => l.tone !== "buy")
+            ...robotLines(cfg, state, high),
+            ...adaptLines,
+            ...(slowAvg?.up && state.entries < Math.max(1, cfg?.maxEntries ?? 1)
+              ? [
+                  {
+                    price: slowAvg.s,
+                    label: `Compra abaixo daqui (média de ${cfg?.maSlow})`,
+                    tone: "buy" as const,
+                  },
+                ]
               : []),
-          ]
-      : [
-          ...robotLines(cfg, state, high),
-          ...adaptLines,
-          ...(slowAvg?.up && state.entries < Math.max(1, cfg?.maxEntries ?? 1)
-            ? [
-                {
-                  price: slowAvg.s,
-                  label: `Compra abaixo daqui (média de ${cfg?.maSlow})`,
-                  tone: "buy" as const,
-                },
-              ]
-            : []),
-        ];
+          ]));
   const buyLine = lines.find((l) => l.tone === "buy");
-  const savedSell =
-    mode !== "grade" && cfg?.entryType !== "adaptativa"
+  const savedSell = cfg?.chartRule
+    ? chartLines?.find((l) => l.tone === "sell")
+    : mode !== "grade" && cfg?.entryType !== "adaptativa"
       ? robotLines(cfg, state, null)
           .filter((l) => l.tone === "sell")
           .sort((a, b) => a.price - b.price)[0]
@@ -378,24 +408,28 @@ export function RobotVision(props: {
         fastLength={cfg?.maFast ?? 9}
         slowLength={cfg?.maSlow ?? 21}
         levels={
-          props.chartOnly
-            ? mode === "grade"
-              ? quoteUsd == null
-                ? []
-                : [
-                    ...grid.map((p, i) => ({
-                      price: p * quoteUsd,
-                      label: `Nível ${i + 1}`,
-                      tone: "grid" as const,
-                    })),
-                    ...robotLines(
-                      cfg,
-                      { ...state, avgPriceUsd: state.avgPriceUsd * quoteUsd },
-                      null,
-                    ).filter((l) => l.tone !== "buy"),
-                  ]
-              : robotLines(cfg, state, high)
-            : lines
+          cfg?.chartRule
+            ? (chartLines ?? []).map((l) =>
+                l.tone === "sell" ? { ...l, tone: "target" as const } : l,
+              )
+            : props.chartOnly
+              ? mode === "grade"
+                ? quoteUsd == null
+                  ? []
+                  : [
+                      ...grid.map((p, i) => ({
+                        price: p * quoteUsd,
+                        label: `Nível ${i + 1}`,
+                        tone: "grid" as const,
+                      })),
+                      ...robotLines(
+                        cfg,
+                        { ...state, avgPriceUsd: state.avgPriceUsd * quoteUsd },
+                        null,
+                      ).filter((l) => l.tone !== "buy"),
+                    ]
+                : robotLines(cfg, state, high)
+              : lines
         }
         liveQuote={live != null ? { price: live, at: priceAt } : undefined}
         trades={orders

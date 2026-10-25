@@ -1,6 +1,7 @@
 import { userMessage } from "@/lib/userMessage";
 import { ExecutionTimingPanel } from "@/components/ExecutionTimingPanel";
 import { TokenActivity } from "@/components/TokenActivity";
+import { ChartRuleLauncher } from "@/components/ChartRuleLauncher";
 import { BotWithdrawalPanel, BotWithdrawalHistory } from "@/components/BotWithdrawalPanel";
 import { botSearch } from "@/lib/botNotice";
 import { inspectToken } from "@/lib/userTokens.functions";
@@ -427,8 +428,9 @@ function Robo() {
       : { reserve, trade: Number(f.order_bnb) || 0, total: reserve + (Number(f.order_bnb) || 0) };
   const st = normalizeState(bot?.strat_state, Date.now());
   const preset = cfg?.presetId ? PRESETS.find((p) => p.id === cfg.presetId) : undefined;
-  const modelName =
-    cfg?.guidedModel === "dca"
+  const modelName = cfg?.chartRule
+    ? "Regra pelo gráfico"
+    : cfg?.guidedModel === "dca"
       ? "Comprar em quedas"
       : cfg?.guidedModel === "grid"
         ? "Comprar e vender numa faixa"
@@ -552,12 +554,21 @@ function Robo() {
             <Button variant="outline" onClick={() => setFullscreen(!fullscreen)}>
               {fullscreen ? "Sair da tela cheia" : "Abrir em tela cheia"}
             </Button>
-            <Button
-              disabled={!walletReady || busy || saving || cfg === undefined}
-              onClick={() => setSetupOpen(true)}
-            >
-              {armed ? "Editar robô" : bot ? "Configurar e iniciar" : "Criar robô"}
-            </Button>
+            {cfg?.chartRule ? (
+              <ChartRuleLauncher
+                token={token}
+                symbol={sym}
+                onSaved={load}
+                label="Editar regra gráfica"
+              />
+            ) : (
+              <Button
+                disabled={!walletReady || busy || saving || cfg === undefined}
+                onClick={() => setSetupOpen(true)}
+              >
+                {armed ? "Editar robô" : bot ? "Configurar e iniciar" : "Criar robô"}
+              </Button>
+            )}
           </div>
         </div>
         <div>
@@ -675,6 +686,7 @@ function Robo() {
                 serverAnalysis={analysisError ? null : analysis}
               />
             </div>
+            <ChartRuleLauncher token={token} symbol={sym} onSaved={load} />
             <TokenActivity token={token} symbol={sym} decimals={selected.decimals} />
           </Panel>
           <div className="space-y-4">
@@ -771,9 +783,18 @@ function Robo() {
                   >
                     {execution?.locked ? "Verificar e recuperar" : "Atualizar estado"}
                   </Button>
-                  <Button variant="outline" onClick={() => setSetupOpen(true)}>
-                    Editar regras aqui
-                  </Button>
+                  {cfg?.chartRule ? (
+                    <ChartRuleLauncher
+                      token={token}
+                      symbol={sym}
+                      onSaved={load}
+                      label="Editar pontos e conferir saldo"
+                    />
+                  ) : (
+                    <Button variant="outline" onClick={() => setSetupOpen(true)}>
+                      Editar regras aqui
+                    </Button>
+                  )}
                 </div>
                 {!cfg && (
                   <p className="mt-3 rounded-md border border-warning/40 p-2 text-sm text-warning">
