@@ -1,3 +1,4 @@
+import { chartExecutionBasis } from "./chartExecution";
 import { planGasReserve } from "./chartPlan";
 import type { ExecutionClock } from "./executionTiming";
 import { incompatibleBotToken, INCOMPATIBLE_BNB } from "./guidedBot";
@@ -284,12 +285,37 @@ async function runStrategyStepImpl(
         snapshot,
         ...(cfg.guidedModel
           ? {
-              feeTargetGrossPct:
-                cfg.chartRule && priceBnb != null
-                  ? (cfg.chartRule.exitBnb / priceBnb - 1) * 100
-                  : cfg.guidedModel === "recovery"
-                    ? grossForNet(cfg.recovery?.minNetPct ?? 4, tax)
-                    : Math.min(...cfg.takeProfits.map((t) => t.pct)),
+              ...(cfg.chartRule?.projectionVersion === 2 && cfg.chartRule.partialEntriesAccepted
+                ? {}
+                : {
+                    feeTargetGrossPct:
+                      cfg.chartRule?.projectionVersion === 2 && priceBnb != null
+                        ? (cfg.chartRule.exits!.reduce(
+                            (sum, e) => sum + (e.priceBnb * e.sharePct) / 100,
+                            0,
+                          ) /
+                            priceBnb -
+                            1) *
+                          100
+                        : cfg.chartRule && priceBnb != null
+                          ? (cfg.chartRule.exitBnb / priceBnb - 1) * 100
+                          : cfg.guidedModel === "recovery"
+                            ? grossForNet(cfg.recovery?.minNetPct ?? 4, tax)
+                            : Math.min(...cfg.takeProfits.map((t) => t.pct)),
+                  }),
+              ...(cfg.chartRule?.projectionVersion === 2 &&
+              d.chartEntryIndex != null &&
+              priceBnb != null
+                ? {
+                    chartPlanExecution: chartExecutionBasis(
+                      cfg,
+                      state,
+                      d.chartEntryIndex,
+                      priceBnb,
+                      dec,
+                    ),
+                  }
+                : {}),
               sellTaxPct: tax.sell,
             }
           : {}),
