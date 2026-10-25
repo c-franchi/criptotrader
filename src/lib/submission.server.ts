@@ -1,3 +1,5 @@
+import type { ExecutionClock } from "./executionTiming";
+import { recordExecutionProgress } from "./executionTiming.server";
 import { BeforeBroadcastError } from "./executionPhase";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Decimal from "decimal.js";
@@ -19,6 +21,7 @@ export async function submitTransaction(o: {
   data?: `0x${string}`;
   intent: Record<string, any>;
   maxGasGwei?: number;
+  timing?: ExecutionClock;
 }) {
   const id = crypto.randomUUID();
   let signed: `0x${string}`;
@@ -26,12 +29,14 @@ export async function submitTransaction(o: {
   try {
     if (o.maxGasGwei && (await o.pub.getGasPrice()) > BigInt(Math.round(o.maxGasGwei * 1e9)))
       throw new Error("Gás acima do limite configurado");
+    o.timing?.beginTransaction();
     const request = await o.wallet.prepareTransactionRequest({
       account: o.wallet.account,
       to: o.to,
       value: o.value ?? 0n,
       ...(o.data ? { data: o.data } : {}),
     });
+    o.timing?.mark("prepared");
     const feePerGas = request.maxFeePerGas ?? request.gasPrice ?? (await o.pub.getGasPrice());
     if (!request.gas || feePerGas == null)
       throw new Error("Não foi possível estimar o gás; operação não enviada");
@@ -50,6 +55,8 @@ export async function submitTransaction(o: {
       throw new Error("BNB insuficiente para o valor da operação e sua taxa estimada de rede");
     signed = await o.wallet.signTransaction(request);
     hash = keccak256(signed);
+    o.timing?.mark("signed");
+    if (o.timing) o.intent["executionTiming"] = o.timing.snapshot();
 
     const { error } = await o.admin.from("execution_submissions").insert({
       id,
@@ -63,17 +70,52 @@ export async function submitTransaction(o: {
   } catch (error) {
     throw new BeforeBroadcastError(error instanceof Error ? error.message : "Falha antes do envio");
   }
+  o.timing?.mark("journaled");
   // Any failure from here is indeterminate. The journal owns the hash, and the lock stays held.
   try {
+    o.timing?.mark("broadcastAttempted");
     await o.pub.sendRawTransaction({ serializedTransaction: signed });
+    o.timing?.mark("broadcastReturned");
   } catch {
+    o.timing?.mark("broadcastUncertain");
     /* receipt/nonce reconciliation only; never resend with another nonce */
+  }
+  if (o.timing) {
+    o.intent["executionTiming"] = o.timing.snapshot();
+    await recordExecutionProgress(
+      o.admin,
+      o.userId,
+      o.timing,
+      o.timing.snapshot().stages.broadcastUncertain
+        ? "broadcast_uncertain"
+        : o.intent["kind"] === "approval"
+          ? "approval_sent"
+          : "sent",
+      hash,
+    );
   }
   let receipt: TransactionReceipt | null = null;
   try {
     receipt = await o.pub.waitForTransactionReceipt({ hash, timeout: 45_000, confirmations: 3 });
+    o.timing?.mark("receiptObserved");
   } catch {
     /* pending */
+  }
+  if (o.timing) {
+    o.intent["executionTiming"] = o.timing.snapshot();
+    await recordExecutionProgress(
+      o.admin,
+      o.userId,
+      o.timing,
+      receipt
+        ? receipt.status === "success"
+          ? o.intent["kind"] === "approval"
+            ? "approval_confirmed"
+            : "confirmed"
+          : "reverted"
+        : "pending",
+      hash,
+    );
   }
   return { id, hash, receipt };
 }
@@ -216,6 +258,7 @@ export async function settleSubmission(
       block: receipt.blockNumber.toString(),
       gasBnb: formatEther(transactionGas),
       executionGasBnb: formatEther(gas),
+      ...(i.executionTiming ? { executionTiming: i.executionTiming } : {}),
       ...(i.kind === "withdrawal" && i.token && i.to && receipt.status === "success"
         ? {
             receivedTokenRaw:

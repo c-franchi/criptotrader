@@ -1,3 +1,6 @@
+import { robotRpcTransport, withRpcSnapshot } from "./robotRpc.server";
+import { loadLivePool, sharedRead } from "./sharedReads.server";
+import type { ExecutionClock } from "./executionTiming";
 import Decimal from "decimal.js";
 import { incompatibleBotToken, INCOMPATIBLE_BNB, guidedGridExit } from "./guidedBot";
 import { readWalletCapital } from "./walletCapital.server";
@@ -32,8 +35,7 @@ import { tokenMeta } from "./tokenMeta.server";
 import { taxFor } from "./tokens";
 
 const RPC = () => process.env["BSC_RPC_URL"] || "https://bsc-dataseed.bnbchain.org";
-export const pubClient = () =>
-  createPublicClient({ chain: bsc, transport: http(RPC(), { timeout: 8000, retryCount: 1 }) });
+export const pubClient = () => createPublicClient({ chain: bsc, transport: robotRpcTransport() });
 
 async function aesKey() {
   const s = process.env["BOT_KEY_SECRET"];
@@ -75,23 +77,49 @@ export async function botSigner(enc: string) {
     wallet: createWalletClient({
       account,
       chain: bsc,
-      transport: http(RPC(), { timeout: 8000, retryCount: 1 }),
+      transport: http(RPC(), { timeout: 4000, retryCount: 0 }),
     }),
   };
 }
 
-export async function poolState(token: `0x${string}`) {
-  const pub = pubClient();
+export async function poolState(token: `0x${string}`, blockNumber?: bigint) {
+  if (blockNumber == null)
+    return sharedRead(`atomic-pool:${RPC()}:${token.toLowerCase()}`, 300, () =>
+      withRpcSnapshot(RPC(), (client, block) => readPoolState(token, block.number, client)),
+    );
+  const hit = loadLivePool(token, RPC(), blockNumber);
+  if (hit) return hit;
+  throw new Error(
+    "Reservas da cotação expiraram. Aguarde uma nova avaliação de bloco antes de executar.",
+  );
+}
+async function readPoolState(
+  token: `0x${string}`,
+  blockNumber?: bigint,
+  clientOverride?: ReturnType<typeof pubClient>,
+) {
+  const pub = clientOverride ?? pubClient();
   const pair = await pub.readContract({
     address: PANCAKE_V2_FACTORY,
+    ...(blockNumber != null ? { blockNumber } : {}),
     abi: factoryAbi,
     functionName: "getPair",
     args: [token, WBNB],
   });
   if (pair === ZERO) return null;
   const [[r0, r1], t0] = await Promise.all([
-    pub.readContract({ address: pair, abi: pairAbi, functionName: "getReserves" }),
-    pub.readContract({ address: pair, abi: pairAbi, functionName: "token0" }),
+    pub.readContract({
+      address: pair,
+      ...(blockNumber != null ? { blockNumber } : {}),
+      abi: pairAbi,
+      functionName: "getReserves",
+    }),
+    pub.readContract({
+      address: pair,
+      ...(blockNumber != null ? { blockNumber } : {}),
+      abi: pairAbi,
+      functionName: "token0",
+    }),
   ]);
   const is0 = t0.toLowerCase() === token.toLowerCase();
   const tok = is0 ? r0 : r1,
@@ -125,9 +153,10 @@ export async function runGridStep(
   admin: any,
   owner: string,
   analysisOnly = false,
+  timing?: ExecutionClock,
 ) {
   return withExecutionPhase((beginSigning) =>
-    runGridStepImpl(bot, enc, admin, owner, analysisOnly, beginSigning),
+    runGridStepImpl(bot, enc, admin, owner, analysisOnly, beginSigning, timing),
   );
 }
 async function runGridStepImpl(
@@ -137,6 +166,7 @@ async function runGridStepImpl(
   owner: string,
   analysisOnly: boolean,
   beginSigning: () => void,
+  timing: ExecutionClock | undefined,
 ) {
   if (incompatibleBotToken(bot.token))
     return { patch: { last_error: INCOMPATIBLE_BNB }, order: null };
@@ -152,6 +182,7 @@ async function runGridStepImpl(
   const { normalizeState } = await import("./autoStrategy");
   const state = normalizeState(bot.strat_state, Date.now());
   const pool = await poolState(token);
+  timing?.mark("marketReady");
   if (!pool) return { patch: { last_error: "Pool inexistente" }, order: null };
   let d = gridDecision(
     pool.price,
@@ -206,6 +237,7 @@ async function runGridStepImpl(
       order: null,
     };
   if (d.action === "nenhuma") return { patch, order: null };
+  timing?.mark("signalDetected");
 
   const pub = pubClient();
   const { account, wallet } = await botSigner(enc);
@@ -306,6 +338,7 @@ async function runGridStepImpl(
     if (
       !(await approveForSwap({
         beginSigning,
+        ...(timing ? { timing } : {}),
         admin,
         owner,
         pub,
@@ -324,6 +357,7 @@ async function runGridStepImpl(
   const tax = taxFor(token, strategy?.config);
   const res = await sendSwap({
     beginSigning,
+    ...(timing ? { timing } : {}),
     pub,
     wallet,
     me,
@@ -381,6 +415,7 @@ export async function approveForSwap(o: {
   userId: string;
   maxGasGwei?: number;
   beginSigning?: () => void;
+  timing?: ExecutionClock;
 }) {
   const allowance = await o.pub.readContract({
     address: o.token,
@@ -390,21 +425,22 @@ export async function approveForSwap(o: {
   });
   if (allowance >= o.amountIn) return true;
   o.beginSigning?.();
+  const intent = {
+    kind: "approval",
+    token: o.token,
+    wallet: o.me,
+    ...(o.timing ? { botId: o.timing.botId } : {}),
+  };
   const r = await contractTransaction({
     ...o,
     to: o.token,
     abi: erc20Abi,
     functionName: "approve",
     args: [PANCAKE_V2_ROUTER, o.amountIn],
-    intent: { kind: "approval", token: o.token, wallet: o.me },
+    intent,
   });
   if (!r.receipt) return false;
-  await settleSubmission(
-    o.admin,
-    o.pub,
-    { id: r.id, intent: { kind: "approval" }, tx_hash: r.hash },
-    r.receipt,
-  );
+  await settleSubmission(o.admin, o.pub, { id: r.id, intent, tx_hash: r.hash }, r.receipt);
   if (r.receipt.status !== "success") throw new Error("Aprovação revertida; swap não enviado");
   return true;
 }
@@ -427,6 +463,7 @@ export async function sendSwap(o: {
   intent: Record<string, any>;
   maxGasGwei?: number;
   beginSigning?: () => void;
+  timing?: ExecutionClock;
 }) {
   const { pub, wallet, me, token, path, amountIn } = o;
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
@@ -516,6 +553,7 @@ export async function sendSwap(o: {
     args: o.side === "compra" ? [min, path, me, deadline] : [amountIn, min, path, me, deadline],
     ...(o.side === "compra" ? { value: amountIn } : {}),
     intent,
+    ...(o.timing ? { timing: o.timing } : {}),
     ...(o.maxGasGwei ? { maxGasGwei: o.maxGasGwei } : {}),
   });
   order.tx_hash = r.hash;

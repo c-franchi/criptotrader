@@ -1,3 +1,5 @@
+import { ExecutionClock } from "./executionTiming";
+import { recordEvaluation } from "./executionTiming.server";
 import { notifyBotProblem } from "./botNotice.server";
 import { botNoticeLink, botProblem } from "./botNotice";
 import { incompatibleBotToken } from "./guidedBot";
@@ -10,7 +12,13 @@ import { reconcileSubmissions } from "./submission.server";
 import { TOKENS } from "./tokens";
 import { acquireExecution, reconcileLocks, releaseExecution } from "./executionLock.server";
 
-export async function tickBot(admin: any, bot: any) {
+export async function tickBot(admin: any, bot: any, trigger: "schedule" | "block" = "schedule") {
+  const timing = new ExecutionClock(
+    bot.id,
+    bot.wallet_scope ?? LEGACY_WALLET_SCOPE,
+    bot.token,
+    trigger,
+  );
   let owner: string;
   try {
     owner = await acquireExecution(admin, bot.user_id, bot.wallet_scope ?? LEGACY_WALLET_SCOPE);
@@ -21,6 +29,7 @@ export async function tickBot(admin: any, bot: any) {
     // Do not advance last_run_at: no strategy evaluation took place.
     return { ok: false, blocked: true, action: "nenhuma", reason };
   }
+  timing.mark("lockAcquired");
   let retain = false;
   try {
     const { data: current, error: currentError } = await admin
@@ -32,6 +41,7 @@ export async function tickBot(admin: any, bot: any) {
     if (!current?.armed || current.archived_at)
       return { ok: false, action: "nenhuma", reason: "Robô desligado" };
     bot = current;
+    timing.setPreviousEvaluation(bot.last_run_at);
     const { data: bw } = await admin
       .from("bot_wallets")
       .select("enc_key")
@@ -45,12 +55,14 @@ export async function tickBot(admin: any, bot: any) {
         .eq("id", bot.id);
       return { ok: false, action: "nenhuma" };
     }
+    timing.mark("configurationLoaded");
     let res: { patch: Record<string, unknown>; order: any };
     try {
-      if (bot.mode === "grade") res = await runGridStep(bot, bw.enc_key, admin, owner);
+      if (bot.mode === "grade")
+        res = await runGridStep(bot, bw.enc_key, admin, owner, false, timing);
       else {
         const { runStrategyStep } = await import("./strategyBot.server");
-        res = await runStrategyStep(admin, bot, bw.enc_key, owner);
+        res = await runStrategyStep(admin, bot, bw.enc_key, owner, false, timing);
       }
     } catch (e) {
       retain = !(e instanceof BeforeSigningError || e instanceof BeforeBroadcastError); // Retain uncertain signing failures; release proven read-only failures.
@@ -130,10 +142,12 @@ export async function tickBot(admin: any, bot: any) {
     ) {
       await releaseExecution(admin, bot.user_id, owner);
     }
+    timing.mark("finished");
+    await recordEvaluation(admin, bot.user_id, timing);
   }
 }
 
-export async function tickAll(admin: any) {
+export async function tickAll(admin: any, trigger: "schedule" | "block" = "schedule") {
   let reconciliationOk = true;
   try {
     const { pubClient } = await import("./bot.server");
@@ -163,7 +177,7 @@ export async function tickAll(admin: any) {
     bots ?? [],
     async (b: any): Promise<{ ok: boolean; blocked?: boolean; reason?: string | null }> => {
       try {
-        return await tickBot(admin, b);
+        return await tickBot(admin, b, trigger);
       } catch {
         return { ok: false, reason: "Falha isolada; próxima execução tentará conciliar" };
       }

@@ -506,6 +506,7 @@ export function GuidedBotSetup({
                 : form.model === "grid"
                   ? "Grade em BNB por token, sujeita às saídas configuradas. Lucro nas vendas não elimina prejuízo nos tokens mantidos."
                   : "Espera queda e recuperação com velas fechadas. Uma entrada por fundo, sem recompras enquanto houver posição.",
+            "Verificações programadas a cada cerca de 2 segundos, com tempo adicional de consultas, fila, aprovação e rede. Tocar no preço não garante envio imediato nem execução naquele valor. As condições por velas fechadas continuam exigidas.",
             "Todas as entradas dependem de saldo, custos, liquidez, intervalo e limites. O histórico do gráfico não substitui a cotação de execução.",
             "Média de referência dos gatilhos = soma de preço observado na entrada × quantidade recebida, dividida pela quantidade acumulada. Custo contábil por token = BNB efetivamente gasto dividido pelos tokens recebidos; são medidas diferentes.",
             "Resultado final = recebimentos menos custo dos tokens vendidos e custos de execução, sem duplicar taxas. A meta não garante resultado positivo.",

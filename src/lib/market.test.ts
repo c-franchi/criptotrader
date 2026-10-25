@@ -55,6 +55,7 @@ describe("Market fallback", () => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 function liveRpc() {
   getBlock.mockResolvedValue({ number: 123n, timestamp: BigInt(Math.floor(Date.now() / 1000)) });
@@ -93,16 +94,16 @@ it("prices live trading from a single block, without waiting for an aggregator, 
   expect(pricingReads.length).toBeGreaterThan(4);
   expect(pricingReads.every((x) => x.blockNumber === 123n)).toBe(true);
 });
-it("expires the fast cache after two seconds and preserves old quote age with an error when refresh fails", async () => {
+it("expires the fast cache after 300 milliseconds and preserves old quote age with an error when refresh fails", async () => {
   vi.clearAllMocks();
   liveRpc();
   const clock = vi.spyOn(Date, "now").mockReturnValue(1800000000000);
   getBlock.mockResolvedValue({ number: 123n, timestamp: 1800000000n });
   const a = await readMarket(BGA, "live-expiry", { live: true });
-  clock.mockReturnValue(1800000002001);
+  clock.mockReturnValue(1800000000301);
   getBlock.mockRejectedValue(new Error("RPC unavailable"));
   const b = await readMarket(BGA, "live-expiry", { live: true });
-  expect(getBlock).toHaveBeenCalledTimes(2);
+  expect(getBlock).toHaveBeenCalledTimes(3);
   expect(b.fetchedAt).toBe(a.fetchedAt);
   expect(b.error).toBeTruthy();
 });
@@ -117,4 +118,16 @@ it("rejects an old RPC block instead of relabeling it as a new price", async () 
   expect(a.error).toBeTruthy();
   expect(a.pools).toEqual([]);
   expect(readContract).not.toHaveBeenCalled();
+});
+
+it("reuses the live decision's pinned reserves in the executor instead of reading the pool twice", async () => {
+  vi.clearAllMocks();
+  liveRpc();
+  vi.stubEnv("BSC_RPC_URL", "live-shared-executor");
+  const quote = await readMarket(BGA, "live-shared-executor", { live: true });
+  const count = readContract.mock.calls.length;
+  const { poolState } = await import("./bot.server");
+  const pool = await poolState(BGA, BigInt(quote.blockNumber!));
+  expect(pool?.price).toBe(0.02);
+  expect(readContract.mock.calls.length).toBe(count);
 });
