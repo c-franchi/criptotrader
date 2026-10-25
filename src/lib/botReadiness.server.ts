@@ -94,6 +94,15 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
   updatedAt = bot.updated_at;
   version = s.data.version;
   const cfg = { ...EMPTY_CONFIG, ...s.data.config } as StrategyConfig;
+  if (
+    cfg.chartRule &&
+    bot.strat_state?.chartRuleConsumedId === cfg.chartRule.id &&
+    Number(bot.strat_state?.tokens ?? 0) <= 0
+  )
+    block(
+      "rules",
+      "Esta regra gráfica já foi utilizada. Crie e revise outra regra para uma nova entrada.",
+    );
   minLiquidityUsd = cfg.minLiquidityUsd;
   if (!strategySchema.safeParse(cfg).success)
     block("rules", "As regras salvas precisam de revisão. Abra Configurar robô.");

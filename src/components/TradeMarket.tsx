@@ -12,6 +12,7 @@ import type { TokenInfo } from "@/lib/tokens";
 import { CandleChart } from "./CandleChart";
 import { Button } from "./ui/button";
 import { TokenActivity } from "./TokenActivity";
+import { ChartRuleLauncher } from "./ChartRuleLauncher";
 
 export function TradeMarket({
   token,
@@ -131,6 +132,7 @@ export function TradeMarket({
           Aguardando uma cotação atual do par BNB. Confira a cotação da operação antes de assinar.
         </p>
       )}
+      <ChartRuleLauncher token={token.address} symbol={token.symbol} />
       <TokenActivity token={token.address} symbol={token.symbol} decimals={token.decimals} />
       <details className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
         <summary className="cursor-pointer">Sobre {token.symbol}</summary>

@@ -2,6 +2,9 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { TradeMarket } from "./TradeMarket";
 import type { TokenInfo } from "@/lib/tokens";
+vi.mock("./ChartRuleLauncher", () => ({
+  ChartRuleLauncher: () => <button>Criar regra pelo gráfico</button>,
+}));
 vi.mock("@tanstack/react-query", () => ({
   useQuery: () => ({
     data: {

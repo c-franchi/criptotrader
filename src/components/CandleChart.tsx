@@ -10,9 +10,11 @@ import { cn } from "@/lib/utils";
 import { Maximize2, Minus, Plus, RotateCcw, X } from "lucide-react";
 
 export type ChartLevel = {
+  id?: string;
+  draggable?: boolean;
   price: number;
   label: string;
-  tone: "buy" | "sell" | "stop" | "avg" | "grid";
+  tone: "buy" | "sell" | "stop" | "avg" | "grid" | "target";
 };
 export type ChartTrade = {
   id?: string;
@@ -34,6 +36,7 @@ const tones = {
   stop: "text-destructive",
   avg: "text-chart-4",
   grid: "text-muted-foreground",
+  target: "text-blue-600",
 };
 const windows = [
   { id: "1h", hours: 1 },
@@ -65,6 +68,9 @@ function ChartBody({
   focusRequest,
   fitTradeIds = [],
   history,
+  pickingPrice = false,
+  onPickPrice,
+  onEditLevel,
 }: {
   candles: Candle[];
   history?: ChartHistory | undefined;
@@ -83,6 +89,9 @@ function ChartBody({
   compact?: boolean;
   preferenceKey?: string;
   minimal?: boolean;
+  pickingPrice?: boolean;
+  onPickPrice?: ((point: { time: number; price: number }) => void) | undefined;
+  onEditLevel?: ((id: string, price: number) => void) | undefined;
 }) {
   const [minutes, setMinutes] = useState(compact ? 30 : alignStrategy ? strategyMinutes : 5);
   const [height, setHeight] = useState(tall ? 420 : compact ? 260 : 320);
@@ -113,6 +122,15 @@ function ChartBody({
   const [drawingPrice, setDrawingPrice] = useState("");
   const [marks, setMarks] = useState<{ price: number; label: string }[]>([]);
   const [measure, setMeasure] = useState<{ time: number; price: number }[]>([]);
+  const levelDrag = useRef<{
+    id: string;
+    min: number;
+    max: number;
+    height: number;
+    top: number;
+    rectHeight: number;
+    viewHeight: number;
+  } | null>(null);
   const studies = useMemo(() => technicalSeries(candles, minutes, now), [candles, minutes, now]);
   const indicators = useMemo(() => chartIndicators(candles, minutes, now), [candles, minutes, now]);
   const [hours, setHours] = useState(24);
@@ -376,7 +394,7 @@ function ChartBody({
         anchorT: tFromEvent((a.x + b.x) / 2) ?? (cur.start + cur.end) / 2,
       };
       if (longPress.current) clearTimeout(longPress.current);
-    } else if (e.pointerType === "touch" && tool === "inspect") {
+    } else if (e.pointerType === "touch" && tool === "inspect" && !pickingPrice) {
       const t = tFromEvent(e.clientX);
       longPress.current = setTimeout(() => {
         if (t != null) setProbe({ t, px: e.clientX });
@@ -384,6 +402,16 @@ function ChartBody({
     }
   };
   const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (levelDrag.current) {
+      const d = levelDrag.current;
+      const py = ((e.clientY - d.top) * d.viewHeight) / d.rectHeight;
+      const price =
+        d.max -
+        ((Math.min(d.height - 12, Math.max(12, py)) - 12) / (d.height - 24)) * (d.max - d.min);
+      if (price > 0 && Number.isFinite(price)) onEditLevel?.(d.id, price);
+      suppressClick.current = true;
+      return;
+    }
     const prev = pointers.current.get(e.pointerId);
     const start = gestureStart.current;
     if (prev && start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6) {
@@ -436,6 +464,7 @@ function ChartBody({
     }
   };
   const onPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    levelDrag.current = null;
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
     if (longPress.current) {
@@ -862,14 +891,16 @@ function ChartBody({
           aria-label="Velas OHLCV, escala de preços e médias SMA do robô"
           viewBox={`0 0 ${W} ${volBase + 20}`}
           className={cn(
-            "w-full touch-pan-y select-none overflow-hidden",
+            "w-full select-none overflow-hidden",
+            pickingPrice || onEditLevel ? "touch-none" : "touch-pan-y",
             minimal && "max-h-[calc(100dvh-14rem)] min-h-56",
-            tool !== "inspect" && "cursor-crosshair",
+            (tool !== "inspect" || pickingPrice) && "cursor-crosshair",
           )}
           onPointerDown={onPointerDown}
           onContextMenu={(e) => e.preventDefault()}
           onClick={(e) => {
-            if (tool === "inspect" || e.button !== 0 || suppressClick.current) return;
+            if ((!pickingPrice && tool === "inspect") || e.button !== 0 || suppressClick.current)
+              return;
             const rect = e.currentTarget.getBoundingClientRect();
             const px = ((e.clientX - rect.left) * W) / rect.width;
             const py = ((e.clientY - rect.top) * (volBase + 20)) / rect.height;
@@ -886,6 +917,10 @@ function ChartBody({
               time: v.start + (px / plot) * span,
               price: max - ((py - 12) / (H - 24)) * (max - min),
             };
+            if (pickingPrice) {
+              if (point.price > 0 && Number.isFinite(point.price)) onPickPrice?.(point);
+              return;
+            }
             if (tool === "measure") setMeasure((a) => (a.length === 1 ? [a[0]!, point] : [point]));
             else
               setMarks((a) => [
@@ -1209,6 +1244,67 @@ function ChartBody({
               </g>
             );
           })}
+          {onEditLevel &&
+            levels
+              .filter((l) => l.draggable && l.id && l.price >= min && l.price <= max)
+              .map((l) => (
+                <g
+                  key={`edit-${l.id}`}
+                  role="slider"
+                  tabIndex={0}
+                  aria-label={`Ajustar ${l.label}`}
+                  aria-valuemin={0}
+                  aria-valuenow={l.price}
+                  aria-valuetext={`US$ ${usd(l.price)}`}
+                  className={cn(tones[l.tone], "cursor-ns-resize")}
+                  style={{ touchAction: "none" }}
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => {
+                    if (e.pointerType === "mouse" && e.button !== 0) return;
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const svg = svgRef.current,
+                      rect = svg?.getBoundingClientRect();
+                    if (!svg || !rect || !rect.height || !l.id) return;
+                    levelDrag.current = {
+                      id: l.id,
+                      min,
+                      max,
+                      height: H,
+                      top: rect.top,
+                      rectHeight: rect.height,
+                      viewHeight: volBase + 20,
+                    };
+                    suppressClick.current = true;
+                    svg.setPointerCapture?.(e.pointerId);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                      e.preventDefault();
+                      onEditLevel(l.id!, l.price * (e.key === "ArrowUp" ? 1.001 : 0.999));
+                    }
+                  }}
+                >
+                  <rect
+                    x={Math.max(0, plot - 130)}
+                    y={y(l.price) - 12}
+                    width={130}
+                    height={24}
+                    rx={8}
+                    fill="var(--background)"
+                    stroke="currentColor"
+                  />
+                  <text
+                    x={plot - 65}
+                    y={y(l.price) + 4}
+                    textAnchor="middle"
+                    fill="currentColor"
+                    fontSize={11}
+                  >
+                    {l.label} ↕
+                  </text>
+                </g>
+              ))}
           {measure.map((m, i) => (
             <g key={`measure-${i}`} className="text-primary">
               <circle cx={x(m.time)} cy={y(m.price)} r={5} fill="currentColor" />
@@ -1465,6 +1561,9 @@ function ChartBody({
 }
 
 export function CandleChart(props: {
+  pickingPrice?: boolean;
+  onPickPrice?: ((point: { time: number; price: number }) => void) | undefined;
+  onEditLevel?: ((id: string, price: number) => void) | undefined;
   candles: Candle[];
   history?: ChartHistory | undefined;
   now: number;
