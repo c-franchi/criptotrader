@@ -20,7 +20,7 @@ export function stopPrice(entry: number, cfg: StopConfig): number | null {
   return (entry * (1 - cfg.stopLossPct / 100)) / retained;
 }
 
-/** Token has a buy or sell tax: ready-made strategies start with stop disabled. */
+/** Whether either token tax applies. Stop choice remains explicit and independent. */
 export function hasTokenTax(tax: { buy: number; sell: number }): boolean {
   return tax.buy > 0 || tax.sell > 0;
 }

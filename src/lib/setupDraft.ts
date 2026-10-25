@@ -19,7 +19,7 @@ export function readSetupDraft(key: string, defaults: Form): SetupDraft | null {
     if (
       !d ||
       !d.form ||
-      !["dca", "grid", "recovery"].includes(d.form.model) ||
+      !["dca", "grid", "recovery", "trend"].includes(d.form.model) ||
       typeof d.form.taxConfirmed !== "boolean" ||
       !["BNB", "BRL"].includes(d.currency) ||
       !Number.isInteger(d.step) ||
@@ -33,7 +33,10 @@ export function readSetupDraft(key: string, defaults: Form): SetupDraft | null {
       return null;
     for (const [field, value] of Object.entries(defaults)) {
       if (
-        !(d.form[field] === undefined && ["minLiquidityUsd", "maxGasGwei"].includes(field)) &&
+        !(
+          d.form[field] === undefined &&
+          ["minLiquidityUsd", "maxGasGwei", "maFast", "maSlow"].includes(field)
+        ) &&
         typeof value === "number" &&
         (typeof d.form[field] !== "number" || !Number.isFinite(d.form[field]))
       )

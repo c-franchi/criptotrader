@@ -46,7 +46,12 @@ function show(
   token = "0x1111111111111111111111111111111111111111",
   armed = false,
   select?: (v: string) => void,
-  options: { userId?: string; walletScope?: string; onClose?: (v: boolean) => void } = {},
+  options: {
+    userId?: string;
+    walletScope?: string;
+    onClose?: (v: boolean) => void;
+    stopPct?: number;
+  } = {},
 ) {
   mocks.settings.mockResolvedValue({
     strategy: {
@@ -59,7 +64,7 @@ function show(
         gasReserveBnb: 0.0001,
         maxEntries: 3,
         dropPct: 5,
-        stopLossPct: 8,
+        stopLossPct: options.stopPct ?? 8,
         takeProfits: [{ pct: 4, sellPct: 100 }],
         taxVerified: true,
       },
@@ -109,11 +114,14 @@ function show(
 }
 it("saves configuration in one screen and never starts until the separate authorization", async () => {
   show();
-  await screen.findByText("Comprar em etapas");
+  await screen.findByText("Comprar em quedas");
   expect(await screen.findByRole("spinbutton", { name: /Capital máximo/ })).toBeTruthy();
   await screen.findByRole("spinbutton", { name: "Comprar após queda de (%)" });
   fireEvent.click(screen.getByRole("button", { name: "Revisar robô" }));
   fireEvent.click(await screen.findByRole("button", { name: "Salvar regras e preparar robô" }));
+  expect(mocks.save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Manter stop atual (8%)" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar escolha e salvar regras" }));
   await waitFor(() =>
     expect(mocks.save).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -144,7 +152,7 @@ it("saves configuration in one screen and never starts until the separate author
 });
 it("explains an incompatible same-asset selection before allowing preparation", async () => {
   show("0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c");
-  await screen.findByText("Comprar em etapas");
+  await screen.findByText("Comprar em quedas");
   expect(screen.getByRole("alert").textContent).toMatch(/mesmo ativo/);
   expect(screen.getByRole("button", { name: "Revisar robô" })).toBeDisabled();
   expect(mocks.save).not.toHaveBeenCalled();
@@ -168,7 +176,7 @@ it("lets an incompatible running bot select another asset in the same assistant 
 
 it("shows spendable balance before amount fields and updates it with the fee reserve", async () => {
   show();
-  await screen.findByText("Comprar em etapas");
+  await screen.findByText("Comprar em quedas");
   expect(await screen.findByText(/Livre para configurar: 0,0689 BNB/)).toHaveTextContent(
     "R$ 241,15",
   );
@@ -183,7 +191,7 @@ it("closes with X without a browser confirmation and restores amounts, currency 
   const close = vi.fn();
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
   const view = show(undefined, false, undefined, { onClose: close });
-  await screen.findByText("Comprar em etapas");
+  await screen.findByText("Comprar em quedas");
   fireEvent.click(screen.getByRole("button", { name: "Reais · estimativa" }));
   fireEvent.change(screen.getByRole("spinbutton", { name: "Capital máximo (R$)" }), {
     target: { value: "70" },
@@ -203,19 +211,19 @@ it("closes with X without a browser confirmation and restores amounts, currency 
 });
 it("isolates unfinished input by account, wallet and asset", async () => {
   let view = show();
-  await screen.findByText("Comprar em etapas");
+  await screen.findByText("Comprar em quedas");
   fireEvent.change(screen.getByRole("spinbutton", { name: "Capital máximo (BNB)" }), {
     target: { value: "0.045" },
   });
   view.unmount();
   for (const options of [{ userId: "user-b" }, { walletScope: "other-scope" }]) {
     view = show(undefined, false, undefined, options);
-    await screen.findByText("Comprar em etapas");
+    await screen.findByText("Comprar em quedas");
     expect(screen.getByRole("spinbutton", { name: "Capital máximo (BNB)" })).toHaveValue(0.01);
     view.unmount();
   }
   view = show("0x3333333333333333333333333333333333333333");
-  await screen.findByText("Comprar em etapas");
+  await screen.findByText("Comprar em quedas");
   view.unmount();
   show();
   expect(await screen.findByRole("spinbutton", { name: "Capital máximo (BNB)" })).toHaveValue(
@@ -225,7 +233,7 @@ it("isolates unfinished input by account, wallet and asset", async () => {
 it("does not show a spendable amount while execution is pending", async () => {
   show();
   mocks.execution.mockResolvedValue({ locked: true });
-  await screen.findByText("Comprar em etapas");
+  await screen.findByText("Comprar em quedas");
   fireEvent.click(screen.getByRole("button", { name: "Atualizar saldo" }));
   await screen.findByText(/Novas compras bloqueadas/);
   expect(screen.queryByText(/Livre para configurar:/)).toBeNull();
@@ -243,7 +251,7 @@ it("keeps the close action available when storage is denied", async () => {
 
 it("preserves input when saved rules changed in another session and requires an explicit reload", async () => {
   const view = show();
-  await screen.findByText("Comprar em etapas");
+  await screen.findByText("Comprar em quedas");
   fireEvent.change(screen.getByRole("spinbutton", { name: "Capital máximo (BNB)" }), {
     target: { value: "0.045" },
   });
@@ -259,13 +267,13 @@ it("preserves input when saved rules changed in another session and requires an 
   fireEvent.click(
     screen.getByRole("button", { name: "Descartar preenchimento e carregar regras atuais" }),
   );
-  await screen.findByText("Comprar em etapas");
+  await screen.findByText("Comprar em quedas");
   expect(screen.getByRole("spinbutton", { name: "Capital máximo (BNB)" })).toHaveValue(0.01);
   expect(mocks.save).not.toHaveBeenCalled();
 });
 it("shows unavailable instead of a fabricated free balance on request failure", async () => {
   show();
-  await screen.findByText("Comprar em etapas");
+  await screen.findByText("Comprar em quedas");
   mocks.capital.mockRejectedValue(new Error("offline"));
   fireEvent.click(screen.getByRole("button", { name: "Atualizar saldo" }));
   await screen.findByText(/Não foi possível confirmar o saldo disponível/);
@@ -274,7 +282,7 @@ it("shows unavailable instead of a fabricated free balance on request failure", 
 it("lets X close during an explicitly requested save without starting the bot", async () => {
   const close = vi.fn();
   show(undefined, false, undefined, { onClose: close });
-  await screen.findByText("Comprar em etapas");
+  await screen.findByText("Comprar em quedas");
   fireEvent.click(screen.getByRole("button", { name: "Revisar robô" }));
   let finish!: (value: unknown) => void;
   mocks.save.mockImplementation(
@@ -284,7 +292,10 @@ it("lets X close during an explicitly requested save without starting the bot", 
       }),
   );
   fireEvent.click(screen.getByRole("button", { name: "Salvar regras e preparar robô" }));
+  fireEvent.click(screen.getByRole("button", { name: "Manter stop atual (8%)" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar escolha e salvar regras" }));
   await screen.findByRole("button", { name: "Salvando…" });
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   expect(close).toHaveBeenCalledWith(false);
   expect(mocks.start).not.toHaveBeenCalled();
@@ -294,9 +305,11 @@ it("lets X close during an explicitly requested save without starting the bot", 
 
 it("takes a saved liquidity problem directly to the visible safety field without losing purchase values", async () => {
   show();
-  await screen.findByText("Comprar em etapas");
+  await screen.findByText("Comprar em quedas");
   fireEvent.click(screen.getByRole("button", { name: "Revisar robô" }));
   fireEvent.click(screen.getByRole("button", { name: "Salvar regras e preparar robô" }));
+  fireEvent.click(screen.getByRole("button", { name: "Manter stop atual (8%)" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar escolha e salvar regras" }));
   fireEvent.click(await screen.findByRole("button", { name: "Revisar liquidez" }));
   const field = await screen.findByRole("spinbutton", { name: "Liquidez mínima do par (US$)" });
   expect(field).toHaveFocus();
@@ -307,7 +320,7 @@ it("takes a saved liquidity problem directly to the visible safety field without
 
 it("retains older unfinished forms when adding the new safety fields", async () => {
   const first = show();
-  await screen.findByText("Comprar em etapas");
+  await screen.findByText("Comprar em quedas");
   fireEvent.change(screen.getByRole("spinbutton", { name: "Capital máximo (BNB)" }), {
     target: { value: "0.0123" },
   });
@@ -325,11 +338,36 @@ it("retains older unfinished forms when adding the new safety fields", async () 
 
 it("takes an incomplete grid directly to the range field instead of proceeding without an explanation", async () => {
   show();
-  await screen.findByText("Comprar em etapas");
+  await screen.findByText("Comprar em quedas");
   fireEvent.click(screen.getByRole("radio", { name: /Comprar e vender numa faixa/ }));
+  expect(screen.getByRole("dialog", { name: "Monte seu robô com orientação" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Continuar no formulário" }));
   fireEvent.click(screen.getByRole("button", { name: "Revisar robô" }));
   expect(await screen.findByText(/Defina uma faixa válida/)).toBeTruthy();
   expect(screen.getByRole("spinbutton", { name: "Preço mínimo (BNB por moeda)" })).toHaveFocus();
   expect(mocks.save).not.toHaveBeenCalled();
   expect(mocks.start).not.toHaveBeenCalled();
+});
+
+it("saves a deliberate no-stop choice and preserves it when the editor is opened again", async () => {
+  const view = show();
+  await screen.findByText("Comprar em quedas");
+  fireEvent.click(screen.getByRole("button", { name: "Revisar robô" }));
+  fireEvent.click(screen.getByRole("button", { name: "Salvar regras e preparar robô" }));
+  fireEvent.click(screen.getByRole("button", { name: "Manter tokens sem stop-loss fixo" }));
+  expect(mocks.save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar escolha e salvar regras" }));
+  await waitFor(() =>
+    expect(mocks.save).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        settings: expect.objectContaining({ stopPct: 0, allowNoStop: true }),
+      }),
+    }),
+  );
+  expect(mocks.start).not.toHaveBeenCalled();
+  view.unmount();
+  show(undefined, false, undefined, { stopPct: 0 });
+  expect(
+    await screen.findByRole("spinbutton", { name: "Vender para proteger após queda de (%)" }),
+  ).toHaveValue(null);
 });

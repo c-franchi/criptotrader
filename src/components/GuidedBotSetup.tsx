@@ -1,3 +1,5 @@
+import { BotRuleHelp, BotRulesGuide, type GuidedRule } from "./BotRulesGuide";
+import { StopLossDecision } from "./StopLossDecision";
 import { WalletPicker } from "./WalletPicker";
 import type { ReadinessAction } from "@/lib/readinessIssues";
 import { useCurrency } from "@/hooks/currencyContext";
@@ -40,11 +42,14 @@ const initial: GuidedForm = {
   capital: 0,
   buyAmount: 0,
   dropPct: 5,
+  maFast: 9,
+  maSlow: 21,
   maxEntries: 1,
   cooldownMin: 60,
   maxTradesPerDay: 3,
   profitPct: 4,
   stopPct: 8,
+  allowNoStop: false,
   reserve: 0.0001,
   minLiquidityUsd: 5000,
   maxGasGwei: 5,
@@ -91,6 +96,7 @@ function NumberField({
         }
         onChange={(e) => onChange(Number(e.target.value))}
       />
+      <BotRuleHelp field={{ key: field ?? label, label, value, onChange }} />
       {hint && (
         <details className="setup-hint mt-1 font-normal">
           <summary>Como funciona</summary>
@@ -166,6 +172,8 @@ export function GuidedBotSetup({
     [ack, setAck] = useState(false),
     [locked, setLocked] = useState(false),
     [currency, setCurrency] = useState<"BNB" | "BRL">("BNB");
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [askStop, setAskStop] = useState(false);
   const session = useRef(0);
   const dialogRef = useRef<HTMLDivElement>(null);
   const [focusField, setFocusField] = useState<string | null>(null);
@@ -269,6 +277,8 @@ export function GuidedBotSetup({
     let alive = true;
     const local = readSetupDraft(draftKey, initial);
     setLoaded(false);
+    setGuideOpen(false);
+    setAskStop(false);
     setConflict(false);
     setSaved(false);
     setStep(0);
@@ -283,15 +293,25 @@ export function GuidedBotSetup({
         const taxRetention = (1 - (c.buyTaxPct ?? 0) / 100) * (1 - (c.sellTaxPct ?? 0) / 100);
         const serverForm: GuidedForm = {
           ...initial,
-          model: r.bot?.mode === "grade" ? "grid" : c.recovery?.enabled ? "recovery" : "dca",
+          model:
+            r.bot?.mode === "grade"
+              ? "grid"
+              : c.recovery?.enabled
+                ? "recovery"
+                : c.entryType === "medias"
+                  ? "trend"
+                  : "dca",
           capital: c.allocationBnb ?? c.maxExposureQuote ?? 0,
           buyAmount: c.sizingMode === "fixo" ? (c.buyAmount ?? 0) : 0,
           dropPct: c.dropPct || c.recovery?.minDropPct || 5,
+          maFast: c.maFast ?? 9,
+          maSlow: c.maSlow ?? 21,
           maxEntries: c.maxEntries ?? 1,
           cooldownMin: c.cooldownMin ?? 60,
           maxTradesPerDay: c.maxTradesPerDay || 3,
           profitPct: tp ? Math.max(0, ((1 + tp / 100) * taxRetention - 1) * 100) : 4,
           stopPct: c.stopLossPct ?? 8,
+          allowNoStop: c.stopLossPct === 0,
           reserve: c.gasReserveBnb ?? 0.0001,
           minLiquidityUsd: c.minLiquidityUsd ?? 5000,
           maxGasGwei: c.maxGasGwei ?? 5,
@@ -356,6 +376,50 @@ export function GuidedBotSetup({
   const fromInput = (n: number) => (currency === "BRL" && rate ? n / rate : n);
   const quote = (n: number) =>
     `${n.toLocaleString("pt-BR", { maximumFractionDigits: 8 })} BNB${rate ? ` (≈ ${(n * rate).toLocaleString("pt-BR", { style: "currency", currency: displayCurrency })})` : ""}`;
+  const guideKeys: [keyof GuidedForm, string][] = [
+    ["capital", "Capital máximo (BNB)"],
+    ["buyAmount", "Valor por compra (BNB)"],
+    ...(form.model === "grid"
+      ? ([
+          ["lower", "Mínimo da faixa (BNB/token)"],
+          ["upper", "Máximo da faixa (BNB/token)"],
+          ["levels", "Intervalos da grade"],
+        ] as [keyof GuidedForm, string][])
+      : form.model === "trend"
+        ? ([
+            ["maFast", "Média rápida (velas)"],
+            ["maSlow", "Média lenta (velas)"],
+          ] as [keyof GuidedForm, string][])
+        : ([["dropPct", "Queda antes da entrada (%)"]] as [keyof GuidedForm, string][])),
+    ...(form.model === "dca" || form.model === "trend"
+      ? ([["maxEntries", "Máximo de compras por posição"]] as [keyof GuidedForm, string][])
+      : []),
+    ...(form.model === "recovery"
+      ? ([
+          ["reboundPct", "Recuperação mínima (%)"],
+          ["maxReboundPct", "Recuperação máxima (%)"],
+          ["confirmationBars", "Fechamentos em alta"],
+        ] as [keyof GuidedForm, string][])
+      : []),
+    ["profitPct", "Meta após taxas do token (%)"],
+    ["stopPct", "Stop-loss fixo (0 = desligado)"],
+    ["reserve", "Reserva de gás (BNB)"],
+    ["buyTax", "Taxa do token na compra (%)"],
+    ["sellTax", "Taxa do token na venda (%)"],
+    ["cooldownMin", "Intervalo entre compras (min)"],
+    ["maxTradesPerDay", "Limite diário para novas entradas"],
+    ["minLiquidityUsd", "Liquidez mínima (US$)"],
+    ["maxGasGwei", "Teto de gás (gwei)"],
+  ];
+  const guideFields: GuidedRule[] = guideKeys.map(([key, label]) => ({
+    key,
+    label,
+    value: Number(form[key] ?? 0),
+    onChange: (n) => {
+      set(key, n);
+      if (key === "stopPct") set("allowNoStop", n === 0);
+    },
+  }));
   const createWallet = async () => {
     setBusy(true);
     try {
@@ -386,6 +450,7 @@ export function GuidedBotSetup({
         setVersion((v) => v + 1);
         setRevision(0);
         setSaved(true);
+        setAskStop(false);
       } else {
         // A reopened editor must fetch the confirmed version, without discarding newer input.
         setReload((n) => n + 1);
@@ -429,6 +494,37 @@ export function GuidedBotSetup({
             {symbol} / BNB · {walletName}
           </DialogDescription>
         </DialogHeader>
+        <BotRulesGuide
+          open={open && guideOpen}
+          onOpenChange={setGuideOpen}
+          fields={guideFields}
+          summary={[
+            form.model === "dca"
+              ? "Compra por queda da referência de 24h; não é DCA por calendário. Não exige compra imediata ao iniciar."
+              : form.model === "trend"
+                ? "Exige tendência de alta pelas médias e recuo até a média lenta, com novo sinal após rearme. Não compra só por haver queda nem prevê retomada."
+                : form.model === "grid"
+                  ? "Grade em BNB por token, sujeita às saídas configuradas. Lucro nas vendas não elimina prejuízo nos tokens mantidos."
+                  : "Espera queda e recuperação com velas fechadas. Uma entrada por fundo, sem recompras enquanto houver posição.",
+            "Todas as entradas dependem de saldo, custos, liquidez, intervalo e limites. O histórico do gráfico não substitui a cotação de execução.",
+            "Média de referência dos gatilhos = soma de preço observado na entrada × quantidade recebida, dividida pela quantidade acumulada. Custo contábil por token = BNB efetivamente gasto dividido pelos tokens recebidos; são medidas diferentes.",
+            "Resultado final = recebimentos menos custo dos tokens vendidos e custos de execução, sem duplicar taxas. A meta não garante resultado positivo.",
+            "Velas de 15 minutos e referência de 24h. A execução usa BNB; ganhar BNB não garante ganho em reais. Salvar mantém o bot pausado; iniciar exige confirmação separada.",
+          ]}
+        />
+        <StopLossDecision
+          open={open && askStop}
+          onOpenChange={setAskStop}
+          value={form.stopPct}
+          onChange={(n) => {
+            set("stopPct", n);
+            set("allowNoStop", n === 0);
+          }}
+          onConfirm={() => void save()}
+          busy={busy}
+          buyTax={form.buyTax}
+          sellTax={form.sellTax}
+        />
         {loaded && !saved && (
           <p className="text-xs text-muted-foreground" role="status">
             {storageFailed
@@ -551,18 +647,32 @@ export function GuidedBotSetup({
                   pool={market.data?.pools.find((p) => p.supported)?.pairAddress}
                   token={token}
                 />
-                <h3 className="font-semibold">Modelo de operação</h3>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="font-semibold">Modelo de operação</h3>
+                  <Button
+                    variant="outline"
+                    disabled={busy || locked}
+                    onClick={() => setGuideOpen(true)}
+                  >
+                    Revisar comigo
+                  </Button>
+                </div>
                 {(
                   [
                     [
                       "dca",
-                      "Comprar em etapas",
+                      "Comprar em quedas",
                       "Espera a queda definida, compra uma parte e só compra novamente depois de nova queda. Vende a posição pela meta sobre o preço médio.",
                     ],
                     [
                       "grid",
                       "Comprar e vender numa faixa",
                       "Compra ao descer um nível e vende ao subir. A faixa usa BNB por moeda; os custos precisam caber no espaçamento.",
+                    ],
+                    [
+                      "trend",
+                      "Recuo em tendência de alta",
+                      "Espera média rápida acima da lenta e recuo até a média lenta, com velas fechadas e rearme de sinal. Pode falhar em mudanças de tendência.",
                     ],
                     [
                       "recovery",
@@ -581,6 +691,7 @@ export function GuidedBotSetup({
                       value={id}
                       checked={form.model === id}
                       onChange={() => set("model", id)}
+                      onClick={() => setGuideOpen(true)}
                     />
                     <span>
                       <b className="block text-sm">{name}</b>
@@ -780,6 +891,21 @@ export function GuidedBotSetup({
                         onChange={(n) => set("levels", n)}
                       />
                     </>
+                  ) : form.model === "trend" ? (
+                    <>
+                      <NumberField
+                        field="maFast"
+                        label="Média rápida (velas de 15 min)"
+                        value={form.maFast ?? 9}
+                        onChange={(n) => set("maFast", n)}
+                      />
+                      <NumberField
+                        field="maSlow"
+                        label="Média lenta (velas de 15 min)"
+                        value={form.maSlow ?? 21}
+                        onChange={(n) => set("maSlow", n)}
+                      />
+                    </>
                   ) : (
                     <NumberField
                       field="dropPct"
@@ -808,8 +934,11 @@ export function GuidedBotSetup({
                     field="stopPct"
                     label="Vender para proteger após queda de (%)"
                     value={form.stopPct}
-                    onChange={(n) => set("stopPct", n)}
-                    hint="Queda do preço médio; a perda real pode ser maior por taxas, liquidez e execução."
+                    onChange={(n) => {
+                      set("stopPct", n);
+                      set("allowNoStop", n === 0);
+                    }}
+                    hint="Zero desativa este stop mediante sua escolha explícita. Não garante recuperação e pode manter uma posição em queda até perda total. Outras saídas continuam."
                   />
                   {form.model === "recovery" && (
                     <>
@@ -834,6 +963,22 @@ export function GuidedBotSetup({
                     </>
                   )}
                 </div>
+                {form.model === "dca" &&
+                  form.maxEntries > 1 &&
+                  form.stopPct > 0 &&
+                  form.stopPct <= form.dropPct && (
+                    <p role="status" className="rounded-xl bg-secondary p-3 text-sm">
+                      Com o preço médio igual ao da primeira compra, este stop pode vender antes da
+                      próxima recompra ou no mesmo ponto. Saídas têm prioridade sobre compras.
+                      Confira os dois limites.
+                    </p>
+                  )}
+                {form.stopPct === 0 && (
+                  <p className="rounded-xl bg-secondary p-3 text-sm">
+                    Stop fixo desativado. Manter tokens não garante recuperação; eles podem perder
+                    todo o valor. As outras saídas configuradas continuam.
+                  </p>
+                )}
                 <details className="rounded border p-3">
                   <summary className="cursor-pointer text-sm">
                     Taxas da moeda · confirmação necessária
@@ -954,7 +1099,9 @@ export function GuidedBotSetup({
                     </div>
                     <div>
                       <dt className="text-muted-foreground">Stop loss</dt>
-                      <dd className="text-destructive font-semibold">{form.stopPct}%</dd>
+                      <dd className="text-destructive font-semibold">
+                        {form.stopPct > 0 ? `${form.stopPct}%` : "Desativado · manter tokens"}
+                      </dd>
                     </div>
                   </dl>
                   <p className="text-xs mb-3">
@@ -973,14 +1120,18 @@ export function GuidedBotSetup({
                     <p className="mt-2">
                       {form.model === "grid"
                         ? `Faixa de ${form.lower} a ${form.upper} BNB por moeda, em ${form.levels} intervalos. A primeira avaliação apenas registra o nível; nenhuma compra imediata é prometida.`
-                        : form.model === "recovery"
-                          ? `Espera queda de ${form.dropPct}%, recuperação entre ${form.reboundPct}% e ${form.maxReboundPct}% e ${form.confirmationBars} fechamentos em alta. Apenas uma entrada por fundo.`
-                          : `Primeira compra após queda de ${form.dropPct}% da referência de 24h. Até ${form.maxEntries} compras; novas entradas exigem mais queda. Não compra imediatamente ao iniciar.`}
+                        : form.model === "trend"
+                          ? `Média de ${form.maFast} velas acima da de ${form.maSlow}, preço recuando até a média lenta e novo sinal após rearme. Até ${form.maxEntries} entradas, sujeitas aos limites.`
+                          : form.model === "recovery"
+                            ? `Espera queda de ${form.dropPct}%, recuperação entre ${form.reboundPct}% e ${form.maxReboundPct}% e ${form.confirmationBars} fechamentos em alta. Apenas uma entrada por fundo.`
+                            : `Primeira compra após queda de ${form.dropPct}% da referência de 24h. Até ${form.maxEntries} compras; novas entradas exigem mais queda. Não compra imediatamente ao iniciar.`}
                     </p>
                     <p className="mt-2">
                       Meta de ganho: {form.profitPct}% após taxas do token, antes dos demais custos.
-                      Proteção: vender após queda de {form.stopPct}% do preço médio. Pausar não
-                      vende a posição.
+                      {form.stopPct > 0
+                        ? ` Stop: tentar vender após queda de ${form.stopPct}% do preço médio.`
+                        : " Stop fixo desativado por escolha do usuário. Os tokens podem não recuperar o valor e podem perder todo o valor."}{" "}
+                      Pausar não vende a posição.
                     </p>
                     <p className="mt-2 text-xs">
                       As regras guiadas usam velas de 15 minutos e janela de 24 horas. Esperam{" "}
@@ -1009,7 +1160,7 @@ export function GuidedBotSetup({
                     <Button
                       className="w-full"
                       disabled={busy || conflict || !validation.success || unsupported}
-                      onClick={save}
+                      onClick={() => setAskStop(true)}
                     >
                       {busy ? "Salvando…" : "Salvar regras e preparar robô"}
                     </Button>

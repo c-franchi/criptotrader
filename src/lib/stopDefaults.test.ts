@@ -3,8 +3,8 @@ import { buildPreset } from "./presets";
 import { stopRealLossPct } from "./stopLoss";
 
 describe("stop padrão por taxa", () => {
-  it("token com taxa 8/8 começa sem stop", () => {
-    expect(buildPreset("segura", 1, null, { buy: 8, sell: 8 }).stopLossPct).toBe(0);
+  it("token com taxa 8/8 preserva stop sugerido para revisão explícita", () => {
+    expect(buildPreset("segura", 1, null, { buy: 8, sell: 8 }).stopLossPct).toBe(10);
   });
   it("token sem taxa mantém stop do preset", () => {
     expect(buildPreset("segura", 1, null, { buy: 0, sell: 0 }).stopLossPct).toBe(10);
