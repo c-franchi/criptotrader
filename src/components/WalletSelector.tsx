@@ -6,30 +6,22 @@ import { WalletPicker } from "./WalletPicker";
 export function WalletSelector() {
   const { user } = useAuth();
   const { walletScope, wallets: saved, selectWallet, ready } = useSelectedWallet();
-  const { wallets, wallet, choose } = useWalletFunds();
+  const { q, choices, value, chooseId } = useWalletFunds();
   if (!user) return null;
   return (
     <div className="mb-4 min-w-0">
       <WalletPicker
         options={
-          wallets.length
-            ? wallets.map((w) => ({
-                id: w.address,
-                label: w.label,
-                bot: w.bot,
-                detail: `${w.bot ? "Robôs" : "Pessoal"} · ${w.address.slice(0, 6)}…${w.address.slice(-4)}`,
-              }))
+          q.data
+            ? choices
             : [
-                { id: LEGACY_WALLET_SCOPE, label: "Robô original", bot: true },
+                { id: LEGACY_WALLET_SCOPE, label: "Carteira original" },
                 ...saved.map((w) => ({ id: w.id, label: w.label || "Carteira" })),
               ]
         }
-        value={wallet?.address ?? walletScope}
+        value={q.data ? value : walletScope}
         disabled={!ready}
-        onChange={(id) => {
-          const found = wallets.find((w) => w.address === id);
-          return found ? choose(found) : selectWallet(id);
-        }}
+        onChange={(id) => (q.data ? chooseId(id) : selectWallet(id))}
       />
     </div>
   );

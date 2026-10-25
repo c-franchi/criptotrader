@@ -126,6 +126,7 @@ export function GuidedBotSetup({
   walletScope,
   userId,
   walletName,
+  sourceAddress,
   token,
   symbol,
   wallet,
@@ -142,6 +143,7 @@ export function GuidedBotSetup({
   walletScope: string;
   userId: string;
   walletName: string;
+  sourceAddress?: string | null | undefined;
   token: string;
   symbol: string;
   wallet: Wallet | null;
@@ -731,6 +733,7 @@ export function GuidedBotSetup({
                     <div className="mt-2">
                       <p>Saldo atual: {wallet.bnb ?? "consultando"} BNB</p>
                       <FundBotDialog
+                        sourceAddress={sourceAddress}
                         botAddress={wallet.address}
                         botBnb={wallet.bnb == null ? null : Number(wallet.bnb)}
                         need={{

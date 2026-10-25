@@ -1,3 +1,4 @@
+import { botSearch, groupBotNotices } from "@/lib/botNotice";
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +21,7 @@ export function NotificationBell() {
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
+        .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -27,7 +29,8 @@ export function NotificationBell() {
     },
   });
   const list = q.data ?? [];
-  const unread = list.filter((n) => !n.read).length;
+  const groups = groupBotNotices(list);
+  const unread = groups.filter((g) => list.some((n) => g.ids.includes(n.id) && !n.read)).length;
   useEffect(() => {
     setSel((s) => new Set([...s].filter((id) => list.some((n) => n.id === id))));
   }, [q.data]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -35,24 +38,28 @@ export function NotificationBell() {
   const refresh = () => qc.invalidateQueries({ queryKey: ["notifications"] });
   const remove = async (ids: string[]) => {
     if (!ids.length) return;
-    await supabase.from("notifications").delete().in("id", ids);
+    await supabase.from("notifications").delete().eq("user_id", user.id).in("id", ids);
     setSel(new Set());
     refresh();
   };
   const markRead = async () => {
     const ids = list.filter((n) => !n.read).map((n) => n.id);
     if (ids.length) {
-      await supabase.from("notifications").update({ read: true }).in("id", ids);
+      await supabase
+        .from("notifications")
+        .update({ read: true })
+        .eq("user_id", user.id)
+        .in("id", ids);
       refresh();
     }
   };
   const all = list.length > 0 && sel.size === list.length;
-  const toggle = (id: string) =>
-    setSel((s) => {
-      const n = new Set(s);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
-      return n;
+  const toggleGroup = (ids: string[]) =>
+    setSel((previous) => {
+      const next = new Set(previous);
+      const remove = ids.every((id) => next.has(id));
+      ids.forEach((id) => (remove ? next.delete(id) : next.add(id)));
+      return next;
     });
 
   return (
@@ -96,15 +103,15 @@ export function NotificationBell() {
               aparece aqui.
             </p>
           )}
-          {list.map((n) => (
+          {groups.map(({ notice: n, ids }) => (
             <div
               key={n.id}
               className={`flex gap-2 border-b border-border/60 px-3 py-2.5 ${n.read ? "" : "bg-primary/10"}`}
             >
               <Checkbox
                 className="mt-0.5"
-                checked={sel.has(n.id)}
-                onCheckedChange={() => toggle(n.id)}
+                checked={ids.every((id) => sel.has(id))}
+                onCheckedChange={() => toggleGroup(ids)}
                 aria-label="Selecionar"
               />
               <div className="min-w-0 flex-1">
@@ -113,10 +120,23 @@ export function NotificationBell() {
                   {n.title}
                 </p>
                 <p className="text-xs text-muted-foreground break-words">{n.body}</p>
-                {n.link === "/grade" && (
-                  <Link to="/grade" className="mt-1 inline-block text-xs text-primary underline">
-                    Ver meus robôs
+                {(n.link === "/grade" || n.link?.startsWith("/grade?")) && (
+                  <Link
+                    to="/grade"
+                    search={botSearch(
+                      Object.fromEntries(new URLSearchParams(n.link.split("?")[1] ?? "")),
+                    )}
+                    className="mt-1 inline-block text-xs text-primary underline"
+                  >
+                    {n.link === "/grade"
+                      ? "Ver robôs · aviso antigo sem identificação"
+                      : "Abrir robô e verificar problema"}
                   </Link>
+                )}
+                {ids.length > 1 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {ids.length} avisos semelhantes agrupados
+                  </p>
                 )}
                 <p className="mt-0.5 text-[10px] text-muted-foreground">
                   {new Date(n.created_at).toLocaleString("pt-BR")}
@@ -125,7 +145,7 @@ export function NotificationBell() {
               <button
                 aria-label="Remover"
                 className="shrink-0 text-muted-foreground hover:text-destructive"
-                onClick={() => remove([n.id])}
+                onClick={() => remove(ids)}
               >
                 <Trash2 className="h-4 w-4" />
               </button>

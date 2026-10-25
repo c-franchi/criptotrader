@@ -43,13 +43,25 @@ export function getWalletProvider(): Promise<Provider> {
 }
 
 /** Connects (or reuses a healthy session). Stale sessions that can't send transactions are dropped. */
-export async function connectWallet(): Promise<Provider> {
+export async function connectWallet(expectedAddress?: string): Promise<Provider> {
   const p = await getWalletProvider();
   const methods = p.session?.namespaces?.["eip155"]?.methods ?? [];
   if (p.session && (!methods.includes("eth_sendTransaction") || !p.accounts[0])) {
     await p.disconnect().catch(() => {});
   }
+  if (
+    p.session &&
+    expectedAddress &&
+    p.accounts[0]?.toLowerCase() !== expectedAddress.toLowerCase()
+  )
+    await p.disconnect().catch(() => {});
   if (!p.session) await p.connect();
+  if (expectedAddress && p.accounts[0]?.toLowerCase() !== expectedAddress.toLowerCase()) {
+    await p.disconnect().catch(() => {});
+    throw new Error(
+      `Escolha no aplicativo a conta ${expectedAddress.slice(0, 6)}…${expectedAddress.slice(-4)}, que contém os ativos, e conecte novamente.`,
+    );
+  }
   return p;
 }
 

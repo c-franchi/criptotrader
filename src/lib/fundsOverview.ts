@@ -6,6 +6,7 @@ export type FundWalletRef = {
   personal: boolean;
   bot: boolean;
   scopes: string[];
+  robotScopes?: string[];
 };
 export type FundAsset = {
   name?: string;
@@ -19,6 +20,7 @@ export type FundWallet = FundWalletRef & {
   bnb: string | null;
   assets: FundAsset[];
   issues: string[];
+  bots?: { id: string; token: string; symbol: string; scope: string; armed: boolean }[];
   capital: { reserved: string; gas: string; free: string | null; shortfall?: string } | null;
 };
 /** The same on-chain address counts once, even if saved twice or shared by multiple bots. */

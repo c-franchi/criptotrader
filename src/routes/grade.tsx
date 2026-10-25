@@ -1,3 +1,5 @@
+import { botSearch } from "@/lib/botNotice";
+import { inspectToken } from "@/lib/userTokens.functions";
 import { ReconcileSaleButton } from "@/components/ReconcileSaleButton";
 import { useRobotChartOrders } from "@/hooks/useRobotChartOrders";
 import { TradingTour } from "@/components/TradingTour";
@@ -50,6 +52,7 @@ import { normalizeState } from "@/lib/autoStrategy";
 import type { Tables } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/grade")({
+  validateSearch: botSearch,
   head: () => ({
     meta: [
       { title: "Robô automático — CryptoBot" },
@@ -94,6 +97,7 @@ function Robo() {
   const { user } = useAuth();
   const {
     walletScope,
+    address: sourceAddress,
     name: walletName,
     wallets: scopeWallets,
     selectWallet,
@@ -103,7 +107,45 @@ function Robo() {
     createW = useServerFn(createBotWallet),
     withdraw = useServerFn(withdrawBot),
     runNow = useServerFn(runGridNow);
-  const { token: selected, selectToken: setToken, tokens } = useSelectedToken();
+  const {
+    token: selected,
+    selectToken: setToken,
+    selectInspectedToken,
+    tokens,
+  } = useSelectedToken();
+  const target = Route.useSearch();
+  const navigateTarget = Route.useNavigate();
+  const chooseToken = (address: string) => {
+    setTargetError("");
+    setToken(address);
+    void navigateTarget({ search: { token: address, carteira: walletScope } });
+  };
+  const [targetError, setTargetError] = useState("");
+  useEffect(() => {
+    if (
+      walletReady &&
+      target.carteira &&
+      target.carteira !== walletScope &&
+      !selectWallet(target.carteira)
+    )
+      setTargetError("Esta carteira não está disponível na sua conta.");
+  }, [target.carteira, walletScope, walletReady, selectWallet]);
+  useEffect(() => {
+    if (!target.token || target.token.toLowerCase() === selected.address.toLowerCase()) return;
+    let alive = true;
+    void inspectToken({ data: { address: target.token } })
+      .then((r) => {
+        if (!alive) return;
+        if (r.token) selectInspectedToken(r.token);
+        else setTargetError(r.error ?? "Moeda indisponível");
+      })
+      .catch(() => {
+        if (alive) setTargetError("Não foi possível carregar a moeda deste robô.");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [target.token, selected.address, selectInspectedToken]);
   const token = selected.address;
   const sym = selected.symbol;
   const chartOrders = useRobotChartOrders(user?.id, walletScope, token);
@@ -175,7 +217,7 @@ function Robo() {
   const [workspaceTab, setWorkspaceTab] = useState<"bots" | "assets" | "orders">("bots");
   const [setupOpen, setSetupOpen] = useState(false);
   const [setupProblem, setSetupProblem] = useState<ReadinessAction | undefined>();
-  const showExecutionProblem = () => {
+  const showExecutionProblem = useCallback(() => {
     setSetupOpen(false);
     setSetupProblem(undefined);
     setTimeout(() => {
@@ -186,7 +228,7 @@ function Robo() {
       button?.scrollIntoView({ block: "center", behavior: "smooth" });
       button?.focus();
     }, 0);
-  };
+  }, []);
   const selectionKey = `${walletScope}:${token}`;
   const selectionRef = useRef(selectionKey);
   selectionRef.current = selectionKey;
@@ -403,6 +445,48 @@ function Robo() {
       ? Array.from({ length: lv + 1 }, (_, i) => lo + (i * (hi - lo)) / lv)
       : [];
 
+  const targetApplied = useRef("");
+  useEffect(() => {
+    const key = `${target.bot}:${target.problema}:${target.token}:${target.carteira}`;
+    if (
+      !bot ||
+      targetApplied.current === key ||
+      (target.token && target.token.toLowerCase() !== token.toLowerCase()) ||
+      (target.carteira && target.carteira !== walletScope)
+    )
+      return;
+    targetApplied.current = key;
+    if (target.problema === "history") setWorkspaceTab("orders");
+    else if (target.problema === "execution") showExecutionProblem();
+    else if (target.problema) {
+      document
+        .getElementById("robot-current-problem")
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }, [
+    bot,
+    showExecutionProblem,
+    target.bot,
+    target.problema,
+    target.token,
+    target.carteira,
+    walletScope,
+    token,
+  ]);
+  if (targetError)
+    return (
+      <div role="alert" className="p-4">
+        <p>{targetError}</p>
+        <a className="text-primary underline" href="/grade">
+          Voltar aos meus robôs
+        </a>
+      </div>
+    );
+  if (
+    (target.carteira && walletScope !== target.carteira) ||
+    (target.token && token.toLowerCase() !== target.token.toLowerCase())
+  )
+    return <p role="status">Abrindo a carteira e a moeda deste robô…</p>;
   if (fullscreen)
     return (
       <div
@@ -478,12 +562,53 @@ function Robo() {
         <div>
           <p className="mb-2 text-xs text-muted-foreground">Moeda / BNB</p>
           <div data-token-picker className="flex flex-wrap gap-2">
-            <TokenPicker tokens={tokens} value={token} onChange={setToken} />
+            <TokenPicker tokens={tokens} value={token} onChange={chooseToken} />
             <AddTokenDialog />
           </div>
         </div>
 
+        {target.problema && (
+          <section
+            id="robot-current-problem"
+            tabIndex={-1}
+            className="my-3 rounded-xl border border-warning/30 p-3"
+            role="status"
+          >
+            <p className="font-semibold">
+              Aviso de {sym} · {walletName}
+            </p>
+            <p className="mt-1 text-sm">
+              {!bot?.armed
+                ? `Este robô está pausado. Aviso histórico: ${bot?.last_error || "consulte o histórico de operações."}`
+                : bot?.last_error ||
+                  "O problema pode ter sido resolvido desde o aviso. Confira a avaliação atual."}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => {
+                if (target.problema === "execution") showExecutionProblem();
+                else {
+                  setSetupProblem(
+                    target.problema === "market"
+                      ? "token"
+                      : target.problema === "fund"
+                        ? "fund"
+                        : target.problema === "fees"
+                          ? "fees"
+                          : "rules",
+                  );
+                  setSetupOpen(true);
+                }
+              }}
+            >
+              Ir à correção deste problema
+            </Button>
+          </section>
+        )}
         <GuidedBotSetup
+          sourceAddress={sourceAddress}
           key={selectionKey}
           userId={user?.id ?? ""}
           open={setupOpen}
@@ -500,7 +625,7 @@ function Robo() {
           wallet={w}
           onDone={load}
           tokens={tokens}
-          onSelectToken={setToken}
+          onSelectToken={chooseToken}
           walletOptions={[
             { id: LEGACY_WALLET_SCOPE, label: "Robô original" },
             ...scopeWallets.map((w) => ({ id: w.id, label: w.label || w.address.slice(0, 10) })),
@@ -776,7 +901,7 @@ function Robo() {
                       <button
                         onClick={() => {
                           selectWallet(b.wallet_scope);
-                          setToken(tk?.address ?? b.token);
+                          chooseToken(tk?.address ?? b.token);
                         }}
                         className={`w-full rounded-md border p-3 text-left text-xs ${active ? "border-primary bg-primary/10" : b.armed ? "border-success/50 bg-success/5" : "border-border"}`}
                       >
@@ -1180,7 +1305,13 @@ function Robo() {
                 <div className="space-y-1 text-sm">
                   <p className="break-all font-mono text-xs">{w.address}</p>
                   <div className="flex flex-wrap gap-2 py-1">
-                    <FundBotDialog botAddress={w.address} onDone={load} botBnb={bnb} need={need} />
+                    <FundBotDialog
+                      sourceAddress={sourceAddress}
+                      botAddress={w.address}
+                      onDone={load}
+                      botBnb={bnb}
+                      need={need}
+                    />
                     <Button
                       size="sm"
                       variant="outline"

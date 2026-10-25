@@ -56,7 +56,15 @@ export function SelectedWalletProvider({ children }: { children: ReactNode }) {
   const selectWallet = useCallback(
     (scope: string) => {
       if (scope !== LEGACY_WALLET_SCOPE && !wallets.some((w) => w.id === scope)) return false;
-      if (scope === walletScope) return true;
+      if (scope === walletScope) {
+        setFundSelection({ userId, address: "" });
+        try {
+          localStorage.removeItem(`cryptobot:funds-wallet:${userId}`);
+        } catch {
+          /* optional storage */
+        }
+        return true;
+      }
       if (dirty && !confirm("Trocar de carteira? Ajustes ainda não salvos serão descartados."))
         return false;
       setFundSelection({ userId, address: "" });
@@ -74,6 +82,7 @@ export function SelectedWalletProvider({ children }: { children: ReactNode }) {
   );
   const selectFundWallet = useCallback(
     (wallet: FundWallet) => {
+      if (wallet.bot || !wallet.personal) return false;
       const scope = wallet.scopes.includes(walletScope) ? walletScope : wallet.scopes[0];
       if (!scope || !selectWallet(scope)) return false;
       setFundSelection({ userId, address: wallet.address });

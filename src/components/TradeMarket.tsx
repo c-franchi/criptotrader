@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownLeft, ArrowUpRight, RefreshCw } from "lucide-react";
 import { getTradingMarket } from "@/lib/chain.functions";
+import { useChartPool } from "@/hooks/useChartPool";
 import { useCandles } from "@/hooks/useCandles";
 import { formatUsd } from "@/lib/display";
 import { chartWindow } from "@/lib/chart";
@@ -46,7 +47,8 @@ export function TradeMarket({
     retry: 1,
   });
   const pool = market.data?.pools.find((p) => p.supported);
-  const candles = useCandles(pool?.pairAddress, token.address);
+  const chartPool = useChartPool(token.address, pool);
+  const candles = useCandles(chartPool, token.address);
   const at = Date.parse(market.data?.fetchedAt ?? "");
   const price = Number(pool?.priceUsd);
   const fresh =
@@ -69,8 +71,13 @@ export function TradeMarket({
           label="Token para comprar ou vender"
         />
         <div className="min-w-0 text-right">
+          <p className="mb-1 text-xs text-muted-foreground">Preço de 1 {token.symbol}</p>
           <p className="text-xl font-bold tracking-tight sm:text-3xl">
-            {price > 0 ? formatUsd(price) : "Consultando…"}
+            {price > 0
+              ? formatUsd(price)
+              : market.isPending
+                ? "Consultando…"
+                : "Preço indisponível"}
           </p>
           {price > 0 && <FiatValue usd={price} hideUsdDuplicate />}
           <p

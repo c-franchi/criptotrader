@@ -1,3 +1,5 @@
+import { verifyWalletSession } from "@/lib/walletSession";
+import { fundingTransfer } from "@/lib/fundingTransfer";
 import { TokenPicker } from "@/components/TokenPicker";
 import { useEffect, useRef, useState } from "react";
 import { Slider } from "@/components/ui/slider";
@@ -43,11 +45,13 @@ type Req = {
 /** Sends BNB or a token from the user's personal wallet (signed in their own app) to the robot wallet. */
 export function FundBotDialog({
   botAddress,
+  sourceAddress,
   onDone,
   botBnb,
   need,
 }: {
   botAddress: string;
+  sourceAddress?: string | null | undefined;
   onDone?: () => void;
   botBnb?: number | null;
   need?: { reserve: number; trade: number; total: number } | null;
@@ -67,8 +71,10 @@ export function FundBotDialog({
   const [unit, setUnit] = useState<"BRL" | "BNB">("BRL");
   const [brlPerBnb, setBrlPerBnb] = useState<number | null>(null);
   const providerRef = useRef<Req | null>(null);
+  const stopListening = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopListening.current?.(), []);
   const tok = asset === "BNB" ? null : (tokens.find((t) => t.address === asset) ?? null);
-  const isBnb = !tok;
+  const isBnb = asset === "BNB";
 
   useEffect(() => {
     if (open)
@@ -80,6 +86,7 @@ export function FundBotDialog({
     setTokBal(null);
     setAmount("");
     if (!account || !tok) return;
+    let alive = true;
     pub()
       .readContract({
         address: tok.address,
@@ -87,15 +94,36 @@ export function FundBotDialog({
         functionName: "balanceOf",
         args: [account as `0x${string}`],
       })
-      .then((b) => setTokBal(Number(formatUnits(b, tok.decimals))))
-      .catch(() => setTokBal(null));
+      .then((b) => {
+        if (alive) setTokBal(Number(formatUnits(b, tok.decimals)));
+      })
+      .catch(() => {
+        if (alive) setTokBal(null);
+      });
+    return () => {
+      alive = false;
+    };
   }, [account, asset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const connect = async () => {
     setBusy("Conectando…");
     try {
-      const provider = await connectWallet();
+      const provider = await connectWallet(sourceAddress ?? undefined);
       providerRef.current = provider as unknown as Req;
+      const invalidate = () => {
+        setAccount(null);
+        setBnbBal(null);
+        setTokBal(null);
+        setAmount("");
+        toast.warning("A conta ou rede mudou. Reconecte a carteira dos ativos antes de enviar.");
+      };
+      stopListening.current?.();
+      provider.on?.("accountsChanged", invalidate);
+      provider.on?.("chainChanged", invalidate);
+      stopListening.current = () => {
+        provider.removeListener?.("accountsChanged", invalidate);
+        provider.removeListener?.("chainChanged", invalidate);
+      };
       const a = provider.accounts[0] ?? null;
       setAccount(a);
       if (a)
@@ -108,6 +136,7 @@ export function FundBotDialog({
   };
 
   const disconnect = async () => {
+    stopListening.current?.();
     await resetWallet();
     providerRef.current = null;
     setAccount(null);
@@ -169,9 +198,14 @@ export function FundBotDialog({
   const gasOk = feeBnb != null && bnbBal != null && bnbBal >= feeBnb;
   const miss = isBnb && need && botBnb != null ? missingBnb(need.total, botBnb, n) : 0;
   // Funding can be partial; only the wallet's balance and estimated transfer fee gate sending.
-  const valid = n > 0 && n <= max && gasOk;
+  const valid =
+    n > 0 &&
+    n <= max &&
+    gasOk &&
+    (isBnb || !!tok) &&
+    (!sourceAddress || account?.toLowerCase() === sourceAddress.toLowerCase());
   const pct = max > 0 ? Math.min(100, Math.round((n / max) * 100)) : 0;
-  const sym = tok?.symbol ?? "BNB";
+  const sym = isBnb ? "BNB" : (tok?.symbol ?? "Token indisponível");
   const brl = (bnb: number) =>
     brlPerBnb
       ? (bnb * brlPerBnb).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
@@ -196,21 +230,16 @@ export function FundBotDialog({
     try {
       const p = pub();
       const from = account as `0x${string}`;
-      // Pedido completo e simples: Trust Wallet recusa ("Unknown method") quando falta "data" ou a rede.
-      let tx: { from: string; to: string; value: string; data: `0x${string}` };
-      if (isBnb) {
-        tx = { from, to: botAddress, value: hex(parseEther(n.toFixed(9))), data: "0x" };
-      } else {
-        const data = encodeFunctionData({
-          abi: erc20Abi,
-          functionName: "transfer",
-          args: [
-            botAddress as `0x${string}`,
-            parseUnits(n.toFixed(Math.min(9, tok!.decimals)), tok!.decimals),
-          ],
-        });
-        tx = { from, to: tok!.address, value: "0x0", data };
-      }
+      await verifyWalletSession(provider, sourceAddress ?? from);
+      if (!isBnb && !tok) throw new Error("Escolha novamente o token a enviar.");
+      const tx = fundingTransfer(
+        from,
+        botAddress,
+        isBnb ? null : tok!.address,
+        isBnb
+          ? parseEther(n.toFixed(9))
+          : parseUnits(n.toFixed(Math.min(9, tok!.decimals)), tok!.decimals),
+      );
       const [gasPrice, gas] = await Promise.all([
         p.getGasPrice(),
         p
@@ -227,6 +256,7 @@ export function FundBotDialog({
         throw new Error(
           "O saldo precisa cobrir o envio e a taxa estimada da rede. Reduza um pouco o valor.",
         );
+      await verifyWalletSession(provider, sourceAddress ?? from);
       const h = (await provider.request({
         method: "eth_sendTransaction",
         params: [{ ...tx, gas: hex(gas), gasPrice: hex(gasPrice), chainId: hex(56n) }],
@@ -330,7 +360,7 @@ export function FundBotDialog({
                     key={u}
                     type="button"
                     onClick={() => switchUnit(u)}
-                    disabled={u === "BRL" && !brlPerBnb}
+                    disabled={!!busy || (u === "BRL" && !brlPerBnb)}
                     className={`rounded px-2 py-1 text-xs font-semibold ${unit === u ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
                   >
                     {u === "BRL" ? "Em reais (R$)" : "Em BNB"}
@@ -346,7 +376,7 @@ export function FundBotDialog({
                 className="pl-16 text-base"
                 inputMode="decimal"
                 placeholder={useBrl ? "100,00" : "0"}
-                disabled={!account}
+                disabled={!account || !!busy}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
               />
@@ -383,7 +413,7 @@ export function FundBotDialog({
                   type="button"
                   size="sm"
                   variant={pct === p ? "default" : "outline"}
-                  disabled={!account || max <= 0}
+                  disabled={!account || !!busy || max <= 0}
                   onClick={() => setVal((max * p) / 100)}
                 >
                   {p === 100 ? "Máx" : `${p}%`}
@@ -396,7 +426,7 @@ export function FundBotDialog({
               max={100}
               step={1}
               value={[pct]}
-              disabled={!account || max <= 0}
+              disabled={!account || !!busy || max <= 0}
               onValueChange={([v]) => setVal((max * (v ?? 0)) / 100)}
             />
             <p className="mt-2 text-[11px] text-muted-foreground">
@@ -525,6 +555,25 @@ export function FundBotDialog({
                 de mensagem. Se a carteira mostrar algo diferente disso, recuse.
               </p>
             </div>
+            <p className="mt-2 break-all text-xs text-muted-foreground">
+              Origem dos ativos:{" "}
+              <span className="font-mono">{sourceAddress ?? account ?? "Conecte a carteira"}</span>
+            </p>
+            {!isBnb && tok && (
+              <div className="mt-2 rounded-xl bg-muted p-3 text-xs">
+                <p className="break-all">
+                  Contrato de {sym}: {tok.address}
+                </p>
+                <p className="mt-1">
+                  A carteira pode mostrar uma interação com este contrato e 0 BNB, pois o envio é de{" "}
+                  {sym}. O destinatário dos tokens é a carteira do robô abaixo.
+                </p>
+                <p className="mt-1">
+                  Se o aplicativo avisar risco, cancele o pedido e confira os detalhes. Este resumo
+                  não substitui a análise da carteira.
+                </p>
+              </div>
+            )}
             <p className="mt-2 break-all text-xs text-muted-foreground">
               Destino (carteira do robô): <span className="font-mono">{botAddress}</span>
             </p>

@@ -1,3 +1,5 @@
+import { notifyBotProblem } from "./botNotice.server";
+import { botNoticeLink, botProblem } from "./botNotice";
 import { incompatibleBotToken } from "./guidedBot";
 import { runWalletQueues } from "./walletQueues";
 import { LEGACY_WALLET_SCOPE } from "./walletScope";
@@ -61,14 +63,16 @@ export async function tickBot(admin: any, bot: any) {
     }
     const attention = res.patch["last_error"];
     if (typeof attention === "string" && attention && attention !== bot.last_error) {
-      await admin.from("notifications").insert({
-        user_id: bot.user_id,
-        title: incompatibleBotToken(bot.token)
+      await notifyBotProblem(
+        admin,
+        bot,
+        attention,
+        incompatibleBotToken(bot.token)
           ? "WBNB não pode ser comprado com BNB neste robô"
-          : "Robô precisa de atenção",
-        body: `${String(bot.token).slice(0, 10)}…: ${attention}`,
-        link: "/grade",
-      });
+          : botProblem(attention) === "market"
+            ? "Mercado temporariamente indisponível"
+            : "Robô precisa de atenção",
+      );
     }
     if (res.order) {
       retain = true;
@@ -96,7 +100,7 @@ export async function tickBot(admin: any, bot: any) {
         : String(res.order.error ?? "Nada foi trocado.");
       await admin
         .from("notifications")
-        .insert({ user_id: bot.user_id, title, body, link: "/grade" });
+        .insert({ user_id: bot.user_id, title, body, link: botNoticeLink(bot, "history") });
       // Notification outbox is delivered by alert-tick, independently of execution.
     }
     const { error: patchError } = await admin
