@@ -80,14 +80,24 @@ export const EMPTY_CONFIG: StrategyConfig = {
 
 export function describeStrategy(c: StrategyConfig, quote = "WBNB"): string[] {
   if (c.chartRule)
-    return [
-      `Regra pelo gráfico em BNB/token: uma compra quando o preço for menor ou igual a ${c.chartRule.entryBnb}; venda total em ${c.chartRule.exitBnb}.`,
-      c.chartRule.stopBnb == null
-        ? "Sem stop fixo. Os tokens podem perder todo o valor; recuperação não é garantida."
-        : `Stop fixo em ${c.chartRule.stopBnb} BNB/token.`,
-      `Uma única entrada de ${c.buyAmount} BNB por regra. Após a venda, não recompra: crie e revise outra regra.`,
-      `Taxas informadas: compra ${c.buyTaxPct}% e venda ${c.sellTaxPct}%. Custos projetados são estimativas; preço e resultado não são garantidos.`,
-    ];
+    if (c.chartRule.version === 2)
+      return [
+        `Atividade pelo gráfico: ${c.chartRule.entries?.length} entradas e ${c.chartRule.exits?.length} saídas. O valor já é dividido entre as entradas e o gás é reservado separadamente.`,
+        "Cada ponto de entrada é utilizado uma vez. As saídas dividem a posição; ao iniciar as vendas, entradas ainda não realizadas são canceladas.",
+        c.chartRule.stopBnb == null
+          ? "Sem stop fixo; os tokens podem perder todo o valor. Recuperação não é garantida."
+          : "Stop fixo escolhido abaixo de todas as entradas.",
+        "Preços marcados são gatilhos. Custos, conversão e resultados são estimativas, sem promessa de rentabilidade.",
+      ];
+    else
+      return [
+        `Regra pelo gráfico em BNB/token: uma compra quando o preço for menor ou igual a ${c.chartRule.entryBnb}; venda total em ${c.chartRule.exitBnb}.`,
+        c.chartRule.stopBnb == null
+          ? "Sem stop fixo. Os tokens podem perder todo o valor; recuperação não é garantida."
+          : `Stop fixo em ${c.chartRule.stopBnb} BNB/token.`,
+        `Uma única entrada de ${c.buyAmount} BNB por regra. Após a venda, não recompra: crie e revise outra regra.`,
+        `Taxas informadas: compra ${c.buyTaxPct}% e venda ${c.sellTaxPct}%. Custos projetados são estimativas; preço e resultado não são garantidos.`,
+      ];
   const lines: string[] = [];
   if (c.recovery?.enabled)
     lines.push(

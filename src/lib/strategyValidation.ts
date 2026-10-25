@@ -58,11 +58,15 @@ export const strategySchema = z
   .superRefine((c, ctx) => {
     if (
       c.chartRule &&
-      (c.sizingMode !== "fixo" || c.maxEntries !== 1 || c.recovery?.enabled || c.trailingEnabled)
+      (c.sizingMode !== "fixo" ||
+        c.maxEntries !== (c.chartRule.version === 2 ? c.chartRule.entries?.length : 1) ||
+        c.recovery?.enabled ||
+        c.trailingEnabled)
     )
       ctx.addIssue({
         code: "custom",
-        message: "A regra gráfica exige uma entrada fixa, sem recuperação ou stop móvel.",
+        message:
+          "A regra gráfica exige entradas fixas compatíveis com o plano, sem recuperação ou stop móvel.",
       });
     if (c.recovery?.enabled) {
       if (c.entryType !== "adaptativa")

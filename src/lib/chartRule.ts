@@ -13,8 +13,54 @@ export const chartRuleSchema = z
     executionMarginPct: z.number().finite().min(0).max(20),
     gasBuyBnb: z.number().finite().nonnegative(),
     gasSellBnb: z.number().finite().nonnegative(),
+    version: z.literal(2).optional(),
+    entries: z
+      .array(
+        z.object({
+          priceBnb: positive,
+          amountBnb: z
+            .string()
+            .regex(/^\d+(\.\d{1,18})?$/)
+            .refine((v) => Number(v) > 0 && Number.isFinite(Number(v))),
+        }),
+      )
+      .min(1)
+      .max(10)
+      .optional(),
+    exits: z
+      .array(z.object({ priceBnb: positive, sharePct: z.number().finite().positive().max(100) }))
+      .min(1)
+      .max(5)
+      .optional(),
   })
   .superRefine((r, ctx) => {
+    if (r.version === 2) {
+      if (!r.entries?.length || !r.exits?.length)
+        ctx.addIssue({
+          code: "custom",
+          message: "Defina todas as entradas e saídas da atividade.",
+        });
+      if (r.entries?.some((e, i, all) => i > 0 && e.priceBnb >= all[i - 1]!.priceBnb))
+        ctx.addIssue({
+          code: "custom",
+          message: "As entradas devem ter preços diferentes, da maior para a menor.",
+        });
+      if (r.exits?.some((e, i, all) => i > 0 && e.priceBnb <= all[i - 1]!.priceBnb))
+        ctx.addIssue({
+          code: "custom",
+          message: "As saídas devem ter preços diferentes, da menor para a maior.",
+        });
+      if (Math.abs((r.exits ?? []).reduce((sum, e) => sum + e.sharePct, 0) - 100) > 1e-7)
+        ctx.addIssue({ code: "custom", message: "A divisão das saídas deve somar 100%." });
+      if (r.entries?.[0]?.priceBnb !== r.entryBnb || r.exits?.[0]?.priceBnb !== r.exitBnb)
+        ctx.addIssue({
+          code: "custom",
+          message: "Os níveis principais precisam corresponder aos pontos da atividade.",
+        });
+      if (r.stopBnb != null && r.entries?.length && r.stopBnb >= r.entries.at(-1)!.priceBnb)
+        ctx.addIssue({ code: "custom", message: "O stop deve ficar abaixo de todas as entradas." });
+    } else if (r.entries || r.exits)
+      ctx.addIssue({ code: "custom", message: "A atividade com vários pontos exige versão 2." });
     if (r.exitBnb <= r.entryBnb)
       ctx.addIssue({
         code: "custom",

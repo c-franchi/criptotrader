@@ -4,6 +4,7 @@ import type { StrategyConfig } from "./strategy";
 import type { Candle } from "./marketStats";
 import { grossForNet } from "./tokens";
 import { netPositionPct, stopPrice } from "./stopLoss";
+import { planProgress } from "./chartPlan";
 
 /** Robot memory between ticks, saved per bot. Prices in USD, amounts in BNB / token units. */
 export type BotState = {
@@ -20,6 +21,10 @@ export type BotState = {
   lastTradeAt: number; // ms
   entryConsumed?: boolean;
   chartRuleConsumedId?: string;
+  chartEntriesDone?: number[];
+  chartExitsDone?: number[];
+  chartExiting?: boolean;
+  chartFinished?: boolean;
   recoveryLowAt?: number;
   tokensRaw?: string;
   lastFillHash?: string;
@@ -42,8 +47,22 @@ export const EMPTY_STATE: BotState = {
 
 export type Decision =
   | { action: "nenhuma"; reason: string }
-  | { action: "compra"; reason: string; recoveryLowAt?: number; chartRuleId?: string }
-  | { action: "venda"; reason: string; sellPct: number; tpIndex?: number; all: boolean };
+  | {
+      action: "compra";
+      reason: string;
+      recoveryLowAt?: number;
+      chartRuleId?: string;
+      chartEntryIndex?: number;
+    }
+  | {
+      action: "venda";
+      reason: string;
+      sellPct: number;
+      tpIndex?: number;
+      all: boolean;
+      chartRuleId?: string;
+      chartExitIndices?: number[];
+    };
 
 export type Market = {
   priceBnb?: number;
@@ -161,7 +180,55 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
     const native = m.priceBnb;
     if (!(native != null && Number.isFinite(native) && native > 0))
       return { action: "nenhuma", reason: "Regra gráfica: cotação atual em BNB indisponível." };
-    if (holding) {
+    if (chart.version === 2 && chart.entries && chart.exits) {
+      const progress = planProgress(chart, s);
+      if (progress.finished)
+        return {
+          action: "nenhuma",
+          reason: "Atividade gráfica concluída. Crie outra atividade para novas compras.",
+        };
+      if (holding) {
+        if (chart.stopBnb != null && native <= chart.stopBnb)
+          return {
+            action: "venda",
+            reason: "Stop da atividade atingido; encerrando a posição e as entradas restantes.",
+            sellPct: 100,
+            all: true,
+            chartRuleId: chart.id,
+          };
+        const hit = chart.exits
+          .map((e, i) => ({ ...e, i }))
+          .filter((e) => !progress.sells.includes(e.i) && native >= e.priceBnb);
+        if (hit.length) {
+          const remaining = chart.exits.reduce(
+            (sum, e, i) => sum + (progress.sells.includes(i) ? 0 : e.sharePct),
+            0,
+          );
+          const share = hit.reduce((sum, e) => sum + e.sharePct, 0);
+          const all = share >= remaining - 1e-7;
+          return {
+            action: "venda",
+            reason: `Saída${hit.length > 1 ? "s" : ""} ${hit.map((e) => e.i + 1).join(", ")} da atividade atingida; entradas ainda não realizadas serão encerradas.`,
+            sellPct: all ? 100 : (share / remaining) * 100,
+            all,
+            chartRuleId: chart.id,
+            chartExitIndices: hit.map((e) => e.i),
+          };
+        }
+      }
+      if (progress.exiting)
+        return {
+          action: "nenhuma",
+          reason:
+            "Atividade em saídas parciais; novas entradas canceladas, aguardando os próximos pontos de venda.",
+        };
+      if (!holding && chart.stopBnb != null && native <= chart.stopBnb)
+        return {
+          action: "nenhuma",
+          reason:
+            "Preço abaixo do stop antes da primeira entrada. Aguardando preço válido para comprar.",
+        };
+    } else if (holding) {
       if (chart.stopBnb != null && native <= chart.stopBnb)
         return {
           action: "venda",
@@ -182,7 +249,7 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
         reason: "Regra gráfica: posição aberta, aguardando saída ou stop escolhido; sem recompras.",
       };
     }
-    if (s.chartRuleConsumedId === chart.id)
+    if (chart.version !== 2 && s.chartRuleConsumedId === chart.id)
       return {
         action: "nenhuma",
         reason: "Regra gráfica já utilizada. Crie e revise outra regra para uma nova entrada.",
@@ -271,12 +338,33 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
         ? "Posição aberta — esperando meta de venda ou stop"
         : "Máximo de compras atingido",
     };
-  if (cfg.maxExposureQuote > 0 && s.costBnb >= cfg.maxExposureQuote)
+  if (chart?.version !== 2 && cfg.maxExposureQuote > 0 && s.costBnb >= cfg.maxExposureQuote)
     return { action: "nenhuma", reason: "Limite de BNB investido atingido" };
   if (cfg.dailyLossLimit > 0 && s.lossTodayBnb >= cfg.dailyLossLimit)
     return { action: "nenhuma", reason: "Limite de perda do dia atingido — compras pausadas" };
   if (!(cfg.buyAmount > 0)) return { action: "nenhuma", reason: "Estratégia sem valor de compra" };
 
+  if (chart?.version === 2 && chart.entries) {
+    const progress = planProgress(chart, s);
+    const index = chart.entries.findIndex((_, i) => !progress.buys.includes(i));
+    if (index < 0)
+      return {
+        action: "nenhuma",
+        reason: "Todas as entradas planejadas foram realizadas; aguardando as saídas.",
+      };
+    const entry = chart.entries[index]!;
+    return m.priceBnb! <= entry.priceBnb
+      ? {
+          action: "compra",
+          reason: `Entrada ${index + 1} de ${chart.entries.length} atingida na atividade gráfica.`,
+          chartRuleId: chart.id,
+          chartEntryIndex: index,
+        }
+      : {
+          action: "nenhuma",
+          reason: `Aguardando o preço marcado para a entrada ${index + 1} de ${chart.entries.length}.`,
+        };
+  }
   if (chart)
     return m.priceBnb! <= chart.entryBnb
       ? {
@@ -391,6 +479,19 @@ export function afterTrade(
       ...base,
       entryConsumed: true,
       ...(d.chartRuleId ? { chartRuleConsumedId: d.chartRuleId } : {}),
+      ...(d.chartEntryIndex != null
+        ? {
+            chartEntriesDone: [
+              ...new Set([
+                ...(s.chartRuleConsumedId === d.chartRuleId ? (s.chartEntriesDone ?? []) : []),
+                d.chartEntryIndex,
+              ]),
+            ],
+            chartExitsDone: s.chartRuleConsumedId === d.chartRuleId ? (s.chartExitsDone ?? []) : [],
+            chartExiting: false,
+            chartFinished: false,
+          }
+        : {}),
       ...(d.recoveryLowAt != null ? { recoveryLowAt: d.recoveryLowAt } : {}),
       entries: s.entries + 1,
       costBnb: s.costBnb + t.bnb,
@@ -404,7 +505,23 @@ export function afterTrade(
   const frac = s.tokens > 0 ? Math.min(1, t.tokens / s.tokens) : 1;
   const cost = s.costBnb * frac;
   const loss = Math.max(0, cost - t.bnb);
-  const out = { ...base, lossTodayBnb: s.lossTodayBnb + loss };
+  const out = {
+    ...base,
+    lossTodayBnb: s.lossTodayBnb + loss,
+    ...(d.chartRuleId
+      ? {
+          chartRuleConsumedId: d.chartRuleId,
+          chartExitsDone: [
+            ...new Set([
+              ...(s.chartRuleConsumedId === d.chartRuleId ? (s.chartExitsDone ?? []) : []),
+              ...(d.chartExitIndices ?? []),
+            ]),
+          ],
+          chartExiting: true,
+          chartFinished: d.all || frac >= 0.999,
+        }
+      : {}),
+  };
   if (d.all || frac >= 0.999)
     return {
       ...out,
