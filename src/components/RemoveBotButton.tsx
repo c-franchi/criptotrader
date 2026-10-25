@@ -1,3 +1,4 @@
+import { userMessage } from "@/lib/userMessage";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -38,7 +39,7 @@ export function RemoveBotButton({
       onDone();
       toast.success(`Robô de ${symbol} removido. Carteira e histórico preservados.`);
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(userMessage(e));
     } finally {
       setBusy(false);
     }

@@ -1,3 +1,4 @@
+import { userMessage } from "@/lib/userMessage";
 import { useState } from "react";
 import { recoverStrategyExecution } from "@/lib/strategy.functions";
 import { toast } from "sonner";
@@ -48,7 +49,7 @@ export function StrategyApplicationStatus({
           "Verificação concluída. Transações enviadas continuam aguardando confirmação da rede.",
         );
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(userMessage(e));
     } finally {
       setRecovering(false);
     }

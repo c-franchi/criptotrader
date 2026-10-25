@@ -72,11 +72,11 @@ export function ExecutionTimingPanel({
   const blockActive = q.data?.records.some((r) => r.trigger === "block");
   return (
     <details
-      className="my-3 rounded-2xl border border-border p-4"
+      className="my-3 border-b border-border py-3 text-muted-foreground"
       onToggle={(e) => setOpen(e.currentTarget.open)}
     >
       <summary className="cursor-pointer text-sm font-semibold">
-        Tempo: verificações ~2 s · execução não é instantânea
+        Tempo e verificações do robô
       </summary>
       <div className="mt-3 space-y-4">
         <p className="text-sm">
@@ -104,17 +104,17 @@ export function ExecutionTimingPanel({
         {q.data && (
           <>
             <p className="text-sm">
-              Última avaliação registrada:{" "}
+              Última verificação registrada:{" "}
               {q.data.evaluatedAt
                 ? new Date(q.data.evaluatedAt).toLocaleString("pt-BR")
                 : "Ainda não registrada"}
-              {!q.data.armed && " · robô pausado"}.
+              {q.data.evaluatedAt && !q.data.armed && " · robô pausado"}.
             </p>
             <p className="text-xs text-muted-foreground">
-              Disparo observado nas amostras:{" "}
+              Forma de acompanhamento registrada:{" "}
               {blockActive
-                ? "há registros por novo bloco e o agendamento continua disponível"
-                : "agendamento periódico; nenhum disparo WebSocket registrado para este robô"}
+                ? "por novos blocos da rede, com verificação periódica disponível"
+                : "verificação periódica, programada a cada 2 segundos"}
               .
             </p>
             {!latest && (
@@ -156,7 +156,7 @@ export function ExecutionTimingPanel({
             )}
             {phase && (
               <p role="status" className="rounded-xl bg-secondary p-3 text-sm">
-                Última operação medida: {labels[phase] ?? phase}
+                Última operação medida: {labels[phase] ?? "Etapa sem descrição disponível"}
                 {progress?.stages.broadcastAttempted && (
                   <>
                     {" "}
@@ -207,15 +207,29 @@ export function ExecutionTimingPanel({
           )}
           {probe?.tests.map((t) => (
             <p key={t.alias} className="mt-2 text-sm">
-              RPC {t.alias}:{" "}
-              {t.ok ? "rede e bloco válidos" : "indisponível, rede incorreta ou bloco antigo"} ·{" "}
-              {duration(t.durationMs)} · {new Date(t.at).toLocaleTimeString("pt-BR")}
+              Servidor {t.alias.toLowerCase()}:{" "}
+              {t.ok
+                ? "conectado à BNB Smart Chain, com bloco recente"
+                : t.reason === "wrong_network"
+                  ? "respondeu em outra rede; não será usado para esta consulta"
+                  : t.reason === "stale_block"
+                    ? "respondeu com um bloco antigo; aguarde uma atualização"
+                    : t.reason === "invalid_block"
+                      ? "não informou um bloco válido"
+                      : t.reason === "timeout"
+                        ? "não respondeu dentro do tempo de consulta"
+                        : t.reason === "rate_limit"
+                          ? "atingiu o limite de consultas; aguarde antes de testar novamente"
+                          : "não foi possível conectar nesta consulta"}{" "}
+              · {duration(t.durationMs)} · {new Date(t.at).toLocaleTimeString("pt-BR")}
             </p>
           ))}
           <p className="mt-2 text-xs text-muted-foreground">
-            Teste somente de leitura, reutilizado por até 30 segundos. Mede resposta dos provedores,
-            não o prazo de uma compra ou venda. A alternativa é para consultas: transações de
-            resposta incerta não são reenviadas automaticamente.
+            Se apenas o servidor alternativo falhar, isso não indica que o principal parou. Os
+            resultados valem para o instante do teste. Teste somente de leitura, reutilizado por até
+            30 segundos. Mede resposta dos provedores, não o prazo de uma compra ou venda. A
+            alternativa é para consultas: transações de resposta incerta não são reenviadas
+            automaticamente.
           </p>
         </div>
       </div>

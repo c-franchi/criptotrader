@@ -1,3 +1,4 @@
+import { userMessage } from "@/lib/userMessage";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,7 +59,7 @@ export function FinishAutomationButton({
                   );
                 await onDone();
               } catch (e) {
-                toast.error((e as Error).message);
+                toast.error(userMessage(e));
               } finally {
                 setBusy(false);
               }

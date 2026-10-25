@@ -1,3 +1,4 @@
+import { userMessage } from "@/lib/userMessage";
 import { verifyWalletSession } from "@/lib/walletSession";
 import { fundingTransfer } from "@/lib/fundingTransfer";
 import { TokenPicker } from "@/components/TokenPicker";
@@ -129,7 +130,7 @@ export function FundBotDialog({
       if (a)
         setBnbBal(Number(formatEther(await pub().getBalance({ address: a as `0x${string}` }))));
     } catch (e) {
-      toast.error((e as Error).message || "Conexão cancelada");
+      toast.error(userMessage(e) || "Conexão cancelada");
     } finally {
       setBusy(null);
     }
@@ -287,7 +288,7 @@ export function FundBotDialog({
         toast.error(
           "A carteira não reconheceu o pedido. Conecte de novo (passo 1) e tente outra vez — nada foi enviado.",
         );
-      } else toast.error(((e as Error).message || "Transferência cancelada").split("\n")[0]!);
+      } else toast.error((userMessage(e) || "Transferência cancelada").split("\n")[0]!);
     } finally {
       setBusy(null);
     }

@@ -166,14 +166,27 @@ export async function probeRobotRpc() {
         return {
           alias,
           ok: Number(chain) === 56 && ageMs >= -5000 && ageMs <= 15000,
+          reason:
+            Number(chain) !== 56
+              ? "wrong_network"
+              : !Number.isFinite(ageMs)
+                ? "invalid_block"
+                : ageMs < -5000 || ageMs > 15000
+                  ? "stale_block"
+                  : "available",
           durationMs: Date.now() - start,
           blockAgeMs: Number.isFinite(ageMs) ? ageMs : null,
           at: new Date().toISOString(),
         };
-      } catch {
+      } catch (error) {
         return {
           alias,
           ok: false,
+          reason: /429|rate limit|too many requests/i.test(String(error))
+            ? "rate_limit"
+            : /timeout|timed out/i.test(String(error))
+              ? "timeout"
+              : "connection",
           durationMs: Date.now() - start,
           blockAgeMs: null,
           at: new Date().toISOString(),

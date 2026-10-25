@@ -30,9 +30,9 @@ it("shows the timing caveat before expanding and never equates the poll interval
     submissions: [],
   });
   show();
-  expect(screen.getByText("Tempo: verificações ~2 s · execução não é instantânea")).toBeTruthy();
+  expect(screen.getByText("Tempo e verificações do robô")).toBeTruthy();
   expect(mocks.metrics).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByText("Tempo: verificações ~2 s · execução não é instantânea"));
+  fireEvent.click(screen.getByText("Tempo e verificações do robô"));
   expect(await screen.findByText(/Sem medições novas/)).toBeTruthy();
   expect(screen.getByText(/não no instante exato/)).toBeTruthy();
   expect(mocks.metrics).toHaveBeenCalledWith({
@@ -59,19 +59,19 @@ it("uses journal confirmation after reconciliation without inventing a missing m
     submissions: [{ hash: "0xabc", status: "confirmed" }],
   });
   show();
-  fireEvent.click(screen.getByText("Tempo: verificações ~2 s · execução não é instantânea"));
+  fireEvent.click(screen.getByText("Tempo e verificações do robô"));
   expect(
     await screen.findByText(/Última operação medida: Confirmação da rede observada/),
   ).toBeTruthy();
   expect(screen.getAllByText("Não medido").length).toBeGreaterThan(0);
-  expect(screen.getByText(/nenhum disparo WebSocket registrado/)).toBeTruthy();
+  expect(screen.getByText(/verificação periódica, programada/)).toBeTruthy();
   mocks.probe.mockResolvedValue({
     tests: [{ alias: "Principal", ok: true, durationMs: 120, at: "2026-10-25T00:00:00Z" }],
     recent: [],
   });
   fireEvent.click(screen.getByRole("button", { name: "Testar conexão com a BSC" }));
   await waitFor(() => expect(mocks.probe).toHaveBeenCalledTimes(1));
-  expect(await screen.findByText(/RPC Principal: rede e bloco válidos/)).toBeTruthy();
+  expect(await screen.findByText(/Servidor principal: conectado/)).toBeTruthy();
 });
 
 it("updates one expanded panel repeatedly and stops polling when collapsed", async () => {
@@ -103,7 +103,7 @@ it("updates one expanded panel repeatedly and stops polling when collapsed", asy
       await vi.advanceTimersByTimeAsync(2000);
     });
     expect(container.querySelectorAll("details")).toHaveLength(1);
-    expect(screen.getAllByText(/Tempo: verificações/)).toHaveLength(1);
+    expect(screen.getAllByText(/Tempo e verificações/)).toHaveLength(1);
   }
   expect(mocks.metrics.mock.calls.length).toBeGreaterThanOrEqual(6);
   await act(async () => {

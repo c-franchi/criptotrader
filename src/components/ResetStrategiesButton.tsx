@@ -1,3 +1,4 @@
+import { userMessage } from "@/lib/userMessage";
 import { useState } from "react";
 import { toast } from "sonner";
 import { resetStrategies } from "@/lib/resetStrategies.functions";
@@ -33,7 +34,7 @@ export function ResetStrategiesButton({
       if (onDone) onDone();
       else window.location.reload();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(userMessage(e));
     } finally {
       setBusy(false);
     }

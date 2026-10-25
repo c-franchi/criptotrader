@@ -1,3 +1,4 @@
+import { userMessage } from "@/lib/userMessage";
 import { verifyWalletSession } from "@/lib/walletSession";
 import { useManualBalances } from "@/hooks/useManualBalances";
 import { useWalletFunds } from "@/hooks/useWalletFunds";
@@ -117,17 +118,6 @@ type Quote = {
   gross?: bigint;
   estimated?: boolean;
 };
-
-function friendlyError(m: string): string {
-  if (/INSUFFICIENT_OUTPUT_AMOUNT/.test(m))
-    return "O valor recebido ficaria abaixo do mínimo aceito (o token pode cobrar taxa ou o preço mudou). Nada foi trocado. Cote de novo.";
-  if (/rejected|denied/i.test(m)) return "Você recusou a assinatura na carteira. Nada foi enviado.";
-  if (/insufficient funds/i.test(m)) return "BNB insuficiente para pagar o gás.";
-  if (/TRANSFER_FAILED|TransferHelper/.test(m))
-    return "O token bloqueou a transferência (pode ter limite ou restrição de venda).";
-  if (/EXPIRED/.test(m)) return "A cotação expirou. Cote de novo.";
-  return m.split("\n")[0] || "Erro desconhecido";
-}
 
 function Operar() {
   const { user } = useAuth();
@@ -331,7 +321,7 @@ function Operar() {
       setChainId(provider.chainId);
       setWallet(createWalletClient({ chain: bsc, transport: custom(provider) }));
     } catch (e) {
-      toast.error((e as Error).message || "Conexão cancelada");
+      toast.error(userMessage(e) || "Conexão cancelada");
     } finally {
       setBusy(null);
     }
@@ -444,7 +434,7 @@ function Operar() {
       }
       if (identityRef.current === identity) setQuote(q);
     } catch (e) {
-      toast.error(friendlyError((e as Error).message));
+      toast.error(userMessage(e));
     }
   };
 
@@ -515,7 +505,7 @@ function Operar() {
       await verifyWalletSession(providerRef.current, expected ?? account);
     } catch (e) {
       setQuote(null);
-      return void toast.error((e as Error).message);
+      return void toast.error(userMessage(e));
     }
     const acct = getAddress(account);
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
@@ -630,7 +620,7 @@ function Operar() {
       if (r.status === "success") toast.success("Transação confirmada na blockchain");
       else toast.error("Transação revertida");
     } catch (e) {
-      const msg = friendlyError((e as Error).message ?? "");
+      const msg = userMessage(e);
       await upd({
         status: submittedHash ? "enviada" : approvalPending ? "aprovando" : "falhou",
         ...(submittedHash ? { tx_hash: submittedHash } : {}),
@@ -1456,7 +1446,7 @@ function Operar() {
                       representam um ciclo completo.
                     </p>
                   </details>
-                  {o.error && <p className="text-destructive">{o.error}</p>}
+                  {o.error && <p className="text-destructive">{userMessage(o.error)}</p>}
                 </div>
               ))}
             </div>

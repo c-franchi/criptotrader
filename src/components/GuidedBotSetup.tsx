@@ -1,3 +1,4 @@
+import { userMessage, formIssueMessage } from "@/lib/userMessage";
 import { BotRuleHelp, BotRulesGuide, type GuidedRule } from "./BotRulesGuide";
 import { StopLossDecision } from "./StopLossDecision";
 import { WalletPicker } from "./WalletPicker";
@@ -343,7 +344,7 @@ export function GuidedBotSetup({
         setLoaded(true);
       })
       .catch((e) => {
-        if (alive) setError(e.message);
+        if (alive) setError(userMessage(e));
       });
     return () => {
       alive = false;
@@ -365,11 +366,6 @@ export function GuidedBotSetup({
     setAck(false);
   };
   const validation = guidedInputSchema.safeParse(form);
-  const issue = validation.success
-    ? ""
-    : validation.error.issues[0]?.path[0] === "taxConfirmed"
-      ? "Confirme as taxas da moeda antes de continuar."
-      : (validation.error.issues[0]?.message ?? "Revise os campos.");
   const unsupported = incompatibleBotToken(token);
   const compatible = market.data?.pools.some((p) => p.supported && Number(p.priceUsd) > 0);
   const amount = (n: number) => (currency === "BRL" && rate ? Number((n * rate).toFixed(2)) : n);
@@ -420,6 +416,15 @@ export function GuidedBotSetup({
       if (key === "stopPct") set("allowNoStop", n === 0);
     },
   }));
+  const firstIssue = validation.success ? undefined : validation.error.issues[0];
+  const issue = !firstIssue
+    ? ""
+    : firstIssue.path[0] === "taxConfirmed"
+      ? "Confirme as taxas da moeda antes de continuar."
+      : formIssueMessage(
+          firstIssue,
+          guideKeys.find(([key]) => key === firstIssue.path[0])?.[1] ?? "Valores da estratégia",
+        );
   const createWallet = async () => {
     setBusy(true);
     try {
@@ -427,7 +432,7 @@ export function GuidedBotSetup({
       await capital.refetch();
       await onDone();
     } catch (e) {
-      setError((e as Error).message);
+      setError(userMessage(e));
     } finally {
       setBusy(false);
     }
@@ -460,7 +465,7 @@ export function GuidedBotSetup({
       await onDone();
       toast.success("Regras e robô salvos juntos. O robô continua pausado.");
     } catch (e) {
-      setError((e as Error).message);
+      setError(userMessage(e));
     } finally {
       setBusy(false);
     }
@@ -475,7 +480,7 @@ export function GuidedBotSetup({
       onOpenChange(false);
       toast.success("Robô iniciado com as regras revisadas.");
     } catch (e) {
-      setError((e as Error).message);
+      setError(userMessage(e));
       void readiness.refetch();
     } finally {
       setBusy(false);
@@ -1063,7 +1068,7 @@ export function GuidedBotSetup({
                       }));
                       toast.info("Taxas consultadas. Revise os valores antes de confirmar.");
                     } catch (e) {
-                      setError((e as Error).message);
+                      setError(userMessage(e));
                     } finally {
                       setBusy(false);
                     }
