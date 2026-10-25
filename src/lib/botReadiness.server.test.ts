@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- isolated read-only gateway test doubles */
 import { beforeEach, it, expect, vi } from "vitest";
+import { buildChartPlanConfig, type ChartPlanInput } from "./chartPlan";
 import { EMPTY_CONFIG } from "./strategy";
 const m = vi.hoisted(() => ({
   pool: vi.fn(),
@@ -140,4 +141,69 @@ it("returns an actionable liquidity blocker with measured and required values", 
     message: expect.stringMatching(/US\$ 2.500.*US\$ 5.000/),
   });
   expect(m.estimate).not.toHaveBeenCalled();
+});
+
+function chartAdmin(input: Partial<ChartPlanInput> = {}) {
+  const cfg = buildChartPlanConfig(
+    {
+      budgetBnb: "0.02",
+      entryPrices: [0.001, 0.00095],
+      exitPrices: [0.001001],
+      stopBnb: null,
+      stopChoice: "none",
+      buyTaxPct: 0,
+      sellTaxPct: 0,
+      taxesConfirmed: true,
+      acknowledge: true,
+      gasBuyBnb: 0.00001,
+      gasSellBnb: 0.00002,
+      executionMarginPct: 1,
+      maxGasGwei: 5,
+      minLiquidityUsd: 0,
+      partialEntriesAccepted: true,
+      ...input,
+    },
+    "11111111-1111-4111-8111-111111111111",
+    EMPTY_CONFIG,
+  );
+  const a = admin(),
+    original = a.from;
+  a.from = (table: string) => {
+    if (table !== "strategies") return original(table);
+    const q: any = {
+      select: () => q,
+      eq: () => q,
+      ilike: () => q,
+      maybeSingle: async () => ({ data: { version: 1, config: cfg }, error: null }),
+    };
+    return q;
+  };
+  return a;
+}
+it("accepts a profitable combined chart plan without raising manually selected exits to the first-entry-only target", async () => {
+  m.estimate.mockResolvedValue(1000n);
+  m.quote.mockImplementation(async ({ args }: { args: bigint[] }) => [
+    args[0],
+    (args[0]! * 9975n) / 10000n,
+  ]);
+  const r = await readBotReadiness(chartAdmin(), "u", "s", token);
+  expect(r.ready).toBe(true);
+  expect(r.warnings.join(" ")).toContain("Compras incompletas");
+});
+it("requires incomplete-entry acknowledgment for new chart plans rather than silently lifting their prices", async () => {
+  m.estimate.mockResolvedValue(1000n);
+  m.quote.mockImplementation(async ({ args }: { args: bigint[] }) => [
+    args[0],
+    (args[0]! * 9975n) / 10000n,
+  ]);
+  const r = await readBotReadiness(chartAdmin({ partialEntriesAccepted: false }), "u", "s", token);
+  expect(r.ready).toBe(false);
+  expect(r.errors.join(" ")).toContain("compras incompletas");
+});
+it("still blocks known current exchange costs that consume the full position margin", async () => {
+  m.estimate.mockResolvedValue(1000n);
+  m.quote.mockResolvedValue([1000000000000000n, 900000000000000n]);
+  const r = await readBotReadiness(chartAdmin(), "u", "s", token);
+  expect(r.ready).toBe(false);
+  expect(r.errors.join(" ")).toContain("taxas e o gás estimados agora");
 });

@@ -12,6 +12,7 @@ export const planMoney = z
 const price = z.number().finite().positive();
 export const chartPlanInputSchema = z
   .object({
+    partialEntriesAccepted: z.boolean().default(false),
     budgetBnb: planMoney,
     entryPrices: z.array(price).min(1).max(10),
     exitPrices: z.array(price).min(1).max(5),
@@ -113,7 +114,7 @@ export function planGasReserve(cfg: Partial<StrategyConfig>, state: Partial<BotS
       parseEther(new Decimal(rule.gasSellBnb).toFixed(18, Decimal.ROUND_UP)) * BigInt(exitsLeft),
   );
 }
-/** Model each possible prefix of entries so a first exit is not auto-placed below its costs. */
+/** Suggest from the complete planned position. Partial fills are reported separately. */
 export function suggestPlanExits(
   d: {
     entryPrices: number[];
@@ -130,38 +131,38 @@ export function suggestPlanExits(
   if (
     !Number.isFinite(netTargetPct) ||
     netTargetPct < 0 ||
-    d.entryPrices.some((v) => !(v > 0)) ||
-    d.amounts.length !== d.entryPrices.length
+    !d.entryPrices.length ||
+    d.entryPrices.some((v) => !Number.isFinite(v) || v <= 0) ||
+    d.amounts.length !== d.entryPrices.length ||
+    d.amounts.some((v) => !Number.isFinite(Number(v)) || Number(v) <= 0) ||
+    !Number.isInteger(exitCount) ||
+    exitCount < 1 ||
+    exitCount > 5
   )
     return [];
-  return Array.from({ length: exitCount }, (_, index) => {
-    let required = 0;
-    for (let n = 1; n <= d.entryPrices.length; n++) {
-      const amount = d.amounts.slice(0, n).reduce((s, v) => s + Number(v), 0);
-      const grossQuantity = d.entryPrices
-        .slice(0, n)
-        .reduce((s, p, i) => s + Number(d.amounts[i]) / p, 0);
-      const p = chartProjection(
-        {
-          entryBnb: amount / grossQuantity,
-          amountBnb: amount,
-          buyTaxPct: d.buyTaxPct,
-          sellTaxPct: d.sellTaxPct,
-          dexFeePct: 0.25,
-          executionMarginPct: d.executionMarginPct,
-          gasBuyBnb: d.gasBuyBnb * n,
-          gasSellBnb: d.gasSellBnb * exitCount,
-        },
-        d.entryPrices[0]!,
-        netTargetPct * (index + 1),
-      );
-      if (!p) return NaN;
-      required = Math.max(required, p.targetBnb);
-    }
-    return required;
+  const amount = d.amounts.reduce((sum, v) => sum + Number(v), 0);
+  const quantity = d.entryPrices.reduce((sum, p, i) => sum + Number(d.amounts[i]) / p, 0);
+  const highest = Math.max(...d.entryPrices);
+  return Array.from({ length: exitCount }, (_, i) => {
+    const model = chartProjection(
+      {
+        entryBnb: amount / quantity,
+        amountBnb: amount,
+        buyTaxPct: d.buyTaxPct,
+        sellTaxPct: d.sellTaxPct,
+        dexFeePct: 0.25,
+        executionMarginPct: 0, // Slippage tolerance is not a mandatory charge.
+        gasBuyBnb: d.gasBuyBnb * d.entryPrices.length,
+        gasSellBnb: d.gasSellBnb * exitCount,
+      },
+      highest,
+      netTargetPct * (i + 1),
+    );
+    // Keep targets above entry triggers, without raising them to the first-entry-only break-even.
+    return model ? Math.max(model.targetBnb, highest * (1 + (i + 1) * 0.000001)) : NaN;
   }).filter((v) => Number.isFinite(v) && v > 0);
 }
-export function planProjection(d: {
+export type PlanProjectionInput = {
   entryPrices: number[];
   exitPrices: number[];
   amounts: string[];
@@ -170,7 +171,11 @@ export function planProjection(d: {
   gasBuyBnb: number;
   gasSellBnb: number;
   executionMarginPct: number;
-}) {
+};
+export function planProjection(
+  d: PlanProjectionInput,
+  scenario: "estimated" | "slippage" = "estimated",
+) {
   if (
     !d.entryPrices.length ||
     d.amounts.length !== d.entryPrices.length ||
@@ -185,7 +190,7 @@ export function planProjection(d: {
     d.executionMarginPct >= 100
   )
     return null;
-  const execution = 0.9975 * (1 - d.executionMarginPct / 100);
+  const execution = 0.9975 * (scenario === "slippage" ? 1 - d.executionMarginPct / 100 : 1);
   const qty = d.entryPrices.reduce(
     (s, p, i) => s + (Number(d.amounts[i]) / p) * (1 - d.buyTaxPct / 100) * execution,
     0,
@@ -200,15 +205,57 @@ export function planProjection(d: {
     ) -
     d.gasSellBnb * d.exitPrices.length;
   if (![qty, cost, received].every(Number.isFinite) || qty <= 0 || cost <= 0) return null;
+  const orders = d.amounts.reduce((sum, v) => sum + Number(v), 0);
+  const grossQuantity = d.entryPrices.reduce((sum, p, i) => sum + Number(d.amounts[i]) / p, 0);
+  const grossReceived = d.exitPrices.reduce(
+    (sum, p, i) => sum + ((grossQuantity * shares[i]!) / 100) * p,
+    0,
+  );
   return {
     qty,
     cost,
     received,
     profit: received - cost,
     netPct: (received / cost - 1) * 100,
+    grossProfit: grossReceived - orders,
+    feeCost: grossReceived - received + d.gasBuyBnb * d.entryPrices.length,
+    breakEvenBnb:
+      (cost + d.gasSellBnb * d.exitPrices.length) / (qty * (1 - d.sellTaxPct / 100) * execution),
     averageBnb:
       d.amounts.reduce((s, n) => s + Number(n), 0) / (qty / ((1 - d.buyTaxPct / 100) * execution)),
   };
+}
+/** Additive per-entry attribution for the full plan; shared sell gas follows invested amount. */
+export function planEntryResults(d: PlanProjectionInput) {
+  const projection = planProjection(d);
+  if (!projection) return [];
+  const total = d.amounts.reduce((sum, v) => sum + Number(v), 0);
+  const shares = splitExitShares(d.exitPrices.length);
+  const sale = d.exitPrices.reduce((sum, p, i) => sum + (p * shares[i]!) / 100, 0);
+  return d.entryPrices.map((entry, i) => {
+    const amount = Number(d.amounts[i]);
+    const cost = amount + d.gasBuyBnb;
+    const qty = (amount / entry) * (1 - d.buyTaxPct / 100) * 0.9975;
+    const received =
+      qty * sale * (1 - d.sellTaxPct / 100) * 0.9975 -
+      (d.gasSellBnb * d.exitPrices.length * amount) / total;
+    return {
+      entryBnb: entry,
+      grossPct: (sale / entry - 1) * 100,
+      profit: received - cost,
+      netPct: (received / cost - 1) * 100,
+    };
+  });
+}
+export function planPartialScenarios(d: PlanProjectionInput) {
+  return d.entryPrices.slice(0, -1).map((_, i) => ({
+    entries: i + 1,
+    projection: planProjection({
+      ...d,
+      entryPrices: d.entryPrices.slice(0, i + 1),
+      amounts: d.amounts.slice(0, i + 1),
+    }),
+  }));
 }
 export function buildChartPlanConfig(
   raw: ChartPlanInput,
@@ -250,6 +297,8 @@ export function buildChartPlanConfig(
     chartRule: chartRuleSchema.parse({
       ...cfg.chartRule,
       version: 2,
+      projectionVersion: 2,
+      partialEntriesAccepted: d.partialEntriesAccepted,
       entries: prices.map((p, i) => ({ priceBnb: p, amountBnb: allocation.amounts[i]! })),
       exits: exits.map((p, i) => ({ priceBnb: p, sharePct: shares[i]! })),
     }),

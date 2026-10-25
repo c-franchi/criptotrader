@@ -11,6 +11,7 @@ import {
   buildChartPlanConfig,
   dividePlanBudget,
   planProjection,
+  planPartialScenarios,
 } from "./chartPlan";
 const selection = z.object({
   walletScope: walletScopeSchema,
@@ -148,15 +149,23 @@ export const saveChartPlan = createServerFn({ method: "POST" })
       rule.gasBuyBnb,
       rule.gasSellBnb,
     )!;
-    const projection = planProjection({
+    const model = {
       ...data.settings,
       entryPrices: rule.entries!.map((e) => e.priceBnb),
       exitPrices: rule.exits!.map((e) => e.priceBnb),
       amounts: allocation.amounts,
-    });
+    };
+    const projection = planProjection(model);
     if (!projection || projection.profit <= 0)
       throw new Error(
-        "As saídas não cobrem os custos estimados da atividade. Ajuste as saídas ou o valor liberado.",
+        "As saídas escolhidas não cobrem as taxas e o gás estimados com todas as entradas. Revise o detalhamento; seus preços não foram alterados.",
+      );
+    if (
+      planPartialScenarios(model).some((s) => !s.projection || s.projection.profit <= 0) &&
+      !data.settings.partialEntriesAccepted
+    )
+      throw new Error(
+        "Confirme que entende o resultado com entradas incompletas. Seus preços de saída foram mantidos.",
       );
     const { strategySchema } = await import("./strategyValidation");
     strategySchema.parse(config);

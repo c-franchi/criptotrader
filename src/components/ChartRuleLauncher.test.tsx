@@ -157,6 +157,7 @@ it("shows local money, splits free native funds across multiple clicks and saves
   fireEvent.click(screen.getByRole("radio", { name: /Manter os tokens/ }));
   fireEvent.click(screen.getByRole("button", { name: "Revisar atividade" }));
   expect(screen.getByRole("button", { name: /Salvar atividade/ })).toBeDisabled();
+  fireEvent.click(screen.getByRole("checkbox", { name: /Entendo que, se apenas parte/ }));
   fireEvent.click(screen.getByRole("checkbox", { name: /Revisei carteira, valor/ }));
   fireEvent.click(screen.getByRole("button", { name: /Salvar atividade/ }));
   await screen.findByText("Atividade salva · robô pausado");
@@ -227,6 +228,31 @@ it("keeps open positions locked and closes the scoped tool when changing wallets
   io.selection = { ...io.selection, walletScope: "scope-b", name: "Carteira B" };
   rerender(view());
   expect(screen.queryByRole("dialog")).toBeNull();
+  expect(io.save).not.toHaveBeenCalled();
+  expect(io.start).not.toHaveBeenCalled();
+});
+
+it("keeps manual exits unchanged when editing the target and shows separate costs, entry results and adverse execution", async () => {
+  show();
+  await enter();
+  fireEvent.click(screen.getByRole("button", { name: "Ponto de entrada no gráfico" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continuar para saídas" }));
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Preço da saída 1" }), {
+    target: { value: "456" },
+  });
+  const exit = screen.getByRole("spinbutton", { name: "Preço da saída 1" });
+  expect(exit).toHaveValue(456);
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Meta líquida inicial" }), {
+    target: { value: "15" },
+  });
+  expect(exit).toHaveValue(456);
+  expect(screen.getByText(/Saídas definidas por você/)).toBeTruthy();
+  expect(screen.getByText(/Ganho bruto pelos preços escolhidos/)).toBeTruthy();
+  expect(screen.getByText(/Taxas e gás estimados/)).toBeTruthy();
+  expect(screen.getByText(/Se a execução piorar toda essa margem/)).toBeTruthy();
+  expect(screen.getByText(/não uma taxa fixa/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Aplicar sugestão às saídas" }));
+  expect(Number((exit as HTMLInputElement).value)).toBeGreaterThan(456);
   expect(io.save).not.toHaveBeenCalled();
   expect(io.start).not.toHaveBeenCalled();
 });

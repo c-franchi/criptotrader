@@ -17,6 +17,8 @@ import {
   dividePlanBudget,
   suggestPlanExits,
   planProjection,
+  planEntryResults,
+  planPartialScenarios,
   splitExitShares,
   chartPlanInputSchema,
 } from "@/lib/chartPlan";
@@ -76,6 +78,7 @@ export function ChartPlanWizard({
     index: 0,
   });
   const [target, setTarget] = useState("3");
+  const [partialAck, setPartialAck] = useState(false);
   const [stopChoice, setStopChoice] = useState<"price" | "none" | "">("");
   const [stop, setStop] = useState(0);
   const [snapshot, setSnapshot] = useState<Costs | null>(null);
@@ -245,15 +248,20 @@ export function ChartPlanWizard({
       : [];
   const exits = manualExits ?? automatic;
   const shares = splitExitShares(exitCount);
-  const projection =
+  const model =
     allocation && costsValid && entries.every((p) => p > 0) && exits.length === exitCount
-      ? planProjection({
+      ? {
           ...costs!,
           entryPrices: sortedEntries,
           exitPrices: [...exits].sort((a, b) => a - b),
           amounts: allocation.amounts,
-        })
+        }
       : null;
+  const projection = model ? planProjection(model) : null;
+  const adverse = model ? planProjection(model, "slippage") : null;
+  const entryResults = model ? planEntryResults(model) : [];
+  const partials = model ? planPartialScenarios(model) : [];
+  const partialRisk = partials.some((s) => !s.projection || s.projection.profit <= 0);
   useEffect(() => {
     if (!settings.data || initialized.current) return;
     initialized.current = true;
@@ -347,18 +355,16 @@ export function ChartPlanWizard({
   const markedEntries = entries.filter((p) => p > 0).sort((a, b) => b - a);
   const breakEven =
     allocation && costsValid && markedEntries.length
-      ? suggestPlanExits(
-          {
-            ...costs!,
-            entryPrices: markedEntries,
-            amounts: allocation.amounts.slice(0, markedEntries.length),
-          },
-          exitCount,
-          0,
-        )[0]
+      ? planProjection({
+          ...costs!,
+          entryPrices: markedEntries,
+          amounts: allocation.amounts.slice(0, markedEntries.length),
+          exitPrices: Array.from({ length: exitCount }, () => markedEntries[0]!),
+        })?.breakEvenBnb
       : null;
   const changed = () => {
     setAck(false);
+    setPartialAck(false);
     setSaved(false);
     setStartAck(false);
     setError("");
@@ -373,8 +379,8 @@ export function ChartPlanWizard({
                   price: breakEven * bnbUsd,
                   label:
                     markedEntries.length === entryCount
-                      ? "Equilíbrio estimado"
-                      : "Equilíbrio parcial estimado",
+                      ? "Equilíbrio do conjunto"
+                      : "Equilíbrio das entradas marcadas",
                   tone: "avg" as const,
                 },
               ]
@@ -446,6 +452,7 @@ export function ChartPlanWizard({
     maxGasGwei: numeric(maxGas),
     minLiquidityUsd: numeric(minLiquidity),
     acknowledge: ack,
+    partialEntriesAccepted: partialAck,
   });
   const ready = useQuery({
     queryKey: ["chart-plan-readiness", userId, walletScope, token],
@@ -473,6 +480,7 @@ export function ChartPlanWizard({
           "Aguarde a consulta automática de custos ou informe as taxas nos detalhes.",
         );
       setBudget(chosen);
+      setPartialAck(false);
       setSnapshot(liveCosts);
       setStep(1);
       setPick({ kind: "entry", index: 0 });
@@ -480,7 +488,6 @@ export function ChartPlanWizard({
       if (!entries.every((p) => p > 0) || new Set(entries).size !== entryCount)
         return setError("Marque um preço diferente para cada entrada.");
       setEntries(sortedEntries);
-      setManualExits(null);
       setPick(null);
       setStep(2);
     } else if (step === 2) {
@@ -510,7 +517,9 @@ export function ChartPlanWizard({
           ),
         );
       if (!projection || projection.profit <= 0)
-        return setError("As saídas não cobrem os custos estimados. Recalcule ou ajuste os pontos.");
+        return setError(
+          "Com todas as entradas, as saídas escolhidas ainda não cobrem as taxas e o gás estimados. Confira o detalhamento. Seus pontos foram mantidos.",
+        );
       setStep(3);
       setPick(null);
       setAck(false);
@@ -857,7 +866,7 @@ export function ChartPlanWizard({
               )}
               <div className="grid gap-3 sm:grid-cols-2">
                 <label>
-                  Margem/slippage (%)
+                  Tolerância de execução/slippage (%)
                   <Input
                     aria-label="Margem de execução"
                     type="number"
@@ -976,8 +985,8 @@ export function ChartPlanWizard({
         <section className="space-y-3" aria-label="Definir saídas">
           <h3 className="text-lg font-semibold">Saídas prontas para revisar</h3>
           <p className="text-sm text-muted-foreground">
-            Calculamos preços de referência com taxas, margem e gás. Você pode aceitar ou arrastar
-            os pontos. Não há promessa de rentabilidade.
+            A sugestão considera o preço médio das {entryCount} entradas, as taxas e o gás estimado.
+            Você escolhe os preços de saída. O resultado de compras incompletas aparece separado.
           </p>
           <div className="flex flex-wrap items-end gap-3">
             <label className="text-sm">
@@ -992,7 +1001,6 @@ export function ChartPlanWizard({
                 onChange={(e) => {
                   changed();
                   setTarget(e.target.value);
-                  setManualExits(null);
                 }}
               />
             </label>
@@ -1003,9 +1011,14 @@ export function ChartPlanWizard({
                 setManualExits(null);
               }}
             >
-              Recalcular saídas
+              Aplicar sugestão às saídas
             </Button>
           </div>
+          <p role="status" className="text-sm text-muted-foreground">
+            {manualExits
+              ? "Saídas definidas por você. Alterar a meta não muda esses preços; use Aplicar sugestão se desejar substituí-los."
+              : "Saídas sugeridas. Ao ajustar um preço, ele passa a ser manual e será mantido."}
+          </p>
           {renderChart()}
           <ol className="grid gap-2 sm:grid-cols-2">
             {exits.map((p, i) => (
@@ -1151,7 +1164,15 @@ export function ChartPlanWizard({
             garantem lucro e que executar leva tempo.
           </label>
           <Button
-            disabled={busy || !ack || !validInput.success || locked || !fresh || !capitalFresh}
+            disabled={
+              busy ||
+              !ack ||
+              (partialRisk && !partialAck) ||
+              !validInput.success ||
+              locked ||
+              !fresh ||
+              !capitalFresh
+            }
             onClick={async () => {
               if (!validInput.success || !settings.data) return;
               setBusy(true);
@@ -1187,19 +1208,126 @@ export function ChartPlanWizard({
           </Button>
         </section>
       )}
-      {!saved && step >= 2 && projection && (
-        <div className="rounded-xl border p-3 text-sm">
+      {!saved && step >= 2 && projection && allocation && costs && (
+        <section
+          aria-label="Resultado e custos das saídas"
+          className="space-y-3 rounded-xl border p-3 text-sm"
+        >
+          <h3 className="font-semibold">Com todas as {entryCount} entradas</h3>
           <p>
-            Resultado projetado com todas as entradas e saídas:{" "}
+            Preço médio das compras: <b>{priceText(projection.averageBnb)}</b>
+          </p>
+          <p>
+            Equilíbrio estimado do conjunto: <b>{priceText(projection.breakEvenBnb)}</b>
+          </p>
+          <p>
+            Ganho bruto pelos preços escolhidos: <b>{money(projection.grossProfit)}</b>
+          </p>
+          <p>
+            Taxas e gás estimados: <b>{money(projection.feeCost)}</b>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Token: compra {costs.buyTaxPct}% / venda {costs.sellTaxPct}%. Troca: 0,25% por operação.
+            Gás: {money(allocation.gasBnb)}.
+          </p>
+          <p>
+            Resultado líquido estimado:{" "}
             <b className={projection.profit > 0 ? "text-success" : "text-destructive"}>
               {money(projection.profit)} · {formatDistancePct(projection.netPct)}
             </b>
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Inclui as taxas e a referência de gás consideradas. Se nem todas as entradas forem
-            executadas ou os custos mudarem, o resultado será diferente.
+          <div className="space-y-2">
+            {entryResults.map((r, i) => (
+              <div key={i} className="rounded-lg bg-secondary p-2">
+                <b>Entrada {i + 1}</b> · alta bruta {formatDistancePct(r.grossPct)}
+                <p>
+                  Resultado estimado após custos:{" "}
+                  <span className={r.profit > 0 ? "text-success" : "text-destructive"}>
+                    {money(r.profit)} · {formatDistancePct(r.netPct)}
+                  </span>
+                </p>
+              </div>
+            ))}
+          </div>
+          <details className="rounded-lg border p-3">
+            <summary className="cursor-pointer font-medium">O que entra nessa conta?</summary>
+            <div className="mt-2 space-y-2">
+              <p>
+                Taxa do token: {costs.buyTaxPct}% na compra e {costs.sellTaxPct}% na venda.
+              </p>
+              <p>Taxa da troca: 0,25% em cada compra e venda.</p>
+              <p>
+                Gás estimado: {money(costs.gasBuyBnb * entryCount)} nas {entryCount} compras +{" "}
+                {money(costs.gasSellBnb * exitCount)} nas {exitCount} saídas.
+              </p>
+              <p>
+                Reserva para gás: {money(allocation.gasBnb)}. É o mesmo gás acima, separado do valor
+                das compras; não é descontado duas vezes.
+              </p>
+              <p>
+                Margem/slippage de {costs.executionMarginPct}% é uma tolerância de execução, não uma
+                taxa fixa. Não é descontada como cobrança obrigatória no resultado acima.
+              </p>
+              {adverse && (
+                <p>
+                  Se a execução piorar toda essa margem na compra e na venda:{" "}
+                  <b>
+                    {money(adverse.profit)} · {formatDistancePct(adverse.netPct)}
+                  </b>
+                  . Esse cenário não move seus pontos.
+                </p>
+              )}
+              <p>
+                Com várias saídas, o resultado de cada entrada combina os preços e percentuais das
+                vendas. O gás das vendas é dividido proporcionalmente ao valor investido.
+              </p>
+            </div>
+          </details>
+          {partials.length > 0 && (
+            <details className="rounded-lg border p-3" open={partialRisk ? true : undefined}>
+              <summary className="cursor-pointer font-medium">
+                Se nem todas as compras acontecerem
+              </summary>
+              <div className="mt-2 space-y-2">
+                {partials.map((s) => (
+                  <p key={s.entries}>
+                    Com apenas {s.entries} {s.entries === 1 ? "entrada" : "entradas"}:{" "}
+                    <b
+                      className={
+                        s.projection && s.projection.profit > 0
+                          ? "text-success"
+                          : "text-destructive"
+                      }
+                    >
+                      {s.projection
+                        ? `${money(s.projection.profit)} · ${formatDistancePct(s.projection.netPct)}`
+                        : "Não apurado"}
+                    </b>
+                    .
+                  </p>
+                ))}
+                <p>
+                  São cenários separados. Eles não aumentam automaticamente o preço da sua saída.
+                </p>
+              </div>
+            </details>
+          )}
+          {partialRisk && (
+            <label className="flex gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={partialAck}
+                onChange={(e) => setPartialAck(e.target.checked)}
+              />
+              Entendo que, se apenas parte das compras ocorrer, estas saídas podem gerar prejuízo
+              após custos. Quero manter os preços escolhidos.
+            </label>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Estimativas em BNB convertidas para {currency}. Gás, taxas, impacto de preço, variação
+            do BNB e condições reais podem alterar o resultado. Não há garantia de lucro.
           </p>
-        </div>
+        </section>
       )}
       {error && (
         <p role="alert" className="text-sm text-destructive">
