@@ -27,7 +27,7 @@ it("routes each blocker to its own correction and keeps a short balance readable
   const configure = vi.fn();
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <BotReadiness walletScope="s" token="t" onConfigure={configure} />
+      <BotReadiness userId="u" walletScope="s" token="t" onConfigure={configure} />
     </QueryClientProvider>,
   );
   fireEvent.click(await screen.findByRole("button", { name: "Revisar liquidez" }));

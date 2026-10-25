@@ -1,3 +1,6 @@
+import { useManualBalances } from "@/hooks/useManualBalances";
+import { useWalletFunds } from "@/hooks/useWalletFunds";
+import { manualSearch, manualWalletBlocks } from "@/lib/manualWallet";
 import { TradingTour } from "@/components/TradingTour";
 import { FiatValue } from "@/hooks/useCurrency";
 import { TokenPicker } from "@/components/TokenPicker";
@@ -31,7 +34,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppShell, Panel, RequireLogin, Unavailable } from "@/components/AppShell";
 import { connectWallet } from "@/lib/walletConnect";
 import { EMPTY_CONFIG, type StrategyConfig } from "@/lib/strategy";
-import { getTokenTax } from "@/lib/userTokens.functions";
+import { inspectToken, getTokenTax } from "@/lib/userTokens.functions";
 import { taxFor } from "@/lib/tokens";
 import {
   PANCAKE_V2_FACTORY,
@@ -55,10 +58,7 @@ import { slippageLevel } from "@/lib/safety";
 import { ContractRisk } from "@/components/ContractRisk";
 
 export const Route = createFileRoute("/operar")({
-  validateSearch: (s: Record<string, unknown>): { entrada?: string } =>
-    typeof s["entrada"] === "string" && /^\d+(\.\d+)?$/.test(s["entrada"])
-      ? { entrada: s["entrada"] }
-      : {},
+  validateSearch: manualSearch,
   head: () => ({
     meta: [
       { title: "Operar — CryptoBot" },
@@ -90,10 +90,24 @@ const pub = createPublicClient({
   chain: bsc,
   transport: http("https://bsc-dataseed.bnbchain.org"),
 });
+async function readManualBalance(address: string, token: string) {
+  const a = getAddress(address);
+  const [bnb, gte] = await Promise.all([
+    pub.getBalance({ address: a }),
+    pub.readContract({
+      address: getAddress(token),
+      abi: erc20Abi,
+      functionName: "balanceOf",
+      args: [a],
+    }),
+  ]);
+  return { bnb, gte };
+}
 type Order = Tables<"orders">;
 /** gross = router quote before token tax; estimated = tax came from the contract simulation, confirmed again right before signing. */
 type Quote = {
   side: "compra" | "venda";
+  identity: string;
   amountIn: bigint;
   out: bigint;
   min: bigint;
@@ -117,18 +131,29 @@ function friendlyError(m: string): string {
 function Operar() {
   const { user } = useAuth();
   const providerRef = useRef<Awaited<ReturnType<typeof connectWallet>> | null>(null);
-  const { token: selected, selectToken: setGTE, tokens } = useSelectedToken();
+  const { token: selected, selectToken: setGTE, selectInspectedToken, tokens } = useSelectedToken();
   const GTE = selected.address;
   const sym = selected.symbol;
-  const { walletScope } = useSelectedWallet();
+  const { walletScope, address: savedAddress, fundAddress } = useSelectedWallet();
+  const { wallet: selectedWallet } = useWalletFunds();
   const [wallet, setWallet] = useState<WalletClient | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
-  const [tracked, setTracked] = useState<string | null>(null);
+  const expected = selectedWallet?.address ?? fundAddress ?? savedAddress ?? account;
+  const identity = `${expected?.toLowerCase() ?? ""}:${GTE.toLowerCase()}`;
+  const identityRef = useRef(identity);
+  identityRef.current = identity;
   const [cfg, setCfg] = useState<StrategyConfig>(EMPTY_CONFIG);
   const [pair, setPair] = useState<string | null | undefined>(undefined);
   const [reserves, setReserves] = useState<{ bnb: bigint; gte: bigint } | null>(null);
-  const [bal, setBal] = useState<{ bnb: bigint; gte: bigint } | null>(null);
+  const {
+    balance: bal,
+    error: balanceError,
+    refresh: refreshBalance,
+  } = useManualBalances(expected, GTE, readManualBalance);
+  const [marketToken, setMarketToken] = useState("");
+  const marketTokenRef = useRef(GTE);
+  marketTokenRef.current = GTE;
   const [gasPrice, setGasPrice] = useState<bigint | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderLimit, setOrderLimit] = useState(50);
@@ -150,7 +175,31 @@ function Operar() {
   const [busy, setBusy] = useState<string | null>(null);
   const [side, setSide] = useState<"compra" | "venda">("compra");
   const [hasStrategy, setHasStrategy] = useState(false);
-  const { entrada } = Route.useSearch();
+  const { entrada, token: requestedToken, pagamento } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const [tokenIssue, setTokenIssue] = useState("");
+  useEffect(() => {
+    if (!requestedToken || requestedToken.toLowerCase() === GTE.toLowerCase()) {
+      setTokenIssue("");
+      return;
+    }
+    let active = true;
+    setTokenIssue("Consultando o token escolhido…");
+    void inspectToken({ data: { address: requestedToken } })
+      .then((result) => {
+        if (!active) return;
+        if (!result.token) return setTokenIssue(result.error ?? "Token indisponível.");
+        selectInspectedToken(result.token);
+        setTokenIssue("");
+      })
+      .catch(() => {
+        if (active) setTokenIssue("Não foi possível abrir esse token. Tente novamente.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [requestedToken, GTE, selectInspectedToken]);
+
   const [tradeOpen, setTradeOpen] = useState(true);
   const [marketTab, setMarketTab] = useState<"orders" | "assets">("orders");
   const marketRef = useRef<HTMLDivElement>(null);
@@ -173,14 +222,20 @@ function Operar() {
   const preset = PRESETS.find((p) => p.id === cfg.presetId) ?? null;
 
   const loadOrders = useCallback(async () => {
+    if (!user || !expected) {
+      setOrders([]);
+      return;
+    }
     await reconcileUserOrders().catch(() => {});
     const { data } = await supabase
       .from("orders")
       .select("*")
+      .eq("user_id", user.id)
+      .eq("wallet", getAddress(expected))
       .order("created_at", { ascending: false })
       .limit(orderLimit);
     setOrders(data ?? []);
-  }, [orderLimit]);
+  }, [orderLimit, user, expected]);
 
   const loadMarket = useCallback(async () => {
     try {
@@ -190,7 +245,12 @@ function Operar() {
         functionName: "getPair",
         args: [GTE, WBNB],
       });
-      if (p === ZERO) return setPair(null);
+      if (marketTokenRef.current !== GTE) return;
+      setMarketToken(GTE);
+      if (p === ZERO) {
+        setReserves(null);
+        return setPair(null);
+      }
       setPair(p);
       const [r0, r1] = await pub.readContract({
         address: p,
@@ -199,35 +259,30 @@ function Operar() {
       });
       const t0 = await pub.readContract({ address: p, abi: pairAbi, functionName: "token0" });
       const gteIs0 = t0.toLowerCase() === GTE.toLowerCase();
+      if (marketTokenRef.current !== GTE) return;
       setReserves({ gte: gteIs0 ? r0 : r1, bnb: gteIs0 ? r1 : r0 });
       setGasPrice(await pub.getGasPrice());
     } catch {
+      if (marketTokenRef.current !== GTE) return;
+      setReserves(null);
       setPair(undefined);
       toast.error("Falha ao consultar a PancakeSwap");
     }
   }, [GTE]);
 
-  const loadBalances = useCallback(
-    async (addr: string) => {
-      const a = getAddress(addr);
-      const [bnb, gte] = await Promise.all([
-        pub.getBalance({ address: a }),
-        pub.readContract({ address: GTE, abi: erc20Abi, functionName: "balanceOf", args: [a] }),
-      ]);
-      setBal({ bnb, gte });
-    },
-    [GTE],
-  );
-
   useEffect(() => {
+    let alive = true;
+    setCfg(EMPTY_CONFIG);
+    setHasStrategy(false);
     supabase
       .from("strategies")
-      .select("tracked_wallet, config, token")
+      .select("config, token")
+      .eq("user_id", user?.id ?? "")
       .eq("wallet_scope", walletScope)
       .order("updated_at", { ascending: false })
       .then(({ data }) => {
+        if (!alive) return;
         const rows = data ?? [];
-        setTracked(rows.find((r) => r.tracked_wallet)?.tracked_wallet ?? null);
         const own = rows.find((r) => r.token.toLowerCase() === GTE.toLowerCase());
         const next = own
           ? { ...EMPTY_CONFIG, ...(own.config as Partial<StrategyConfig>) }
@@ -242,15 +297,15 @@ function Operar() {
     loadOrders();
     loadMarket();
     const t = setInterval(loadMarket, 30_000);
-    return () => clearInterval(t);
-  }, [loadOrders, loadMarket, GTE, walletScope]);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [loadOrders, loadMarket, GTE, walletScope, entrada, user?.id]);
 
   useEffect(() => {
-    if (!account) return;
-    loadBalances(account);
-    const t = setInterval(() => loadBalances(account), 30_000);
-    return () => clearInterval(t);
-  }, [account, loadBalances]);
+    setQuote(null);
+  }, [identity]);
 
   const connect = async () => {
     setBusy("conectando");
@@ -305,13 +360,15 @@ function Operar() {
     else setSellAmt(v > 0n ? formatUnits(v, selected.decimals) : "");
     setQuote(null);
   };
-  const blocks: string[] = [];
-  if (!account) blocks.push("Conecte a carteira.");
-  if (account && chainId !== 56)
-    blocks.push(`Rede incorreta (chain ${chainId}). Mude para BNB Smart Chain (56).`);
-  if (!tracked) blocks.push("Cadastre a carteira acompanhada na página Estratégia.");
-  if (account && tracked && account.toLowerCase() !== tracked.toLowerCase())
-    blocks.push("A carteira conectada não é a carteira cadastrada.");
+  const blocks = manualWalletBlocks({
+    expected,
+    account,
+    chainId,
+    robot: selectedWallet?.bot ?? false,
+    balanceKnown: !!bal,
+  });
+  if (tokenIssue) blocks.push(tokenIssue);
+  if (marketToken !== GTE) blocks.push("Consultando o mercado do token selecionado.");
   if (pair === null) blocks.push(`Aguardando pool ${sym}/WBNB na PancakeSwap V2.`);
   if (pair === undefined) blocks.push("Dados do pool indisponíveis.");
   if (gasPrice && cfg.maxGasGwei && gasPrice > parseUnits(String(cfg.maxGasGwei), 9))
@@ -320,6 +377,7 @@ function Operar() {
 
   const prepare = async (side: "compra" | "venda") => {
     try {
+      if (!ready) throw new Error(blocks[0] ?? "Confira a carteira e o saldo.");
       if (!reserves || !bal) throw new Error("Dados indisponíveis");
       const amountIn =
         side === "compra"
@@ -345,6 +403,7 @@ function Operar() {
         );
       let q: Quote = {
         side,
+        identity,
         amountIn,
         out,
         min: minOut(out, cfg.maxSlippagePct),
@@ -381,7 +440,7 @@ function Operar() {
           }
         }
       }
-      setQuote(q);
+      if (identityRef.current === identity) setQuote(q);
     } catch (e) {
       toast.error(friendlyError((e as Error).message));
     }
@@ -437,7 +496,8 @@ function Operar() {
   };
 
   const execute = async () => {
-    if (!quote || !wallet || !account || !user || busy) return;
+    if (!quote || !wallet || !account || !user || busy || !ready || quote.identity !== identity)
+      return;
     if (
       orders.some(
         (o) =>
@@ -455,6 +515,7 @@ function Operar() {
       .from("orders")
       .insert({
         user_id: user.id,
+        wallet_scope: walletScope,
         side: quote.side,
         wallet: acct,
         pair_address: pair ?? null,
@@ -479,6 +540,8 @@ function Operar() {
     let submittedHash: string | null = null;
     let approvalPending = false;
     try {
+      if (identityRef.current !== quote.identity)
+        throw new Error("Carteira ou token alterado. Cote novamente.");
       if (quote.side === "venda") {
         const allowance = await pub.readContract({
           address: GTE,
@@ -488,6 +551,8 @@ function Operar() {
         });
         if (allowance < quote.amountIn) {
           toast.info("Aprove na carteira somente a quantidade desta venda");
+          if (identityRef.current !== quote.identity)
+            throw new Error("Carteira ou token alterado. Cote novamente.");
           const ah = await wallet.writeContract({
             account: acct,
             chain: bsc,
@@ -543,6 +608,8 @@ function Operar() {
                 args: [quote.amountIn, quote.min, [...path], acct, deadline],
               })
             ).request;
+      if (identityRef.current !== quote.identity)
+        throw new Error("Carteira ou token alterado. Cote novamente.");
       const hash = await wallet.writeContract(req as Parameters<typeof wallet.writeContract>[0]);
       submittedHash = hash;
       await upd({ tx_hash: hash, status: "enviada" });
@@ -567,7 +634,7 @@ function Operar() {
       setBusy(null);
       if (!keepQuote) setQuote(null);
       loadOrders();
-      loadBalances(account);
+      void refreshBalance();
     }
   };
 
@@ -634,6 +701,12 @@ function Operar() {
         </div>
         <TradingTour kind="manual" onComplete={() => selectSide("compra")} />
       </div>
+      {pagamento === "BNB" && (
+        <p className="rounded-xl bg-primary/5 p-3 text-sm">
+          Você selecionou seu BNB. Escolha o token que deseja comprar; o BNB será usado como
+          pagamento.
+        </p>
+      )}
       <div className="manual-workspace-grid">
         <div ref={marketRef} className="scroll-mt-24">
           <TradeMarket
@@ -645,11 +718,12 @@ function Operar() {
             disabled={!!busy}
             onSide={selectSide}
             onSelect={(address) => {
+              void navigate({ search: { token: address } });
               setGTE(address);
+              setTokenIssue("");
               setQuote(null);
               setPair(undefined);
               setReserves(null);
-              setBal(null);
               setSellAmt("");
               setBuyAmt("");
               setTradeOpen(true);
@@ -683,9 +757,30 @@ function Operar() {
                   Voltar ao gráfico
                 </Button>
               </div>
-              {!account && (
+              {!account && !selectedWallet?.bot && (
                 <Button className="mb-3 w-full" onClick={connect} disabled={!!busy}>
                   {busy === "conectando" ? "Conectando…" : "Conectar carteira para continuar"}
+                </Button>
+              )}
+              <p className="mb-2 text-xs text-muted-foreground">
+                Saldo de {selectedWallet?.label ?? "sua carteira"} ·{" "}
+                {expected
+                  ? `${expected.slice(0, 6)}…${expected.slice(-4)}`
+                  : "conecte sua carteira"}
+              </p>
+              {selectedWallet?.bot && (
+                <Button asChild variant="outline" className="mb-3">
+                  <Link to="/grade">Gerenciar posição na tela Robô</Link>
+                </Button>
+              )}
+              {account && expected && account.toLowerCase() !== expected.toLowerCase() && (
+                <Button className="mb-3" variant="outline" onClick={disconnect}>
+                  Desconectar e trocar a conta
+                </Button>
+              )}
+              {balanceError && (
+                <Button className="mb-3" variant="outline" onClick={() => void refreshBalance()}>
+                  Consultar saldo novamente
                 </Button>
               )}
               {!ready && <p className="mb-3 text-sm text-warning">{blocks.join(" ")}</p>}
@@ -749,7 +844,11 @@ function Operar() {
                   ? side === "compra"
                     ? `${fmtBnb(spendable)} BNB (já descontada a reserva de gás)`
                     : `${fmtGte(bal.gte)} ${sym}`
-                  : "conecte a carteira"}
+                  : balanceError
+                    ? "consulta indisponível"
+                    : expected
+                      ? "consultando saldo…"
+                      : "conecte a carteira"}
               </p>
               {bal && side === "compra" && <FiatValue bnb={formatEther(spendable)} />}
               <Slider
@@ -1004,7 +1103,7 @@ function Operar() {
               </Button>
             )}
             <p className="mt-2 text-xs text-muted-foreground">
-              Cadastrada: <span className="font-mono">{tracked ?? "nenhuma"}</span>
+              Selecionada: <span className="font-mono">{expected ?? "nenhuma"}</span>
             </p>
           </Panel>
 

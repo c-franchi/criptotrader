@@ -1,3 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
+import { getMarket } from "@/lib/chain.functions";
+import { TokenLogo } from "./TokenLogo";
 import { useId } from "react";
 export type PickableToken = { address: string; symbol: string; name?: string };
 /** Controlled selector shared by every token-selection surface. Selection never starts a bot. */
@@ -17,15 +20,21 @@ export function TokenPicker({
   showName?: boolean;
 }) {
   const id = useId();
+  const artwork = useQuery({
+    queryKey: ["token-artwork", value.toLowerCase()],
+    queryFn: () => getMarket({ data: { address: value } }),
+    enabled: /^0x[0-9a-fA-F]{40}$/.test(value),
+    staleTime: 3600000,
+    retry: false,
+  });
   const selected = tokens.find((t) => t.address.toLowerCase() === value.toLowerCase());
   return (
     <div data-token-picker className="flex min-w-0 items-center gap-2">
-      <span
-        aria-hidden
-        className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-lg font-bold text-primary"
-      >
-        {selected?.symbol.slice(0, 1) ?? "●"}
-      </span>
+      <TokenLogo
+        address={value}
+        symbol={selected?.symbol ?? "●"}
+        logoUrl={artwork.data?.logoUrl ?? null}
+      />
       <div className="min-w-0">
         <label htmlFor={id} className="sr-only">
           {label}

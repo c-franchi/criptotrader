@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { findToken, TOKENS, type TokenInfo } from "@/lib/tokens";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -8,6 +16,7 @@ type Ctx = {
   token: TokenInfo;
   tokens: TokenInfo[];
   selectToken: (address: string) => void;
+  selectInspectedToken: (token: TokenInfo) => void;
   addToken: (t: TokenInfo) => Promise<string | null>;
   removeToken: (address: string) => Promise<void>;
   ready: boolean;
@@ -17,6 +26,7 @@ const SelectedTokenContext = createContext<Ctx | null>(null);
 export function SelectedTokenProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState(fallback);
   const [extra, setExtra] = useState<TokenInfo[]>([]);
+  const choice = useRef(0);
   const [ready, setReady] = useState(false);
 
   // Restore the saved selection after hydration; user-added tokens load once signed in.
@@ -30,15 +40,16 @@ export function SelectedTokenProvider({ children }: { children: ReactNode }) {
     const builtIn = findToken(saved);
     if (builtIn) setToken(builtIn);
     setReady(true);
+    const initialChoice = choice.current;
     const load = async () => {
       const { data } = await supabase
         .from("user_tokens")
         .select("address,symbol,name,decimals")
         .order("created_at");
       const list = ((data ?? []) as TokenInfo[]).filter((t) => !findToken(t.address));
-      setExtra(list);
+      setExtra((current) => [...list, ...current.filter((t) => !findToken(t.address, list))]);
       const custom = findToken(saved, list);
-      if (!builtIn && custom) setToken(custom);
+      if (!builtIn && custom && choice.current === initialChoice) setToken(custom);
     };
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session) void load();
@@ -51,6 +62,7 @@ export function SelectedTokenProvider({ children }: { children: ReactNode }) {
     (address: string) => {
       const next = findToken(address, extra);
       if (!next) return;
+      choice.current += 1;
       setToken(next);
       try {
         localStorage.setItem("selected-token", next.address);
@@ -60,6 +72,17 @@ export function SelectedTokenProvider({ children }: { children: ReactNode }) {
     },
     [extra],
   );
+
+  const selectInspectedToken = useCallback((next: TokenInfo) => {
+    choice.current += 1;
+    setExtra((list) => (findToken(next.address, list) ? list : [...list, next]));
+    setToken(next);
+    try {
+      localStorage.setItem("selected-token", next.address);
+    } catch {
+      /* optional storage */
+    }
+  }, []);
 
   const addToken = async (t: TokenInfo) => {
     if (findToken(t.address, extra)) return null;
@@ -79,7 +102,15 @@ export function SelectedTokenProvider({ children }: { children: ReactNode }) {
 
   return (
     <SelectedTokenContext.Provider
-      value={{ token, tokens: [...TOKENS, ...extra], selectToken, addToken, removeToken, ready }}
+      value={{
+        token,
+        tokens: [...TOKENS, ...extra],
+        selectToken,
+        selectInspectedToken,
+        addToken,
+        removeToken,
+        ready,
+      }}
     >
       {children}
     </SelectedTokenContext.Provider>

@@ -33,7 +33,7 @@ import { HelpTip } from "@/components/HelpTip";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
-import { WalletPicker } from "@/components/WalletPicker";
+import { SavedWalletPicker } from "@/components/SavedWalletPicker";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { getMarket } from "@/lib/chain.functions";
 import { getTokenTax } from "@/lib/userTokens.functions";
@@ -555,7 +555,7 @@ function StrategyForm() {
             Esta é a carteira usada ao operar manualmente. O robô automático usa uma carteira
             própria da área selecionada acima; envie saldo para ela na tela Robô.
           </p>
-          <WalletPicker value={wallet} onPick={setWallet} />
+          <SavedWalletPicker value={wallet} onPick={setWallet} />
           <Input
             className="mt-2"
             placeholder="ou cole o endereço 0x…"

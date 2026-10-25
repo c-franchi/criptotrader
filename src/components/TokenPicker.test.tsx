@@ -1,5 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+vi.mock("@/lib/chain.functions", () => ({ getMarket: vi.fn() }));
 import { TokenPicker } from "./TokenPicker";
 afterEach(cleanup);
 const tokens = [
@@ -8,7 +10,11 @@ const tokens = [
 ];
 it("uses a labelled controlled selector and changes only the selected asset", () => {
   const change = vi.fn();
-  render(<TokenPicker tokens={tokens} value="0x1" onChange={change} />);
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <TokenPicker tokens={tokens} value="0x1" onChange={change} />
+    </QueryClientProvider>,
+  );
   expect(screen.getByLabelText("Token selecionado")).toHaveValue("0x1");
   fireEvent.change(screen.getByLabelText("Token selecionado"), { target: { value: "0x2" } });
   expect(change).toHaveBeenCalledWith("0x2");

@@ -710,6 +710,7 @@ function Robo() {
             </details>
             {!armed && bot && (
               <BotReadiness
+                userId={user?.id ?? ""}
                 walletScope={walletScope}
                 token={token}
                 onConfigure={(action) => {

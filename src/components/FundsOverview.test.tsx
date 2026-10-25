@@ -6,9 +6,31 @@ vi.mock("@/hooks/useSelectedToken", () => ({
   useSelectedToken: () => ({ tokens: [{ address: "t", name: "Token de teste", symbol: "T" }] }),
 }));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: state.user }) }));
-vi.mock("@/hooks/useSelectedWallet", () => ({
-  useSelectedWallet: () => ({ walletScope: "one", address: "0xpersonal" }),
+const navigation = vi.hoisted(() => ({ go: vi.fn() }));
+vi.mock("@tanstack/react-router", async (original) => ({
+  ...(await original<typeof import("@tanstack/react-router")>()),
+  useNavigate: () => navigation.go,
 }));
+vi.mock("@/hooks/useSelectedWallet", async () => {
+  const { useState } = await import("react");
+  return {
+    useSelectedWallet: () => {
+      const [fundAddress, set] = useState(() =>
+        localStorage.getItem(`cryptobot:funds-wallet:${state.user?.id}`),
+      );
+      return {
+        walletScope: "one",
+        address: "0xpersonal",
+        fundAddress,
+        selectFundWallet: (w: any) => {
+          set(w.address);
+          localStorage.setItem(`cryptobot:funds-wallet:${state.user?.id}`, w.address);
+          return true;
+        },
+      };
+    },
+  };
+});
 vi.mock("@/hooks/currencyContext", () => ({
   useCurrency: () => ({ currency: "BRL", quote: { bnbUsd: 10, usdBrl: 5 } }),
 }));
@@ -135,4 +157,19 @@ it("marks retained values as the last successful query if a refresh fails", () =
   render(<FundsOverview />);
   expect(screen.getByText("Último saldo consultado")).toBeTruthy();
   expect(screen.getByRole("alert").textContent).toContain("última consulta");
+});
+
+it("opens manual trading with the clicked token while preserving the chosen wallet", () => {
+  state.rows = [wallet, robot];
+  render(<FundsOverview />);
+  chooseRobot();
+  fireEvent.click(screen.getByRole("button", { name: "Operar T da carteira Master robô" }));
+  expect(navigation.go).toHaveBeenCalledWith({ to: "/operar", search: { token: "t" } });
+  expect(localStorage.getItem("cryptobot:funds-wallet:owner")).toBe("0xrobot");
+});
+it("opens native BNB as the payment asset without pretending it is a WBNB balance", () => {
+  state.rows = [wallet];
+  render(<FundsOverview />);
+  fireEvent.click(screen.getByRole("button", { name: "Operar BNB da carteira Pessoal" }));
+  expect(navigation.go).toHaveBeenCalledWith({ to: "/operar", search: { pagamento: "BNB" } });
 });

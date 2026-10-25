@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { findToken, TOKENS } from "@/lib/tokens";
 import { inspectToken, scanWallet, type WalletToken } from "@/lib/userTokens.functions";
-import { WalletPicker } from "@/components/WalletPicker";
+import { SavedWalletPicker } from "@/components/SavedWalletPicker";
 import { Button } from "@/components/ui/button";
 import { ContractRisk } from "@/components/ContractRisk";
 import { Input } from "@/components/ui/input";
@@ -116,7 +116,7 @@ export function AddTokenDialog({ wallet: initialWallet }: { wallet?: string | nu
               {busy === "scan" ? "Lendo…" : "Buscar"}
             </Button>
           </div>
-          <WalletPicker
+          <SavedWalletPicker
             value={wallet}
             onPick={(a) => {
               setWallet(a);

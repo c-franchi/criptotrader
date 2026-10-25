@@ -1,3 +1,4 @@
+import { WalletPicker } from "./WalletPicker";
 import type { ReadinessAction } from "@/lib/readinessIssues";
 import { useCurrency } from "@/hooks/currencyContext";
 import { TokenPicker } from "@/components/TokenPicker";
@@ -254,7 +255,7 @@ export function GuidedBotSetup({
     displayCurrency === "USD" ? 1 : displayCurrency === "BRL" ? fx.data?.usdBrl : fx.data?.usdEur;
   const rate = fx.data?.bnbUsd && fiatRate ? fx.data.bnbUsd * fiatRate : null;
   const readiness = useQuery({
-    queryKey: ["bot-readiness", walletScope, token],
+    queryKey: ["bot-readiness", userId, walletScope, token],
     queryFn: () => getBotReadiness({ data: { walletScope, token } }),
     enabled: open && saved,
     refetchInterval: 30000,
@@ -387,7 +388,7 @@ export function GuidedBotSetup({
         // A reopened editor must fetch the confirmed version, without discarding newer input.
         setReload((n) => n + 1);
       }
-      await qc.invalidateQueries({ queryKey: ["bot-readiness", walletScope, token] });
+      await qc.invalidateQueries({ queryKey: ["bot-readiness", userId, walletScope, token] });
       await qc.invalidateQueries({ queryKey: ["wallet-capital", walletScope] });
       await onDone();
       toast.success("Regras e robô salvos juntos. O robô continua pausado.");
@@ -472,6 +473,32 @@ export function GuidedBotSetup({
             {INCOMPATIBLE_BNB}
           </p>
         )}
+        {loaded && !unsupported && !compatible && !market.isPending && (
+          <div role="alert" className="rounded border border-warning p-3 text-sm text-warning">
+            <p>
+              {market.isError || market.data?.error
+                ? "Não foi possível confirmar o mercado desta moeda."
+                : "Esta moeda não tem um par BNB compatível com o robô."}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                disabled={market.isFetching}
+                onClick={() => void market.refetch()}
+              >
+                Consultar mercado novamente
+              </Button>
+              <Button variant="outline" onClick={() => goToField("token")}>
+                Escolher outra moeda
+              </Button>
+            </div>
+          </div>
+        )}
+        {error && !loaded && (
+          <Button variant="outline" onClick={() => setReload((n) => n + 1)}>
+            Tentar carregar regras novamente
+          </Button>
+        )}
         {error && (
           <p
             role="alert"
@@ -499,21 +526,14 @@ export function GuidedBotSetup({
               <div data-setup-field="token" tabIndex={-1} className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
                   {walletOptions && onSelectWallet && (
-                    <label className="text-sm">
-                      Carteira do robô
-                      <select
-                        aria-label="Carteira do robô"
-                        className="mt-1 w-full rounded border border-input bg-background p-3"
-                        value={walletScope}
-                        onChange={(e) => onSelectWallet(e.target.value)}
-                      >
-                        {walletOptions.map((w) => (
-                          <option key={w.id} value={w.id}>
-                            {w.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    <WalletPicker
+                      options={walletOptions.map((w) => ({ ...w, bot: true }))}
+                      value={walletScope}
+                      onChange={onSelectWallet}
+                      disabled={busy}
+                      label="Carteira do robô"
+                      manage={false}
+                    />
                   )}
                   {tokens && onSelectToken && (
                     <TokenPicker
@@ -998,6 +1018,7 @@ export function GuidedBotSetup({
                       mantendo o robô pausado.
                     </p>
                     <BotReadiness
+                      userId={userId}
                       walletScope={walletScope}
                       token={token}
                       onConfigure={resolveProblem}
@@ -1013,7 +1034,13 @@ export function GuidedBotSetup({
                     </label>
                     <Button
                       className="w-full"
-                      disabled={busy || !ack || !readiness.data?.ready}
+                      disabled={
+                        busy ||
+                        !ack ||
+                        readiness.isFetching ||
+                        readiness.isError ||
+                        !readiness.data?.ready
+                      }
                       onClick={start}
                     >
                       {busy ? "Conferindo e iniciando…" : "Confirmar e iniciar robô"}

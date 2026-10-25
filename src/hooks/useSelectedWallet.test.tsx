@@ -24,10 +24,30 @@ vi.mock("./useSavedWallets", () => ({
 import { SelectedWalletProvider, useSelectedWallet } from "./useSelectedWallet";
 import { LEGACY_WALLET_SCOPE } from "@/lib/walletScope";
 function Probe() {
-  const { walletScope, selectWallet } = useSelectedWallet();
+  const { walletScope, selectWallet, fundAddress, selectFundWallet, setWalletDirty } =
+    useSelectedWallet();
   return (
     <>
       <output>{walletScope}</output>
+      <span data-testid="fund">{fundAddress}</span>
+      <button
+        onClick={() =>
+          selectFundWallet({
+            address: "0x3333333333333333333333333333333333333333",
+            label: "Bot A",
+            scopes: [state.wallets[0]!.id],
+            bot: true,
+            personal: false,
+            bnb: "1",
+            assets: [],
+            issues: [],
+            capital: null,
+          })
+        }
+      >
+        Fund A
+      </button>
+      <button onClick={() => setWalletDirty(true)}>Dirty</button>
       <button onClick={() => selectWallet(state.wallets[0]!.id)}>A</button>
       <button onClick={() => selectWallet(state.wallets[1]!.id)}>B</button>
     </>
@@ -56,4 +76,39 @@ it("restores and changes the portfolio without updating bots or sharing selectio
     </SelectedWalletProvider>,
   );
   await waitFor(() => expect(screen.getByRole("status").textContent).toBe(LEGACY_WALLET_SCOPE));
+});
+
+it("shares the selected physical wallet across pages and restores its matching robot scope", async () => {
+  const view = render(
+    <SelectedWalletProvider>
+      <Probe />
+    </SelectedWalletProvider>,
+  );
+  fireEvent.click(screen.getByText("Fund A"));
+  expect(screen.getByTestId("fund").textContent).toBe("0x3333333333333333333333333333333333333333");
+  expect(screen.getByRole("status").textContent).toBe(state.wallets[0]!.id);
+  view.unmount();
+  render(
+    <SelectedWalletProvider>
+      <Probe />
+    </SelectedWalletProvider>,
+  );
+  await waitFor(() =>
+    expect(screen.getByTestId("fund").textContent).toBe(
+      "0x3333333333333333333333333333333333333333",
+    ),
+  );
+});
+it("keeps both portfolio and address unchanged when a dirty wallet switch is declined", () => {
+  vi.spyOn(window, "confirm").mockReturnValue(false);
+  render(
+    <SelectedWalletProvider>
+      <Probe />
+    </SelectedWalletProvider>,
+  );
+  fireEvent.click(screen.getByText("Dirty"));
+  fireEvent.click(screen.getByText("Fund A"));
+  expect(screen.getByRole("status").textContent).toBe(LEGACY_WALLET_SCOPE);
+  expect(screen.getByTestId("fund").textContent).toBe("");
+  vi.restoreAllMocks();
 });

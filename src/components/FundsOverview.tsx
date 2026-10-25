@@ -1,70 +1,26 @@
-import { useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Check, ChevronDown, RefreshCw, Wallet } from "lucide-react";
+import { useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { useAuth } from "@/hooks/useAuth";
-import { useSelectedWallet } from "@/hooks/useSelectedWallet";
+import { useWalletFunds } from "@/hooks/useWalletFunds";
+import { useNavigate } from "@tanstack/react-router";
+import { WalletPicker } from "./WalletPicker";
 import { useCurrency } from "@/hooks/currencyContext";
 import { FiatValue } from "@/hooks/useCurrency";
 import { fiatEstimate, formatFiat } from "@/lib/fiat";
-import { getFundsOverview } from "@/lib/fundsOverview.functions";
-import {
-  fundsTotal,
-  formatFundAmount,
-  fundWalletAssets,
-  type FundWallet,
-} from "@/lib/fundsOverview";
+import { fundsTotal, formatFundAmount, fundWalletAssets } from "@/lib/fundsOverview";
 import { Panel } from "./AppShell";
 import { Button } from "./ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { TokenLogo } from "./TokenLogo";
 
 export function FundsOverview() {
   const { user } = useAuth();
-  const userId = user?.id;
   const { tokens } = useSelectedToken();
-  const { walletScope, address } = useSelectedWallet();
   const { currency, quote } = useCurrency();
-  const client = useQueryClient();
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [selection, setSelection] = useState({ userId: "", address: "" });
+  const { q, wallets, wallet: selected, choose } = useWalletFunds();
   const [expandedFor, setExpandedFor] = useState<string | null>(null);
-  const q = useQuery({
-    queryKey: ["funds-overview", user?.id],
-    enabled: !!user,
-    queryFn: () => getFundsOverview(),
-    refetchInterval: 30000,
-    staleTime: 10000,
-    retry: false,
-  });
-  useEffect(() => {
-    let saved = "";
-    try {
-      saved = userId ? (localStorage.getItem(`cryptobot:funds-wallet:${userId}`) ?? "") : "";
-    } catch {
-      /* optional storage */
-    }
-    setSelection({ userId: userId ?? "", address: saved });
-    setPickerOpen(false);
-    setExpandedFor(null);
-  }, [userId]);
-  useEffect(() => {
-    const refresh = () => {
-      void client.invalidateQueries({ queryKey: ["funds-overview", user?.id] });
-    };
-    window.addEventListener("wallets-changed", refresh);
-    return () => window.removeEventListener("wallets-changed", refresh);
-  }, [client, user?.id]);
+  const navigate = useNavigate();
   if (!user) return null;
-  const wallets = q.data?.wallets ?? [];
-  const selected =
-    wallets.find(
-      (w) =>
-        selection.userId === user.id && w.address.toLowerCase() === selection.address.toLowerCase(),
-    ) ??
-    wallets.find((w) => address && w.address.toLowerCase() === address.toLowerCase()) ??
-    wallets.find((w) => w.scopes.includes(walletScope)) ??
-    wallets[0];
   const total = fundsTotal(wallets);
   const local = (value: string | null) => {
     const amount = fiatEstimate(value, "BNB", currency, quote);
@@ -74,85 +30,33 @@ export function FundsOverview() {
         ? `${formatFundAmount(value, 10)} BNB`
         : formatFiat(amount, currency);
   };
-  const choose = (w: FundWallet) => {
-    setSelection({ userId: user.id, address: w.address });
-    setExpandedFor(null);
-    setPickerOpen(false);
-    try {
-      localStorage.setItem(`cryptobot:funds-wallet:${user.id}`, w.address);
-    } catch {
-      /* keep in memory */
-    }
-  };
   const selectedTotal = selected ? fundsTotal([selected]) : null;
   const assets = selected ? fundWalletAssets(selected) : [];
   const expanded = !!selected && expandedFor === selected.address;
   const shown = expanded ? assets : assets.slice(0, 4);
-  const SelectedIcon = selected?.bot ? Bot : Wallet;
   return (
     <div className="mb-5" data-funds-overview>
       <Panel title="Sua carteira">
         <div className="mb-5 flex items-center justify-between gap-3">
-          <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-            <DialogTrigger asChild>
-              <Button
-                variant="secondary"
-                className="h-auto min-w-0 max-w-[85%] justify-start gap-2 rounded-full px-3 py-2.5"
-                aria-label={`Escolher carteira: ${selected?.label ?? "Carteiras"}`}
-              >
-                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                  <SelectedIcon className="size-5" aria-hidden="true" />
-                </span>
-                <span className="truncate text-base font-semibold">
-                  {selected?.label ?? "Carteiras"}
-                </span>
-                <ChevronDown className="size-4 shrink-0" aria-hidden="true" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-2xl">
-              <DialogTitle>Escolher carteira</DialogTitle>
-              <DialogDescription>Veja o saldo e os tokens de cada carteira.</DialogDescription>
-              <div role="group" aria-label="Carteiras disponíveis" className="space-y-2">
-                {wallets.map((w) => {
-                  const Icon = w.bot ? Bot : Wallet;
-                  const subtotal = fundsTotal([w]);
-                  const checked = w.address === selected?.address;
-                  return (
-                    <button
-                      type="button"
-                      key={w.address}
-                      aria-pressed={checked}
-                      onClick={() => choose(w)}
-                      className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left ${checked ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"}`}
-                    >
-                      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                        <Icon className="size-5" aria-hidden="true" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block break-words text-sm font-semibold">{w.label}</span>
-                        <span className="block text-xs text-muted-foreground">
-                          {w.bot ? "Robôs" : "Pessoal"} · {w.address.slice(0, 6)}…
-                          {w.address.slice(-4)}
-                        </span>
-                        <span className="block text-sm tabular-nums">
-                          {local(subtotal.total ?? subtotal.known)}
-                          {!subtotal.complete ? " · parcial" : ""}
-                        </span>
-                      </span>
-                      {checked && (
-                        <Check className="size-5 shrink-0 text-primary" aria-label="Selecionada" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              <Button asChild variant="secondary" className="w-full rounded-full">
-                <a href="/carteiras#adicionar-carteira" onClick={() => setPickerOpen(false)}>
-                  Adicionar ou gerenciar carteiras
-                </a>
-              </Button>
-            </DialogContent>
-          </Dialog>
+          <WalletPicker
+            options={wallets.map((w) => {
+              const subtotal = fundsTotal([w]);
+              return {
+                id: w.address,
+                label: w.label,
+                bot: w.bot,
+                detail: `${w.bot ? "Robôs" : "Pessoal"} · ${w.address.slice(0, 6)}…${w.address.slice(-4)}`,
+                value: `${local(subtotal.total ?? subtotal.known)}${!subtotal.complete ? " · parcial" : ""}`,
+              };
+            })}
+            value={selected?.address ?? ""}
+            onChange={(id) => {
+              const found = wallets.find((w) => w.address === id);
+              if (!found) return false;
+              setExpandedFor(null);
+              return choose(found);
+            }}
+          />
           <Button
             size="icon"
             variant="ghost"
@@ -219,26 +123,42 @@ export function FundsOverview() {
                     tokens.find((t) => t.address.toLowerCase() === a.address.toLowerCase())?.name ??
                     a.name;
                   return (
-                    <li key={a.address} className="flex items-center gap-3 py-4">
-                      <TokenLogo address={a.address} symbol={a.symbol} logoUrl={a.logoUrl} />
-                      <div className="min-w-0 flex-1">
-                        <p className="break-words text-sm font-semibold sm:text-base">{name}</p>
-                        <p
-                          className="mt-1 break-all text-xs tabular-nums text-muted-foreground"
-                          title={a.amount == null ? undefined : `${a.amount} ${a.symbol}`}
-                        >
-                          {a.amount == null ? "Saldo indisponível" : formatFundAmount(a.amount, 10)}{" "}
-                          {a.symbol}
-                        </p>
-                      </div>
-                      <div className="min-w-0 max-w-[48%] text-right">
-                        <p className="break-words text-base font-semibold tabular-nums">
-                          {local(a.value)}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {a.value == null ? "Cotação ou saldo indisponível" : "Valor estimado"}
-                        </p>
-                      </div>
+                    <li key={a.address}>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-3 rounded-xl py-4 text-left transition-colors hover:bg-muted/50 active:bg-muted"
+                        onClick={() => {
+                          if (!choose(selected)) return;
+                          void navigate({
+                            to: "/operar",
+                            search:
+                              a.address === "native" ? { pagamento: "BNB" } : { token: a.address },
+                          });
+                        }}
+                        aria-label={`Operar ${a.symbol} da carteira ${selected.label}`}
+                      >
+                        <TokenLogo address={a.address} symbol={a.symbol} logoUrl={a.logoUrl} />
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words text-sm font-semibold sm:text-base">{name}</p>
+                          <p
+                            className="mt-1 break-all text-xs tabular-nums text-muted-foreground"
+                            title={a.amount == null ? undefined : `${a.amount} ${a.symbol}`}
+                          >
+                            {a.amount == null
+                              ? "Saldo indisponível"
+                              : formatFundAmount(a.amount, 10)}{" "}
+                            {a.symbol}
+                          </p>
+                        </div>
+                        <div className="min-w-0 max-w-[48%] text-right">
+                          <p className="break-words text-base font-semibold tabular-nums">
+                            {local(a.value)}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {a.value == null ? "Cotação ou saldo indisponível" : "Valor estimado"}
+                          </p>
+                        </div>
+                      </button>
                     </li>
                   );
                 })}
