@@ -5,6 +5,7 @@ import { incompatibleBotToken, INCOMPATIBLE_BNB } from "@/lib/guidedBot";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getTradingMarket } from "@/lib/chain.functions";
+import { useChartPool } from "@/hooks/useChartPool";
 import { useCandles } from "@/hooks/useCandles";
 import {
   closesAt,
@@ -121,7 +122,8 @@ export function RobotVision(props: {
     retry: 1,
   });
   const pool = market.data?.pools.find((p) => p.supported) ?? market.data?.pools[0];
-  const candles = useCandles(pool?.pairAddress, token);
+  const chartPool = useChartPool(token, pool);
+  const candles = useCandles(chartPool, token);
   const serverStale = !evaluatedAt || now - Date.parse(evaluatedAt) > 30_000;
   const analysisStale = !props.serverAnalysis || now - Date.parse(props.serverAnalysis.at) > 20_000;
   const observation = cfg

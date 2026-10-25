@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { formatEther, formatUnits, getAddress } from "viem";
-import { POPULAR_BSC_TOKENS } from "./tokens";
+import { POPULAR_BSC_TOKENS, findToken } from "./tokens";
 import { erc20Abi } from "./pancake";
 import { uniqueFundWallets, type FundWallet, type FundAsset } from "./fundsOverview";
 import { walletCapital } from "./walletCapital";
@@ -12,7 +12,7 @@ export async function readFundsOverview(admin: any, pub: any, userId: string) {
   const [saved, robots, added, bots, strategies, locks, pending] = await Promise.all([
     admin.from("user_wallets").select("id,address,label").eq("user_id", userId).limit(1000),
     admin.from("bot_wallets").select("address,wallet_scope").eq("user_id", userId).limit(1000),
-    admin.from("user_tokens").select("address").eq("user_id", userId).limit(1000),
+    admin.from("user_tokens").select("address,symbol").eq("user_id", userId).limit(1000),
     admin
       .from("grid_bots")
       .select("id,token,wallet_scope,armed,mode,order_bnb,gas_reserve_bnb,strat_state,archived_at")
@@ -160,7 +160,28 @@ export async function readFundsOverview(admin: any, pub: any, userId: string) {
         /* Actual holdings remain visible if reservation calculation fails. */
       }
     }
-    rows.push({ ...ref, bnb, assets, issues, capital });
+    rows.push({
+      ...ref,
+      robotScopes,
+      bnb,
+      assets,
+      issues,
+      capital,
+      bots: (bots.data ?? [])
+        .filter((b: any) => robotScopes.includes(b.wallet_scope) && !b.archived_at)
+        .map((b: any) => ({
+          id: b.id,
+          token: b.token,
+          scope: b.wallet_scope,
+          armed: !!b.armed,
+          symbol:
+            assets.find((a) => a.address.toLowerCase() === b.token.toLowerCase())?.symbol ??
+            findToken(b.token)?.symbol ??
+            added.data?.find((t: any) => t.address.toLowerCase() === b.token.toLowerCase())
+              ?.symbol ??
+            b.token.slice(0, 8) + "…",
+        })),
+    });
   }
   const { readMarket } = await import("./market.server");
   const held = [

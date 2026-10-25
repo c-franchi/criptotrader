@@ -18,9 +18,10 @@ it("reports blocked ticks as degraded and never claims the strategy was evaluate
       const q: any = {
         select: () => q,
         eq: () => q,
+        gte: () => q,
+        limit: () => q,
         is: () => q,
         order: () => q,
-        limit: () => q,
         update: (patch: any) => {
           updates.push(patch);
           return q;
@@ -58,6 +59,8 @@ it("releases proven pre-broadcast failures but retains unresolved earlier submis
           select: () => q,
           insert: async () => ({ error: null }),
           eq: () => q,
+          gte: () => q,
+          limit: () => q,
           is: () => q,
           update: () => q,
           maybeSingle: async () => ({
@@ -97,6 +100,8 @@ it("notifies a new inability to operate once, retaining the bot configuration an
       const q: any = {
         select: () => q,
         eq: () => q,
+        gte: () => q,
+        limit: () => q,
         insert: async (row: any) => {
           if (table === "notifications") notices.push(row);
           return { error: null };

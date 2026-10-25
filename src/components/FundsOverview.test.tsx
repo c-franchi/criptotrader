@@ -22,6 +22,7 @@ vi.mock("@/hooks/useSelectedWallet", async () => {
         walletScope: "one",
         address: "0xpersonal",
         fundAddress,
+        selectWallet: () => true,
         selectFundWallet: (w: any) => {
           set(w.address);
           localStorage.setItem(`cryptobot:funds-wallet:${state.user?.id}`, w.address);
@@ -69,24 +70,29 @@ const robot = {
   bot: true,
   bnb: "2",
   assets: [{ address: "t", symbol: "T", amount: "100", priceBnb: "0.002" }],
+  bots: [{ id: "bot", token: "t", symbol: "T", scope: "one", armed: false }],
 };
-function chooseRobot() {
+function chooseOther() {
   fireEvent.click(screen.getByRole("button", { name: /Escolher carteira:/ }));
-  const dialog = within(screen.getByRole("dialog"));
-  fireEvent.click(dialog.getByRole("button", { name: /Master robô/ }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Reserva/ }));
 }
-it("shows one physical wallet and opens the chooser with personal and robot balances", () => {
+it("keeps robot assets in a nested accordion, outside the personal-wallet selector", () => {
   state.rows = [wallet, robot];
   render(<FundsOverview />);
-  expect(screen.queryByText("Token de teste")).toBeNull();
   expect(screen.getByText(/Total de fundos/).textContent).toContain("160,00");
-  chooseRobot();
-  expect(screen.queryByRole("dialog")).toBeNull();
-  expect(screen.getByRole("button", { name: "Escolher carteira: Master robô" })).toBeTruthy();
-  const token = screen.getByText("Token de teste").closest("li")!;
-  expect(within(token).getByText("100 T")).toBeTruthy();
-  expect(within(token).getByText(/10,00/)).toBeTruthy();
-  expect(token.closest("details")).toBeNull();
+  const accordion = screen.getByText("Robôs desta carteira").closest("details")!;
+  fireEvent.click(screen.getByText("Robôs desta carteira"));
+  expect(accordion.compareDocumentPosition(screen.getByText("Endereço e reservas"))).toBe(4);
+  expect(within(accordion).getByText("100 T")).toBeTruthy();
+  fireEvent.click(within(accordion).getByRole("button", { name: "Abrir robô T · pausado" }));
+  expect(navigation.go).toHaveBeenCalledWith({
+    to: "/grade",
+    search: { bot: "bot", token: "t", carteira: "one" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Escolher carteira:/ }));
+  expect(
+    within(screen.getByRole("dialog")).queryByRole("button", { name: /Master robô/ }),
+  ).toBeNull();
 });
 it("limits the initial token list to four largest holdings, expands and resets on another wallet", () => {
   state.rows = [
@@ -100,7 +106,7 @@ it("limits the initial token list to four largest holdings, expands and resets o
         priceBnb: "1",
       })),
     },
-    robot,
+    { ...wallet, address: "0xother", label: "Reserva", scopes: ["two"] },
   ];
   render(<FundsOverview />);
   const list = screen.getByRole("region", { name: "Tokens de Pessoal" });
@@ -112,17 +118,17 @@ it("limits the initial token list to four largest holdings, expands and resets o
   fireEvent.click(screen.getByRole("button", { name: "Mostrar menos" }));
   expect(within(list).getAllByRole("listitem")).toHaveLength(4);
   fireEvent.click(screen.getByRole("button", { name: "Ver todos (6)" }));
-  chooseRobot();
+  chooseOther();
   expect(screen.queryByText("Ativo 4")).toBeNull();
   expect(screen.queryByRole("button", { name: "Mostrar menos" })).toBeNull();
 });
 it("restores the display selection on remount without changing robot configuration", () => {
-  state.rows = [wallet, robot];
+  state.rows = [wallet, { ...wallet, address: "0xother", label: "Reserva", scopes: ["two"] }];
   const view = render(<FundsOverview />);
-  chooseRobot();
+  chooseOther();
   view.unmount();
   render(<FundsOverview />);
-  expect(screen.getByRole("button", { name: "Escolher carteira: Master robô" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Escolher carteira: Reserva" })).toBeTruthy();
 });
 it("ignores a saved wallet that was removed", () => {
   localStorage.setItem("cryptobot:funds-wallet:owner", "0xremoved");
@@ -159,13 +165,12 @@ it("marks retained values as the last successful query if a refresh fails", () =
   expect(screen.getByRole("alert").textContent).toContain("última consulta");
 });
 
-it("opens manual trading with the clicked token while preserving the chosen wallet", () => {
-  state.rows = [wallet, robot];
+it("opens manual trading only from the personal wallet's token row", () => {
+  state.rows = [{ ...wallet, assets: robot.assets }, robot];
   render(<FundsOverview />);
-  chooseRobot();
-  fireEvent.click(screen.getByRole("button", { name: "Operar T da carteira Master robô" }));
+  fireEvent.click(screen.getByRole("button", { name: "Operar T da carteira Pessoal" }));
   expect(navigation.go).toHaveBeenCalledWith({ to: "/operar", search: { token: "t" } });
-  expect(localStorage.getItem("cryptobot:funds-wallet:owner")).toBe("0xrobot");
+  expect(localStorage.getItem("cryptobot:funds-wallet:owner")).toBe("0xpersonal");
 });
 it("opens native BNB as the payment asset without pretending it is a WBNB balance", () => {
   state.rows = [wallet];

@@ -34,10 +34,10 @@ function Probe() {
         onClick={() =>
           selectFundWallet({
             address: "0x3333333333333333333333333333333333333333",
-            label: "Bot A",
+            label: "Pessoal A",
             scopes: [state.wallets[0]!.id],
-            bot: true,
-            personal: false,
+            bot: false,
+            personal: true,
             bnb: "1",
             assets: [],
             issues: [],

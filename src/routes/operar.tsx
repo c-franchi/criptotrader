@@ -1,3 +1,4 @@
+import { verifyWalletSession } from "@/lib/walletSession";
 import { useManualBalances } from "@/hooks/useManualBalances";
 import { useWalletFunds } from "@/hooks/useWalletFunds";
 import { manualSearch, manualWalletBlocks } from "@/lib/manualWallet";
@@ -134,12 +135,13 @@ function Operar() {
   const { token: selected, selectToken: setGTE, selectInspectedToken, tokens } = useSelectedToken();
   const GTE = selected.address;
   const sym = selected.symbol;
-  const { walletScope, address: savedAddress, fundAddress } = useSelectedWallet();
-  const { wallet: selectedWallet } = useWalletFunds();
+  const { walletScope, address: savedAddress } = useSelectedWallet();
+  const { wallet: selectedWallet, robotWallets } = useWalletFunds();
+  const robotOnly = !selectedWallet && robotWallets.length > 0;
   const [wallet, setWallet] = useState<WalletClient | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
-  const expected = selectedWallet?.address ?? fundAddress ?? savedAddress ?? account;
+  const expected = selectedWallet?.address ?? savedAddress ?? account;
   const identity = `${expected?.toLowerCase() ?? ""}:${GTE.toLowerCase()}`;
   const identityRef = useRef(identity);
   identityRef.current = identity;
@@ -310,7 +312,7 @@ function Operar() {
   const connect = async () => {
     setBusy("conectando");
     try {
-      const provider = await connectWallet();
+      const provider = await connectWallet(expected ?? undefined);
       provider.on("accountsChanged", (a: string[]) => {
         setAccount(a[0] ?? null);
         setQuote(null);
@@ -364,7 +366,7 @@ function Operar() {
     expected,
     account,
     chainId,
-    robot: selectedWallet?.bot ?? false,
+    robot: robotOnly || (selectedWallet?.bot ?? false),
     balanceKnown: !!bal,
   });
   if (tokenIssue) blocks.push(tokenIssue);
@@ -508,6 +510,13 @@ function Operar() {
       return void toast.error(
         "Há uma transação pendente nesta carteira. Concilie o histórico antes de repetir.",
       );
+    if (!providerRef.current) return void toast.error("Reconecte a carteira selecionada.");
+    try {
+      await verifyWalletSession(providerRef.current, expected ?? account);
+    } catch (e) {
+      setQuote(null);
+      return void toast.error((e as Error).message);
+    }
     const acct = getAddress(account);
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
     const path = quote.side === "compra" ? ([WBNB, GTE] as const) : ([GTE, WBNB] as const);
@@ -553,6 +562,7 @@ function Operar() {
           toast.info("Aprove na carteira somente a quantidade desta venda");
           if (identityRef.current !== quote.identity)
             throw new Error("Carteira ou token alterado. Cote novamente.");
+          await verifyWalletSession(providerRef.current!, expected ?? acct);
           const ah = await wallet.writeContract({
             account: acct,
             chain: bsc,
@@ -610,6 +620,7 @@ function Operar() {
             ).request;
       if (identityRef.current !== quote.identity)
         throw new Error("Carteira ou token alterado. Cote novamente.");
+      await verifyWalletSession(providerRef.current!, expected ?? acct);
       const hash = await wallet.writeContract(req as Parameters<typeof wallet.writeContract>[0]);
       submittedHash = hash;
       await upd({ tx_hash: hash, status: "enviada" });
@@ -757,7 +768,7 @@ function Operar() {
                   Voltar ao gráfico
                 </Button>
               </div>
-              {!account && !selectedWallet?.bot && (
+              {!account && !robotOnly && !selectedWallet?.bot && (
                 <Button className="mb-3 w-full" onClick={connect} disabled={!!busy}>
                   {busy === "conectando" ? "Conectando…" : "Conectar carteira para continuar"}
                 </Button>
@@ -768,7 +779,7 @@ function Operar() {
                   ? `${expected.slice(0, 6)}…${expected.slice(-4)}`
                   : "conecte sua carteira"}
               </p>
-              {selectedWallet?.bot && (
+              {(robotOnly || selectedWallet?.bot) && (
                 <Button asChild variant="outline" className="mb-3">
                   <Link to="/grade">Gerenciar posição na tela Robô</Link>
                 </Button>
@@ -1011,6 +1022,22 @@ function Operar() {
                       "Pode exigir uma aprovação limitada a esta quantidade."}
                   </li>
                 </ul>
+                <details className="mt-3 text-xs text-muted-foreground">
+                  <summary className="cursor-pointer">Conferir conta, token e aprovação</summary>
+                  <p className="mt-2 break-all">Conta que assina: {expected ?? account}</p>
+                  <p className="mt-1 break-all">
+                    Contrato de {sym}: {GTE}
+                  </p>
+                  <p className="mt-1">
+                    Na venda, a carteira pode pedir primeiro uma aprovação limitada à quantidade
+                    desta ordem no contrato do token; depois, a troca na PancakeSwap. Uma interação
+                    com o contrato pode aparecer com 0 BNB.
+                  </p>
+                  <p className="mt-1">
+                    Se houver alerta de risco ou os detalhes forem diferentes, cancele e confira
+                    antes de assinar.
+                  </p>
+                </details>
                 <div className="mt-3 flex gap-2">
                   <Button onClick={execute} disabled={!ready || !!busy}>
                     {busy === "assinatura"

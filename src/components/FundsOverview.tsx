@@ -4,6 +4,7 @@ import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { useAuth } from "@/hooks/useAuth";
 import { useWalletFunds } from "@/hooks/useWalletFunds";
 import { useNavigate } from "@tanstack/react-router";
+import { WalletRobots } from "./WalletRobots";
 import { WalletPicker } from "./WalletPicker";
 import { useCurrency } from "@/hooks/currencyContext";
 import { FiatValue } from "@/hooks/useCurrency";
@@ -17,7 +18,16 @@ export function FundsOverview() {
   const { user } = useAuth();
   const { tokens } = useSelectedToken();
   const { currency, quote } = useCurrency();
-  const { q, wallets, wallet: selected, choose } = useWalletFunds();
+  const {
+    q,
+    wallets,
+    wallet: selected,
+    robotWallets,
+    choices,
+    value,
+    chooseId,
+    choose,
+  } = useWalletFunds();
   const [expandedFor, setExpandedFor] = useState<string | null>(null);
   const navigate = useNavigate();
   if (!user) return null;
@@ -39,22 +49,11 @@ export function FundsOverview() {
       <Panel title="Sua carteira">
         <div className="mb-5 flex items-center justify-between gap-3">
           <WalletPicker
-            options={wallets.map((w) => {
-              const subtotal = fundsTotal([w]);
-              return {
-                id: w.address,
-                label: w.label,
-                bot: w.bot,
-                detail: `${w.bot ? "Robôs" : "Pessoal"} · ${w.address.slice(0, 6)}…${w.address.slice(-4)}`,
-                value: `${local(subtotal.total ?? subtotal.known)}${!subtotal.complete ? " · parcial" : ""}`,
-              };
-            })}
-            value={selected?.address ?? ""}
+            options={choices}
+            value={value}
             onChange={(id) => {
-              const found = wallets.find((w) => w.address === id);
-              if (!found) return false;
               setExpandedFor(null);
-              return choose(found);
+              return chooseId(id);
             }}
           />
           <Button
@@ -164,6 +163,7 @@ export function FundsOverview() {
                 })}
               </ul>
             </section>
+            <WalletRobots wallets={robotWallets} local={local} />
             <details className="mt-3 border-t border-border pt-3">
               <summary className="cursor-pointer text-sm text-muted-foreground">
                 Endereço e reservas
@@ -232,12 +232,15 @@ export function FundsOverview() {
             </p>
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            Nenhuma carteira cadastrada.{" "}
-            <a className="text-primary underline" href="/carteiras#adicionar-carteira">
-              Adicionar carteira
-            </a>
-          </p>
+          <div>
+            <WalletRobots wallets={robotWallets} local={local} />
+            <p className="text-sm text-muted-foreground">
+              Nenhuma carteira pessoal selecionada.{" "}
+              <a className="text-primary underline" href="/carteiras#adicionar-carteira">
+                Adicionar carteira
+              </a>
+            </p>
+          </div>
         )}
       </Panel>
     </div>
