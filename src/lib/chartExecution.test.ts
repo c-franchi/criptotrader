@@ -27,7 +27,7 @@ export const chartExecutionConfig = buildChartPlanConfig(
   EMPTY_CONFIG,
 );
 it("permits an acknowledged combined-plan purchase whose isolated first entry would lose, but still limits actual gas", () => {
-  const b = chartExecutionBasis(chartExecutionConfig, EMPTY_STATE, 0, 0.001, 18)!;
+  const b = chartExecutionBasis(chartExecutionConfig, EMPTY_STATE, 0, 0.001, 18, "0.001")!;
   const fee = chartMaxBuyFeeRaw(
     b,
     parseEther(".01"),
@@ -81,4 +81,11 @@ it("fails closed when the current quote consumes the combined budget or returns 
       18,
     ),
   ).toBeNull();
+});
+
+it("never pays actual gas from another bot's reservations or its own remaining purchase capital", () => {
+  const b = chartExecutionBasis(chartExecutionConfig, EMPTY_STATE, 0, 0.001, 18)!;
+  expect(
+    chartMaxBuyFeeRaw(b, parseEther(".01"), parseEther("9.975"), parseEther(".0099500625")),
+  ).toBe(parseEther(".00001").toString());
 });
