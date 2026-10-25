@@ -273,8 +273,8 @@ function BotWallet() {
             </li>
             <li>
               💡 Para pegar o dinheiro de volta, use{" "}
-              <strong className="text-foreground">"Desligar e devolver tudo"</strong> na página do
-              robô.
+              <strong className="text-foreground">"Devolver ativos à carteira mãe"</strong> na
+              página do robô.
             </li>
             <li>Esta carteira não entra na lista de baixo e não pode ser apagada daqui.</li>
           </ul>

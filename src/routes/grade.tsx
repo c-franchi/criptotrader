@@ -1,3 +1,4 @@
+import { BotWithdrawalPanel, BotWithdrawalHistory } from "@/components/BotWithdrawalPanel";
 import { botSearch } from "@/lib/botNotice";
 import { inspectToken } from "@/lib/userTokens.functions";
 import { ReconcileSaleButton } from "@/components/ReconcileSaleButton";
@@ -29,7 +30,6 @@ import {
   createBotWallet,
   getBotWallet,
   runGridNow,
-  withdrawBot,
 } from "@/lib/bot.functions";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { ChevronDown } from "lucide-react";
@@ -41,7 +41,6 @@ import { HelpTip } from "@/components/HelpTip";
 import { RobotVision } from "@/components/RobotVision";
 import { FundBotDialog } from "@/components/FundBotDialog";
 import { requiredBotBnb } from "@/lib/botFunding";
-import { useSavedWallets } from "@/hooks/useSavedWallets";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -105,7 +104,6 @@ function Robo() {
   } = useSelectedWallet();
   const getW = useServerFn(getBotWallet),
     createW = useServerFn(createBotWallet),
-    withdraw = useServerFn(withdrawBot),
     runNow = useServerFn(runGridNow);
   const {
     token: selected,
@@ -211,8 +209,6 @@ function Robo() {
   );
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
-  const { wallets: saved } = useSavedWallets();
-  const [dest, setDest] = useState("");
   const [fullscreen, setFullscreen] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState<"bots" | "assets" | "orders">("bots");
   const [setupOpen, setSetupOpen] = useState(false);
@@ -949,6 +945,13 @@ function Robo() {
           </Panel>
         </section>
         <section hidden={workspaceTab !== "assets"} role="tabpanel" aria-label="Ativos e saldo">
+          <BotWithdrawalPanel
+            key={walletScope}
+            walletScope={walletScope}
+            walletName={walletName}
+            sourceAddress={w?.address ?? null}
+            onDone={load}
+          />
           <WalletCapitalPanel
             key={selectionKey}
             walletScope={walletScope}
@@ -1019,6 +1022,11 @@ function Robo() {
           </div>
         </section>
         <section hidden={workspaceTab !== "orders"} role="tabpanel" aria-label="Histórico do robô">
+          <BotWithdrawalHistory
+            key={walletScope}
+            walletScope={walletScope}
+            enabled={workspaceTab === "orders"}
+          />
           <div>
             <Panel title={`Operações do robô (${orders.length})`}>
               {orders.length === 0 ? (
@@ -1164,7 +1172,7 @@ function Robo() {
                 </li>
                 <li>
                   💡 Deixe no robô só um valor pequeno que aceita arriscar. Para recuperar tudo, use
-                  "Desligar e devolver tudo".
+                  "Devolver ativos à carteira mãe".
                 </li>
               </ul>
             </Panel>
@@ -1362,72 +1370,12 @@ function Robo() {
                         </span>
                       </p>
                     ))}
-                  <div className="mt-3 rounded-md border border-warning/50 bg-warning/10 p-3">
-                    <p className="font-semibold">Retirar saldo e pausar os robôs desta carteira</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      A qualquer momento: o robô é{" "}
-                      <strong className="text-foreground">desligado na hora</strong>, os tokens que
-                      ele comprou e todo o BNB voltam para a carteira que você escolher abaixo (só
-                      fica o necessário para a taxa da rede). Os tokens voltam como tokens — se
-                      quiser BNB, venda-os depois em Operar.
-                    </p>
-                    {(() => {
-                      const ok = (c: { created_at?: string }) =>
-                        !!c.created_at &&
-                        Date.now() - new Date(c.created_at).getTime() >= 24 * 3600 * 1000;
-                      const eligible = saved.filter(ok);
-                      if (saved.length === 0)
-                        return (
-                          <p className="mt-2 text-xs">
-                            Primeiro salve sua carteira em{" "}
-                            <Link to="/carteiras" className="text-primary underline">
-                              Minhas carteiras
-                            </Link>
-                            . Por segurança, ela poderá receber 24 horas depois.
-                          </p>
-                        );
-                      return (
-                        <div className="mt-2 space-y-2">
-                          <select
-                            className="w-full rounded-md border border-border bg-background p-2 text-sm"
-                            value={dest}
-                            onChange={(e) => setDest(e.target.value)}
-                          >
-                            <option value="">Escolha para onde devolver…</option>
-                            {saved.map((c) => (
-                              <option key={c.id} value={c.address} disabled={!ok(c)}>
-                                {c.label || "Carteira"} · {c.address.slice(0, 6)}…
-                                {c.address.slice(-4)}
-                                {ok(c) ? "" : " (liberada 24h após salvar)"}
-                              </option>
-                            ))}
-                          </select>
-                          {eligible.length === 0 && (
-                            <p className="text-xs">
-                              Sua carteira foi salva há menos de 24 horas. Essa espera protege seu
-                              dinheiro caso alguém invada sua conta.
-                            </p>
-                          )}
-                          <Button
-                            className="w-full"
-                            variant="destructive"
-                            disabled={busy || !dest}
-                            onClick={() =>
-                              confirm(
-                                "Pausar os robôs desta carteira e devolver seu saldo para o destino escolhido? Os robôs das outras carteiras continuam ativos.",
-                              ) &&
-                              act(
-                                () => withdraw({ data: { to: dest, walletScope } }),
-                                "Devolução enviada. Confira na sua carteira em alguns segundos.",
-                              )
-                            }
-                          >
-                            Desligar e devolver tudo
-                          </Button>
-                        </div>
-                      );
-                    })()}
-                  </div>
+                  <BotWithdrawalPanel
+                    walletScope={walletScope}
+                    walletName={walletName}
+                    sourceAddress={w.address}
+                    onDone={load}
+                  />
                 </div>
               ) : (
                 <Button
@@ -1473,7 +1421,7 @@ function Robo() {
                 </Faq>
                 <Faq q="Como paro tudo?">
                   Toque em "Pausar robô" para impedir novas operações. Para retirar o saldo, abra
-                  "Adicionar ou retirar saldo" e use "Desligar e devolver tudo". Se houver uma
+                  "Adicionar ou retirar saldo" e use "Devolver ativos à carteira mãe". Se houver uma
                   transação enviada, a retirada aguarda sua confirmação.
                 </Faq>
               </div>
@@ -1488,7 +1436,8 @@ function Robo() {
 const AUDIT_LABEL: Record<string, string> = {
   bot_wallet_created: "Carteira do robô criada",
   bot_funded: "Você abasteceu o robô",
-  bot_withdraw: "Saldo devolvido para sua carteira",
+  bot_withdraw: "Devolução de ativos · confira o resultado",
+  bot_withdraw_failed: "Tentativa de devolução não concluída",
   bot_armed: "Robô ligado",
   bot_disarmed: "Robô desligado",
   bot_saved: "Configuração salva",

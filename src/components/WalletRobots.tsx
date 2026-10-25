@@ -1,3 +1,4 @@
+import { BotWithdrawalPanel } from "./BotWithdrawalPanel";
 import { useNavigate } from "@tanstack/react-router";
 import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import {
@@ -51,6 +52,13 @@ export function WalletRobots({
                   </li>
                 ))}
               </ul>
+              {(w.robotScopes?.[0] ?? w.scopes[0]) && (
+                <BotWithdrawalPanel
+                  walletScope={(w.robotScopes?.[0] ?? w.scopes[0])!}
+                  walletName={w.label}
+                  sourceAddress={w.address}
+                />
+              )}
               <div className="mt-3 flex flex-wrap gap-2">
                 {(w.bots ?? []).map((bot) => (
                   <Button

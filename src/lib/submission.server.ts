@@ -44,7 +44,9 @@ export async function submitTransaction(o: {
     )
       throw new Error("A taxa estimada da compra consome a margem configurada. Nada foi enviado.");
     const available = await o.pub.getBalance({ address: o.wallet.account.address });
-    if (available < (o.value ?? 0n) + BigInt(request.gas) * BigInt(feePerGas))
+    const minimumRemaining =
+      o.intent["kind"] === "withdrawal" ? BigInt(o.intent["minimumRemainingBnbRaw"] ?? "0") : 0n;
+    if (available < (o.value ?? 0n) + BigInt(request.gas) * BigInt(feePerGas) + minimumRemaining)
       throw new Error("BNB insuficiente para o valor da operação e sua taxa estimada de rede");
     signed = await o.wallet.signTransaction(request);
     hash = keccak256(signed);
@@ -214,6 +216,14 @@ export async function settleSubmission(
       block: receipt.blockNumber.toString(),
       gasBnb: formatEther(transactionGas),
       executionGasBnb: formatEther(gas),
+      ...(i.kind === "withdrawal" && i.token && i.to && receipt.status === "success"
+        ? {
+            receivedTokenRaw:
+              walletTokenDelta(receipt.logs, i.token, i.to) > 0n
+                ? walletTokenDelta(receipt.logs, i.token, i.to).toString()
+                : null,
+          }
+        : {}),
     },
   });
   if (error) throw error;
