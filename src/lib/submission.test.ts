@@ -263,3 +263,16 @@ it("records the token amount evidenced at the withdrawal recipient without treat
     }),
   );
 });
+
+it("keeps durable journaling before broadcast with telemetry enabled, and marks a lost response as uncertain", async () => {
+  const { ExecutionClock } = await import("./executionTiming");
+  const f = setup();
+  const timing = new ExecutionClock("bot", "scope", token);
+  timing.mark("signalDetected");
+  const r = await submitTransaction({ ...f, timing });
+  expect(f.events.slice(0, 2)).toEqual(["persist", "broadcast"]);
+  expect(r.receipt).toBeNull();
+  expect(timing.snapshot().stages.broadcastUncertain).toBeDefined();
+  expect(timing.snapshot().stages.receiptObserved).toBeUndefined();
+  expect(f.pub.sendRawTransaction).toHaveBeenCalledTimes(1);
+});

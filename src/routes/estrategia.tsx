@@ -1,3 +1,4 @@
+import { ExecutionTimingPanel } from "@/components/ExecutionTimingPanel";
 import { BotRuleHelp, BotRulesGuide, type GuidedRule } from "@/components/BotRulesGuide";
 import { StopLossDecision } from "@/components/StopLossDecision";
 import { manualRuleKey } from "@/lib/botGuidance";
@@ -553,6 +554,7 @@ function StrategyForm() {
           title="Regras avançadas"
           description="Ajustes detalhados de entrada, saída e proteção."
         />
+        <ExecutionTimingPanel walletScope={walletScope} token={token.address} />
         <div className="rounded-xl bg-secondary p-4 text-sm">
           <b>Configuração avançada</b>
           <p>Para criar e configurar o robô em um só lugar, use o assistente em Meus robôs.</p>

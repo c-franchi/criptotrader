@@ -1,3 +1,4 @@
+import type { ExecutionClock } from "./executionTiming";
 import { incompatibleBotToken, INCOMPATIBLE_BNB } from "./guidedBot";
 import { strategyBuyAmount } from "./walletCapital";
 import { readWalletCapital } from "./walletCapital.server";
@@ -32,9 +33,10 @@ export async function runStrategyStep(
   enc: string,
   owner: string,
   analysisOnly = false,
+  timing?: ExecutionClock,
 ) {
   return withExecutionPhase((beginSigning) =>
-    runStrategyStepImpl(admin, bot, enc, owner, analysisOnly, beginSigning),
+    runStrategyStepImpl(admin, bot, enc, owner, analysisOnly, beginSigning, timing),
   );
 }
 async function runStrategyStepImpl(
@@ -44,6 +46,7 @@ async function runStrategyStepImpl(
   owner: string,
   analysisOnly: boolean,
   beginSigning: () => void,
+  timing: ExecutionClock | undefined,
 ) {
   if (incompatibleBotToken(bot.token))
     return {
@@ -78,10 +81,13 @@ async function runStrategyStepImpl(
   const token = getAddress(bot.token);
   const rpc = process.env["BSC_RPC_URL"] || "https://bsc-dataseed.bnbchain.org";
 
-  const [market, pool] = await Promise.all([
-    readMarket(token, rpc, { live: true }),
-    poolState(token),
-  ]);
+  const market = await readMarket(token, rpc, { live: true });
+  if (market.error)
+    return { patch: { last_error: "Preço desatualizado: aguardando nova consulta" }, order: null };
+  const pool = market.pools.some((p) => p.supported)
+    ? await poolState(token, market.blockNumber ? BigInt(market.blockNumber) : undefined)
+    : null;
+  timing?.mark("marketReady");
   const best = market.pools.find(
     (p) => p.supported && p.pairAddress.toLowerCase() === pool?.pair.toLowerCase() && p.priceUsd,
   );
@@ -121,6 +127,7 @@ async function runStrategyStepImpl(
   }
   now = Date.now();
   const observation = strategyObservation(cfg, candles, priceUsd, best.liquidityUsd, now);
+  timing?.mark("historyReady");
   const { high, closes, historyFresh: fresh } = observation;
   if (state.tokens > 0) state.peakUsd = Math.max(state.peakUsd, priceUsd);
   if (!quoteFresh())
@@ -143,6 +150,7 @@ async function runStrategyStepImpl(
       patch: { last_error: "Taxas desconhecidas: confirme as taxas na estratégia" },
       order: null,
     };
+  if (d.action !== "nenhuma") timing?.mark("signalDetected");
   const snapshot = {
     version: cfg.rulesVersion === 2 ? "live-v2" : "live-v1-compatible",
     at: now,
@@ -230,6 +238,7 @@ async function runStrategyStepImpl(
       };
     const r = await sendSwap({
       beginSigning,
+      ...(timing ? { timing } : {}),
       pub,
       wallet,
       me,
@@ -309,6 +318,7 @@ async function runStrategyStepImpl(
   if (
     !(await approveForSwap({
       beginSigning,
+      ...(timing ? { timing } : {}),
       admin,
       owner,
       pub,
@@ -326,6 +336,7 @@ async function runStrategyStepImpl(
     };
   const r = await sendSwap({
     beginSigning,
+    ...(timing ? { timing } : {}),
     pub,
     wallet,
     me,

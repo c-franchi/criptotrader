@@ -1,3 +1,4 @@
+import { ExecutionTimingPanel } from "@/components/ExecutionTimingPanel";
 import { BotWithdrawalPanel, BotWithdrawalHistory } from "@/components/BotWithdrawalPanel";
 import { botSearch } from "@/lib/botNotice";
 import { inspectToken } from "@/lib/userTokens.functions";
@@ -426,12 +427,14 @@ function Robo() {
   const preset = cfg?.presetId ? PRESETS.find((p) => p.id === cfg.presetId) : undefined;
   const modelName =
     cfg?.guidedModel === "dca"
-      ? "Comprar em etapas"
+      ? "Comprar em quedas"
       : cfg?.guidedModel === "grid"
         ? "Comprar e vender numa faixa"
         : cfg?.guidedModel === "recovery"
           ? "Recuperação confirmada"
-          : (preset?.name ?? "Regras personalizadas");
+          : cfg?.guidedModel === "trend"
+            ? "Recuo em tendência de alta"
+            : (preset?.name ?? "Regras personalizadas");
   const armed = !!bot?.armed;
   const lo = Number(f.lower_price),
     hi = Number(f.upper_price),
@@ -603,6 +606,7 @@ function Robo() {
             </Button>
           </section>
         )}
+        <ExecutionTimingPanel key={selectionKey} walletScope={walletScope} token={token} />
         <GuidedBotSetup
           sourceAddress={sourceAddress}
           key={selectionKey}
@@ -1447,15 +1451,27 @@ const AUDIT_LABEL: Record<string, string> = {
 };
 /** Shows the user's own security/audit trail with BscScan links so every action can be checked on-chain. */
 function AuditPanel() {
+  const { user } = useAuth();
+  const userId = user?.id;
   const [rows, setRows] = useState<Tables<"audit_log">[]>([]);
   useEffect(() => {
+    setRows([]);
+    if (!userId) return;
+    let alive = true;
     supabase
       .from("audit_log")
       .select("*")
+      .eq("user_id", userId)
+      .neq("action", "bot_execution_progress")
       .order("created_at", { ascending: false })
       .limit(30)
-      .then(({ data }) => setRows(data ?? []));
-  }, []);
+      .then(({ data }) => {
+        if (alive) setRows(data ?? []);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
   const links = (d: unknown): string[] => {
     const o = (d ?? {}) as { hash?: string; hashes?: string[]; address?: string };
     return [
