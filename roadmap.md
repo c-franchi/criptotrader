@@ -1,4 +1,9 @@
 # Correção da seleção e do mercado
+## Painel inspirado nos modelos (25/10/2026)
+- [x] Organizar dados do token à esquerda e gráfico compacto à direita no computador; empilhar no celular e preservar fundos existentes.
+- [x] Conferir mercado real, seleção e ampliação no computador/celular; 37 testes passaram, sem erros de execução ou rolagem horizontal; verificações básicas de segurança concluídas, sem análise profunda.
+- [ ] Conferir fundos na conta autenticada: entrada automática da conta solicitante indisponível; requer login na prévia. Testes das carteiras passaram; dados e robôs não foram alterados.
+
 ## Melhorias pontuais e auditoria (16/10/2026)
 - [x] Gráfico compartilhado OHLCV, períodos visuais persistentes, SMA e marcadores identificados como reconstruídos; auditoria consultada atualiza timestamps pelo receipt.
 - [x] Auditoria read-only de receipts/eventos/gás e observações append-only das decisões; históricos e posições não reescritos.
