@@ -1,4 +1,6 @@
+import { userMessage } from "@/lib/userMessage";
 import { ExecutionTimingPanel } from "@/components/ExecutionTimingPanel";
+import { TokenActivity } from "@/components/TokenActivity";
 import { BotWithdrawalPanel, BotWithdrawalHistory } from "@/components/BotWithdrawalPanel";
 import { botSearch } from "@/lib/botNotice";
 import { inspectToken } from "@/lib/userTokens.functions";
@@ -330,7 +332,7 @@ function Robo() {
         toast.success("Robô iniciado após conferir moeda, mercado, saldo e custos.");
         await load();
       } catch (e) {
-        toast.error((e as Error).message);
+        toast.error(userMessage(e));
       }
       return;
     }
@@ -376,10 +378,10 @@ function Robo() {
     if (error)
       return void toast.error(
         armed === false
-          ? `Não foi possível desligar: ${error.message}`
+          ? `Não foi possível desligar: ${userMessage(error)}`
           : /Wallet execution pending|Execução em andamento|execution.*lock/i.test(error.message)
             ? "A carteira está conferindo uma operação anterior. Atualize o estado antes de tentar novamente."
-            : `Não foi possível salvar: ${error.message}`,
+            : `Não foi possível salvar: ${userMessage(error)}`,
       );
     await supabase.from("audit_log").insert({
       user_id: user.id,
@@ -408,7 +410,7 @@ function Robo() {
       await fn();
       toast.success(ok);
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(userMessage(e));
     } finally {
       setBusy(false);
       load();
@@ -578,8 +580,8 @@ function Robo() {
             </p>
             <p className="mt-1 text-sm">
               {!bot?.armed
-                ? `Este robô está pausado. Aviso histórico: ${bot?.last_error || "consulte o histórico de operações."}`
-                : bot?.last_error ||
+                ? `Este robô está pausado. Aviso histórico: ${bot?.last_error ? userMessage(bot.last_error) : "consulte o histórico de operações."}`
+                : (bot?.last_error ? userMessage(bot.last_error) : null) ||
                   "O problema pode ter sido resolvido desde o aviso. Confira a avaliação atual."}
             </p>
             <Button
@@ -606,11 +608,6 @@ function Robo() {
             </Button>
           </section>
         )}
-        <ExecutionTimingPanel
-          key={`timing:${selectionKey}`}
-          walletScope={walletScope}
-          token={token}
-        />
         <GuidedBotSetup
           sourceAddress={sourceAddress}
           key={`setup:${selectionKey}`}
@@ -678,6 +675,7 @@ function Robo() {
                 serverAnalysis={analysisError ? null : analysis}
               />
             </div>
+            <TokenActivity token={token} symbol={sym} decimals={selected.decimals} />
           </Panel>
           <div className="space-y-4">
             <details className="border-b border-border py-3">
@@ -707,10 +705,15 @@ function Robo() {
                       ? "A carteira está conferindo uma operação. Você pode pausar o robô; novas operações aguardam a confirmação."
                       : !armed
                         ? "Escolha a estratégia e toque em Iniciar robô quando estiver pronto."
-                        : bot?.last_error ||
+                        : (bot?.last_error ? userMessage(bot.last_error) : null) ||
                           bot?.last_reason ||
                           "O robô confere as condições de compra e venda a cada 2 segundos."}
                 </p>
+                <ExecutionTimingPanel
+                  key={`timing:${selectionKey}`}
+                  walletScope={walletScope}
+                  token={token}
+                />
                 <div className="mt-4 flex flex-wrap gap-2">
                   {armed ? (
                     <Button disabled={saving} variant="destructive" onClick={() => save(false)}>
@@ -760,7 +763,7 @@ function Robo() {
                         await recoverStrategyExecution({ data: { walletScope } });
                         await load();
                       } catch (e) {
-                        toast.error((e as Error).message);
+                        toast.error(userMessage(e));
                       } finally {
                         setSaving(false);
                       }
@@ -809,7 +812,9 @@ function Robo() {
                         : "aguardando"}
                       .
                     </p>
-                    {bot?.last_error && <p className="text-warning">{bot.last_error}</p>}
+                    {bot?.last_error && (
+                      <p className="text-warning">{userMessage(bot.last_error)}</p>
+                    )}
                     {execution?.lockAcquiredAt && (
                       <p>
                         Conferência iniciada em{" "}
@@ -1121,7 +1126,7 @@ function Robo() {
                         Ver na BscScan
                       </a>
                     )}
-                    {o.error && <p className="text-destructive">{o.error}</p>}
+                    {o.error && <p className="text-destructive">{userMessage(o.error)}</p>}
                   </div>
                 ))
               )}

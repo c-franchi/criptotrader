@@ -1,3 +1,4 @@
+import { userMessage } from "@/lib/userMessage";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { auditOrder } from "@/lib/audit.functions";
@@ -29,7 +30,7 @@ export function OrderAudit({
       setRows(results);
       onAudited?.(results);
     } catch (e) {
-      setError((e as Error).message);
+      setError(userMessage(e));
     } finally {
       setBusy(false);
     }

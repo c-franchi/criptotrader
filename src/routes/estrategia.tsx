@@ -1,3 +1,4 @@
+import { userMessage } from "@/lib/userMessage";
 import { ExecutionTimingPanel } from "@/components/ExecutionTimingPanel";
 import { BotRuleHelp, BotRulesGuide, type GuidedRule } from "@/components/BotRulesGuide";
 import { StopLossDecision } from "@/components/StopLossDecision";
@@ -538,7 +539,7 @@ function StrategyForm() {
       );
       setAskTrade(true);
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(userMessage(e));
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -554,7 +555,6 @@ function StrategyForm() {
           title="Regras avançadas"
           description="Ajustes detalhados de entrada, saída e proteção."
         />
-        <ExecutionTimingPanel walletScope={walletScope} token={token.address} />
         <div className="rounded-xl bg-secondary p-4 text-sm">
           <b>Configuração avançada</b>
           <p>Para criar e configurar o robô em um só lugar, use o assistente em Meus robôs.</p>
@@ -562,6 +562,11 @@ function StrategyForm() {
             Abrir Meus robôs
           </Button>
         </div>
+        <ExecutionTimingPanel
+          key={`timing:${walletScope}:${token.address}`}
+          walletScope={walletScope}
+          token={token.address}
+        />
         <nav
           onClick={(e) => {
             const a = (e.target as HTMLElement).closest("a");

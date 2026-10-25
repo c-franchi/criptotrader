@@ -1,3 +1,4 @@
+import { userMessage } from "@/lib/userMessage";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -85,7 +86,7 @@ export function BotWithdrawalHistory({
         <article key={r.id} className="rounded-xl border p-3 text-sm">
           <b>Tentativa de devolução</b>
           <p className="text-xs">{new Date(r.createdAt).toLocaleString("pt-BR")}</p>
-          <p>{r.message}</p>
+          <p>{userMessage(r.message)}</p>
           {r.from && <p className="break-all text-xs">Origem: {r.from}</p>}
           {r.to && <p className="break-all text-xs">Destino: {r.to}</p>}
         </article>
@@ -203,9 +204,10 @@ export function BotWithdrawalPanel({
       await onDone?.();
     } catch (e) {
       setMessage(
-        e instanceof Error
-          ? e.message
-          : "Não foi possível concluir. Confira os registros antes de tentar novamente.",
+        userMessage(
+          e,
+          "Não foi possível concluir a devolução. Confira os registros antes de tentar novamente.",
+        ),
       );
       await client.invalidateQueries({ queryKey: ["bot-withdrawals", user?.id, walletScope] });
     } finally {

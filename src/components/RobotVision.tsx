@@ -1,3 +1,4 @@
+import { userMessage } from "@/lib/userMessage";
 import { formatUnits } from "viem";
 import { FiatValue } from "@/hooks/useCurrency";
 import { formatUsd, formatDistancePct } from "@/lib/display";
@@ -490,7 +491,9 @@ export function RobotVision(props: {
               ? "Robô desligado"
               : analysisStale
                 ? "Prévia do servidor indisponível ou antiga; não confirma execução."
-                : (props.serverAnalysis?.error ?? props.serverAnalysis?.reason)}
+                : props.serverAnalysis?.error
+                  ? userMessage(props.serverAnalysis.error)
+                  : props.serverAnalysis?.reason}
           </p>
           <p className="text-muted-foreground">
             Prévia do servidor às{" "}
