@@ -208,3 +208,58 @@ it("rechecks the guided profit margin against the actual fee before signing or b
   expect(f.wallet.signTransaction).not.toHaveBeenCalled();
   expect(f.pub.sendRawTransaction).not.toHaveBeenCalled();
 });
+
+it("preserves the withdrawal reserve against the actual prepared transaction fee before signing", async () => {
+  const f = setup();
+  f.pub.getBalance.mockResolvedValue(100000n);
+  await expect(
+    submitTransaction({
+      ...f,
+      value: 70000n,
+      intent: { kind: "withdrawal", minimumRemainingBnbRaw: "10000" },
+    }),
+  ).rejects.toBeInstanceOf(BeforeBroadcastError);
+  expect(f.wallet.signTransaction).not.toHaveBeenCalled();
+  expect(f.pub.sendRawTransaction).not.toHaveBeenCalled();
+});
+it("records the token amount evidenced at the withdrawal recipient without treating it as a trade", async () => {
+  const destination = "0x3333333333333333333333333333333333333333";
+  const abi = parseAbi(["event Transfer(address indexed from,address indexed to,uint256 value)"]);
+  const receipt = {
+    status: "success",
+    gasUsed: 21000n,
+    effectiveGasPrice: 1n,
+    blockNumber: 99n,
+    logs: [
+      {
+        address: token,
+        topics: encodeEventTopics({
+          abi,
+          eventName: "Transfer",
+          args: { from: me, to: destination },
+        }),
+        data: encodeAbiParameters([{ type: "uint256" }], [92n]),
+        logIndex: 0,
+      },
+    ],
+  } as unknown as TransactionReceipt;
+  const admin = { rpc: vi.fn(async (_name: string, _args: unknown) => ({ error: null })) };
+  await settleSubmission(
+    admin,
+    {},
+    {
+      id: "id",
+      tx_hash: `0x${"1".repeat(64)}`,
+      intent: { kind: "withdrawal", token, from: me, to: destination, amount: "100" },
+    },
+    receipt,
+  );
+  expect(admin.rpc).toHaveBeenCalledWith(
+    "complete_execution_submission",
+    expect.objectContaining({
+      p_order: null,
+      p_patch: {},
+      p_receipt: expect.objectContaining({ receivedTokenRaw: "92" }),
+    }),
+  );
+});
