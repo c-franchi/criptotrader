@@ -26,3 +26,14 @@ it("groups alternating market warnings without deleting records or mixing differ
   expect(groupBotNotices(rows).map((g) => g.ids)).toEqual([["1", "2"], ["3"]]);
   expect(rows).toHaveLength(3);
 });
+
+it("keeps trade confirmations and pending transactions separate, including legacy notices", () => {
+  const modern = botNoticeLink(bot, "history");
+  const rows = [
+    { id: "1", title: "Robô comprou T", body: "Seguindo a estratégia", link: modern },
+    { id: "2", title: "Robô vendeu T", body: "Seguindo a estratégia", link: modern },
+    { id: "3", title: "Robô: confirmação pendente", body: "0x123: pendente", link: "/grade" },
+    { id: "4", title: "Robô: confirmação pendente", body: "0x123: pendente", link: "/grade" },
+  ];
+  expect(groupBotNotices(rows).map((g) => g.ids)).toEqual([["1"], ["2"], ["3"], ["4"]]);
+});

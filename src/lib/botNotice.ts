@@ -39,7 +39,10 @@ export function groupBotNotices<
 >(rows: T[]) {
   const groups = new Map<string, { notice: T; ids: string[] }>();
   for (const row of rows) {
-    const isBot = row.link === "/grade" || row.link?.startsWith("/grade?");
+    const financial =
+      /comprou|vendeu|confirmação pendente|compra falhou|venda falhou/i.test(row.title) ||
+      new URLSearchParams(row.link?.split("?")[1] ?? "").get("problema") === "history";
+    const isBot = !financial && (row.link === "/grade" || row.link?.startsWith("/grade?"));
     const key = isBot
       ? `${row.link === "/grade" ? row.body.split(":")[0] : row.link}:${botProblem(row.body)}`
       : row.id;
