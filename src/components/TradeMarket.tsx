@@ -71,6 +71,7 @@ export function TradeMarket({
           label="Token para comprar ou vender"
         />
         <div className="min-w-0 text-right">
+          <p className="mb-1 text-xs text-muted-foreground">Preço de 1 {token.symbol}</p>
           <p className="text-xl font-bold tracking-tight sm:text-3xl">
             {price > 0
               ? formatUsd(price)

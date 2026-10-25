@@ -154,7 +154,9 @@ export function FundsOverview() {
                             {local(a.value)}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {a.value == null ? "Cotação ou saldo indisponível" : "Valor estimado"}
+                            {a.value == null
+                              ? "Cotação ou saldo indisponível"
+                              : "Valor do seu saldo · estimativa"}
                           </p>
                         </div>
                       </button>
