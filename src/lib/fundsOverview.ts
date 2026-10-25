@@ -8,6 +8,8 @@ export type FundWalletRef = {
   scopes: string[];
 };
 export type FundAsset = {
+  name?: string;
+  logoUrl?: string | null;
   address: string;
   symbol: string;
   amount: string | null;
@@ -89,4 +91,24 @@ export function fundAssetValue(asset: FundAsset): string | null {
   return asset.amount == null || asset.priceBnb == null
     ? null
     : new D(asset.amount).mul(asset.priceBnb).toFixed();
+}
+
+/** Largest known holdings first; unknown valuations stay visible after known assets. */
+export function fundWalletAssets(wallet: FundWallet) {
+  return [
+    {
+      address: "native",
+      symbol: "BNB",
+      name: "BNB",
+      amount: wallet.bnb,
+      value: wallet.bnb,
+      logoUrl: null as string | null | undefined,
+    },
+    ...wallet.assets.map((a) => ({ ...a, name: a.name ?? a.symbol, value: fundAssetValue(a) })),
+  ].sort((a, b) => {
+    if (a.value == null && b.value != null) return 1;
+    if (b.value == null && a.value != null) return -1;
+    const order = a.value != null && b.value != null ? new D(b.value).cmp(a.value) : 0;
+    return order || a.address.localeCompare(b.address);
+  });
 }

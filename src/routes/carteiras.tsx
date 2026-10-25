@@ -1,3 +1,4 @@
+import { WalletSelector } from "@/components/WalletSelector";
 import { FundsOverview } from "@/components/FundsOverview";
 import { PageHeading } from "@/components/PageHeading";
 import { BotPerformancePanel } from "@/components/BotPerformancePanel";
@@ -64,15 +65,24 @@ function Wallets() {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <PageHeading title="Carteiras" description="Endereços, saldos e ativos em um só lugar." />
+      <FundsOverview />
       <Panel title="Perfil">
         <p className="text-sm">
           Conta: <strong>{user?.email}</strong>
         </p>
       </Panel>
 
-      <FundsOverview />
-      <BotWallet />
+      <details className="rounded-2xl border border-border p-4">
+        <summary className="cursor-pointer text-sm font-semibold">
+          Gerenciar carteiras dos robôs
+        </summary>
+        <div className="mt-4">
+          <WalletSelector />
+          <BotWallet />
+        </div>
+      </details>
 
+      <div id="adicionar-carteira" className="scroll-mt-24" />
       <Panel title="Adicionar carteira">
         <div className="space-y-3">
           <div>

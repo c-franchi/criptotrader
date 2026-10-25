@@ -1,15 +1,23 @@
 import { createPublicClient, formatUnits, getAddress, http } from "viem";
 import { bsc } from "viem/chains";
 import { PANCAKE_V2_FACTORY, WBNB, ZERO, factoryAbi, pairAbi } from "./pancake";
+import { marketTokenLogo } from "./tokenLogo";
 import { tokenMeta } from "./tokenMeta.server";
 import type { PoolInfo } from "./chain.functions";
 
-type Market = { pools: PoolInfo[]; fetchedAt: string; source: string; error: string | null };
+type Market = {
+  logoUrl?: string | null;
+  pools: PoolInfo[];
+  fetchedAt: string;
+  source: string;
+  error: string | null;
+};
 type DexPair = {
   pairAddress: string;
   dexId: string;
   labels?: string[];
-  baseToken?: { symbol?: string };
+  baseToken?: { symbol?: string; address?: string };
+  info?: { imageUrl?: string };
   quoteToken?: { symbol?: string; address?: string };
   priceNative?: string;
   priceUsd?: string;
@@ -142,7 +150,13 @@ async function fetchMarket(address: string, rpcUrl: string): Promise<Market> {
           pools.push(p);
     }
     if (pools.length)
-      return { pools, fetchedAt, source: "DexScreener / PancakeSwap V2 WBNB", error: null };
+      return {
+        pools,
+        fetchedAt,
+        logoUrl: marketTokenLogo(address, payload as DexPair[]),
+        source: "DexScreener / PancakeSwap V2 WBNB",
+        error: null,
+      };
   } catch (e) {
     dexError = e instanceof Error ? e.message : "DexScreener indisponível";
   }
