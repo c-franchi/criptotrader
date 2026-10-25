@@ -1,3 +1,4 @@
+import { planGasReserve, planProgress } from "@/lib/chartPlan";
 import { userMessage } from "@/lib/userMessage";
 import { ExecutionTimingPanel } from "@/components/ExecutionTimingPanel";
 import { TokenActivity } from "@/components/TokenActivity";
@@ -419,14 +420,29 @@ function Robo() {
   };
 
   const bnb = w?.bnb != null ? Number(w.bnb) : null;
-  const reserve = mode === "estrategia" ? (cfg?.gasReserveBnb ?? 0.005) : Number(f.gas_reserve_bnb);
+  const st = normalizeState(bot?.strat_state, Date.now());
+  const reserve =
+    mode === "estrategia"
+      ? Number(planGasReserve(cfg ?? {}, st) ?? cfg?.gasReserveBnb ?? 0.005)
+      : Number(f.gas_reserve_bnb);
   const need =
     mode === "estrategia"
       ? cfg
-        ? requiredBotBnb({ reserve, sizingMode: cfg.sizingMode, buyAmount: cfg.buyAmount })
+        ? cfg.chartRule?.version === 2
+          ? (() => {
+              const p = planProgress(cfg.chartRule!, st);
+              const trade =
+                p.exiting || p.finished
+                  ? 0
+                  : cfg.chartRule!.entries!.reduce(
+                      (sum, e, i) => sum + (p.buys.includes(i) ? 0 : Number(e.amountBnb)),
+                      0,
+                    );
+              return { reserve, trade, total: reserve + trade };
+            })()
+          : requiredBotBnb({ reserve, sizingMode: cfg.sizingMode, buyAmount: cfg.buyAmount })
         : null
       : { reserve, trade: Number(f.order_bnb) || 0, total: reserve + (Number(f.order_bnb) || 0) };
-  const st = normalizeState(bot?.strat_state, Date.now());
   const preset = cfg?.presetId ? PRESETS.find((p) => p.id === cfg.presetId) : undefined;
   const modelName = cfg?.chartRule
     ? "Regra pelo gráfico"

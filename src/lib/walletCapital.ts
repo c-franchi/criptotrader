@@ -1,6 +1,8 @@
 import Decimal from "decimal.js";
 import { formatEther, parseEther } from "viem";
 import type { StrategyConfig } from "./strategy";
+import { planGasReserve, planProgress } from "./chartPlan";
+import type { BotState } from "./autoStrategy";
 
 export type CapitalBot = {
   id: string;
@@ -37,17 +39,28 @@ export function strategyBuyAmount(cfg: StrategyConfig, available: string, reserv
 export function walletCapital(balanceBnb: string, bots: CapitalBot[], previewId?: string) {
   const balance = wei(balanceBnb);
   const gasFor = (b: CapitalBot) =>
-    wei(b.mode === "grade" ? b.gas_reserve_bnb : (b.config?.gasReserveBnb ?? 0.005));
-  const enabled = (b: CapitalBot) => (b.armed || b.id === previewId) && !!b.config;
+    wei(
+      b.mode === "grade"
+        ? b.gas_reserve_bnb
+        : (planGasReserve(b.config ?? {}, (b.strat_state ?? {}) as Partial<BotState>) ??
+            b.config?.gasReserveBnb ??
+            0.005),
+    );
+  const completed = (b: CapitalBot) => {
+    const s = (b.strat_state ?? {}) as Partial<BotState>,
+      rule = b.config?.chartRule;
+    return (
+      !!rule &&
+      s.chartRuleConsumedId === rule.id &&
+      !(Number(s.tokens) > 0) &&
+      (rule.version === 2 ? !!s.chartFinished : true)
+    );
+  };
+  const enabled = (b: CapitalBot) => (b.armed || b.id === previewId) && !!b.config && !completed(b);
   const gas = bots.filter(enabled).reduce((sum, b) => sum + gasFor(b), 0n);
   const afterGas = max0(balance - gas);
   const rows = bots.map((b) => {
-    const s = (b.strat_state ?? {}) as {
-      costBnb?: number;
-      tokens?: number;
-      entries?: number;
-      accountingEstimated?: boolean;
-    };
+    const s = (b.strat_state ?? {}) as Partial<BotState>;
     const invested = wei(s.costBnb ?? 0);
     const c = b.config;
     const caps = [c?.allocationBnb, c?.maxExposureQuote].filter(
@@ -55,8 +68,19 @@ export function walletCapital(balanceBnb: string, bots: CapitalBot[], previewId?
     );
     const cap = caps.length ? wei(Math.min(...caps)) : null;
     let claim = 0n;
+    const plan = c?.chartRule?.version === 2 ? c.chartRule : null;
+    const progress = plan ? planProgress(plan, s) : null;
+    const planRemaining = plan
+      ? progress?.exiting || progress?.finished
+        ? 0n
+        : (plan.entries ?? []).reduce(
+            (sum, e, i) => sum + (progress?.buys.includes(i) ? 0n : wei(e.amountBnb)),
+            0n,
+          )
+      : null;
     if (enabled(b)) {
-      if (cap != null) claim = max0(cap - invested);
+      if (planRemaining != null) claim = planRemaining;
+      else if (cap != null) claim = max0(cap - invested);
       else if (b.mode === "grade") claim = wei(b.order_bnb);
       else if (
         c &&
@@ -86,6 +110,7 @@ export function walletCapital(balanceBnb: string, bots: CapitalBot[], previewId?
       estimated: !!s.accountingEstimated,
       gas: enabled(b) ? gasFor(b) : 0n,
       cap,
+      planRemaining,
     };
   });
   const reserved = rows.reduce((sum, b) => sum + b.reserved, 0n);
@@ -102,10 +127,11 @@ export function walletCapital(balanceBnb: string, bots: CapitalBot[], previewId?
       invested: formatEther(b.invested),
       gas: formatEther(b.gas),
       cap: b.cap == null ? null : formatEther(b.cap),
+      planRemaining: b.planRemaining == null ? null : formatEther(b.planRemaining),
       available: formatEther(
         min(
           b.eligible ? max0(afterGas - (reserved - b.reserved)) : 0n,
-          b.cap == null ? afterGas : max0(b.cap - b.invested),
+          b.planRemaining ?? (b.cap == null ? afterGas : max0(b.cap - b.invested)),
         ),
       ),
     })),

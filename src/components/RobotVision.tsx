@@ -1,3 +1,4 @@
+import { planProgress } from "@/lib/chartPlan";
 import { userMessage } from "@/lib/userMessage";
 import { formatUnits } from "viem";
 import { FiatValue } from "@/hooks/useCurrency";
@@ -183,31 +184,66 @@ export function RobotVision(props: {
       : null;
   const chartLines: Line[] | null =
     cfg?.chartRule && quoteUsd != null
-      ? [
-          ...(state.tokens <= 0 && state.chartRuleConsumedId !== cfg.chartRule.id
-            ? [
-                {
-                  price: cfg.chartRule.entryBnb * quoteUsd,
-                  label: "Entrada gráfica · BNB fixo",
-                  tone: "buy" as const,
-                },
-              ]
-            : []),
-          {
-            price: cfg.chartRule.exitBnb * quoteUsd,
-            label: "Saída gráfica · BNB fixo",
-            tone: "sell" as const,
-          },
-          ...(cfg.chartRule.stopBnb != null
-            ? [
-                {
-                  price: cfg.chartRule.stopBnb * quoteUsd,
-                  label: "Stop gráfico · BNB fixo",
-                  tone: "stop" as const,
-                },
-              ]
-            : []),
-        ]
+      ? cfg.chartRule.version === 2
+        ? (() => {
+            const rule = cfg.chartRule!;
+            const progress = planProgress(rule, state);
+            if (progress.finished) return [];
+            return [
+              ...(!progress.exiting
+                ? rule.entries!.flatMap((e, i) =>
+                    progress.buys.includes(i)
+                      ? []
+                      : [
+                          {
+                            price: e.priceBnb * quoteUsd,
+                            label: `Entrada ${i + 1}`,
+                            tone: "buy" as const,
+                          },
+                        ],
+                  )
+                : []),
+              ...rule.exits!.flatMap((e, i) =>
+                progress.sells.includes(i)
+                  ? []
+                  : [
+                      {
+                        price: e.priceBnb * quoteUsd,
+                        label: `Saída ${i + 1}`,
+                        tone: "sell" as const,
+                      },
+                    ],
+              ),
+              ...(rule.stopBnb != null
+                ? [{ price: rule.stopBnb * quoteUsd, label: "Stop gráfico", tone: "stop" as const }]
+                : []),
+            ];
+          })()
+        : [
+            ...(state.tokens <= 0 && state.chartRuleConsumedId !== cfg.chartRule.id
+              ? [
+                  {
+                    price: cfg.chartRule.entryBnb * quoteUsd,
+                    label: "Entrada gráfica · BNB fixo",
+                    tone: "buy" as const,
+                  },
+                ]
+              : []),
+            {
+              price: cfg.chartRule.exitBnb * quoteUsd,
+              label: "Saída gráfica · BNB fixo",
+              tone: "sell" as const,
+            },
+            ...(cfg.chartRule.stopBnb != null
+              ? [
+                  {
+                    price: cfg.chartRule.stopBnb * quoteUsd,
+                    label: "Stop gráfico · BNB fixo",
+                    tone: "stop" as const,
+                  },
+                ]
+              : []),
+          ]
       : null;
   const signalsAvailable =
     priceFresh &&

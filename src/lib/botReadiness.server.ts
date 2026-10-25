@@ -1,3 +1,4 @@
+import { planProgress } from "./chartPlan";
 import type { ReadinessAction, ReadinessIssue } from "./readinessIssues";
 import Decimal from "decimal.js";
 /* eslint-disable @typescript-eslint/no-explicit-any -- privileged Supabase and viem boundary */
@@ -97,6 +98,7 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
   if (
     cfg.chartRule &&
     bot.strat_state?.chartRuleConsumedId === cfg.chartRule.id &&
+    (cfg.chartRule.version !== 2 || bot.strat_state?.chartFinished === true) &&
     Number(bot.strat_state?.tokens ?? 0) <= 0
   )
     block(
@@ -166,8 +168,15 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
       "values",
       "O saldo não cobre o capital e as reservas dos robôs desta carteira. Reduza o limite ou adicione saldo.",
     );
-  const amount =
-    bot.mode === "grade"
+  const nextPlanEntry =
+    cfg.chartRule?.version === 2
+      ? cfg.chartRule.entries?.find(
+          (_, i) => !planProgress(cfg.chartRule!, bot.strat_state ?? {}).buys.includes(i),
+        )
+      : null;
+  const amount = nextPlanEntry
+    ? parseEther(nextPlanEntry.amountBnb)
+    : bot.mode === "grade"
       ? parseEther(new Decimal(bot.order_bnb).toFixed(18, Decimal.ROUND_DOWN))
       : strategyBuyAmount(cfg, own?.available ?? "0", own?.reserved ?? "0");
   if (!holding && (!own || amount <= 0n || amount > parseEther(own.available)))

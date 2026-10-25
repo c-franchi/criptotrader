@@ -1,3 +1,4 @@
+import { planGasReserve } from "./chartPlan";
 import type { ExecutionClock } from "./executionTiming";
 import { incompatibleBotToken, INCOMPATIBLE_BNB } from "./guidedBot";
 import { strategyBuyAmount } from "./walletCapital";
@@ -209,7 +210,10 @@ async function runStrategyStepImpl(
   const { account, wallet } = await botSigner(enc);
   const me = account.address;
   const reserve = parseEther(
-    new Decimal(cfg.gasReserveBnb ?? 0.005).toFixed(18, Decimal.ROUND_DOWN),
+    new Decimal(planGasReserve(cfg, state) ?? cfg.gasReserveBnb ?? 0.005).toFixed(
+      18,
+      Decimal.ROUND_DOWN,
+    ),
   );
   const [bnbBal, meta] = await Promise.all([pub.getBalance({ address: me }), tokenMeta(token)]);
   const dec = meta.decimals;
@@ -229,8 +233,11 @@ async function runStrategyStepImpl(
     const own = capital.rows.find((b) => b.id === bot.id);
     if (!own) throw new Error("Robô não encontrado no orçamento desta carteira");
     const free = parseEther(own.available);
-    amountIn = strategyBuyAmount(cfg, own.available, own.reserved);
-    if (cfg.maxExposureQuote > 0) {
+    amountIn =
+      cfg.chartRule?.version === 2 && d.chartEntryIndex != null
+        ? parseEther(cfg.chartRule.entries![d.chartEntryIndex]!.amountBnb)
+        : strategyBuyAmount(cfg, own.available, own.reserved);
+    if (cfg.maxExposureQuote > 0 && cfg.chartRule?.version !== 2) {
       const room = parseEther(
         String(Math.max(0, cfg.maxExposureQuote - state.costBnb).toFixed(18)),
       );

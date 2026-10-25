@@ -71,6 +71,7 @@ function ChartBody({
   pickingPrice = false,
   onPickPrice,
   onEditLevel,
+  initialAllLevels = false,
 }: {
   candles: Candle[];
   history?: ChartHistory | undefined;
@@ -89,6 +90,7 @@ function ChartBody({
   compact?: boolean;
   preferenceKey?: string;
   minimal?: boolean;
+  initialAllLevels?: boolean;
   pickingPrice?: boolean;
   onPickPrice?: ((point: { time: number; price: number }) => void) | undefined;
   onEditLevel?: ((id: string, price: number) => void) | undefined;
@@ -98,7 +100,7 @@ function ChartBody({
   const [mode, setMode] = useState("candles");
   const [showSma, setShowSma] = useState(!compact);
   const [controls, setControls] = useState(false);
-  const [allLevels, setAllLevels] = useState(false);
+  const [allLevels, setAllLevels] = useState(initialAllLevels);
   const areaId = useId();
   const storageKey =
     preferenceKey ?? (compact ? "cryptobot:trade-chart-view" : "cryptobot:chart-view");
@@ -1561,6 +1563,7 @@ function ChartBody({
 }
 
 export function CandleChart(props: {
+  initialAllLevels?: boolean;
   pickingPrice?: boolean;
   onPickPrice?: ((point: { time: number; price: number }) => void) | undefined;
   onEditLevel?: ((id: string, price: number) => void) | undefined;
