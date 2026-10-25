@@ -1,3 +1,4 @@
+import { chartMaxBuyFeeRaw } from "./chartExecution";
 import { robotRpcTransport, withRpcSnapshot } from "./robotRpc.server";
 import { loadLivePool, sharedRead } from "./sharedReads.server";
 import type { ExecutionClock } from "./executionTiming";
@@ -479,7 +480,10 @@ export async function sendSwap(o: {
     (gross * BigInt(Math.round((100 - Math.min(Math.max(o.taxPct, 0), 99)) * 100))) / 10000n;
   const min = minOut(net, o.slippagePct);
   let maxBuyFeeRaw: string | undefined;
-  if (o.side === "compra" && Number.isFinite(o.intent["feeTargetGrossPct"])) {
+  if (
+    o.side === "compra" &&
+    (Number.isFinite(o.intent["feeTargetGrossPct"]) || o.intent["chartPlanExecution"])
+  ) {
     const sellTax = Number(o.intent["sellTaxPct"] ?? 0);
     const sellAmount = (net * BigInt(Math.floor((100 - sellTax) * 100))) / 10000n;
     const back = await pub.readContract({
@@ -488,12 +492,24 @@ export async function sendSwap(o: {
       functionName: "getAmountsOut",
       args: [sellAmount, [token, WBNB]],
     });
-    const target =
-      (back.at(-1)! * BigInt(Math.floor((1 + o.intent["feeTargetGrossPct"] / 100) * 1e6))) /
-      1000000n;
-    if (target <= amountIn)
-      throw new Error("Custos de troca consomem a margem configurada; compra não enviada.");
-    maxBuyFeeRaw = (target - amountIn).toString();
+    if (Number.isFinite(o.intent["feeTargetGrossPct"])) {
+      const target =
+        (back.at(-1)! * BigInt(Math.floor((1 + o.intent["feeTargetGrossPct"] / 100) * 1e6))) /
+        1000000n;
+      if (target <= amountIn)
+        throw new Error("Custos de troca consomem a margem configurada; compra não enviada.");
+      maxBuyFeeRaw = (target - amountIn).toString();
+    }
+    if (o.intent["chartPlanExecution"]) {
+      const planLimit = chartMaxBuyFeeRaw(
+        o.intent["chartPlanExecution"],
+        amountIn,
+        net,
+        back.at(-1)!,
+      );
+      if (maxBuyFeeRaw == null || BigInt(planLimit) < BigInt(maxBuyFeeRaw))
+        maxBuyFeeRaw = planLimit;
+    }
   }
   const order = {
     user_id: o.userId,
