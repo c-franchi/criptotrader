@@ -142,11 +142,11 @@ function PriceChart({
                 ? "Atualizado"
                 : "Aguardando dados"}
         </span>
-        {last && <span>Última vela: {time(last[0] * 1000)} · abertura da vela de 5m</span>}
+        {showHeading && last && <span>Última vela: {time(last[0] * 1000)} · abertura da vela de 5m</span>}
       </div>
-      <p className="text-[11px] text-muted-foreground">
+      {showHeading && <p className="text-[11px] text-muted-foreground">
         Preço: consulta a cada 15s · Histórico: a cada 30s
-      </p>
+      </p>}
       {!all.length && (
         <div
           role="status"
@@ -192,7 +192,7 @@ function PriceChart({
           />
         )}
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">Variação da cotação</p>
+      {showHeading && <><p className="mt-3 text-xs text-muted-foreground">Variação da cotação</p>
       <div className="mt-1 grid grid-cols-4 gap-1">
         {PERIODS.map((p) => (
           <Button
@@ -205,7 +205,7 @@ function PriceChart({
             {p.id}
           </Button>
         ))}
-      </div>
+      </div></>}
       {stale && all.length > 0 && (
         <p role="status" className="mt-2 text-xs text-warning">
           Atualização indisponível. Os últimos dados recebidos foram mantidos; tentando novamente.

@@ -459,7 +459,7 @@
     display: contents;
   }
   .dashboard-token > * {
-    margin-top: 0;
+    margin-top: 0 !important;
   }
   .dashboard-token > div {
     order: 0;
