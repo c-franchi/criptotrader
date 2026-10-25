@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ExecutionTimingPanel } from "./ExecutionTimingPanel";
 const mocks = vi.hoisted(() => ({ metrics: vi.fn(), probe: vi.fn() }));
@@ -10,6 +10,7 @@ vi.mock("@/lib/executionTiming.functions", () => ({
 }));
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.clearAllMocks();
 });
 function show() {
@@ -71,4 +72,49 @@ it("uses journal confirmation after reconciliation without inventing a missing m
   fireEvent.click(screen.getByRole("button", { name: "Testar conexão com a BSC" }));
   await waitFor(() => expect(mocks.probe).toHaveBeenCalledTimes(1));
   expect(await screen.findByText(/RPC Principal: rede e bloco válidos/)).toBeTruthy();
+});
+
+it("updates one expanded panel repeatedly and stops polling when collapsed", async () => {
+  vi.useFakeTimers();
+  mocks.metrics.mockImplementation(async () => ({
+    records: [],
+    submissions: [],
+    evaluatedAt: new Date(Date.now()).toISOString(),
+    armed: false,
+  }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  const { container } = render(
+    <QueryClientProvider client={client}>
+      <ExecutionTimingPanel walletScope="test-wallet" token="test-token" />
+    </QueryClientProvider>,
+  );
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(6000);
+  });
+  expect(mocks.metrics).not.toHaveBeenCalled();
+  const details = container.querySelector("details")!;
+  await act(async () => {
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  for (let i = 0; i < 6; i++) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(container.querySelectorAll("details")).toHaveLength(1);
+    expect(screen.getAllByText(/Tempo: verificações/)).toHaveLength(1);
+  }
+  expect(mocks.metrics.mock.calls.length).toBeGreaterThanOrEqual(6);
+  await act(async () => {
+    details.open = false;
+    fireEvent(details, new Event("toggle"));
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  const callsWhenClosed = mocks.metrics.mock.calls.length;
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(6000);
+  });
+  expect(mocks.metrics).toHaveBeenCalledTimes(callsWhenClosed);
+  client.clear();
 });

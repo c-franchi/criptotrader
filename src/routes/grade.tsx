@@ -606,10 +606,14 @@ function Robo() {
             </Button>
           </section>
         )}
-        <ExecutionTimingPanel key={selectionKey} walletScope={walletScope} token={token} />
+        <ExecutionTimingPanel
+          key={`timing:${selectionKey}`}
+          walletScope={walletScope}
+          token={token}
+        />
         <GuidedBotSetup
           sourceAddress={sourceAddress}
-          key={selectionKey}
+          key={`setup:${selectionKey}`}
           userId={user?.id ?? ""}
           open={setupOpen}
           onOpenChange={(value) => {
