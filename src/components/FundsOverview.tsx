@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Wallet } from "lucide-react";
+import { Bot, Check, ChevronDown, RefreshCw, Wallet } from "lucide-react";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { useAuth } from "@/hooks/useAuth";
 import { useSelectedWallet } from "@/hooks/useSelectedWallet";
@@ -8,16 +8,27 @@ import { useCurrency } from "@/hooks/currencyContext";
 import { FiatValue } from "@/hooks/useCurrency";
 import { fiatEstimate, formatFiat } from "@/lib/fiat";
 import { getFundsOverview } from "@/lib/fundsOverview.functions";
-import { fundsTotal, formatFundAmount, fundAssetValue } from "@/lib/fundsOverview";
+import {
+  fundsTotal,
+  formatFundAmount,
+  fundWalletAssets,
+  type FundWallet,
+} from "@/lib/fundsOverview";
 import { Panel } from "./AppShell";
 import { Button } from "./ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { TokenLogo } from "./TokenLogo";
+
 export function FundsOverview() {
   const { user } = useAuth();
+  const userId = user?.id;
   const { tokens } = useSelectedToken();
-  const { walletScope, name } = useSelectedWallet();
+  const { walletScope, address } = useSelectedWallet();
   const { currency, quote } = useCurrency();
   const client = useQueryClient();
-  const [view, setView] = useState<"all" | "selected">("all");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [selection, setSelection] = useState({ userId: "", address: "" });
+  const [expandedFor, setExpandedFor] = useState<string | null>(null);
   const q = useQuery({
     queryKey: ["funds-overview", user?.id],
     enabled: !!user,
@@ -27,6 +38,17 @@ export function FundsOverview() {
     retry: false,
   });
   useEffect(() => {
+    let saved = "";
+    try {
+      saved = userId ? (localStorage.getItem(`cryptobot:funds-wallet:${userId}`) ?? "") : "";
+    } catch {
+      /* optional storage */
+    }
+    setSelection({ userId: userId ?? "", address: saved });
+    setPickerOpen(false);
+    setExpandedFor(null);
+  }, [userId]);
+  useEffect(() => {
     const refresh = () => {
       void client.invalidateQueries({ queryKey: ["funds-overview", user?.id] });
     };
@@ -34,9 +56,15 @@ export function FundsOverview() {
     return () => window.removeEventListener("wallets-changed", refresh);
   }, [client, user?.id]);
   if (!user) return null;
-  const wallets = (q.data?.wallets ?? []).filter(
-    (w) => view === "all" || w.scopes.includes(walletScope),
-  );
+  const wallets = q.data?.wallets ?? [];
+  const selected =
+    wallets.find(
+      (w) =>
+        selection.userId === user.id && w.address.toLowerCase() === selection.address.toLowerCase(),
+    ) ??
+    wallets.find((w) => address && w.address.toLowerCase() === address.toLowerCase()) ??
+    wallets.find((w) => w.scopes.includes(walletScope)) ??
+    wallets[0];
   const total = fundsTotal(wallets);
   const local = (value: string | null) => {
     const amount = fiatEstimate(value, "BNB", currency, quote);
@@ -46,41 +74,94 @@ export function FundsOverview() {
         ? `${formatFundAmount(value, 10)} BNB`
         : formatFiat(amount, currency);
   };
-  const bnb = (value: string | null, estimated = false) =>
-    value == null
-      ? "Indisponível"
-      : `${estimated ? "≈ " : ""}${formatFundAmount(value, estimated ? 10 : undefined)} BNB`;
+  const choose = (w: FundWallet) => {
+    setSelection({ userId: user.id, address: w.address });
+    setExpandedFor(null);
+    setPickerOpen(false);
+    try {
+      localStorage.setItem(`cryptobot:funds-wallet:${user.id}`, w.address);
+    } catch {
+      /* keep in memory */
+    }
+  };
+  const selectedTotal = selected ? fundsTotal([selected]) : null;
+  const assets = selected ? fundWalletAssets(selected) : [];
+  const expanded = !!selected && expandedFor === selected.address;
+  const shown = expanded ? assets : assets.slice(0, 4);
+  const SelectedIcon = selected?.bot ? Bot : Wallet;
   return (
     <div className="mb-5" data-funds-overview>
-      <Panel
-        title="Seus fundos"
-        right={
+      <Panel title="Sua carteira">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="secondary"
+                className="h-auto min-w-0 max-w-[85%] justify-start gap-2 rounded-full px-3 py-2.5"
+                aria-label={`Escolher carteira: ${selected?.label ?? "Carteiras"}`}
+              >
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                  <SelectedIcon className="size-5" aria-hidden="true" />
+                </span>
+                <span className="truncate text-base font-semibold">
+                  {selected?.label ?? "Carteiras"}
+                </span>
+                <ChevronDown className="size-4 shrink-0" aria-hidden="true" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-2xl">
+              <DialogTitle>Escolher carteira</DialogTitle>
+              <DialogDescription>Veja o saldo e os tokens de cada carteira.</DialogDescription>
+              <div role="group" aria-label="Carteiras disponíveis" className="space-y-2">
+                {wallets.map((w) => {
+                  const Icon = w.bot ? Bot : Wallet;
+                  const subtotal = fundsTotal([w]);
+                  const checked = w.address === selected?.address;
+                  return (
+                    <button
+                      type="button"
+                      key={w.address}
+                      aria-pressed={checked}
+                      onClick={() => choose(w)}
+                      className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left ${checked ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"}`}
+                    >
+                      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                        <Icon className="size-5" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block break-words text-sm font-semibold">{w.label}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {w.bot ? "Robôs" : "Pessoal"} · {w.address.slice(0, 6)}…
+                          {w.address.slice(-4)}
+                        </span>
+                        <span className="block text-sm tabular-nums">
+                          {local(subtotal.total ?? subtotal.known)}
+                          {!subtotal.complete ? " · parcial" : ""}
+                        </span>
+                      </span>
+                      {checked && (
+                        <Check className="size-5 shrink-0 text-primary" aria-label="Selecionada" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <Button asChild variant="secondary" className="w-full rounded-full">
+                <a href="/carteiras#adicionar-carteira" onClick={() => setPickerOpen(false)}>
+                  Adicionar ou gerenciar carteiras
+                </a>
+              </Button>
+            </DialogContent>
+          </Dialog>
           <Button
-            size="sm"
-            variant="outline"
+            size="icon"
+            variant="ghost"
+            className="shrink-0 rounded-full"
+            aria-label="Atualizar saldos"
             disabled={q.isFetching}
             onClick={() => void q.refetch()}
           >
-            {q.isFetching ? "Atualizando…" : "Atualizar saldos"}
-          </Button>
-        }
-      >
-        <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Carteiras do total">
-          <Button
-            size="sm"
-            variant={view === "all" ? "default" : "outline"}
-            aria-pressed={view === "all"}
-            onClick={() => setView("all")}
-          >
-            Todas as carteiras
-          </Button>
-          <Button
-            size="sm"
-            variant={view === "selected" ? "default" : "outline"}
-            aria-pressed={view === "selected"}
-            onClick={() => setView("selected")}
-          >
-            {name}
+            <RefreshCw className={`size-5 ${q.isFetching ? "animate-spin" : ""}`} />
           </Button>
         </div>
         {q.isError && (
@@ -93,220 +174,150 @@ export function FundsOverview() {
           <p role="status" className="text-sm text-muted-foreground">
             {q.isPending ? "Consultando carteiras e robôs na rede…" : "Saldos indisponíveis."}
           </p>
-        ) : (
+        ) : selected && selectedTotal ? (
           <>
-            <div className="rounded-2xl bg-primary/5 p-4 sm:p-5">
+            <div className="py-3">
               <p className="text-sm text-muted-foreground">
-                {total.complete
+                {selectedTotal.complete
                   ? q.isError
-                    ? "Último total consultado"
-                    : "Total de fundos · estimativa"
+                    ? "Último saldo consultado"
+                    : "Valor da carteira · estimativa"
                   : "Consulta parcial · subtotal apurado"}
               </p>
-              <p className="mt-1 break-words text-3xl font-bold tracking-tight text-primary">
-                {local(total.total ?? total.known)}
-              </p>
-              <p className="mt-1 break-all text-sm tabular-nums">
-                {fiatEstimate(total.total ?? total.known, "BNB", currency, quote) == null
-                  ? `Conversão para ${currency} indisponível`
-                  : bnb(total.total ?? total.known, true)}
+              <p className="mt-1 break-words text-4xl font-bold tracking-tight tabular-nums sm:text-5xl">
+                {local(selectedTotal.total ?? selectedTotal.known)}
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
-                Carteiras cadastradas + robôs · BSC. Confira os tokens e seus valores abaixo.
+                {selected.bot ? "Carteira dos robôs · saldo compartilhado" : "Carteira pessoal"}
+                {selected.bot && selected.personal ? " · também cadastrada como pessoal" : ""}
               </p>
             </div>
-            {!total.complete && (
+            {!selectedTotal.complete && (
               <p role="status" className="mt-3 text-sm text-warning">
                 Há saldo ou tokens sem consulta/cotação. O total completo ainda está indisponível; o
                 subtotal soma apenas valores apurados.
               </p>
             )}
-            <div className="mt-5 space-y-6">
-              {wallets.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Nenhuma carteira neste grupo. Cadastre uma carteira ou crie a carteira dos robôs.
+            <section aria-label={`Tokens de ${selected.label}`} className="mt-5">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-lg font-semibold">Tokens</h3>
+                {assets.length > 4 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-expanded={expanded}
+                    aria-controls="wallet-fund-tokens"
+                    onClick={() => setExpandedFor(expanded ? null : selected.address)}
+                  >
+                    {expanded ? "Mostrar menos" : `Ver todos (${assets.length})`}
+                  </Button>
+                )}
+              </div>
+              <ul id="wallet-fund-tokens" className="mt-1 divide-y divide-border">
+                {shown.map((a) => {
+                  const name =
+                    tokens.find((t) => t.address.toLowerCase() === a.address.toLowerCase())?.name ??
+                    a.name;
+                  return (
+                    <li key={a.address} className="flex items-center gap-3 py-4">
+                      <TokenLogo address={a.address} symbol={a.symbol} logoUrl={a.logoUrl} />
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words text-sm font-semibold sm:text-base">{name}</p>
+                        <p
+                          className="mt-1 break-all text-xs tabular-nums text-muted-foreground"
+                          title={a.amount == null ? undefined : `${a.amount} ${a.symbol}`}
+                        >
+                          {a.amount == null ? "Saldo indisponível" : formatFundAmount(a.amount, 10)}{" "}
+                          {a.symbol}
+                        </p>
+                      </div>
+                      <div className="min-w-0 max-w-[48%] text-right">
+                        <p className="break-words text-base font-semibold tabular-nums">
+                          {local(a.value)}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {a.value == null ? "Cotação ou saldo indisponível" : "Valor estimado"}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+            <details className="mt-3 border-t border-border pt-3">
+              <summary className="cursor-pointer text-sm text-muted-foreground">
+                Endereço e reservas
+              </summary>
+              <a
+                href={`https://bscscan.com/address/${selected.address}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 block break-all font-mono text-xs text-primary underline"
+              >
+                {selected.address}
+              </a>
+              {selected.capital && (
+                <dl className="mt-3 space-y-3 text-xs">
+                  {[
+                    ["Reserva planejada para compras", selected.capital.reserved],
+                    ["Reserva para gás", selected.capital.gas],
+                    ["BNB sem reserva dos robôs", selected.capital.free],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex flex-wrap justify-between gap-1">
+                      <dt>{label}</dt>
+                      <dd className="break-all text-right">
+                        {value == null
+                          ? "Aguardando verificação das operações"
+                          : `${formatFundAmount(value)} BNB`}
+                        {value != null && <FiatValue bnb={value} />}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              {selected.capital && Number(selected.capital.shortfall ?? 0) > 0 && (
+                <p className="mt-2 text-xs text-warning">
+                  As reservas planejadas excedem o saldo: faltam{" "}
+                  {formatFundAmount(selected.capital.shortfall!)} BNB.
                 </p>
               )}
-              {[false, true].map((robot) => {
-                const group = wallets.filter((w) => w.bot === robot);
-                if (!group.length) return null;
-                const Icon = robot ? Bot : Wallet;
-                return (
-                  <section
-                    key={String(robot)}
-                    aria-label={robot ? "Carteiras dos robôs" : "Suas carteiras"}
-                  >
-                    <h3 className="mb-3 flex items-center gap-2 text-base font-semibold">
-                      <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
-                      {robot ? "Carteiras dos robôs" : "Suas carteiras"}
-                    </h3>
-                    <div className="space-y-4">
-                      {group.map((w) => {
-                        const subtotal = fundsTotal([w]);
-                        const assets = [
-                          {
-                            address: "native",
-                            symbol: "BNB",
-                            amount: w.bnb,
-                            value: w.bnb,
-                            name: "BNB",
-                          },
-                          ...w.assets.map((a) => ({
-                            ...a,
-                            value: fundAssetValue(a),
-                            name:
-                              tokens.find(
-                                (t) => t.address.toLowerCase() === a.address.toLowerCase(),
-                              )?.name ?? a.symbol,
-                          })),
-                        ];
-                        return (
-                          <article
-                            key={w.address}
-                            className="overflow-hidden rounded-2xl border border-border"
-                            aria-label={`${w.label} · tokens`}
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-3 bg-muted/40 p-4">
-                              <div className="min-w-0">
-                                <h4 className="font-semibold">{w.label}</h4>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  {w.bot ? "Saldo da carteira dos robôs" : "Carteira pessoal"}
-                                  {w.bot && w.personal ? " · também cadastrada como pessoal" : ""}
-                                </p>
-                                <a
-                                  href={`https://bscscan.com/address/${w.address}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="mt-1 inline-block font-mono text-xs text-muted-foreground underline"
-                                  title={w.address}
-                                >
-                                  {w.address.slice(0, 6)}…{w.address.slice(-4)} ↗
-                                </a>
-                              </div>
-                              <div className="min-w-0 text-right">
-                                <p className="text-xs text-muted-foreground">
-                                  {subtotal.complete ? "Valor da carteira" : "Subtotal apurado"}
-                                </p>
-                                <p className="mt-1 break-words text-xl font-bold tabular-nums">
-                                  {local(subtotal.total ?? subtotal.known)}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="px-4">
-                              <p className="pt-4 text-sm font-semibold">
-                                {w.bot ? "Tokens na carteira dos robôs" : "Tokens"}
-                              </p>
-                              <ul className="divide-y divide-border">
-                                {assets.map((a) => (
-                                  <li key={a.address} className="flex items-center gap-3 py-4">
-                                    <span
-                                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold ${a.address === "native" ? "bg-amber-400/20 text-amber-700 dark:text-amber-300" : "bg-primary/10 text-primary"}`}
-                                      aria-hidden="true"
-                                    >
-                                      {a.symbol.slice(0, 3)}
-                                    </span>
-                                    <div className="min-w-0 flex-1">
-                                      <p className="break-words text-sm font-semibold">{a.name}</p>
-                                      <p
-                                        className="mt-1 break-all text-xs tabular-nums text-muted-foreground"
-                                        title={
-                                          a.amount == null ? undefined : `${a.amount} ${a.symbol}`
-                                        }
-                                      >
-                                        {a.amount == null
-                                          ? "Saldo indisponível"
-                                          : formatFundAmount(a.amount, 10)}{" "}
-                                        {a.symbol}
-                                      </p>
-                                    </div>
-                                    <div className="min-w-0 max-w-[48%] text-right">
-                                      <p className="break-words text-base font-semibold tabular-nums">
-                                        {local(a.value)}
-                                      </p>
-                                      <p className="mt-1 break-words text-xs text-muted-foreground">
-                                        {a.value == null
-                                          ? "Cotação ou saldo indisponível"
-                                          : "Valor estimado"}
-                                      </p>
-                                    </div>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                            <details className="mx-4 mb-4 border-t border-border pt-3">
-                              <summary className="cursor-pointer text-sm text-muted-foreground">
-                                Reservas e detalhes da carteira
-                              </summary>
-                              <a
-                                href={`https://bscscan.com/address/${w.address}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="mt-3 block break-all font-mono text-xs text-primary underline"
-                              >
-                                {w.address}
-                              </a>
-                              {w.capital && (
-                                <dl className="mt-3 space-y-1 border-t border-border pt-3 text-xs">
-                                  <div className="flex flex-wrap justify-between gap-1">
-                                    <dt>Reserva planejada para compras</dt>
-                                    <dd className="break-all text-right">
-                                      {bnb(w.capital.reserved)}
-                                      <FiatValue bnb={w.capital.reserved} />
-                                    </dd>
-                                  </div>
-                                  <div className="flex flex-wrap justify-between gap-1">
-                                    <dt>Reserva para gás</dt>
-                                    <dd className="break-all text-right">
-                                      {bnb(w.capital.gas)}
-                                      <FiatValue bnb={w.capital.gas} />
-                                    </dd>
-                                  </div>
-                                  <div className="flex flex-wrap justify-between gap-1">
-                                    <dt>BNB sem reserva dos robôs</dt>
-                                    <dd className="break-all">
-                                      {w.capital.free == null
-                                        ? "Aguardando verificação das operações"
-                                        : bnb(w.capital.free)}
-                                      {w.capital.free != null && <FiatValue bnb={w.capital.free} />}
-                                    </dd>
-                                  </div>
-                                </dl>
-                              )}
-                              {w.capital && Number(w.capital.shortfall ?? 0) > 0 && (
-                                <p className="mt-2 text-xs text-warning">
-                                  As reservas planejadas excedem o saldo: faltam{" "}
-                                  {bnb(w.capital.shortfall!)}.
-                                </p>
-                              )}
-                              {w.bot && !w.capital && (
-                                <p className="mt-2 text-xs text-warning">
-                                  Divisão das reservas indisponível nesta consulta.
-                                </p>
-                              )}
-                            </details>
-                            {w.issues.map((issue) => (
-                              <p key={issue} className="mx-4 mb-3 text-xs text-warning">
-                                {issue}
-                              </p>
-                            ))}
-                          </article>
-                        );
-                      })}
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
+              {selected.bot && !selected.capital && (
+                <p className="mt-2 text-xs text-warning">
+                  Divisão das reservas indisponível nesta consulta.
+                </p>
+              )}
+            </details>
+            {selected.issues.map((issue) => (
+              <p key={issue} className="mt-2 text-xs text-warning">
+                {issue}
+              </p>
+            ))}
+            <details className="mt-4 rounded-xl bg-muted/40 p-3">
+              <summary className="cursor-pointer text-sm">
+                Total de fundos · todas as carteiras{" "}
+                <strong className="ml-1 tabular-nums">{local(total.total ?? total.known)}</strong>
+                {!total.complete ? " · parcial" : ""}
+              </summary>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Carteiras pessoais + carteiras dos robôs. Cada endereço é contado uma vez. Reservas
+                já estão incluídas no BNB; o custo das compras não é saldo adicional.
+              </p>
+            </details>
             <p className="mt-4 text-xs text-muted-foreground">
-              Cada endereço é contado uma vez. As reservas já estão incluídas no BNB; o custo das
-              compras não é saldo adicional. Tokens populares e cadastrados são consultados;
-              adicione outros tokens para incluí-los. Valores de mercado e conversões são
-              estimativas, antes de taxas de venda.
+              Tokens populares e cadastrados são consultados; adicione outros para incluí-los.
+              Valores de mercado são estimativas, antes de taxas de venda.
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
               Saldos consultados em {new Date(q.data.balanceAt).toLocaleString("pt-BR")}.
             </p>
           </>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Nenhuma carteira cadastrada.{" "}
+            <a className="text-primary underline" href="/carteiras#adicionar-carteira">
+              Adicionar carteira
+            </a>
+          </p>
         )}
       </Panel>
     </div>

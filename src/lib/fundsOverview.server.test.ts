@@ -90,9 +90,10 @@ function setup(locked = false) {
       })),
     ),
   };
-  mocks.meta.mockResolvedValue({ symbol: "T", decimals: 18 });
+  mocks.meta.mockResolvedValue({ symbol: "T", name: "Test Token", decimals: 18 });
   mocks.market.mockResolvedValue({
     pools: [{ supported: true, priceNative: "0.002" }],
+    logoUrl: "https://cdn.dexscreener.com/token.png",
     error: null,
   });
   return { admin, pub, calls, tables };
@@ -107,6 +108,10 @@ it("isolates all metadata by user and pins every balance to the same block", asy
   for (const [request] of pub.getBalance.mock.calls) expect(request.blockNumber).toBe(42n);
   for (const [request] of pub.multicall.mock.calls) expect(request.blockNumber).toBe(42n);
   expect(r.wallets[1]?.capital?.free).toBe("1.89");
+  expect(r.wallets[1]?.assets[0]).toMatchObject({
+    name: "Test Token",
+    logoUrl: "https://cdn.dexscreener.com/token.png",
+  });
 });
 it("keeps all holdings in the total but does not advertise locked BNB as free", async () => {
   const { admin, pub } = setup(true);

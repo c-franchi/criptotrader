@@ -281,7 +281,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         data-app-content
         className="exchange-workspace mx-auto w-full min-w-0 max-w-[1600px] px-3 py-4 sm:px-4 sm:py-6"
       >
-        <WalletSelector />
+        {pathname !== "/" && pathname !== "/carteiras" && <WalletSelector />}
         {children}
       </main>
       <AppTour open={tour.open} onOpenChange={tour.setOpen} />

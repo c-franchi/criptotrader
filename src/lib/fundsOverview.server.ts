@@ -111,6 +111,7 @@ export async function readFundsOverview(admin: any, pub: any, userId: string) {
             assets.push({
               address,
               symbol: m.symbol,
+              name: m.name,
               amount: formatUnits(r.result, m.decimals),
               priceBnb: null,
             });
@@ -166,6 +167,7 @@ export async function readFundsOverview(admin: any, pub: any, userId: string) {
     ...new Set(rows.flatMap((w) => w.assets.filter((a) => a.amount != null).map((a) => a.address))),
   ];
   const prices = new Map<string, string | null>();
+  const logos = new Map<string, string | null>();
   for (const address of held) {
     if (address === "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c") {
       prices.set(address, "1");
@@ -176,6 +178,7 @@ export async function readFundsOverview(admin: any, pub: any, userId: string) {
         address,
         process.env["BSC_RPC_URL"] || "https://bsc-dataseed.bnbchain.org",
       );
+      logos.set(address, market.logoUrl ?? null);
       const p = market.pools.find((p) => p.supported)?.priceNative;
       prices.set(
         address,
@@ -185,7 +188,11 @@ export async function readFundsOverview(admin: any, pub: any, userId: string) {
       prices.set(address, null);
     }
   }
-  for (const w of rows) for (const a of w.assets) a.priceBnb = prices.get(a.address) ?? null;
+  for (const w of rows)
+    for (const a of w.assets) {
+      a.priceBnb = prices.get(a.address) ?? null;
+      a.logoUrl = logos.get(a.address) ?? null;
+    }
   return {
     wallets: rows,
     at: new Date().toISOString(),

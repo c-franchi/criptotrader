@@ -62,3 +62,15 @@ it("retains dust accurately and never formats a nonzero balance as zero", () => 
     }),
   ).toBe("100.000000000000000001");
 });
+it("orders largest holdings with exact decimals and preserves unknown assets", async () => {
+  const { fundWalletAssets } = await import("./fundsOverview");
+  const sorted = fundWalletAssets({
+    ...wallet,
+    assets: [
+      { address: "less", symbol: "L", amount: "1.000000000000000001", priceBnb: "1" },
+      { address: "more", symbol: "M", amount: "1.000000000000000002", priceBnb: "1" },
+      { address: "unknown", symbol: "U", amount: "100", priceBnb: null },
+    ],
+  });
+  expect(sorted.map((a) => a.address)).toEqual(["more", "less", "native", "unknown"]);
+});
