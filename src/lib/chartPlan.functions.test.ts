@@ -31,6 +31,7 @@ const scope = "11111111-1111-4111-8111-111111111111",
   token = "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",
   address = "0x1111111111111111111111111111111111111111";
 const settings: ChartPlanInput = {
+  partialEntriesAccepted: false,
   budgetBnb: "0.02",
   entryPrices: [0.0008, 0.001],
   exitPrices: [0.0015, 0.0013],
@@ -118,7 +119,37 @@ it("rejects stale versions or occupied positions without retry writes or startin
 });
 it("rejects exits whose projected value does not cover modeled costs", async () => {
   await expect(
-    saveChartPlan({ data: { ...data, settings: { ...settings, exitPrices: [0.001001] } } }),
-  ).rejects.toThrow("não cobrem os custos");
+    saveChartPlan({
+      data: { ...data, settings: { ...settings, buyTaxPct: 30, exitPrices: [0.001001] } },
+    }),
+  ).rejects.toThrow("não cobrem as taxas");
   expect(io.rpc).not.toHaveBeenCalled();
+});
+
+it("requires explicit incomplete-entry acknowledgment without moving a profitable manual exit, and preserves the execution tolerance", async () => {
+  const close = {
+    ...settings,
+    buyTaxPct: 0,
+    sellTaxPct: 0,
+    entryPrices: [0.001, 0.00095],
+    exitPrices: [0.001001],
+  };
+  await expect(saveChartPlan({ data: { ...data, settings: close } })).rejects.toThrow(
+    "entradas incompletas",
+  );
+  expect(io.rpc).not.toHaveBeenCalled();
+  await saveChartPlan({ data: { ...data, settings: { ...close, partialEntriesAccepted: true } } });
+  expect(io.rpc).toHaveBeenCalledWith(
+    "configure_guided_bot",
+    expect.objectContaining({
+      p_config: expect.objectContaining({
+        maxSlippagePct: 1,
+        chartRule: expect.objectContaining({
+          projectionVersion: 2,
+          partialEntriesAccepted: true,
+          exits: [{ priceBnb: 0.001001, sharePct: 100 }],
+        }),
+      }),
+    }),
+  );
 });

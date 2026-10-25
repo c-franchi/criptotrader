@@ -1,4 +1,4 @@
-import { planProgress } from "./chartPlan";
+import { planProgress, planProjection, planPartialScenarios } from "./chartPlan";
 import type { ReadinessAction, ReadinessIssue } from "./readinessIssues";
 import Decimal from "decimal.js";
 /* eslint-disable @typescript-eslint/no-explicit-any -- privileged Supabase and viem boundary */
@@ -242,7 +242,52 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
             sell: cfg.sellTaxPct ?? 0,
           })
         : Math.min(...cfg.takeProfits.filter((t) => t.pct > 0).map((t) => t.pct));
-  if (!Number.isFinite(grossMargin))
+  const rule = cfg.chartRule;
+  if (rule?.version === 2 && rule.projectionVersion === 2 && rule.entries && rule.exits) {
+    const model = {
+      entryPrices: rule.entries.map((e) => e.priceBnb),
+      exitPrices: rule.exits.map((e) => e.priceBnb),
+      amounts: rule.entries.map((e) => e.amountBnb),
+      buyTaxPct: cfg.buyTaxPct ?? 0,
+      sellTaxPct: cfg.sellTaxPct ?? 0,
+      gasBuyBnb: Math.max(rule.gasBuyBnb, feeBnb ?? 0),
+      gasSellBnb: rule.gasSellBnb,
+      executionMarginPct: cfg.maxSlippagePct,
+    };
+    const projection = planProjection(model);
+    // Preserve the read-only executable quote check. Discount only observed costs beyond
+    // the token/DEX fees already in the model, so those fees are never charged twice.
+    const nominalFactor = (1 - model.buyTaxPct / 100) * (1 - model.sellTaxPct / 100) * 0.9975 ** 2;
+    const observedFactor = Number(formatEther(returned.at(-1)!)) / Number(formatEther(amount));
+    const extraFactor = Math.min(1, observedFactor / nominalFactor);
+    const quoteAdjustedProfit = projection
+      ? (projection.received + model.gasSellBnb * model.exitPrices.length) * extraFactor -
+        model.gasSellBnb * model.exitPrices.length -
+        projection.cost
+      : NaN;
+    const partialRisk = planPartialScenarios(model).some(
+      (s) => !s.projection || s.projection.profit <= 0,
+    );
+    if (
+      !projection ||
+      projection.profit <= 0 ||
+      !Number.isFinite(quoteAdjustedProfit) ||
+      quoteAdjustedProfit <= 0
+    )
+      block(
+        "costs",
+        "As saídas do conjunto não cobrem as taxas e o gás estimados agora. Confira os custos no editor; seus preços não foram alterados.",
+      );
+    else if (partialRisk && !rule.partialEntriesAccepted)
+      block(
+        "costs",
+        "Confirme no editor o cenário de compras incompletas antes de iniciar. Os preços escolhidos foram mantidos.",
+      );
+    else if (partialRisk)
+      warnings.push(
+        "Compras incompletas podem gerar prejuízo nas saídas escolhidas, conforme o cenário aceito na revisão. Os pontos de saída não foram aumentados.",
+      );
+  } else if (!Number.isFinite(grossMargin))
     warnings.push("A saída depende da proteção configurada; não há meta fixa de lucro.");
   else if (
     knownFeeConsumesMargin(

@@ -14,6 +14,8 @@ export const chartRuleSchema = z
     gasBuyBnb: z.number().finite().nonnegative(),
     gasSellBnb: z.number().finite().nonnegative(),
     version: z.literal(2).optional(),
+    projectionVersion: z.literal(2).optional(),
+    partialEntriesAccepted: z.boolean().optional(),
     entries: z
       .array(
         z.object({

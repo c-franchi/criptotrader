@@ -6,6 +6,8 @@ import {
   dividePlanBudget,
   planGasReserve,
   planProjection,
+  planEntryResults,
+  planPartialScenarios,
   splitExitShares,
   suggestPlanExits,
   type ChartPlanInput,
@@ -16,6 +18,7 @@ import { strategySchema } from "./strategyValidation";
 import { walletCapital, type CapitalBot } from "./walletCapital";
 const id = "11111111-1111-4111-8111-111111111111";
 const input: ChartPlanInput = {
+  partialEntriesAccepted: false,
   budgetBnb: "0.03",
   entryPrices: [0.001, 0.0008, 0.0006],
   exitPrices: [0.0013, 0.0015, 0.0017],
@@ -147,17 +150,66 @@ it("reserves unfilled order amounts separately from actual position costs includ
   expect(walletCapital("0.02", [bot])).toMatchObject({ reserved: "0", gas: "0", free: "0.02" });
   expect(() => JSON.stringify(original)).not.toThrow();
 });
-it("automatic exits cover modeled costs for every possible filled prefix, not just the cheapest average", () => {
+it("suggests from all entries with fees and gas, leaving a first-entry-only loss as a separate scenario", () => {
   const a = dividePlanBudget(input.budgetBnb, 3, 3, input.gasBuyBnb, input.gasSellBnb)!;
   const exits = suggestPlanExits({ ...input, amounts: a.amounts }, 3, 3);
-  for (let n = 1; n <= 3; n++) {
-    const p = planProjection({
-      ...input,
-      entryPrices: input.entryPrices.slice(0, n),
-      amounts: a.amounts.slice(0, n),
-      exitPrices: exits,
-    })!;
-    expect(p.netPct).toBeGreaterThanOrEqual(3 - 1e-8);
-  }
+  const model = { ...input, amounts: a.amounts, exitPrices: exits };
+  const total = planProjection(model)!;
+  expect(total.netPct).toBeGreaterThanOrEqual(3 - 1e-8);
+  expect(planPartialScenarios(model)[0]!.projection!.netPct).toBeLessThan(0);
+  expect(exits[0]).toBeGreaterThan(input.entryPrices[0]!);
+  expect(exits[0]!).toBeLessThan(0.00101);
   expect(planProjection({ ...input, amounts: ["NaN", "1", "1"] })).toBeNull();
+});
+it("keeps slippage as a separate adverse scenario, not a mandatory fee", () => {
+  const model = { ...input, amounts: [".01", ".01", ".01"] };
+  const base = planProjection(model)!;
+  expect(planProjection({ ...model, executionMarginPct: 10 })!.profit).toBeCloseTo(base.profit, 12);
+  expect(planProjection(model, "slippage")!.profit).toBeLessThan(base.profit);
+  expect(suggestPlanExits(model, 1, 1)).toEqual(
+    suggestPlanExits({ ...model, executionMarginPct: 10 }, 1, 1),
+  );
+  expect(base.grossProfit - base.feeCost).toBeCloseTo(base.profit, 12);
+});
+it("attributes each entry's costs so per-entry profits sum to the position result", () => {
+  const model = { ...input, amounts: [".005", ".01", ".015"] };
+  const full = planProjection(model)!;
+  const rows = planEntryResults(model);
+  expect(rows.reduce((sum, r) => sum + r.profit, 0)).toBeCloseTo(full.profit, 12);
+  const plain = planProjection({
+    ...model,
+    buyTaxPct: 0,
+    sellTaxPct: 0,
+    gasBuyBnb: 0,
+    gasSellBnb: 0,
+  })!;
+  expect(plain.feeCost).toBeGreaterThan(0); // DEX fees remain, even for an untaxed token.
+  expect(full.profit).toBeLessThan(plain.profit);
+});
+it("computes the combined break-even exactly with taxes and gas and does not lift a manual profitable exit", () => {
+  const amounts = [".01", ".01", ".01"];
+  const p = planProjection({ ...input, amounts })!;
+  const equal = planProjection({
+    ...input,
+    amounts,
+    exitPrices: [p.breakEvenBnb, p.breakEvenBnb, p.breakEvenBnb],
+  })!;
+  expect(equal.profit).toBeCloseTo(0, 12);
+  const d = {
+    ...input,
+    entryPrices: [0.001, 0.000999],
+    exitPrices: [0.001012],
+    buyTaxPct: 0,
+    sellTaxPct: 0,
+    gasBuyBnb: 0,
+    gasSellBnb: 0,
+    executionMarginPct: 1,
+    partialEntriesAccepted: true,
+  };
+  const config = buildChartPlanConfig(d, id, EMPTY_CONFIG);
+  expect(config.chartRule!.exits![0]!.priceBnb).toBe(0.001012);
+  expect(config.chartRule!.projectionVersion).toBe(2);
+  expect(config.maxSlippagePct).toBe(1);
+  expect(planProjection({ ...d, amounts: [".015", ".015"] })!.profit).toBeGreaterThan(0);
+  expect(planProjection({ ...d, amounts: [".015", ".015"] }, "slippage")!.profit).toBeLessThan(0);
 });
