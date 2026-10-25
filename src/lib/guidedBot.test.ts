@@ -89,3 +89,58 @@ it("preserves explicit market/network protections and provides a grid correction
   expect(badGrid.success).toBe(false);
   if (!badGrid.success) expect(badGrid.error.issues[0]?.path).toEqual(["lower"]);
 });
+
+it("allows explicitly disabling the stop without disabling the profit target, for every guided model", () => {
+  for (const model of ["dca", "grid", "recovery", "trend"] as const) {
+    const c = buildGuidedConfig({
+      ...input,
+      model,
+      lower: 0.01,
+      upper: 0.02,
+      stopPct: 0,
+      allowNoStop: true,
+      buyTax: 8,
+      sellTax: 8,
+    });
+    expect(c.stopLossPct).toBe(0);
+    expect(c.takeProfits[0]!.pct).toBeGreaterThan(4);
+  }
+});
+it("without a stop, a deep drop alone does not force a sale, but profit exits still apply", () => {
+  const c = buildGuidedConfig({ ...input, maxEntries: 1, stopPct: 0, allowNoStop: true });
+  const held = {
+    ...EMPTY_STATE,
+    entries: 1,
+    tokens: 1,
+    avgPriceUsd: 100,
+    lastBuyUsd: 100,
+    costBnb: 0.002,
+  };
+  const m = { high: 100, liquidityUsd: 100000, now: Date.now(), closes: [] };
+  expect(decide(c, held, { ...m, priceUsd: 30 }).action).toBe("nenhuma");
+  expect(decide(c, held, { ...m, priceUsd: 105 }).action).toBe("venda");
+  expect(guidedInputSchema.safeParse({ ...input, stopPct: 0, allowNoStop: false }).success).toBe(
+    false,
+  );
+  expect(guidedInputSchema.safeParse({ ...input, stopPct: -1, allowNoStop: true }).success).toBe(
+    false,
+  );
+});
+
+it("maps the guided trend option to existing closed-candle trend rules and rejects inverted averages", () => {
+  const c = buildGuidedConfig({ ...input, model: "trend", maFast: 2, maSlow: 4 });
+  expect(c.entryType).toBe("medias");
+  expect(c.candleInterval).toBe("15m");
+  const m = {
+    priceUsd: 1.15,
+    high: 1.3,
+    liquidityUsd: 100000,
+    now: Date.now(),
+    closes: [1, 1, 1.2, 1.2, 1.3],
+  };
+  expect(decide(c, { ...EMPTY_STATE }, m).action).toBe("compra");
+  expect(decide(c, { ...EMPTY_STATE }, { ...m, priceUsd: 1.3 }).action).toBe("nenhuma");
+  expect(
+    guidedInputSchema.safeParse({ ...input, model: "trend", maFast: 9, maSlow: 5 }).success,
+  ).toBe(false);
+});

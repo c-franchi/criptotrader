@@ -6,7 +6,7 @@ import { WBNB } from "./pancake";
 export const incompatibleBotToken = (token: string) => token.toLowerCase() === WBNB.toLowerCase();
 export const INCOMPATIBLE_BNB =
   "Este robô paga com BNB para comprar outra moeda. BNB e WBNB representam o mesmo ativo; esta combinação não permite negociar a variação do BNB em dólares. Escolha outra moeda com par BNB compatível.";
-export const guidedModelSchema = z.enum(["dca", "grid", "recovery"]);
+export const guidedModelSchema = z.enum(["dca", "grid", "recovery", "trend"]);
 export type GuidedModel = z.infer<typeof guidedModelSchema>;
 const positive = z.number().finite().positive("Informe um valor maior que zero.");
 const pct = positive.lt(100);
@@ -16,11 +16,14 @@ export const guidedInputSchema = z
     capital: positive,
     buyAmount: positive,
     dropPct: pct,
+    maFast: z.number().int().min(1).max(500).optional(),
+    maSlow: z.number().int().min(2).max(1000).optional(),
     maxEntries: z.number().int().min(1).max(100),
     cooldownMin: z.number().finite().min(0).max(10080),
     maxTradesPerDay: z.number().int().min(1).max(1000),
     profitPct: pct,
-    stopPct: pct,
+    stopPct: z.number().finite().min(0).lt(100),
+    allowNoStop: z.boolean().optional(),
     minLiquidityUsd: z.number().finite().nonnegative().optional(),
     maxGasGwei: z.number().finite().positive().max(1000).optional(),
     reserve: z.number().finite().nonnegative(),
@@ -35,6 +38,18 @@ export const guidedInputSchema = z
     confirmationBars: z.number().int().min(2).max(10),
   })
   .superRefine((d, ctx) => {
+    if (d.model === "trend" && (d.maFast ?? 9) >= (d.maSlow ?? 21))
+      ctx.addIssue({
+        code: "custom",
+        path: ["maSlow"],
+        message: "A média lenta deve ser maior que a rápida.",
+      });
+    if (d.stopPct === 0 && d.allowNoStop !== true)
+      ctx.addIssue({
+        code: "custom",
+        path: ["stopPct"],
+        message: "Escolha explicitamente manter os tokens sem stop-loss.",
+      });
     if (d.buyAmount > d.capital)
       ctx.addIssue({
         code: "custom",
@@ -76,7 +91,9 @@ export function buildGuidedConfig(input: GuidedInput): StrategyConfig {
     maxExposureQuote: d.capital,
     sizingMode: "fixo",
     buyAmount: d.buyAmount,
-    entryType: d.model === "recovery" ? "adaptativa" : "queda",
+    entryType: d.model === "recovery" ? "adaptativa" : d.model === "trend" ? "medias" : "queda",
+    maFast: d.maFast ?? 9,
+    maSlow: d.maSlow ?? 21,
     dropPct: d.dropPct,
     maxEntries: d.model === "recovery" ? 1 : d.maxEntries,
     cooldownMin: d.cooldownMin,

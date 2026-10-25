@@ -1,3 +1,6 @@
+import { BotRuleHelp, BotRulesGuide, type GuidedRule } from "@/components/BotRulesGuide";
+import { StopLossDecision } from "@/components/StopLossDecision";
+import { manualRuleKey } from "@/lib/botGuidance";
 import { PageHeading } from "@/components/PageHeading";
 import { TokenPicker } from "@/components/TokenPicker";
 import { useSelectedWallet } from "@/hooks/useSelectedWallet";
@@ -90,8 +93,9 @@ function StopPreview({ c, amount, symbol }: { c: StrategyConfig; amount: number;
       </p>
       {loss == null ? (
         <p className="mt-1 text-primary">
-          Stop desativado: o robô nunca vende com prejuízo. Em quedas, faz as recompras previstas
-          (preço médio) dentro do valor liberado e espera o preço voltar.
+          Stop fixo desativado: este gatilho não venderá por queda. Recompras dependem das regras e
+          do capital. O preço pode não recuperar, e os tokens podem perder todo o valor. Metas e
+          stop móvel continuam ativos quando configurados.
         </p>
       ) : (
         <p className="mt-1">
@@ -151,6 +155,14 @@ function Num({
         min={0}
         value={value ?? ""}
         onChange={(e) => onChange(Number(e.target.value))}
+      />
+      <BotRuleHelp
+        field={{
+          key: manualRuleKey[label] ?? (label.startsWith("TP ") ? "takeProfit" : (id ?? label)),
+          label,
+          value: value ?? 0,
+          onChange,
+        }}
       />
       {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
     </div>
@@ -235,14 +247,18 @@ function StrategyForm() {
   }, [candles.data, tax.buy, tax.sell]);
   type Mode = "" | PresetId | "manual";
   const [mode, setMode] = useState<Mode>("");
+  const [guideOpen, setGuideOpen] = useState(false);
   const preset = PRESETS.find((p) => p.id === mode) ?? null;
   const pickMode = (m: Mode) => {
     setMode(m);
+    if (m && m !== "manual" && amountBnb > 0) applyPreset(m);
+    if (m) setGuideOpen(true);
     if (m === "manual" && c.presetId) set("presetId", null);
   };
   const chosen = PRESETS.find((p) => p.id === c.presetId) ?? null;
   const applyPreset = (id: PresetId) => {
     setC(buildPreset(id, amountBnb, liq, tax));
+    setGuideOpen(true);
     setEdited(false);
     const p = PRESETS.find((x) => x.id === id)!;
     toast.success(
@@ -253,6 +269,8 @@ function StrategyForm() {
   useEffect(() => {
     let alive = true;
     setLiq(null);
+    setGuideOpen(false);
+    setAskStop(false);
     setSavedSnapshot(null);
     setDraftRevision(0);
     setDraftNotice("");
@@ -372,11 +390,105 @@ function StrategyForm() {
   if (!Number.isFinite(c.stopLossPct) || c.stopLossPct < 0 || c.stopLossPct >= 100)
     errors.push("O limite do stop deve ser de 0 (desativado) até menos de 100%.");
 
+  const rule = (key: keyof StrategyConfig, label: string): GuidedRule => ({
+    key:
+      key === "stopLossPct"
+        ? c.stopLossMode === "liquido"
+          ? "stopNet"
+          : "stopPct"
+        : key === "gasReserveBnb"
+          ? "reserve"
+          : key,
+    label,
+    value: Number(c[key] ?? 0),
+    onChange: (n) => set(key, n),
+  });
+  const guideFields: GuidedRule[] = [
+    rule("buyAmount", `Por compra (${c.sizingMode === "fixo" ? "moeda do par" : "% do saldo"})`),
+    rule("allocationBnb", "Capital do robô (BNB)"),
+    rule("maxExposureQuote", "Exposição máxima (moeda do par)"),
+    ...(c.entryType === "queda"
+      ? [
+          rule("dropPct", "Queda para entrada (%)"),
+          ...(c.referenceType === "manual"
+            ? [rule("manualReference", "Referência (moeda do par)")]
+            : [rule("windowHours", "Janela da referência (horas)")]),
+        ]
+      : [rule("maFast", "Média rápida (velas)"), rule("maSlow", "Média lenta (velas)")]),
+    ...(c.recovery?.enabled
+      ? (
+          [
+            ["minDropPct", "Queda mínima (%)", "dropPct"],
+            ["reboundPct", "Recuperação mínima (%)", "reboundPct"],
+            ["maxReboundPct", "Recuperação máxima (%)", "maxReboundPct"],
+            ["confirmationBars", "Fechamentos em alta", "confirmationBars"],
+            ["minNetPct", "Meta mínima após taxas do token (%)", "profitPct"],
+          ] as const
+        ).map(([key, label, guideKey]): GuidedRule => ({
+          key: guideKey,
+          label,
+          value: c.recovery![key],
+          onChange: (n) => set("recovery", { ...c.recovery!, [key]: n }),
+        }))
+      : []),
+    {
+      key: "buyTax",
+      label: "Taxa do token na compra (%)",
+      value: tax.buy,
+      onChange: (n) => set("buyTaxPct", n),
+    },
+    {
+      key: "sellTax",
+      label: "Taxa do token na venda (%)",
+      value: tax.sell,
+      onChange: (n) => set("sellTaxPct", n),
+    },
+    rule("maxEntries", "Máximo de entradas"),
+    rule("cooldownMin", "Intervalo entre compras (min)"),
+    rule("maxTradesPerDay", "Limite diário para novas entradas"),
+    ...c.takeProfits.flatMap((t, i): GuidedRule[] => [
+      {
+        key: "takeProfit",
+        label: `Alvo ${i + 1}: alta bruta do preço (%)`,
+        value: t.pct,
+        onChange: (n) =>
+          set(
+            "takeProfits",
+            c.takeProfits.map((x, j) => (j === i ? { ...x, pct: n } : x)),
+          ),
+      },
+      {
+        key: "sellPct",
+        label: `Alvo ${i + 1}: vender % do restante`,
+        value: t.sellPct,
+        onChange: (n) =>
+          set(
+            "takeProfits",
+            c.takeProfits.map((x, j) => (j === i ? { ...x, sellPct: n } : x)),
+          ),
+      },
+    ]),
+    rule(
+      "stopLossPct",
+      `Stop-loss ${c.stopLossMode === "liquido" ? "por perda líquida estimada" : "por preço"} (0 = desligado)`,
+    ),
+    ...(c.trailingEnabled
+      ? [
+          rule("trailingActivatePct", "Ativação do stop móvel (%)"),
+          rule("trailingDistancePct", "Distância do stop móvel (%)"),
+        ]
+      : []),
+    rule("gasReserveBnb", "Reserva para gás (BNB)"),
+    rule("minLiquidityUsd", "Liquidez mínima (US$)"),
+    rule("dailyLossLimit", "Limite diário de perda (moeda do par)"),
+    rule("maxSlippagePct", "Slippage máximo (%)"),
+    rule("maxPriceImpactPct", "Impacto máximo (%)"),
+    rule("maxGasGwei", "Teto de gás (gwei)"),
+  ];
   const [askStop, setAskStop] = useState(false);
   const requestSave = () => {
     if (errors.length) return;
-    if (c.stopLossPct > 0) setAskStop(true);
-    else void save();
+    setAskStop(true);
   };
   const save = async () => {
     if (!user || !walletReady || errors.length) return;
@@ -673,7 +785,7 @@ function StrategyForm() {
                     para empatar. As metas de venda das estratégias prontas já somam isso.
                   </>
                 ) : (
-                  "Nenhuma taxa informada. Se o token cobrar taxa, preencha aqui para a estratégia não vender no prejuízo."
+                  "Nenhuma taxa informada. Confira se o token cobra taxas; omiti-las pode subestimar os custos e o prejuízo."
                 )}
               </p>
             </div>
@@ -727,6 +839,16 @@ function StrategyForm() {
           </Panel>
 
           <Panel title="Passo 4 · Como você quer operar?">
+            <BotRulesGuide
+              open={guideOpen}
+              onOpenChange={setGuideOpen}
+              fields={guideFields}
+              title="Entenda e ajuste suas regras"
+              summary={describeStrategy(c, "BNB")}
+            />
+            <Button variant="outline" className="mb-3" onClick={() => setGuideOpen(true)}>
+              Revisar comigo · iniciantes e avançados
+            </Button>
             <div className="flex items-center gap-1">
               <Label htmlFor="modo">Escolha o tipo de estratégia</Label>
               <HelpTip title="Tipos de estratégia">
@@ -852,7 +974,7 @@ function StrategyForm() {
                     ? "Limite de perda líquida (%)"
                     : "Limite de queda do preço (%)"
                 }
-                hint="0 = desativado (recomendado para tokens com taxa)"
+                hint="0 = desativado por sua escolha. Taxas não ativam nem desativam o stop automaticamente."
                 value={c.stopLossPct}
                 onChange={(n) => set("stopLossPct", n)}
               />
@@ -923,8 +1045,8 @@ function StrategyForm() {
                     <Label>Tipo de sinal</Label>
                     <HelpTip title="Tipo de sinal">
                       <p>
-                        <b>Queda percentual:</b> compra quando o preço cai X% — bom para comprar
-                        barato.
+                        <b>Queda percentual:</b> tenta comprar após a queda definida. O preço pode
+                        continuar caindo.
                       </p>
                       <p>
                         <b>Cruzamento de médias:</b> exige tendência de alta e recuo até a média
@@ -1148,7 +1270,7 @@ function StrategyForm() {
                   >
                     <Num
                       label={`TP ${i + 1}: valorização sobre preço médio (%)`}
-                      help="Take-profit (realizar lucro): quando o preço subir esse % acima do que você pagou, vende uma parte. Ex.: +10% vende metade e garante o ganho."
+                      help="Take-profit (realizar lucro): quando o preço subir esse % acima do que você pagou, vende uma parte. Ex.: +10% pode disparar a venda de parte da posição. Custos podem reduzir o resultado ou deixá-lo negativo."
                       value={t.pct}
                       onChange={(n) =>
                         set(
@@ -1221,7 +1343,7 @@ function StrategyForm() {
                   <HelpTip title="Trailing stop (stop móvel)">
                     <p>
                       Segue o preço para cima. Depois de lucrar, se o preço virar e cair um pouco do
-                      topo, vende e garante o ganho.
+                      topo, tenta vender. O resultado líquido depende dos custos e da execução.
                     </p>
                   </HelpTip>
                 </div>
@@ -1236,7 +1358,7 @@ function StrategyForm() {
                     <Num
                       label="Distância da máxima (%)"
                       value={c.trailingDistancePct}
-                      help="Se o preço cair esse % do ponto mais alto depois de ativado, vende e garante o lucro."
+                      help="Se o preço cair esse % do ponto mais alto depois de ativado, tenta vender, sem garantia de lucro líquido."
                       onChange={(n) => set("trailingDistancePct", n)}
                     />
                   </div>
@@ -1359,38 +1481,20 @@ function StrategyForm() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          <AlertDialog open={askStop} onOpenChange={setAskStop}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Confirmar stop loss de {c.stopLossPct}%?</AlertDialogTitle>
-                <AlertDialogDescription asChild>
-                  <div className="space-y-2 text-sm">
-                    <p>
-                      Se o stop disparar, o robô <b>vende os {token.symbol} com prejuízo</b> e você
-                      não fica com os tokens para esperar a recuperação.
-                    </p>
-                    <StopPreview
-                      c={{ ...c, buyTaxPct: tax.buy, sellTaxPct: tax.sell }}
-                      amount={c.maxExposureQuote || amountBnb}
-                      symbol={token.symbol}
-                    />
-                  </div>
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel
-                  onClick={() => {
-                    set("stopLossPct", 0);
-                  }}
-                >
-                  Desativar stop
-                </AlertDialogCancel>
-                <AlertDialogAction onClick={() => void save()}>
-                  Entendi, salvar com stop
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <StopLossDecision
+            open={askStop}
+            onOpenChange={setAskStop}
+            value={c.stopLossPct}
+            onChange={(n) => set("stopLossPct", n)}
+            onConfirm={() => {
+              setAskStop(false);
+              void save();
+            }}
+            busy={saving}
+            buyTax={tax.buy}
+            sellTax={tax.sell}
+            mode={c.stopLossMode ?? "preco"}
+          />
           <Button
             className="mt-4 h-auto min-h-10 w-full whitespace-normal break-words"
             onClick={requestSave}
