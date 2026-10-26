@@ -207,3 +207,44 @@ it("still blocks known current exchange costs that consume the full position mar
   expect(r.ready).toBe(false);
   expect(r.errors.join(" ")).toContain("taxas e o gás estimados agora");
 });
+
+it("distinguishes a low gas-price ceiling from a funded wallet and reports both prices and BNB references", async () => {
+  const a = admin(),
+    original = a.from;
+  a.from = (table: string) => {
+    if (table !== "strategies") return original(table);
+    const q: any = {
+      select: () => q,
+      eq: () => q,
+      ilike: () => q,
+      maybeSingle: async () => ({
+        data: {
+          version: 1,
+          config: {
+            ...EMPTY_CONFIG,
+            buyAmount: 0.001,
+            sizingMode: "fixo",
+            taxVerified: true,
+            maxGasGwei: 0.0001,
+            takeProfits: [{ pct: 4, sellPct: 100 }],
+          },
+        },
+        error: null,
+      }),
+    };
+    return q;
+  };
+  const r = await readBotReadiness(a, "u", "s", token);
+  expect(r).toMatchObject({
+    ready: false,
+    networkGasGwei: "1",
+    configuredGasGwei: 0.0001,
+    gasBuyReferenceBnb: "0.0003",
+    gasSellReferenceBnb: "0.00046",
+    available: "0.09",
+  });
+  expect(r.issues).toContainEqual({
+    action: "gas",
+    message: expect.stringMatching(/1 gwei.*0,0001 gwei.*não do saldo/),
+  });
+});

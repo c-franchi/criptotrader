@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { EMPTY_CONFIG } from "./strategy";
-import type { ChartPlanInput } from "./chartPlan";
+import { buildChartPlanConfig, type ChartPlanInput } from "./chartPlan";
 const io = vi.hoisted(() => ({
   scope: vi.fn(),
   from: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock("@tanstack/react-start", () => ({
     }),
   }),
 }));
-import { saveChartPlan } from "./chartRule.functions";
+import { saveChartPlan, updateChartGasLimit } from "./chartRule.functions";
 const scope = "11111111-1111-4111-8111-111111111111",
   token = "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",
   address = "0x1111111111111111111111111111111111111111";
@@ -152,4 +152,71 @@ it("requires explicit incomplete-entry acknowledgment without moving a profitabl
       }),
     }),
   );
+});
+
+function mockSavedLimit(version = 7) {
+  const config = buildChartPlanConfig(
+    settings,
+    "11111111-1111-4111-8111-111111111111",
+    EMPTY_CONFIG,
+  );
+  io.from.mockImplementation(() => {
+    const q = {
+      select: () => q,
+      eq: io.eq,
+      ilike: () => q,
+      maybeSingle: async () => ({ data: { config, version }, error: null }),
+    };
+    io.eq.mockReturnValue(q);
+    return q;
+  });
+  return config;
+}
+it("changes only the gas-price ceiling on explicit review using authenticated scope and version fences", async () => {
+  const config = mockSavedLimit();
+  await updateChartGasLimit({
+    data: { walletScope: scope, token, maxGasGwei: 0.05, version: 7, draftRevision: 2 },
+  });
+  expect(io.scope).toHaveBeenCalledWith(expect.anything(), "owner", scope);
+  expect(io.eq).toHaveBeenCalledWith("user_id", "owner");
+  expect(io.eq).toHaveBeenCalledWith("wallet_scope", scope);
+  expect(io.rpc).toHaveBeenCalledTimes(1);
+  expect(io.rpc).toHaveBeenCalledWith(
+    "configure_guided_bot",
+    expect.objectContaining({
+      p_user: "owner",
+      p_scope: scope,
+      p_token: token,
+      p_version: 7,
+      p_draft_revision: 2,
+      p_config: { ...config, maxGasGwei: 0.05 },
+    }),
+  );
+  expect(io.balance).not.toHaveBeenCalled();
+  expect(io.capital).not.toHaveBeenCalled();
+});
+it("does not revise a stale or foreign chart gas ceiling and never retries an occupied-position rejection", async () => {
+  mockSavedLimit(8);
+  await expect(
+    updateChartGasLimit({
+      data: { walletScope: scope, token, maxGasGwei: 0.05, version: 7, draftRevision: 2 },
+    }),
+  ).rejects.toThrow("As regras mudaram");
+  expect(io.rpc).not.toHaveBeenCalled();
+  mockSavedLimit(7);
+  io.rpc.mockResolvedValue({ data: null, error: { message: "occupied" } });
+  await expect(
+    updateChartGasLimit({
+      data: { walletScope: scope, token, maxGasGwei: 0.05, version: 7, draftRevision: 2 },
+    }),
+  ).rejects.toThrow("sem posição aberta");
+  expect(io.rpc).toHaveBeenCalledTimes(1);
+  io.rpc.mockClear();
+  io.scope.mockRejectedValue(new Error("Carteira inválida"));
+  await expect(
+    updateChartGasLimit({
+      data: { walletScope: scope, token, maxGasGwei: 0.05, version: 7, draftRevision: 2 },
+    }),
+  ).rejects.toThrow("Carteira inválida");
+  expect(io.rpc).not.toHaveBeenCalled();
 });
