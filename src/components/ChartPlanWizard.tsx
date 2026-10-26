@@ -7,7 +7,11 @@ import { useChartPool } from "@/hooks/useChartPool";
 import { useCandles } from "@/hooks/useCandles";
 import { getTradingMarket } from "@/lib/chain.functions";
 import { getWalletCapital } from "@/lib/capital.functions";
-import { getChartGasReference, saveChartPlan } from "@/lib/chartRule.functions";
+import {
+  getChartGasReference,
+  saveChartPlan,
+  updateChartGasLimit,
+} from "@/lib/chartRule.functions";
 import { getGuidedBotSettings, getBotReadiness, startGuidedBot } from "@/lib/guidedBot.functions";
 import { createBotWallet } from "@/lib/bot.functions";
 import { getTokenTax } from "@/lib/userTokens.functions";
@@ -94,6 +98,8 @@ export function ChartPlanWizard({
     [saved, setSaved] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [editingGas, setEditingGas] = useState(false);
+  const [gasNotice, setGasNotice] = useState("");
   const [startAck, setStartAck] = useState(false),
     [started, setStarted] = useState(false);
   const initialized = useRef(false),
@@ -460,6 +466,22 @@ export function ChartPlanWizard({
     enabled: saved && !started,
     retry: false,
   });
+  const referenceGasGwei =
+    gas.data && !gas.isError && now - Date.parse(gas.data.at) < 60000
+      ? Number(
+          gas.data.gasPriceGwei ??
+            new Decimal(gas.data.gasBuyBnb)
+              .mul(1e9)
+              .div(gas.data.buyUnits ?? 300000)
+              .toString(),
+        )
+      : null;
+  const networkGasGwei =
+    ready.data?.networkGasGwei != null ? Number(ready.data.networkGasGwei) : referenceGasGwei;
+  const gasText = (n: number) => n.toLocaleString("pt-BR", { maximumSignificantDigits: 9 });
+  const gasCost = (gwei: number, units: number) => money((gwei * units) / 1e9);
+  const gasLimitValid =
+    Number.isFinite(numeric(maxGas)) && numeric(maxGas) > 0 && numeric(maxGas) <= 1000;
   const refresh = () => {
     void capital.refetch();
     void gas.refetch();
@@ -632,6 +654,22 @@ export function ChartPlanWizard({
           </Button>
         </p>
       )}
+      {!saved && step === 0 && cfg?.chartRule && settings.data?.bot && !locked && (
+        <Button
+          variant="outline"
+          disabled={busy}
+          onClick={() => {
+            setSaved(true);
+            setStep(3);
+            setStartAck(false);
+            setEditingGas(false);
+            setGasNotice("");
+            setError("");
+          }}
+        >
+          Conferir atividade já salva
+        </Button>
+      )}
       {!saved && step === 0 && (
         <section className="space-y-4" aria-label="Escolher valor e quantidade de entradas">
           <div className="rounded-2xl bg-secondary p-4">
@@ -800,6 +838,30 @@ export function ChartPlanWizard({
                   : "O valor escolhido precisa cobrir a reserva estimada de gás e as entradas."}
             </p>
           )}
+          {referenceGasGwei != null &&
+            Number.isFinite(referenceGasGwei) &&
+            numeric(maxGas) < referenceGasGwei && (
+              <div role="alert" className="space-y-2 rounded-xl border border-warning p-3 text-sm">
+                <p>
+                  O limite do preço do gás ({gasText(numeric(maxGas))} gwei) está abaixo da
+                  referência da rede ({gasText(referenceGasGwei)} gwei). Isso impede iniciar, mesmo
+                  com saldo disponível.
+                </p>
+                <p>
+                  Compra de referência na rede: {gasCost(referenceGasGwei, 300000)}. Gwei é preço
+                  por unidade de gás, não BNB.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    changed();
+                    setMaxGas(String(referenceGasGwei));
+                  }}
+                >
+                  Usar referência atual no limite
+                </Button>
+              </div>
+            )}
           <details className="rounded-xl border p-3">
             <summary className="cursor-pointer text-sm">
               Custos automáticos e ajustes opcionais
@@ -881,7 +943,7 @@ export function ChartPlanWizard({
                   />
                 </label>
                 <label>
-                  Teto de gás (gwei)
+                  Limite do preço do gás (gwei, não BNB)
                   <Input
                     aria-label="Teto de gás"
                     type="number"
@@ -890,6 +952,11 @@ export function ChartPlanWizard({
                     value={maxGas}
                     onChange={(e) => setMaxGas(e.target.value)}
                   />
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {gasLimitValid
+                      ? `Nesse limite, referência de até ${gasCost(numeric(maxGas), 300000)} por compra e ${gasCost(numeric(maxGas), 460000)} por aprovação/venda. O custo real depende das unidades usadas.`
+                      : "Informe um limite válido."}
+                  </span>
                 </label>
                 <label>
                   Gás estimado por compra (BNB)
@@ -1380,11 +1447,140 @@ export function ChartPlanWizard({
             Iniciar é uma ação separada. Verificações programadas ~2 segundos, mais consultas e
             rede; o preço final pode variar.
           </p>
+          {gasNotice && (
+            <p role="status" className="text-sm text-success">
+              {gasNotice}
+            </p>
+          )}
           {ready.data?.errors.map((m, i) => (
             <p key={i} className="text-sm text-warning">
               {userMessage(m)}
             </p>
           ))}
+          {ready.isError && (
+            <p role="alert" className="text-sm text-warning">
+              Não foi possível conferir as condições agora. Consulte novamente antes de iniciar.
+            </p>
+          )}
+          {!started && ready.data?.networkGasGwei != null && (
+            <div
+              className="space-y-2 rounded-xl bg-secondary p-3 text-sm"
+              aria-label="Preço e limite do gás"
+            >
+              <p>
+                Última consulta da rede: <b>{gasText(Number(ready.data.networkGasGwei))} gwei</b> ·
+                Seu limite:{" "}
+                <b>
+                  {ready.data.configuredGasGwei == null
+                    ? "Não apurado"
+                    : `${gasText(ready.data.configuredGasGwei)} gwei`}
+                </b>
+                .
+              </p>
+              <p>
+                Compra de referência na rede:{" "}
+                <b>
+                  {ready.data.gasBuyReferenceBnb == null
+                    ? "Não apurado"
+                    : money(ready.data.gasBuyReferenceBnb)}
+                </b>
+                .
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Saldo disponível e limite do gás são verificações diferentes. A sobra na carteira
+                não aumenta automaticamente o limite que você definiu.
+              </p>
+              {!editingGas ? (
+                <Button
+                  variant="outline"
+                  disabled={busy || ready.isFetching}
+                  onClick={() => {
+                    setEditingGas(true);
+                    setGasNotice("");
+                    setStartAck(false);
+                    setError("");
+                  }}
+                >
+                  Revisar limite de gás
+                </Button>
+              ) : (
+                <div className="space-y-2">
+                  <label className="block">
+                    Novo limite do preço do gás (gwei)
+                    <Input
+                      aria-label="Novo limite do gás"
+                      type="number"
+                      min="0"
+                      max="1000"
+                      step="any"
+                      value={maxGas}
+                      onChange={(e) => setMaxGas(e.target.value)}
+                      disabled={busy}
+                    />
+                  </label>
+                  <p>
+                    {gasLimitValid
+                      ? `Nesse limite, compra de referência até ${gasCost(numeric(maxGas), 300000)}; aprovação/venda até ${gasCost(numeric(maxGas), 460000)}. Estimativas, não cobrança fixa.`
+                      : "Informe um limite maior que zero e até 1.000 gwei."}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Gwei não é BNB. Esta revisão muda só o limite; mantém o valor da atividade, as
+                    entradas e a saída. O robô continua pausado.
+                  </p>
+                  <Button
+                    variant="outline"
+                    disabled={
+                      busy ||
+                      ready.isFetching ||
+                      networkGasGwei == null ||
+                      !Number.isFinite(networkGasGwei) ||
+                      networkGasGwei <= 0 ||
+                      networkGasGwei > 1000
+                    }
+                    onClick={() => {
+                      if (networkGasGwei != null) setMaxGas(String(networkGasGwei));
+                    }}
+                  >
+                    Usar referência atual no limite
+                  </Button>
+                  <Button
+                    disabled={busy || !gasLimitValid || !settings.data || ready.isFetching}
+                    onClick={async () => {
+                      if (!settings.data) return;
+                      setBusy(true);
+                      setError("");
+                      setStartAck(false);
+                      try {
+                        await updateChartGasLimit({
+                          data: {
+                            walletScope,
+                            token,
+                            maxGasGwei: numeric(maxGas),
+                            version: ready.data?.version ?? settings.data.strategy?.version ?? 0,
+                            draftRevision: settings.data.draft?.revision ?? 0,
+                          },
+                        });
+                        if (!mounted.current) return;
+                        setEditingGas(false);
+                        setGasNotice(
+                          "Limite atualizado. Os pontos foram mantidos e o robô continua pausado.",
+                        );
+                        await settings.refetch();
+                        await ready.refetch();
+                        await onSaved?.();
+                      } catch (e) {
+                        if (mounted.current) setError(userMessage(e));
+                      } finally {
+                        if (mounted.current) setBusy(false);
+                      }
+                    }}
+                  >
+                    Salvar limite · manter pausado
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
           <Button
             variant="outline"
             disabled={ready.isFetching || started}

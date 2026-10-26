@@ -7,6 +7,7 @@ const io = vi.hoisted(() => ({
   gas: vi.fn(),
   market: vi.fn(),
   save: vi.fn(),
+  limit: vi.fn(),
   start: vi.fn(),
   wallet: vi.fn(),
   create: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock("@/lib/guidedBot.functions", () => ({
 vi.mock("@/lib/chartRule.functions", () => ({
   getChartGasReference: io.gas,
   saveChartPlan: io.save,
+  updateChartGasLimit: io.limit,
 }));
 vi.mock("@/lib/capital.functions", () => ({ getWalletCapital: io.capital }));
 vi.mock("@/lib/fx.functions", () => ({
@@ -254,5 +256,97 @@ it("keeps manual exits unchanged when editing the target and shows separate cost
   fireEvent.click(screen.getByRole("button", { name: "Aplicar sugestão às saídas" }));
   expect(Number((exit as HTMLInputElement).value)).toBeGreaterThan(456);
   expect(io.save).not.toHaveBeenCalled();
+  expect(io.start).not.toHaveBeenCalled();
+});
+
+it("shows a saved gas-ceiling blocker with a local-money preview and only changes the ceiling after explicit saving", async () => {
+  io.ready.mockResolvedValue({
+    ready: false,
+    errors: ["Preço do gás acima do limite, não do saldo."],
+    issues: [{ action: "gas" }],
+    at: new Date().toISOString(),
+    networkGasGwei: "0.05",
+    configuredGasGwei: 0.0001,
+    gasBuyReferenceBnb: "0.000015",
+    gasSellReferenceBnb: "0.000023",
+    version: 3,
+  });
+  io.limit.mockResolvedValue({ version: 4, maxGasGwei: 0.05 });
+  show();
+  await enter();
+  fireEvent.click(screen.getByRole("button", { name: "Ponto de entrada no gráfico" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continuar para saídas" }));
+  fireEvent.click(screen.getByRole("radio", { name: /Manter os tokens/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Revisar atividade" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /Revisei carteira, valor/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Salvar atividade/ }));
+  await screen.findByText("Atividade salva · robô pausado");
+  expect(screen.getByRole("button", { name: "Iniciar este robô" })).toBeDisabled();
+  fireEvent.click(await screen.findByRole("button", { name: "Revisar limite de gás" }));
+  expect(screen.getByText(/Gwei não é BNB/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Usar referência atual no limite" }));
+  expect(screen.getByRole("spinbutton", { name: "Novo limite do gás" })).toHaveValue(0.05);
+  expect(io.limit).not.toHaveBeenCalled();
+  expect(io.start).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Salvar limite · manter pausado" }));
+  await waitFor(() =>
+    expect(io.limit).toHaveBeenCalledWith({
+      data: { walletScope: "scope-a", token, maxGasGwei: 0.05, version: 3, draftRevision: 0 },
+    }),
+  );
+  expect(io.save).toHaveBeenCalledTimes(1);
+  expect(io.start).not.toHaveBeenCalled();
+});
+it("warns before saving when an inherited ceiling is below the network reference, with an explicit suggestion only", async () => {
+  io.settings.mockResolvedValue({
+    strategy: { version: 2, config: { ...EMPTY_CONFIG, maxGasGwei: 0.0001 } },
+    bot: null,
+    draft: null,
+  });
+  show();
+  await screen.findByText(/está abaixo da referência da rede/);
+  expect(io.save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Usar referência atual no limite" }));
+  expect(screen.queryByText(/está abaixo da referência da rede/)).toBeNull();
+  expect(io.save).not.toHaveBeenCalled();
+  expect(io.limit).not.toHaveBeenCalled();
+});
+
+it("checks an existing saved chart activity without saving it again or changing any points", async () => {
+  io.settings.mockResolvedValue({
+    strategy: {
+      version: 8,
+      config: {
+        ...EMPTY_CONFIG,
+        guidedModel: "chart",
+        maxGasGwei: 0.0001,
+        chartRule: {
+          id: "saved-rule",
+          entryBnb: 0.001,
+          exitBnb: 0.00103,
+          stopBnb: null,
+          gasBuyBnb: 0.000015,
+          gasSellBnb: 0.000023,
+        },
+      },
+    },
+    draft: null,
+    bot: { id: "existing", armed: false, strat_state: { tokens: 0, costBnb: 0 } },
+  });
+  io.ready.mockResolvedValue({
+    ready: false,
+    errors: ["Preço do gás acima do limite, não do saldo."],
+    at: new Date().toISOString(),
+    networkGasGwei: "0.05",
+    configuredGasGwei: 0.0001,
+    gasBuyReferenceBnb: "0.000015",
+    version: 8,
+  });
+  show();
+  fireEvent.click(await screen.findByRole("button", { name: "Conferir atividade já salva" }));
+  await screen.findByText("Atividade salva · robô pausado");
+  expect(await screen.findByRole("button", { name: "Revisar limite de gás" })).toBeEnabled();
+  expect(io.save).not.toHaveBeenCalled();
+  expect(io.limit).not.toHaveBeenCalled();
   expect(io.start).not.toHaveBeenCalled();
 });

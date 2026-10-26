@@ -2,7 +2,7 @@ import { planProgress, planProjection, planPartialScenarios } from "./chartPlan"
 import type { ReadinessAction, ReadinessIssue } from "./readinessIssues";
 import Decimal from "decimal.js";
 /* eslint-disable @typescript-eslint/no-explicit-any -- privileged Supabase and viem boundary */
-import { formatEther, parseEther, getAddress } from "viem";
+import { formatEther, formatUnits, parseEther, getAddress } from "viem";
 import {
   incompatibleBotToken,
   INCOMPATIBLE_BNB,
@@ -32,6 +32,10 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
     exchangeCostBnb: number | null = null,
     priceUsd: number | null = null,
     available: string | null = null;
+  let networkGasGwei: string | null = null,
+    configuredGasGwei: number | null = null,
+    gasBuyReferenceBnb: string | null = null,
+    gasSellReferenceBnb: string | null = null;
   let version = 0,
     updatedAt: string | null = null,
     botId: string | null = null;
@@ -42,6 +46,10 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
     liquidityUsd,
     minLiquidityUsd,
     warnings,
+    networkGasGwei,
+    configuredGasGwei,
+    gasBuyReferenceBnb,
+    gasSellReferenceBnb,
     feeBnb,
     exchangeCostBnb,
     priceUsd,
@@ -95,6 +103,7 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
   updatedAt = bot.updated_at;
   version = s.data.version;
   const cfg = { ...EMPTY_CONFIG, ...s.data.config } as StrategyConfig;
+  configuredGasGwei = cfg.maxGasGwei;
   if (
     cfg.chartRule &&
     bot.strat_state?.chartRuleConsumedId === cfg.chartRule.id &&
@@ -154,10 +163,13 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
       liquidityUsd == null ? "refresh" : "liquidity",
       `Liquidez do par: ${liquidityUsd == null ? "não apurada" : `US$ ${liquidityUsd.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}`}. Mínimo exigido: US$ ${cfg.minLiquidityUsd.toLocaleString("pt-BR")}. ${liquidityUsd == null ? "Não foi possível confirmar a liquidez; tente consultar novamente." : "O par está abaixo do mínimo configurado."}`,
     );
+  networkGasGwei = formatUnits(gasPrice, 9);
+  gasBuyReferenceBnb = formatEther(gasPrice * 300000n);
+  gasSellReferenceBnb = formatEther(gasPrice * 460000n);
   if (gasPrice > BigInt(Math.round(cfg.maxGasGwei * 1e9)))
     block(
       "gas",
-      "A taxa da rede está acima do limite configurado. Aguarde ou revise o limite da taxa de rede.",
+      `Preço do gás na rede: ${Number(networkGasGwei).toLocaleString("pt-BR", { maximumSignificantDigits: 9 })} gwei. Seu limite: ${cfg.maxGasGwei.toLocaleString("pt-BR", { maximumSignificantDigits: 9 })} gwei. O bloqueio é desse limite, não do saldo ou do preço de saída. Gwei é preço por unidade de gás, não um valor em BNB. Revise o limite para consultar novamente.`,
     );
   const capital = await readWalletCapital(admin, userId, scope, formatEther(balance), bot.id);
   const own = capital.rows.find((r) => r.id === bot.id);

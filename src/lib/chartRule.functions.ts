@@ -27,8 +27,9 @@ export const getChartGasReference = createServerFn({ method: "GET" })
     await assertWalletScope(admin, context.userId, data.walletScope);
     const { pubClient } = await import("./bot.server");
     const gasPrice = await pubClient().getGasPrice();
-    const { formatEther } = await import("viem");
+    const { formatEther, formatUnits } = await import("viem");
     return {
+      gasPriceGwei: formatUnits(gasPrice, 9),
       gasBuyBnb: formatEther(gasPrice * 300000n),
       gasSellBnb: formatEther(gasPrice * 460000n),
       at: new Date().toISOString(),
@@ -186,4 +187,56 @@ export const saveChartPlan = createServerFn({ method: "POST" })
         "Não foi possível salvar a atividade. Pause o robô e confira posições, operações pendentes e alterações feitas em outra janela. O rascunho foi mantido.",
       );
     return { id: String(id), version: data.version + 1 };
+  });
+
+/** Explicit limit-only revision. Never changes points, amounts, rule identity or starts the bot. */
+export const updateChartGasLimit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((raw: unknown) =>
+    selection
+      .extend({
+        maxGasGwei: z.number().finite().positive().max(1000),
+        version: z.number().int().nonnegative(),
+        draftRevision: z.number().int().nonnegative(),
+      })
+      .parse(raw),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
+    await assertWalletScope(admin, context.userId, data.walletScope);
+    const { data: saved, error: readError } = await admin
+      .from("strategies")
+      .select("config,version")
+      .eq("user_id", context.userId)
+      .eq("wallet_scope", data.walletScope)
+      .ilike("token", data.token)
+      .maybeSingle();
+    if (readError || !saved?.config || saved.version !== data.version)
+      throw new Error("As regras mudaram. Atualize a consulta antes de revisar o limite de gás.");
+    const config = {
+      ...EMPTY_CONFIG,
+      ...(saved.config as Partial<StrategyConfig>),
+      maxGasGwei: data.maxGasGwei,
+    };
+    if (!config.chartRule || config.guidedModel !== "chart")
+      throw new Error("Abra a configuração deste robô para revisar seu limite de gás.");
+    const { strategySchema } = await import("./strategyValidation");
+    strategySchema.parse(config);
+    const { data: id, error } = await admin.rpc(
+      "configure_guided_bot" as never,
+      {
+        p_user: context.userId,
+        p_scope: data.walletScope,
+        p_token: data.token,
+        p_config: config,
+        p_version: data.version,
+        p_draft_revision: data.draftRevision,
+        p_grid: { lower: 0, upper: 0, levels: 10 },
+      } as never,
+    );
+    if (error)
+      throw new Error(
+        "Não foi possível atualizar o limite. Confira alterações em outra janela e operações pendentes. Esta revisão exige robô pausado e sem posição aberta; seus pontos foram mantidos.",
+      );
+    return { id: String(id), version: data.version + 1, maxGasGwei: data.maxGasGwei };
   });
