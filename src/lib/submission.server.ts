@@ -1,3 +1,4 @@
+import { assertBotCanSubmit, BotStoppedError } from "./emergencyStop.server";
 import type { ExecutionClock } from "./executionTiming";
 import { recordExecutionProgress } from "./executionTiming.server";
 import { BeforeBroadcastError } from "./executionPhase";
@@ -27,6 +28,7 @@ export async function submitTransaction(o: {
   let signed: `0x${string}`;
   let hash: `0x${string}`;
   try {
+    await assertBotCanSubmit(o.admin, o.userId, o.intent);
     if (o.maxGasGwei && (await o.pub.getGasPrice()) > BigInt(Math.round(o.maxGasGwei * 1e9)))
       throw new Error("Gás acima do limite configurado");
     o.timing?.beginTransaction();
@@ -53,11 +55,13 @@ export async function submitTransaction(o: {
       o.intent["kind"] === "withdrawal" ? BigInt(o.intent["minimumRemainingBnbRaw"] ?? "0") : 0n;
     if (available < (o.value ?? 0n) + BigInt(request.gas) * BigInt(feePerGas) + minimumRemaining)
       throw new Error("BNB insuficiente para o valor da operação e sua taxa estimada de rede");
+    await assertBotCanSubmit(o.admin, o.userId, o.intent);
     signed = await o.wallet.signTransaction(request);
     hash = keccak256(signed);
     o.timing?.mark("signed");
     if (o.timing) o.intent["executionTiming"] = o.timing.snapshot();
 
+    await assertBotCanSubmit(o.admin, o.userId, o.intent);
     const { error } = await o.admin.from("execution_submissions").insert({
       id,
       user_id: o.userId,
@@ -68,6 +72,7 @@ export async function submitTransaction(o: {
     });
     if (error) throw new Error("Não foi possível registrar a transação; nada foi transmitido");
   } catch (error) {
+    if (error instanceof BotStoppedError) throw error;
     throw new BeforeBroadcastError(error instanceof Error ? error.message : "Falha antes do envio");
   }
   o.timing?.mark("journaled");
