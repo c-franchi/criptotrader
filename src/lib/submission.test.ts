@@ -10,13 +10,22 @@ const userId = "u",
   token = "0x2222222222222222222222222222222222222222";
 function setup(failInsert = false) {
   const events: string[] = [];
+  const botStatus = vi.fn(async () => ({
+    data: { armed: true, archived_at: null },
+    error: null as string | null,
+  }));
+  const botQuery = { select: () => botQuery, eq: () => botQuery, maybeSingle: botStatus };
   const admin = {
-    from: () => ({
-      insert: vi.fn(async () => {
-        events.push("persist");
-        return { error: failInsert ? "offline" : null };
-      }),
-    }),
+    rpc: vi.fn(async () => ({ error: null as string | null })),
+    from: (table: string) =>
+      table === "grid_bots"
+        ? botQuery
+        : {
+            insert: vi.fn(async () => {
+              events.push("persist");
+              return { error: failInsert ? "offline" : null };
+            }),
+          },
   };
   const pub = {
     getGasPrice: vi.fn(async () => 1n),
@@ -36,6 +45,7 @@ function setup(failInsert = false) {
   };
   return {
     events,
+    botStatus,
     admin,
     pub,
     wallet,
@@ -275,4 +285,74 @@ it("keeps durable journaling before broadcast with telemetry enabled, and marks 
   expect(timing.snapshot().stages.broadcastUncertain).toBeDefined();
   expect(timing.snapshot().stages.receiptObserved).toBeUndefined();
   expect(f.pub.sendRawTransaction).toHaveBeenCalledTimes(1);
+});
+
+describe("forced stop during a transaction", () => {
+  it("blocks both approvals and swaps before signing when the bot is stopped", async () => {
+    for (const kind of ["approval", "swap"]) {
+      const f = setup();
+      f.botStatus.mockResolvedValue({ data: { armed: false, archived_at: null }, error: null });
+      await expect(
+        submitTransaction({ ...f, intent: { kind, botId: "bot" } }),
+      ).rejects.toBeInstanceOf(BeforeBroadcastError);
+      expect(f.wallet.signTransaction).not.toHaveBeenCalled();
+      expect(f.pub.sendRawTransaction).not.toHaveBeenCalled();
+      expect(f.events).toEqual([]);
+    }
+  });
+  it("closes the never-broadcast journal if stopped during signing", async () => {
+    const f = setup();
+    f.wallet.signTransaction.mockImplementation(async () => {
+      f.botStatus.mockResolvedValue({ data: { armed: false, archived_at: null }, error: null });
+      return "0x1234";
+    });
+    await expect(
+      submitTransaction({ ...f, intent: { kind: "swap", botId: "bot" } }),
+    ).rejects.toBeInstanceOf(BeforeBroadcastError);
+    expect(f.events).toEqual(["persist"]);
+    expect(f.pub.sendRawTransaction).not.toHaveBeenCalled();
+    expect(f.admin.rpc).toHaveBeenCalledWith(
+      "complete_execution_submission",
+      expect.objectContaining({
+        p_order: null,
+        p_patch: {},
+        p_receipt: expect.objectContaining({ status: "cancelled_before_broadcast" }),
+      }),
+    );
+  });
+  it("fails closed on status lookup failure", async () => {
+    const f = setup();
+    f.botStatus.mockResolvedValue({ data: { armed: true, archived_at: null }, error: "offline" });
+    await expect(
+      submitTransaction({ ...f, intent: { kind: "swap", botId: "bot" } }),
+    ).rejects.toBeInstanceOf(BeforeBroadcastError);
+    expect(f.wallet.signTransaction).not.toHaveBeenCalled();
+  });
+  it("retains uncertain journal failures without broadcasting", async () => {
+    const f = setup();
+    f.botStatus.mockResolvedValueOnce({ data: { armed: true, archived_at: null }, error: null });
+    f.botStatus.mockResolvedValue({ data: { armed: false, archived_at: null }, error: null });
+    f.admin.rpc.mockResolvedValue({ error: "offline" });
+    let error: unknown;
+    try {
+      await submitTransaction({ ...f, intent: { kind: "swap", botId: "bot" } });
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(BeforeBroadcastError);
+    expect(f.pub.sendRawTransaction).not.toHaveBeenCalled();
+  });
+  it("keeps already broadcast transactions pending for reconciliation after stop", async () => {
+    const f = setup();
+    f.pub.sendRawTransaction.mockImplementation(async () => {
+      f.events.push("broadcast");
+      f.botStatus.mockResolvedValue({ data: { armed: false, archived_at: null }, error: null });
+      throw new Error("response lost");
+    });
+    const result = await submitTransaction({ ...f, intent: { kind: "swap", botId: "bot" } });
+    expect(result.receipt).toBeNull();
+    expect(f.events).toEqual(["persist", "broadcast"]);
+    expect(f.admin.rpc).not.toHaveBeenCalled();
+  });
 });

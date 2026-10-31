@@ -6,6 +6,7 @@ import { PreferencesDialog } from "./PreferencesDialog";
 import { ThemeToggle } from "./ThemeToggle";
 import { WalletSelector } from "./WalletSelector";
 import { AppUpdateNotice } from "@/components/AppUpdateNotice";
+import { EmergencyStop } from "./EmergencyStop";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import {
@@ -276,6 +277,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </div>
         </div>
+        {user && <EmergencyStop />}
       </header>
       <main
         data-app-content

@@ -6,6 +6,7 @@ import { incompatibleBotToken } from "./guidedBot";
 import { runWalletQueues } from "./walletQueues";
 import { LEGACY_WALLET_SCOPE } from "./walletScope";
 import { BeforeBroadcastError, BeforeSigningError } from "./executionPhase";
+import { BotStoppedError } from "./emergencyStop.server";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { runGridStep } from "./bot.server";
 import { reconcileSubmissions } from "./submission.server";
@@ -67,9 +68,15 @@ export async function tickBot(admin: any, bot: any, trigger: "schedule" | "block
     } catch (e) {
       retain = !(e instanceof BeforeSigningError || e instanceof BeforeBroadcastError); // Retain uncertain signing failures; release proven read-only failures.
       res = {
-        patch: {
-          last_error: (((e as Error).message ?? "erro").split("\n")[0] ?? "erro").slice(0, 300),
-        },
+        patch:
+          e instanceof BotStoppedError
+            ? { last_error: null, last_reason: e.message }
+            : {
+                last_error: (((e as Error).message ?? "erro").split("\n")[0] ?? "erro").slice(
+                  0,
+                  300,
+                ),
+              },
         order: null,
       };
     }

@@ -1,6 +1,7 @@
 import type { ExecutionClock } from "./executionTiming";
 import { recordExecutionProgress } from "./executionTiming.server";
 import { BeforeBroadcastError } from "./executionPhase";
+import { assertBotRunning, BotStoppedError } from "./emergencyStop.server";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Decimal from "decimal.js";
 import { encodeFunctionData, keccak256, formatEther, formatUnits, parseUnits } from "viem";
@@ -53,6 +54,7 @@ export async function submitTransaction(o: {
       o.intent["kind"] === "withdrawal" ? BigInt(o.intent["minimumRemainingBnbRaw"] ?? "0") : 0n;
     if (available < (o.value ?? 0n) + BigInt(request.gas) * BigInt(feePerGas) + minimumRemaining)
       throw new Error("BNB insuficiente para o valor da operação e sua taxa estimada de rede");
+    await assertBotRunning(o.admin, o.userId, o.intent["botId"]);
     signed = await o.wallet.signTransaction(request);
     hash = keccak256(signed);
     o.timing?.mark("signed");
@@ -68,9 +70,26 @@ export async function submitTransaction(o: {
     });
     if (error) throw new Error("Não foi possível registrar a transação; nada foi transmitido");
   } catch (error) {
+    if (error instanceof BotStoppedError) throw error;
     throw new BeforeBroadcastError(error instanceof Error ? error.message : "Falha antes do envio");
   }
   o.timing?.mark("journaled");
+  // Stop can arrive during signing/journaling or between an approval and its swap.
+  // Close only a proven never-broadcast journal entry; pending network sends keep their locks.
+  try {
+    await assertBotRunning(o.admin, o.userId, o.intent["botId"]);
+  } catch (error) {
+    const { error: closeError } = await o.admin.rpc("complete_execution_submission", {
+      p_id: id,
+      p_order: null,
+      p_patch: {},
+      p_receipt: { status: "cancelled_before_broadcast", reason: String(error) },
+    });
+    if (closeError) throw new Error("Envio bloqueado; diário aguarda conciliação.");
+    throw error instanceof BotStoppedError
+      ? error
+      : new BeforeBroadcastError(error instanceof Error ? error.message : "Envio bloqueado");
+  }
   // Any failure from here is indeterminate. The journal owns the hash, and the lock stays held.
   try {
     o.timing?.mark("broadcastAttempted");

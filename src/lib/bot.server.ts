@@ -338,6 +338,7 @@ async function runGridStepImpl(
       };
     if (
       !(await approveForSwap({
+        botId: bot.id,
         beginSigning,
         ...(timing ? { timing } : {}),
         admin,
@@ -406,6 +407,7 @@ type Wal = Awaited<ReturnType<typeof botSigner>>["wallet"];
 /** Sends one swap with the robot wallet. Min out discounts the token tax and slippage. */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export async function approveForSwap(o: {
+  botId?: string;
   admin: any;
   owner: string;
   pub: Pub;
@@ -430,7 +432,7 @@ export async function approveForSwap(o: {
     kind: "approval",
     token: o.token,
     wallet: o.me,
-    ...(o.timing ? { botId: o.timing.botId } : {}),
+    ...(o.botId || o.timing ? { botId: o.botId ?? o.timing!.botId } : {}),
   };
   const r = await contractTransaction({
     ...o,
