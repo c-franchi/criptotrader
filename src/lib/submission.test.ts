@@ -276,3 +276,80 @@ it("keeps durable journaling before broadcast with telemetry enabled, and marks 
   expect(timing.snapshot().stages.receiptObserved).toBeUndefined();
   expect(f.pub.sendRawTransaction).toHaveBeenCalledTimes(1);
 });
+
+describe("emergency stop during submission", () => {
+  function robotSetup() {
+    const f = setup();
+    const state = { armed: true, archived_at: null, updated_at: "version-1" };
+    const read = vi.fn(async () => ({ data: { ...state }, error: null }));
+    const query = { select: () => query, eq: () => query, maybeSingle: read };
+    const original = f.admin.from;
+    return {
+      ...f,
+      state,
+      read,
+      admin: { from: (table: string) => (table === "grid_bots" ? query : original()) },
+      intent: { kind: "swap", botId: "bot", botUpdatedAt: "version-1" },
+    };
+  }
+  it("blocks an already stopped robot before preparation or signing", async () => {
+    const f = robotSetup();
+    f.state.armed = false;
+    await expect(submitTransaction(f)).rejects.toThrow("Robô parado");
+    expect(f.wallet.prepareTransactionRequest).not.toHaveBeenCalled();
+    expect(f.wallet.signTransaction).not.toHaveBeenCalled();
+    expect(f.pub.sendRawTransaction).not.toHaveBeenCalled();
+    expect(f.events).toEqual([]);
+  });
+  it("stops a tick that was waiting for slow preparation", async () => {
+    const f = robotSetup();
+    f.wallet.prepareTransactionRequest.mockImplementation(async () => {
+      f.state.armed = false;
+      return { nonce: 4, gas: 21000n, gasPrice: 1n };
+    });
+    await expect(submitTransaction(f)).rejects.toBeInstanceOf(BeforeBroadcastError);
+    expect(f.wallet.signTransaction).not.toHaveBeenCalled();
+    expect(f.events).toEqual([]);
+  });
+  it("does not journal or broadcast if stopped while signing", async () => {
+    const f = robotSetup();
+    f.wallet.signTransaction.mockImplementation(async () => {
+      f.state.armed = false;
+      return "0x1234";
+    });
+    await expect(submitTransaction(f)).rejects.toThrow("Robô parado");
+    expect(f.events).toEqual([]);
+  });
+  it("rejects the old tick even after the user explicitly restarts the bot", async () => {
+    const f = robotSetup();
+    f.state.updated_at = "version-2";
+    await expect(submitTransaction(f)).rejects.toThrow("Robô parado");
+    expect(f.pub.sendRawTransaction).not.toHaveBeenCalled();
+  });
+  it("fails closed when the stop state cannot be read", async () => {
+    const f = robotSetup();
+    f.read.mockResolvedValue({ data: { ...f.state }, error: "offline" as never });
+    await expect(submitTransaction(f)).rejects.toThrow("Não foi possível verificar");
+    expect(f.wallet.signTransaction).not.toHaveBeenCalled();
+  });
+  it("preserves a submitted transaction and its receipt after stopping", async () => {
+    const f = robotSetup();
+    f.pub.sendRawTransaction.mockImplementation(async () => {
+      f.state.armed = false;
+      throw new Error("broadcast uncertain");
+    });
+    const result = await submitTransaction(f);
+    expect(f.events).toEqual(["persist"]);
+    expect(result.hash).toMatch(/^0x/);
+    expect(result.receipt).toBeNull();
+    expect(f.pub.waitForTransactionReceipt).toHaveBeenCalled();
+  });
+  it("includes approvals so a stopped sale cannot proceed to its swap", async () => {
+    const f = robotSetup();
+    const approval = await submitTransaction({ ...f, intent: { ...f.intent, kind: "approval" } });
+    expect(approval.hash).toMatch(/^0x/);
+    f.state.armed = false;
+    await expect(submitTransaction(f)).rejects.toThrow("Robô parado");
+    expect(f.pub.sendRawTransaction).toHaveBeenCalledTimes(1);
+  });
+});

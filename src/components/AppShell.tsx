@@ -1,3 +1,4 @@
+import { EmergencyStop } from "./EmergencyStop";
 import { getInstallState, runInstall } from "@/lib/installPrompt";
 import { toast } from "sonner";
 import { AppTour } from "./AppTour";
@@ -276,6 +277,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </div>
         </div>
+        {user && <EmergencyStop key={user.id} />}
       </header>
       <main
         data-app-content
