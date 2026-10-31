@@ -323,7 +323,16 @@ function Robo() {
     setOrders([]);
     load();
     const t = setInterval(load, 5_000);
-    return () => clearInterval(t);
+    const stopped = () => {
+      setBot((current) => (current ? { ...current, armed: false } : current));
+      setAllBots((current) => current.map((b) => ({ ...b, armed: false })));
+      void load();
+    };
+    window.addEventListener("bots-emergency-stopped", stopped);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("bots-emergency-stopped", stopped);
+    };
   }, [load]);
 
   const persist = async (armed?: boolean) => {

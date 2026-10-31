@@ -366,6 +366,7 @@ async function runStrategyStepImpl(
     };
   if (
     !(await approveForSwap({
+      botId: bot.id,
       beginSigning,
       ...(timing ? { timing } : {}),
       admin,
