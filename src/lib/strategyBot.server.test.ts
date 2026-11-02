@@ -157,3 +157,34 @@ it("previews chart entries from the fresh native pool snapshot without waiting o
   );
   expect(waiting.patch).toMatchObject({ last_reason: expect.stringMatching(/aguardando preço/) });
 });
+
+it("previews manual automation entries without indicator history or unknown-tax gates", async () => {
+  const { buildManualAutoConfig } = await import("./manualAuto");
+  const c = buildManualAutoConfig(
+    {
+      capitalBnb: 0.01,
+      entryMode: "price",
+      entryValue: 110,
+      exitMode: "price",
+      exitValue: 111,
+      stopLossPct: null,
+      slippagePct: 1,
+    },
+    103,
+    "11111111-1111-4111-8111-111111111111",
+  );
+  io.history.mockImplementation(() => new Promise(() => {}));
+  const result = await runStrategyStep(
+    admin(c),
+    { ...bot, strat_state: EMPTY_STATE },
+    "",
+    "",
+    true,
+  );
+  expect((result.patch as Record<string, unknown>)["last_reason"]).toMatch(
+    /Manual automático atingido/,
+  );
+  expect(result.patch.last_error).toBeNull();
+  expect(io.history).not.toHaveBeenCalled();
+  expect(io.signer).not.toHaveBeenCalled();
+});

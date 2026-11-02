@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { RobotVision } from "./RobotVision";
+import { RobotVision, robotLines } from "./RobotVision";
 import { EMPTY_CONFIG } from "@/lib/strategy";
 import { EMPTY_STATE } from "@/lib/autoStrategy";
 const { market } = vi.hoisted(() => ({ market: vi.fn() }));
@@ -109,4 +109,35 @@ it("keeps the market concise and lets the user expand its analysis", async () =>
   expect(toggle).toHaveAttribute("aria-expanded", "true");
   fireEvent.click(toggle);
   expect(toggle).toHaveAttribute("aria-expanded", "false");
+});
+
+it("shows the saved manual prices without moving the exit to cover token taxes", async () => {
+  const { buildManualAutoConfig } = await import("@/lib/manualAuto");
+  const c = buildManualAutoConfig(
+    {
+      capitalBnb: 0.01,
+      entryMode: "price",
+      entryValue: 100,
+      exitMode: "price",
+      exitValue: 101,
+      stopLossPct: null,
+      slippagePct: 1,
+      buyTaxPct: 8,
+      sellTaxPct: 8,
+    },
+    110,
+    "11111111-1111-4111-8111-111111111111",
+  );
+  expect(robotLines(c, EMPTY_STATE, null)).toEqual([
+    { price: 100, label: "Entrada manual escolhida", tone: "buy" },
+    { price: 101, label: "Saída manual escolhida", tone: "sell" },
+  ]);
+  expect(
+    robotLines(c, { ...EMPTY_STATE, tokens: 1, avgPriceUsd: 100 }, null).find(
+      (l) => l.tone === "sell",
+    )?.price,
+  ).toBe(101);
+  expect(robotLines(c, { ...EMPTY_STATE, manualRuleConsumedId: c.manualAuto!.id }, null)).toEqual(
+    [],
+  );
 });

@@ -1,3 +1,4 @@
+import { manualAutoEntry } from "@/lib/manualAuto";
 import { planProgress } from "@/lib/chartPlan";
 import { userMessage } from "@/lib/userMessage";
 import { formatUnits } from "viem";
@@ -55,6 +56,28 @@ export function robotLines(
 ): Line[] {
   if (!cfg) return [];
   const out: Line[] = [];
+  if (cfg.manualAuto) {
+    const r = cfg.manualAuto;
+    if (s.tokens > 0 && s.avgPriceUsd > 0) {
+      out.push({ price: s.avgPriceUsd, label: "Preço registrado da compra", tone: "avg" });
+      out.push({
+        price: r.exitMode === "price" ? r.exitValue : s.avgPriceUsd * (1 + r.exitValue / 100),
+        label: "Saída manual escolhida",
+        tone: "sell",
+      });
+      if (r.stopLossPct != null)
+        out.push({
+          price: s.avgPriceUsd * (1 - r.stopLossPct / 100),
+          label: "Stop manual escolhido",
+          tone: "stop",
+        });
+    } else if (s.manualRuleConsumedId !== r.id) {
+      out.push({ price: manualAutoEntry(r), label: "Entrada manual escolhida", tone: "buy" });
+      if (r.exitMode === "price")
+        out.push({ price: r.exitValue, label: "Saída manual escolhida", tone: "sell" });
+    }
+    return out;
+  }
   if (s.tokens > 0 && s.avgPriceUsd > 0) {
     out.push({ price: s.avgPriceUsd, label: "Preço médio", tone: "avg" });
     cfg.takeProfits.forEach((t, i) => {
@@ -516,7 +539,10 @@ export function RobotVision(props: {
       <p className="text-xs text-muted-foreground">
         Cotação do par negociado: consulta a cada 2s · {market.data?.source ?? "consultando"}.
         {priceAt > 0 ? ` Preço observado às ${new Date(priceAt).toLocaleTimeString("pt-BR")}.` : ""}
-        {cfg?.entryType === "queda"
+        {cfg?.manualAuto
+          ? " Manual automático: usa somente os pontos escolhidos, sem sinal das médias."
+          : ""}
+        {!cfg?.manualAuto && cfg?.entryType === "queda"
           ? ` A compra segue a queda de ${cfg.dropPct}% da referência; SMA 9/21 são apenas indicadores visuais nesta estratégia.`
           : ""}
         {cfg?.entryType === "medias"

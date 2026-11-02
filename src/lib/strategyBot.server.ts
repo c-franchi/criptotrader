@@ -123,7 +123,7 @@ async function runStrategyStepImpl(
         })
       : null;
   let candles: Awaited<ReturnType<typeof readCandles>> = [];
-  if (immediate?.action !== "venda" && !cfg.chartRule) {
+  if (immediate?.action !== "venda" && !cfg.chartRule && !cfg.manualAuto) {
     try {
       candles = await readCandles(best.pairAddress.toLowerCase(), token.toLowerCase(), {
         fast: true,
@@ -147,6 +147,7 @@ async function runStrategyStepImpl(
   if (
     d.action === "compra" &&
     !cfg.chartRule &&
+    !cfg.manualAuto &&
     (!fresh || (cfg.entryType !== "queda" && observation.completeCount < cfg.maSlow + 1))
   )
     return {
@@ -156,7 +157,7 @@ async function runStrategyStepImpl(
       },
       order: null,
     };
-  if (d.action === "compra" && !hasVerifiedTax(token, saved))
+  if (d.action === "compra" && !cfg.manualAuto && !hasVerifiedTax(token, saved))
     return {
       patch: { last_error: "Taxas desconhecidas: confirme as taxas na estratégia" },
       order: null,
@@ -204,6 +205,9 @@ async function runStrategyStepImpl(
     last_error: null,
     last_reason: d.reason,
     ...(d.action === "nenhuma" ? { strat_state: state } : {}),
+    ...(cfg.manualAuto && state.tokens <= 0 && state.manualRuleConsumedId === cfg.manualAuto.id
+      ? { armed: false }
+      : {}),
   };
   if (d.action === "nenhuma") return { patch, order: null };
 
@@ -224,7 +228,7 @@ async function runStrategyStepImpl(
 
   if (d.action === "compra") {
     const { liquidityBlock } = await import("./safety");
-    const liq = liquidityBlock(best.liquidityUsd, cfg.minLiquidityUsd);
+    const liq = cfg.manualAuto ? null : liquidityBlock(best.liquidityUsd, cfg.minLiquidityUsd);
     if (liq) return { patch: { ...patch, last_error: liq }, order: null };
     const capital = await readWalletCapital(
       admin,
@@ -275,7 +279,7 @@ async function runStrategyStepImpl(
       source: "robo",
       admin,
       owner,
-      maxGasGwei: cfg.maxGasGwei,
+      ...(cfg.manualAuto ? {} : { maxGasGwei: cfg.maxGasGwei }),
       intent: {
         botId: bot.id,
         botUpdatedAt: bot.updated_at,
@@ -285,7 +289,7 @@ async function runStrategyStepImpl(
         priceUsd,
         decimals: dec,
         snapshot,
-        ...(cfg.guidedModel
+        ...(cfg.guidedModel && !cfg.manualAuto
           ? {
               ...(cfg.chartRule?.projectionVersion === 2 && cfg.chartRule.partialEntriesAccepted
                 ? {}
@@ -380,7 +384,7 @@ async function runStrategyStepImpl(
       token,
       amountIn,
       userId: bot.user_id,
-      maxGasGwei: cfg.maxGasGwei,
+      ...(cfg.manualAuto ? {} : { maxGasGwei: cfg.maxGasGwei }),
     }))
   )
     return {
@@ -404,7 +408,7 @@ async function runStrategyStepImpl(
     source: "robo",
     admin,
     owner,
-    maxGasGwei: cfg.maxGasGwei,
+    ...(cfg.manualAuto ? {} : { maxGasGwei: cfg.maxGasGwei }),
     intent: {
       botId: bot.id,
       botUpdatedAt: bot.updated_at,

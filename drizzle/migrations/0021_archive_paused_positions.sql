@@ -1,0 +1,16 @@
+-- Archive is a display action, not liquidation or reconciliation.
+-- Retain rows, positions, submissions and wallet mutexes, including late receipts.
+CREATE OR REPLACE FUNCTION public.guard_bot_archive() RETURNS trigger
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
+BEGIN
+ IF NEW.archived_at IS NOT NULL AND NEW.armed THEN
+  RAISE EXCEPTION 'Robô removido não pode permanecer ligado';
+ END IF;
+ IF NEW.archived_at IS NOT NULL AND OLD.archived_at IS NULL THEN
+  PERFORM pg_advisory_xact_lock(hashtextextended(NEW.user_id::text||':'||NEW.wallet_scope::text,0));
+  IF OLD.armed THEN RAISE EXCEPTION 'Pause o robô antes de remover'; END IF;
+ END IF;
+ RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION public.guard_bot_archive() FROM PUBLIC,anon,authenticated;
+NOTIFY pgrst,'reload schema';

@@ -1,3 +1,4 @@
+import { ManualAutoSetup } from "@/components/ManualAutoSetup";
 import { EmergencyStop } from "@/components/EmergencyStop";
 import { planGasReserve, planProgress } from "@/lib/chartPlan";
 import { userMessage } from "@/lib/userMessage";
@@ -452,17 +453,19 @@ function Robo() {
         : null
       : { reserve, trade: Number(f.order_bnb) || 0, total: reserve + (Number(f.order_bnb) || 0) };
   const preset = cfg?.presetId ? PRESETS.find((p) => p.id === cfg.presetId) : undefined;
-  const modelName = cfg?.chartRule
-    ? "Regra pelo gráfico"
-    : cfg?.guidedModel === "dca"
-      ? "Comprar em quedas"
-      : cfg?.guidedModel === "grid"
-        ? "Comprar e vender numa faixa"
-        : cfg?.guidedModel === "recovery"
-          ? "Recuperação confirmada"
-          : cfg?.guidedModel === "trend"
-            ? "Recuo em tendência de alta"
-            : (preset?.name ?? "Regras personalizadas");
+  const modelName = cfg?.manualAuto
+    ? "Manual automático"
+    : cfg?.chartRule
+      ? "Regra pelo gráfico"
+      : cfg?.guidedModel === "dca"
+        ? "Comprar em quedas"
+        : cfg?.guidedModel === "grid"
+          ? "Comprar e vender numa faixa"
+          : cfg?.guidedModel === "recovery"
+            ? "Recuperação confirmada"
+            : cfg?.guidedModel === "trend"
+              ? "Recuo em tendência de alta"
+              : (preset?.name ?? "Regras personalizadas");
   const armed = !!bot?.armed;
   const lo = Number(f.lower_price),
     hi = Number(f.upper_price),
@@ -644,6 +647,16 @@ function Robo() {
             </Button>
           </section>
         )}
+        <div className="my-3">
+          <ManualAutoSetup
+            key={`manual:${selectionKey}`}
+            userId={user?.id ?? ""}
+            walletScope={walletScope}
+            token={token}
+            symbol={sym}
+            onDone={load}
+          />
+        </div>
         <GuidedBotSetup
           sourceAddress={sourceAddress}
           key={`setup:${selectionKey}`}
@@ -981,7 +994,11 @@ function Robo() {
                         </div>
                         <p className="mt-1 text-muted-foreground">
                           {scopeName} ·{" "}
-                          {b.mode === "grade" ? "Grade de preços" : "Minha estratégia"}
+                          {active && cfg?.manualAuto
+                            ? "Manual automático"
+                            : b.mode === "grade"
+                              ? "Grade de preços"
+                              : "Minha estratégia"}
                           {b.last_run_at
                             ? ` · conferiu às ${new Date(b.last_run_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
                             : ""}
