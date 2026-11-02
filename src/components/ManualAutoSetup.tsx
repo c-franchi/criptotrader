@@ -262,8 +262,8 @@ export function ManualAutoSetup({
   return (
     <>
       <Button
-        variant="outline"
-        className="h-auto min-h-11 max-w-full whitespace-normal text-left"
+        variant="default"
+        className="h-auto min-h-12 w-full max-w-full whitespace-normal px-4 py-3 text-base font-semibold"
         onClick={() => {
           setOpen(true);
           setSaved(false);

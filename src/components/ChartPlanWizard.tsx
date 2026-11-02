@@ -1,3 +1,12 @@
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+} from "./ui/alert-dialog";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -81,6 +90,13 @@ export function ChartPlanWizard({
     kind: "entry",
     index: 0,
   });
+  const [candidate, setCandidate] = useState<{
+    kind: "entry" | "exit" | "stop";
+    index: number;
+    native: number;
+    label: string;
+  } | null>(null);
+  const [pointNotice, setPointNotice] = useState("");
   const [target, setTarget] = useState("3");
   const [partialAck, setPartialAck] = useState(false);
   const [stopChoice, setStopChoice] = useState<"price" | "none" | "">("");
@@ -369,6 +385,7 @@ export function ChartPlanWizard({
         })?.breakEvenBnb
       : null;
   const changed = () => {
+    setPointNotice("");
     setAck(false);
     setPartialAck(false);
     setSaved(false);
@@ -547,6 +564,11 @@ export function ChartPlanWizard({
       setAck(false);
     }
   };
+  const requestPoint = (kind: "entry" | "exit" | "stop", index: number, priceUsd: number) => {
+    if (!fresh || bnbUsd == null || !(priceUsd > 0)) return;
+    const native = priceUsd / bnbUsd;
+    setCandidate({ kind, index, native, label: priceText(native) });
+  };
   const renderChart = () => (
     <>
       <div className="flex flex-wrap items-center gap-2">
@@ -578,33 +600,84 @@ export function ChartPlanWizard({
         pickingPrice={!!pick && fresh && !busy && !started}
         onPickPrice={(p) => {
           if (!pick) return;
-          mark(pick.kind, pick.index, p.price);
-          const count = pick.kind === "entry" ? entryCount : exitCount;
-          setPick(
-            pick.kind !== "stop" && pick.index + 1 < count
-              ? { ...pick, index: pick.index + 1 }
-              : null,
-          );
+          requestPoint(pick.kind, pick.index, p.price);
         }}
-        onEditLevel={
+        onCommitLevel={
           fresh && !busy && !started
             ? (id, p) => {
                 const [kind, index] = id.split(":");
                 if (kind === "entry" || kind === "exit" || kind === "stop")
-                  mark(kind, Number(index), p);
+                  requestPoint(kind, Number(index), p);
               }
             : undefined
         }
       />
       <p className="text-xs text-muted-foreground">
-        O gráfico mantém os preços em US$. Os campos usam {currency}. Clicar marca; arrastar o fundo
-        move o histórico. As ordens serão avaliadas no futuro, com preços fixados em BNB
-        internamente.
+        O gráfico mantém os preços em US$. Os campos usam {currency}. Ao tocar ou ajustar um ponto,
+        confirme o preço na janela. Arrastar o fundo move o histórico. As ordens serão avaliadas no
+        futuro, com preços fixados em BNB internamente.
       </p>
     </>
   );
   return (
     <div className="space-y-4">
+      <AlertDialog
+        open={!!candidate}
+        onOpenChange={(v) => {
+          if (!v) setCandidate(null);
+        }}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Confirmar{" "}
+              {candidate?.kind === "entry"
+                ? `entrada ${candidate.index + 1}`
+                : candidate?.kind === "exit"
+                  ? `saída ${candidate.index + 1}`
+                  : "stop"}
+              ?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              O preço só será aplicado ao confirmar. Esta ação define o ponto no plano; não salva a
+              atividade nem envia uma ordem.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <p className="break-words rounded-xl bg-primary/10 p-4 text-xl font-bold">
+            {candidate?.label}
+          </p>
+          {!fresh && (
+            <p role="alert">A cotação ficou antiga. Cancele e atualize antes de confirmar.</p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar escolha</AlertDialogCancel>
+            <Button
+              className="min-h-12 whitespace-normal"
+              disabled={!fresh || busy}
+              onClick={() => {
+                if (!candidate || !fresh || bnbUsd == null) return;
+                mark(candidate.kind, candidate.index, candidate.native * bnbUsd);
+                const name =
+                  candidate.kind === "entry"
+                    ? `Entrada ${candidate.index + 1}`
+                    : candidate.kind === "exit"
+                      ? `Saída ${candidate.index + 1}`
+                      : "Stop";
+                setPointNotice(`${name} confirmada: ${candidate.label}`);
+                const count = candidate.kind === "entry" ? entryCount : exitCount;
+                setPick(
+                  candidate.kind !== "stop" && candidate.index + 1 < count
+                    ? { kind: candidate.kind, index: candidate.index + 1 }
+                    : null,
+                );
+                setCandidate(null);
+              }}
+            >
+              Confirmar ponto escolhido
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <nav className="grid grid-cols-4 gap-2 text-xs" aria-label="Etapas da atividade">
         {["Valor", "Entradas", "Saídas", "Revisão"].map((text, i) => (
           <div
@@ -917,9 +990,10 @@ export function ChartPlanWizard({
                 </label>
               </div>
               {manualTaxes && (
-                <label className="flex gap-2">
+                <label className="flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-4 text-base leading-relaxed">
                   <input
                     type="checkbox"
+                    className="mt-1 size-7 shrink-0 cursor-pointer accent-primary"
                     checked={manualTaxConfirmed}
                     onChange={(e) => setManualTaxConfirmed(e.target.checked)}
                   />
@@ -1012,23 +1086,35 @@ export function ChartPlanWizard({
         <section className="space-y-3" aria-label="Marcar entradas">
           <h3 className="text-lg font-semibold">Escolha os {entryCount} pontos de entrada</h3>
           <p className="text-sm text-muted-foreground">
-            Toque uma vez para cada entrada. A execução segue do maior preço para o menor. O sistema
-            já dividiu o valor liberado; cada ponto será usado apenas uma vez.
+            Toque no gráfico e confirme cada entrada na janela que abrir. A execução segue do maior
+            preço para o menor. O sistema já dividiu o valor liberado; cada ponto será usado apenas
+            uma vez.
           </p>
           {renderChart()}
+          {pointNotice && (
+            <p
+              role="status"
+              className="rounded-xl border border-success/40 bg-success/10 p-3 font-semibold"
+            >
+              {pointNotice}
+            </p>
+          )}
           <ol className="grid gap-2 sm:grid-cols-2">
             {entries.map((p, i) => (
               <li key={i} className="rounded-xl border p-3 text-sm">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-start justify-between gap-2">
                   <b>
                     Entrada {i + 1} · {allocation ? money(allocation.amounts[i]!) : "Não apurado"}
                   </b>
                   <Button
                     variant={pick?.kind === "entry" && pick.index === i ? "default" : "outline"}
                     size="sm"
+                    className="h-auto min-h-11 max-w-full whitespace-normal px-3 py-2 text-sm"
                     onClick={() => setPick({ kind: "entry", index: i })}
                   >
-                    Marcar {i + 1}
+                    {pick?.kind === "entry" && pick.index === i
+                      ? `Selecionando entrada ${i + 1}…`
+                      : `Alterar entrada ${i + 1} no gráfico`}
                   </Button>
                 </div>
                 <label className="mt-2 block">
@@ -1087,10 +1173,18 @@ export function ChartPlanWizard({
               : "Saídas sugeridas. Ao ajustar um preço, ele passa a ser manual e será mantido."}
           </p>
           {renderChart()}
+          {pointNotice && (
+            <p
+              role="status"
+              className="rounded-xl border border-success/40 bg-success/10 p-3 font-semibold"
+            >
+              {pointNotice}
+            </p>
+          )}
           <ol className="grid gap-2 sm:grid-cols-2">
             {exits.map((p, i) => (
               <li key={i} className="rounded-xl border p-3 text-sm">
-                <div className="flex justify-between gap-2">
+                <div className="flex flex-wrap justify-between gap-2">
                   <b>
                     Saída {i + 1} · {formatDistancePct(shares[i]!)} da posição
                   </b>
@@ -1118,7 +1212,7 @@ export function ChartPlanWizard({
           </ol>
           <fieldset className="space-y-2 rounded-xl border p-3">
             <legend className="px-1 font-semibold">Deseja usar stop?</legend>
-            <label className="flex gap-2 text-sm">
+            <label className="flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-4 text-base leading-relaxed">
               <input
                 type="radio"
                 name="chart-plan-stop"
@@ -1131,7 +1225,7 @@ export function ChartPlanWizard({
               />
               Sim, usar um limite de queda.
             </label>
-            <label className="flex gap-2 text-sm">
+            <label className="flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-4 text-base leading-relaxed">
               <input
                 type="radio"
                 name="chart-plan-stop"
@@ -1225,8 +1319,13 @@ export function ChartPlanWizard({
               próxima avaliação.
             </p>
           )}
-          <label className="flex gap-2 text-sm">
-            <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
+          <label className="flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-4 text-base leading-relaxed">
+            <input
+              type="checkbox"
+              className="mt-1 size-7 shrink-0 cursor-pointer accent-primary"
+              checked={ack}
+              onChange={(e) => setAck(e.target.checked)}
+            />
             Revisei carteira, valor, entradas, saídas, taxas e stop. Entendo que as projeções não
             garantem lucro e que executar leva tempo.
           </label>
@@ -1380,9 +1479,10 @@ export function ChartPlanWizard({
             </details>
           )}
           {partialRisk && (
-            <label className="flex gap-2 text-sm">
+            <label className="flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-4 text-base leading-relaxed">
               <input
                 type="checkbox"
+                className="mt-1 size-7 shrink-0 cursor-pointer accent-primary"
                 checked={partialAck}
                 onChange={(e) => setPartialAck(e.target.checked)}
               />
@@ -1423,6 +1523,7 @@ export function ChartPlanWizard({
             <Button
               disabled={
                 busy ||
+                !!candidate ||
                 settings.isPending ||
                 settings.isError ||
                 (step === 0 && (!capitalFresh || rate == null || !allocation || !taxReady))
@@ -1588,9 +1689,10 @@ export function ChartPlanWizard({
           >
             Conferir saldo e condições
           </Button>
-          <label className="flex gap-2 text-sm">
+          <label className="flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-4 text-base leading-relaxed">
             <input
               type="checkbox"
+              className="mt-1 size-7 shrink-0 cursor-pointer accent-primary"
               checked={startAck}
               disabled={busy || started}
               onChange={(e) => setStartAck(e.target.checked)}

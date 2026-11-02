@@ -459,3 +459,44 @@ it("adjusts an editable rule level with a drag or keyboard without creating a ne
   expect(edit.mock.calls.length).toBeGreaterThan(1);
   expect(pick).not.toHaveBeenCalled();
 });
+
+it("previews a dragged level and requests confirmation only after release", () => {
+  const commit = vi.fn();
+  render(
+    <CandleChart
+      candles={candles}
+      now={9000000}
+      onCommitLevel={commit}
+      levels={[{ id: "entry", label: "Entrada", price: 100, tone: "buy", draggable: true }]}
+    />,
+  );
+  const svg = screen.getByRole("img", {
+    name: "Velas OHLCV, escala de preços e médias SMA do robô",
+  });
+  vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({
+    left: 0,
+    top: 0,
+    width: 760,
+    height: 396,
+    right: 760,
+    bottom: 396,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  });
+  const slider = screen.getByRole("slider", { name: "Ajustar Entrada" });
+  pointer(slider, "pointerdown", 600, 150);
+  pointer(svg, "pointermove", 600, 100);
+  expect(commit).not.toHaveBeenCalled();
+  expect(screen.getByRole("slider", { name: "Ajustar Entrada" })).not.toHaveAttribute(
+    "aria-valuenow",
+    "100",
+  );
+  pointer(svg, "pointerup", 600, 100, 0, 0);
+  expect(commit).toHaveBeenCalledTimes(1);
+  expect(commit).toHaveBeenCalledWith("entry", expect.any(Number));
+  expect(screen.getByRole("slider", { name: "Ajustar Entrada" })).toHaveAttribute(
+    "aria-valuenow",
+    "100",
+  );
+});

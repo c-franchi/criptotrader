@@ -647,7 +647,15 @@ function Robo() {
             </Button>
           </section>
         )}
-        <div className="my-3">
+        <section
+          className="my-4 space-y-2 rounded-2xl border-2 border-primary bg-primary/5 p-4"
+          aria-label="Configuração simples do robô"
+        >
+          <h2 className="text-lg font-bold">Manual automático</h2>
+          <p className="text-sm">
+            Você define o valor, a entrada, a saída e o stop opcional. Configure aqui ou encontre
+            este modelo em Criar robô.
+          </p>
           <ManualAutoSetup
             key={`manual:${selectionKey}`}
             userId={user?.id ?? ""}
@@ -656,7 +664,7 @@ function Robo() {
             symbol={sym}
             onDone={load}
           />
-        </div>
+        </section>
         <GuidedBotSetup
           sourceAddress={sourceAddress}
           key={`setup:${selectionKey}`}

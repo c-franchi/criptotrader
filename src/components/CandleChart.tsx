@@ -57,7 +57,7 @@ function ChartBody({
   rulesVersion = 1,
   fastLength = 9,
   slowLength = 21,
-  levels = [],
+  levels: savedLevels = [],
   trades = [],
   tall = false,
   alignStrategy = false,
@@ -71,6 +71,7 @@ function ChartBody({
   pickingPrice = false,
   onPickPrice,
   onEditLevel,
+  onCommitLevel,
   initialAllLevels = false,
 }: {
   candles: Candle[];
@@ -94,7 +95,12 @@ function ChartBody({
   pickingPrice?: boolean;
   onPickPrice?: ((point: { time: number; price: number }) => void) | undefined;
   onEditLevel?: ((id: string, price: number) => void) | undefined;
+  onCommitLevel?: ((id: string, price: number) => void) | undefined;
 }) {
+  const [draggedLevel, setDraggedLevel] = useState<{ id: string; price: number } | null>(null);
+  const levels = draggedLevel
+    ? savedLevels.map((l) => (l.id === draggedLevel.id ? { ...l, price: draggedLevel.price } : l))
+    : savedLevels;
   const [minutes, setMinutes] = useState(compact ? 30 : alignStrategy ? strategyMinutes : 5);
   const [height, setHeight] = useState(tall ? 420 : compact ? 260 : 320);
   const [mode, setMode] = useState("candles");
@@ -126,6 +132,7 @@ function ChartBody({
   const [measure, setMeasure] = useState<{ time: number; price: number }[]>([]);
   const levelDrag = useRef<{
     id: string;
+    lastPrice?: number;
     min: number;
     max: number;
     height: number;
@@ -410,7 +417,12 @@ function ChartBody({
       const price =
         d.max -
         ((Math.min(d.height - 12, Math.max(12, py)) - 12) / (d.height - 24)) * (d.max - d.min);
-      if (price > 0 && Number.isFinite(price)) onEditLevel?.(d.id, price);
+      if (price > 0 && Number.isFinite(price)) {
+        if (onCommitLevel) {
+          d.lastPrice = price;
+          setDraggedLevel({ id: d.id, price });
+        } else onEditLevel?.(d.id, price);
+      }
       suppressClick.current = true;
       return;
     }
@@ -466,7 +478,11 @@ function ChartBody({
     }
   };
   const onPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    const finishedDrag = levelDrag.current;
     levelDrag.current = null;
+    setDraggedLevel(null);
+    if (e.type !== "pointercancel" && finishedDrag?.lastPrice != null)
+      onCommitLevel?.(finishedDrag.id, finishedDrag.lastPrice);
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
     if (longPress.current) {
@@ -894,7 +910,7 @@ function ChartBody({
           viewBox={`0 0 ${W} ${volBase + 20}`}
           className={cn(
             "w-full select-none overflow-hidden",
-            pickingPrice || onEditLevel ? "touch-none" : "touch-pan-y",
+            pickingPrice || onEditLevel || onCommitLevel ? "touch-none" : "touch-pan-y",
             minimal && "max-h-[calc(100dvh-14rem)] min-h-56",
             (tool !== "inspect" || pickingPrice) && "cursor-crosshair",
           )}
@@ -1246,7 +1262,7 @@ function ChartBody({
               </g>
             );
           })}
-          {onEditLevel &&
+          {(onEditLevel || onCommitLevel) &&
             levels
               .filter((l) => l.draggable && l.id && l.price >= min && l.price <= max)
               .map((l) => (
@@ -1283,7 +1299,10 @@ function ChartBody({
                   onKeyDown={(e) => {
                     if (e.key === "ArrowUp" || e.key === "ArrowDown") {
                       e.preventDefault();
-                      onEditLevel(l.id!, l.price * (e.key === "ArrowUp" ? 1.001 : 0.999));
+                      (onCommitLevel ?? onEditLevel)?.(
+                        l.id!,
+                        l.price * (e.key === "ArrowUp" ? 1.001 : 0.999),
+                      );
                     }
                   }}
                 >
@@ -1567,6 +1586,7 @@ export function CandleChart(props: {
   pickingPrice?: boolean;
   onPickPrice?: ((point: { time: number; price: number }) => void) | undefined;
   onEditLevel?: ((id: string, price: number) => void) | undefined;
+  onCommitLevel?: ((id: string, price: number) => void) | undefined;
   candles: Candle[];
   history?: ChartHistory | undefined;
   now: number;

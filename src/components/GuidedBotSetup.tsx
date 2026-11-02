@@ -1,3 +1,4 @@
+import { ManualAutoSetup } from "./ManualAutoSetup";
 import { userMessage, formIssueMessage } from "@/lib/userMessage";
 import { BotRuleHelp, BotRulesGuide, type GuidedRule } from "./BotRulesGuide";
 import { StopLossDecision } from "./StopLossDecision";
@@ -663,6 +664,24 @@ export function GuidedBotSetup({
                     Revisar comigo
                   </Button>
                 </div>
+                <section
+                  className="space-y-2 rounded-xl border-2 border-primary bg-primary/5 p-4"
+                  aria-label="Estratégia Manual automático"
+                >
+                  <h4 className="font-bold">Manual automático · você escolhe os preços</h4>
+                  <p className="text-sm">
+                    Informe quanto aplicar, entrada, saída e se deseja stop loss. Sem indicadores
+                    nem exigência de lucro mínimo.
+                  </p>
+                  <ManualAutoSetup
+                    key={`manual:${userId}:${walletScope}:${token}`}
+                    userId={userId}
+                    walletScope={walletScope}
+                    token={token}
+                    symbol={symbol}
+                    onDone={onDone}
+                  />
+                </section>
                 {(
                   [
                     [
