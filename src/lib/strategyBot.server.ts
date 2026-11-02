@@ -26,6 +26,7 @@ type Bot = {
   wallet_scope?: string;
   token: string;
   strat_state: unknown;
+  updated_at?: string;
 };
 
 /** Runs one tick of the robot following the user's saved strategy for this token. At most one swap. */
@@ -277,6 +278,7 @@ async function runStrategyStepImpl(
       maxGasGwei: cfg.maxGasGwei,
       intent: {
         botId: bot.id,
+        botUpdatedAt: bot.updated_at,
         mode: "estrategia",
         state,
         decision: d,
@@ -366,6 +368,8 @@ async function runStrategyStepImpl(
     };
   if (
     !(await approveForSwap({
+      botId: bot.id,
+      botUpdatedAt: bot.updated_at,
       beginSigning,
       ...(timing ? { timing } : {}),
       admin,
@@ -403,6 +407,7 @@ async function runStrategyStepImpl(
     maxGasGwei: cfg.maxGasGwei,
     intent: {
       botId: bot.id,
+      botUpdatedAt: bot.updated_at,
       mode: "estrategia",
       state,
       decision: d,

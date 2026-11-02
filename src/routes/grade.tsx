@@ -1,3 +1,4 @@
+import { EmergencyStop } from "@/components/EmergencyStop";
 import { planGasReserve, planProgress } from "@/lib/chartPlan";
 import { userMessage } from "@/lib/userMessage";
 import { ExecutionTimingPanel } from "@/components/ExecutionTimingPanel";
@@ -322,8 +323,15 @@ function Robo() {
     setExecution(null);
     setOrders([]);
     load();
+    const refreshAfterStop = () => {
+      void load();
+    };
+    window.addEventListener("bots-emergency-stopped", refreshAfterStop);
     const t = setInterval(load, 5_000);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("bots-emergency-stopped", refreshAfterStop);
+    };
   }, [load]);
 
   const persist = async (armed?: boolean) => {
@@ -520,6 +528,7 @@ function Robo() {
             Sair da tela cheia
           </Button>
         </div>
+        <EmergencyStop />
         <RobotVision
           chartOnly
           key={selectionKey}
@@ -1490,6 +1499,7 @@ const AUDIT_LABEL: Record<string, string> = {
   bot_withdraw_failed: "Tentativa de devolução não concluída",
   bot_armed: "Robô ligado",
   bot_disarmed: "Robô desligado",
+  bots_emergency_stopped: "Parada forçada de todos os robôs",
   bot_saved: "Configuração salva",
   bot_removed: "Robô removido · carteira e histórico preservados",
   strategies_reset: "Estratégias resetadas · bots preservados e pausados",

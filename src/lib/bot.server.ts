@@ -131,6 +131,7 @@ async function readPoolState(
 }
 
 type Bot = {
+  updated_at?: string;
   id: string;
   user_id: string;
   wallet_scope?: string;
@@ -338,6 +339,8 @@ async function runGridStepImpl(
       };
     if (
       !(await approveForSwap({
+        botId: bot.id,
+        botUpdatedAt: bot.updated_at,
         beginSigning,
         ...(timing ? { timing } : {}),
         admin,
@@ -375,6 +378,7 @@ async function runGridStepImpl(
     owner,
     intent: {
       botId: bot.id,
+      botUpdatedAt: bot.updated_at,
       mode: "grade",
       nextLevel: exitReason ? null : patch.last_level,
       state,
@@ -406,6 +410,8 @@ type Wal = Awaited<ReturnType<typeof botSigner>>["wallet"];
 /** Sends one swap with the robot wallet. Min out discounts the token tax and slippage. */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export async function approveForSwap(o: {
+  botId: string;
+  botUpdatedAt?: string | undefined;
   admin: any;
   owner: string;
   pub: Pub;
@@ -430,7 +436,8 @@ export async function approveForSwap(o: {
     kind: "approval",
     token: o.token,
     wallet: o.me,
-    ...(o.timing ? { botId: o.timing.botId } : {}),
+    botId: o.botId,
+    botUpdatedAt: o.botUpdatedAt,
   };
   const r = await contractTransaction({
     ...o,
