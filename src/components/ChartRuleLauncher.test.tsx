@@ -45,12 +45,14 @@ vi.mock("./CandleChart", () => ({
   CandleChart: ({
     onPickPrice,
     onEditLevel,
+    onCommitLevel,
     levels,
     pickingPrice,
   }: {
     pickingPrice: boolean;
     onPickPrice: (p: { time: number; price: number }) => void;
     onEditLevel?: (id: string, price: number) => void;
+    onCommitLevel?: (id: string, price: number) => void;
     levels: { label: string }[];
   }) => (
     <div>
@@ -60,7 +62,10 @@ vi.mock("./CandleChart", () => ({
       <button disabled={!pickingPrice} onClick={() => onPickPrice({ time: 2, price: 140 })}>
         Ponto de saída no gráfico
       </button>
-      <button disabled={!onEditLevel} onClick={() => onEditLevel?.("entryBnb", 95)}>
+      <button
+        disabled={!onEditLevel && !onCommitLevel}
+        onClick={() => (onCommitLevel ?? onEditLevel)?.("entry:0", 95)}
+      >
         Arrastar entrada no gráfico
       </button>
       {levels.map((l, i) => (
@@ -149,6 +154,7 @@ it("shows local money, splits free native funds across multiple clicks and saves
   fireEvent.click(screen.getByRole("button", { name: "50%" }));
   await enter();
   fireEvent.click(screen.getByRole("button", { name: "Ponto de entrada no gráfico" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar ponto escolhido" }));
   fireEvent.change(screen.getByRole("spinbutton", { name: "Preço da entrada 2" }), {
     target: { value: "400" },
   });
@@ -238,6 +244,7 @@ it("keeps manual exits unchanged when editing the target and shows separate cost
   show();
   await enter();
   fireEvent.click(screen.getByRole("button", { name: "Ponto de entrada no gráfico" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar ponto escolhido" }));
   fireEvent.click(screen.getByRole("button", { name: "Continuar para saídas" }));
   fireEvent.change(screen.getByRole("spinbutton", { name: "Preço da saída 1" }), {
     target: { value: "456" },
@@ -275,6 +282,7 @@ it("shows a saved gas-ceiling blocker with a local-money preview and only change
   show();
   await enter();
   fireEvent.click(screen.getByRole("button", { name: "Ponto de entrada no gráfico" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar ponto escolhido" }));
   fireEvent.click(screen.getByRole("button", { name: "Continuar para saídas" }));
   fireEvent.click(screen.getByRole("radio", { name: /Manter os tokens/ }));
   fireEvent.click(screen.getByRole("button", { name: "Revisar atividade" }));
@@ -348,5 +356,29 @@ it("checks an existing saved chart activity without saving it again or changing 
   expect(await screen.findByRole("button", { name: "Revisar limite de gás" })).toBeEnabled();
   expect(io.save).not.toHaveBeenCalled();
   expect(io.limit).not.toHaveBeenCalled();
+  expect(io.start).not.toHaveBeenCalled();
+});
+
+it("requires a clear confirmation after selecting or dragging a chart point and preserves it on cancel", async () => {
+  show();
+  await enter();
+  const input = screen.getByRole("spinbutton", { name: "Preço da entrada 1" });
+  const continueButton = screen.getByRole("button", { name: "Continuar para saídas" });
+  expect(input).toHaveValue(null);
+  fireEvent.click(screen.getByRole("button", { name: "Ponto de entrada no gráfico" }));
+  expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  expect(input).toHaveValue(null);
+  expect(continueButton).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Cancelar escolha" }));
+  expect(input).toHaveValue(null);
+  fireEvent.click(screen.getByRole("button", { name: "Ponto de entrada no gráfico" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar ponto escolhido" }));
+  expect(input).toHaveValue(450);
+  fireEvent.click(screen.getByRole("button", { name: "Arrastar entrada no gráfico" }));
+  expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  expect(input).toHaveValue(450);
+  fireEvent.click(screen.getByRole("button", { name: "Cancelar escolha" }));
+  expect(input).toHaveValue(450);
+  expect(io.save).not.toHaveBeenCalled();
   expect(io.start).not.toHaveBeenCalled();
 });

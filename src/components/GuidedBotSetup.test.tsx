@@ -27,6 +27,9 @@ vi.mock("@/lib/bot.functions", () => ({
   getExecutionStatus: mocks.execution,
 }));
 vi.mock("@/lib/capital.functions", () => ({ getWalletCapital: mocks.capital }));
+vi.mock("./ManualAutoSetup", () => ({
+  ManualAutoSetup: () => <button>Manual automático · configuração simples</button>,
+}));
 vi.mock("./FundBotDialog", () => ({ FundBotDialog: () => <button>Adicionar saldo</button> }));
 vi.mock("./BotReadiness", () => ({
   BotReadiness: ({ onConfigure }: { onConfigure: (action: "liquidity") => void }) => (
@@ -370,4 +373,13 @@ it("saves a deliberate no-stop choice and preserves it when the editor is opened
   expect(
     await screen.findByRole("spinbutton", { name: "Vender para proteger após queda de (%)" }),
   ).toHaveValue(null);
+});
+
+it("lists the simple Manual automático option inside the normal strategy chooser", async () => {
+  show();
+  const choice = await screen.findByRole("region", { name: "Estratégia Manual automático" });
+  expect(choice).toHaveTextContent("você escolhe os preços");
+  expect(
+    screen.getByRole("button", { name: "Manual automático · configuração simples" }),
+  ).toBeVisible();
 });
