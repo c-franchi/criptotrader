@@ -14,12 +14,18 @@ export async function stopAllUserBots(admin: any, userId: string) {
   if (error) throw new Error("Não foi possível confirmar a parada. Tente novamente.");
   // Do not touch positions, pending submissions, or execution locks.
   const stopped = data?.length ?? 0;
-  const { error: auditError } = await admin.from("audit_log").insert({
-    user_id: userId,
-    action: "bots_emergency_stopped",
-    details: { bots: data ?? [], stopped, all_wallets: true },
-  });
-  return { stopped, auditSaved: !auditError };
+  let auditSaved = false;
+  try {
+    const result = await admin.from("audit_log").insert({
+      user_id: userId,
+      action: "bots_emergency_stopped",
+      details: { bots: data ?? [], stopped, all_wallets: true },
+    });
+    auditSaved = !result.error;
+  } catch {
+    // The stop is already committed; an audit outage must not misreport it.
+  }
+  return { stopped, auditSaved };
 }
 
 /** Re-read durable state after slow RPC work and after a sale's approval receipt. */

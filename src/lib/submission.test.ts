@@ -278,7 +278,7 @@ it("keeps durable journaling before broadcast with telemetry enabled, and marks 
 });
 
 describe("emergency stop during submission", () => {
-  function robotSetup() {
+  function robotSetup(stopAfterJournal = false) {
     const f = setup();
     const state = { armed: true, archived_at: null, updated_at: "version-1" };
     const read = vi.fn(async () => ({ data: { ...state }, error: null }));
@@ -288,7 +288,19 @@ describe("emergency stop during submission", () => {
       ...f,
       state,
       read,
-      admin: { from: (table: string) => (table === "grid_bots" ? query : original()) },
+      admin: {
+        rpc: vi.fn(async () => ({ error: null as string | null })),
+        from: (table: string) =>
+          table === "grid_bots"
+            ? query
+            : {
+                insert: async () => {
+                  const result = await original().insert();
+                  if (stopAfterJournal) state.armed = false;
+                  return result;
+                },
+              },
+      },
       intent: { kind: "swap", botId: "bot", botUpdatedAt: "version-1" },
     };
   }
@@ -331,6 +343,33 @@ describe("emergency stop during submission", () => {
     f.read.mockResolvedValue({ data: { ...f.state }, error: "offline" as never });
     await expect(submitTransaction(f)).rejects.toThrow("Não foi possível verificar");
     expect(f.wallet.signTransaction).not.toHaveBeenCalled();
+  });
+  it("cancels a journal registered while the stop was in flight without broadcasting", async () => {
+    const f = robotSetup(true);
+    await expect(submitTransaction(f)).rejects.toThrow("Robô parado");
+    expect(f.events).toEqual(["persist"]);
+    expect(f.pub.sendRawTransaction).not.toHaveBeenCalled();
+    expect(f.admin.rpc).toHaveBeenCalledWith(
+      "complete_execution_submission",
+      expect.objectContaining({
+        p_order: null,
+        p_patch: {},
+        p_receipt: expect.objectContaining({ status: "cancelled_before_broadcast" }),
+      }),
+    );
+  });
+  it("retains the journal and lock if closing a never-broadcast submission fails", async () => {
+    const f = robotSetup(true);
+    f.admin.rpc.mockResolvedValue({ error: "offline" });
+    let failure: unknown;
+    try {
+      await submitTransaction(f);
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure).not.toBeInstanceOf(BeforeBroadcastError);
+    expect(f.pub.sendRawTransaction).not.toHaveBeenCalled();
   });
   it("preserves a submitted transaction and its receipt after stopping", async () => {
     const f = robotSetup();

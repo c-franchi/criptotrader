@@ -76,6 +76,22 @@ export async function submitTransaction(o: {
     throw new BeforeBroadcastError(error instanceof Error ? error.message : "Falha antes do envio");
   }
   o.timing?.mark("journaled");
+  // Stop may arrive while the durable journal insert is in flight.
+  // Only close a journal we can prove has never reached the broadcast call.
+  try {
+    await assertBotCanSubmit(o.admin, o.userId, o.intent);
+  } catch (error) {
+    const { error: closeError } = await o.admin.rpc("complete_execution_submission", {
+      p_id: id,
+      p_order: null,
+      p_patch: {},
+      p_receipt: { status: "cancelled_before_broadcast", reason: String(error) },
+    });
+    if (closeError) throw new Error("Envio bloqueado; diário aguarda conciliação.");
+    throw error instanceof BotStoppedError
+      ? error
+      : new BeforeBroadcastError(error instanceof Error ? error.message : "Envio bloqueado");
+  }
   // Any failure from here is indeterminate. The journal owns the hash, and the lock stays held.
   try {
     o.timing?.mark("broadcastAttempted");
