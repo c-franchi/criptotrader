@@ -1,3 +1,5 @@
+import { getWalletCapital } from "@/lib/capital.functions";
+import { fiatEstimate, formatFiat, type FiatCurrency } from "@/lib/fiat";
 import { useEffect, useId, useRef, useState } from "react";
 import { useCurrency } from "@/hooks/currencyContext";
 import { useQuery } from "@tanstack/react-query";
@@ -140,6 +142,14 @@ export function ManualAutoSetup({
     enabled: open,
     staleTime: 0,
   });
+  const capital = useQuery({
+    queryKey: ["manual-auto-capital", userId, walletScope],
+    queryFn: () => getWalletCapital({ data: { walletScope } }),
+    enabled: open,
+    staleTime: 0,
+    refetchInterval: open ? 15000 : false,
+    retry: false,
+  });
   const readiness = useQuery({
     queryKey: ["manual-auto-readiness", userId, walletScope, token, saved],
     queryFn: () => getBotReadiness({ data: { walletScope, token } }),
@@ -171,6 +181,19 @@ export function ManualAutoSetup({
         "Conversão indisponível. Escolha USD para os preços ou BNB para o valor aplicado, ou tente novamente.",
       );
     return v / rate;
+  };
+  const capitalFresh =
+    !!capital.data && !capital.isError && Date.now() - Date.parse(capital.data.at) < 30000;
+  const freeBnb = capitalFresh ? capital.data!.free : null;
+  const displayBalance = (raw: string | null | undefined) => {
+    if (raw == null) return "Não apurado";
+    if (amountUnit === "BNB")
+      return `${Number(raw).toLocaleString("pt-BR", { maximumFractionDigits: 10 })} BNB`;
+    const rates = !fx.isError && fx.data && Date.now() - fx.data.at < 180000 ? fx.data : null;
+    const value = fiatEstimate(raw, "BNB", amountUnit as FiatCurrency, rates);
+    return value == null
+      ? "Conversão indisponível"
+      : `≈ ${formatFiat(value, amountUnit as FiatCurrency)}`;
   };
   const advance = () => {
     setError("");
@@ -295,6 +318,69 @@ export function ManualAutoSetup({
               </p>
               {step === 0 && (
                 <div className="space-y-3">
+                  <section
+                    aria-label="Saldo disponível para investir"
+                    className="space-y-3 rounded-xl border-2 border-primary/40 bg-primary/10 p-4"
+                  >
+                    <p className="text-sm font-semibold">Saldo disponível para investir</p>
+                    <p className="break-words text-3xl font-bold tabular-nums" role="status">
+                      {freeBnb != null
+                        ? displayBalance(freeBnb)
+                        : capital.isError
+                          ? "Saldo indisponível"
+                          : capital.data === null
+                            ? "Carteira automática ainda não criada"
+                            : "Consultando saldo…"}
+                    </p>
+                    {freeBnb != null && amountUnit !== "BNB" && (
+                      <p className="break-words text-sm tabular-nums">
+                        {Number(freeBnb).toLocaleString("pt-BR", { maximumFractionDigits: 10 })} BNB
+                        livres
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Antes do gás desta compra, pago em BNB.
+                    </p>
+                    <details className="text-xs">
+                      <summary className="cursor-pointer font-medium">
+                        Ver saldo total, reservas e gás
+                      </summary>
+                      {capitalFresh && (
+                        <dl className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                          <div>
+                            <dt>Saldo total na carteira</dt>
+                            <dd className="font-medium">{displayBalance(capital.data!.balance)}</dd>
+                          </div>
+                          <div>
+                            <dt>Reservado para compras dos robôs ativos</dt>
+                            <dd className="font-medium">
+                              {displayBalance(capital.data!.reserved)}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Gás já reservado pelos robôs ativos</dt>
+                            <dd className="font-medium">{displayBalance(capital.data!.gas)}</dd>
+                          </div>
+                        </dl>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        O disponível desconta as reservas dos robôs ativos. Mantenha BNB adicional
+                        para o gás desta nova operação; ele ainda não foi descontado deste valor.
+                        Conversões são estimativas.
+                      </p>
+                    </details>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={capital.isFetching}
+                      onClick={() => {
+                        void capital.refetch();
+                        void fx.refetch();
+                      }}
+                    >
+                      Atualizar saldo disponível
+                    </Button>
+                  </section>
                   <ValueField
                     label="Quanto quer aplicar no robô?"
                     value={amount}
@@ -313,8 +399,8 @@ export function ManualAutoSetup({
                     </select>
                   </label>
                   <p className="text-xs text-muted-foreground">
-                    Valor destinado à compra. Mantenha BNB adicional para o gás. Carteira
-                    automática: {wallet.data?.bnb ?? "consultando"} BNB.
+                    Informe somente o valor destinado à compra. O saldo exibido pertence à carteira
+                    automática selecionada.
                   </p>
                 </div>
               )}
