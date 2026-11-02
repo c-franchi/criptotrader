@@ -248,3 +248,47 @@ it("distinguishes a low gas-price ceiling from a funded wallet and reports both 
     message: expect.stringMatching(/1 gwei.*0,0001 gwei.*não do saldo/),
   });
 });
+
+it("manual automation treats unprofitable spread, liquidity and saved gas ceilings as information", async () => {
+  const { buildManualAutoConfig } = await import("./manualAuto");
+  const c = buildManualAutoConfig(
+    {
+      capitalBnb: 0.001,
+      entryMode: "price",
+      entryValue: 100,
+      exitMode: "price",
+      exitValue: 100.01,
+      stopLossPct: null,
+      slippagePct: 1,
+      buyTaxPct: 8,
+      sellTaxPct: 8,
+    },
+    100,
+    "11111111-1111-4111-8111-111111111111",
+  );
+  c.maxGasGwei = 0.0001;
+  const a = admin(),
+    original = a.from;
+  a.from = (table: string) => {
+    if (table !== "strategies") return original(table);
+    const q: any = {
+      select: () => q,
+      eq: () => q,
+      ilike: () => q,
+      maybeSingle: async () => ({ data: { version: 1, config: c }, error: null }),
+    };
+    return q;
+  };
+  m.market.mockResolvedValue({
+    error: null,
+    fetchedAt: new Date().toISOString(),
+    pools: [{ pairAddress: pair, supported: true, priceUsd: "100", liquidityUsd: 0 }],
+  });
+  const r = await readBotReadiness(a, "u", "s", token);
+  expect(r.ready).toBe(true);
+  expect(r.errors).toEqual([]);
+  expect(r.warnings.join(" ")).toMatch(/gerar prejuízo/);
+  expect(r.configuredGasGwei).toBeNull();
+  m.balance.mockResolvedValue(0n);
+  expect((await readBotReadiness(a, "u", "s", token)).ready).toBe(false);
+});

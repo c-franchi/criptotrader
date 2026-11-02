@@ -1,8 +1,10 @@
+import { manualAutoRuleSchema } from "./manualAuto";
 import { z } from "zod";
 import { chartRuleSchema } from "./chartRule";
 const pct = z.number().finite().min(0).max(100);
 export const strategySchema = z
   .object({
+    manualAuto: manualAutoRuleSchema.optional(),
     sizingMode: z.enum(["fixo", "percentual"]),
     chartRule: chartRuleSchema.optional(),
     buyAmount: z.number().finite().nonnegative(),
@@ -56,6 +58,18 @@ export const strategySchema = z
   })
   .passthrough()
   .superRefine((c, ctx) => {
+    if (
+      c.manualAuto &&
+      (c.chartRule ||
+        c.recovery?.enabled ||
+        c.trailingEnabled ||
+        c.sizingMode !== "fixo" ||
+        c.maxEntries !== 1)
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "Manual automático exige uma compra fixa, sem outra estratégia combinada.",
+      });
     if (
       c.chartRule &&
       (c.sizingMode !== "fixo" ||

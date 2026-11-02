@@ -49,6 +49,12 @@ export function walletCapital(balanceBnb: string, bots: CapitalBot[], previewId?
   const completed = (b: CapitalBot) => {
     const s = (b.strat_state ?? {}) as Partial<BotState>,
       rule = b.config?.chartRule;
+    if (
+      b.config?.manualAuto &&
+      s.manualRuleConsumedId === b.config.manualAuto.id &&
+      !(Number(s.tokens) > 0)
+    )
+      return true;
     return (
       !!rule &&
       s.chartRuleConsumedId === rule.id &&

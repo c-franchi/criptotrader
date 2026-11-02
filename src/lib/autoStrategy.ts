@@ -1,3 +1,4 @@
+import { decideManualAuto } from "./manualAuto";
 import { formatUsd, formatDistancePct } from "./display";
 import { liveRecovery } from "./liveRecovery";
 import type { StrategyConfig } from "./strategy";
@@ -20,6 +21,7 @@ export type BotState = {
   lossTodayBnb: number;
   lastTradeAt: number; // ms
   entryConsumed?: boolean;
+  manualRuleConsumedId?: string;
   chartRuleConsumedId?: string;
   chartEntriesDone?: number[];
   chartExitsDone?: number[];
@@ -52,6 +54,7 @@ export type Decision =
       reason: string;
       recoveryLowAt?: number;
       chartRuleId?: string;
+      manualRuleId?: string;
       chartEntryIndex?: number;
     }
   | {
@@ -61,6 +64,7 @@ export type Decision =
       tpIndex?: number;
       all: boolean;
       chartRuleId?: string;
+      manualRuleId?: string;
       chartExitIndices?: number[];
     };
 
@@ -174,6 +178,7 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
   if (!(p > 0) || !Number.isFinite(p))
     return { action: "nenhuma", reason: "Preço indisponível — aguardando" };
 
+  if (cfg.manualAuto) return decideManualAuto(cfg.manualAuto, s, p);
   const holding = s.tokens > 0 && s.avgPriceUsd > 0;
   const chart = cfg.chartRule;
   if (chart) {
@@ -478,6 +483,7 @@ export function afterTrade(
     return {
       ...base,
       entryConsumed: true,
+      ...(d.manualRuleId ? { manualRuleConsumedId: d.manualRuleId } : {}),
       ...(d.chartRuleId ? { chartRuleConsumedId: d.chartRuleId } : {}),
       ...(d.chartEntryIndex != null
         ? {
@@ -543,7 +549,7 @@ export function afterTrade(
 
 /** Only a new signal cycle may buy again; limits do not themselves rearm the signal. */
 export function updateEntryLatch(cfg: StrategyConfig, s: BotState, m: Market): BotState {
-  if (cfg.chartRule) return s;
+  if (cfg.chartRule || cfg.manualAuto) return s;
   if (cfg.rulesVersion !== 2 || !s.entryConsumed || cfg.entryType === "queda") return s;
   const unrestricted = {
     ...cfg,

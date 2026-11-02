@@ -67,12 +67,14 @@ export function RemoveBotButton({
             <AlertDialogDescription>
               O bot pausado sairá da lista. Sua carteira, saldo, estratégia e histórico de operações
               serão mantidos. Nenhum ativo será vendido ou transferido. Você poderá criar o robô
-              novamente para este token.
+              novamente para este token após resolver a posição preservada. Os ativos continuam em
+              Minhas carteiras.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <p className="text-sm text-muted-foreground">
-            Com posição aberta ou transação pendente na carteira, a remoção será recusada. Esta
-            opção não libera travas de execução.
+            Os ativos e posições abertas serão mantidos na carteira. Transações já enviadas
+            continuam sendo conciliadas. Esta opção só arquiva o robô e não libera travas de
+            execução.
           </p>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>

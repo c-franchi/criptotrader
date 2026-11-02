@@ -103,7 +103,14 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
   updatedAt = bot.updated_at;
   version = s.data.version;
   const cfg = { ...EMPTY_CONFIG, ...s.data.config } as StrategyConfig;
-  configuredGasGwei = cfg.maxGasGwei;
+  const manual = !!cfg.manualAuto;
+  configuredGasGwei = manual ? null : cfg.maxGasGwei;
+  if (
+    manual &&
+    bot.strat_state?.manualRuleConsumedId === cfg.manualAuto!.id &&
+    Number(bot.strat_state?.tokens ?? 0) <= 0
+  )
+    block("rules", "Esta atividade manual já terminou. Configure outra para comprar novamente.");
   if (
     cfg.chartRule &&
     bot.strat_state?.chartRuleConsumedId === cfg.chartRule.id &&
@@ -123,10 +130,11 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
       "execution",
       "Uma operação desta carteira está aguardando confirmação. Use Verificar e recuperar.",
     );
-  if (!hasVerifiedTax(token, cfg))
+  if (!manual && !hasVerifiedTax(token, cfg))
     block("fees", "Confirme as taxas da moeda na configuração antes de iniciar.");
   if (!(cfg.buyAmount > 0)) block("values", "Informe um valor por compra maior que zero.");
   if (
+    !manual &&
     cfg.entryType !== "adaptativa" &&
     !cfg.takeProfits.some((t) => t.pct > 0) &&
     !cfg.trailingEnabled &&
@@ -156,6 +164,7 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
   if (market.error || Date.now() - Date.parse(market.fetchedAt) > 60000)
     block("refresh", "A cotação está desatualizada. Aguarde uma nova leitura antes de iniciar.");
   if (
+    !manual &&
     Number(bot.strat_state?.tokens ?? 0) <= 0 &&
     (best?.liquidityUsd == null || best.liquidityUsd < cfg.minLiquidityUsd)
   )
@@ -166,7 +175,7 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
   networkGasGwei = formatUnits(gasPrice, 9);
   gasBuyReferenceBnb = formatEther(gasPrice * 300000n);
   gasSellReferenceBnb = formatEther(gasPrice * 460000n);
-  if (gasPrice > BigInt(Math.round(cfg.maxGasGwei * 1e9)))
+  if (!manual && gasPrice > BigInt(Math.round(cfg.maxGasGwei * 1e9)))
     block(
       "gas",
       `Preço do gás na rede: ${Number(networkGasGwei).toLocaleString("pt-BR", { maximumSignificantDigits: 9 })} gwei. Seu limite: ${cfg.maxGasGwei.toLocaleString("pt-BR", { maximumSignificantDigits: 9 })} gwei. O bloqueio é desse limite, não do saldo ou do preço de saída. Gwei é preço por unidade de gás, não um valor em BNB. Revise o limite para consultar novamente.`,
@@ -243,6 +252,12 @@ export async function readBotReadiness(admin: any, userId: string, scope: string
       "fees",
       "Não foi possível estimar uma compra válida. Confira saldo, taxas da moeda e disponibilidade do contrato. Nada foi enviado.",
     );
+  }
+  if (manual) {
+    warnings.push(
+      "Manual automático: preço de entrada e saída definidos por você. Custos, impostos do token e gás podem superar a diferença de preço e gerar prejuízo; não ajustamos seus pontos nem exigimos lucro mínimo.",
+    );
+    return result();
   }
   const grossMargin =
     bot.mode === "grade"

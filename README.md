@@ -84,7 +84,7 @@ A rota `/grade` apresenta os controles de iniciar/pausar ao lado do gráfico, an
 
 ## Remover bot pausado
 
-A ação Remover robô aparece na sala e na lista de bots quando o bot está pausado, com confirmação por token e carteira. A migração 0018 arquiva a linha para preservar referências de conciliação; o bot sai das telas ativas, do orçamento e do scheduler. A remoção recusa bot ligado, posição aberta ou submissão pendente na carteira, preservando saldo, carteira, estratégia, histórico e mutex. Uma posição recebida tardiamente torna o bot novamente visível e pausado. Criar novamente o mesmo token restaura a linha pela ação explícita de configuração/início e continua sujeito às proteções existentes. Nenhum bot existente é removido pela migração.
+A ação Remover robô arquiva o bot pausado, inclusive com posição aberta ou submissão pendente. Preserva carteira, saldo, posição, estratégia, histórico, mutex e diário. Recibos tardios continuam atualizando a linha arquivada sem restaurar o robô à lista ou ligá-lo. Nenhum ativo é vendido ou transferido ao remover. Reconfigurar o mesmo token ainda preserva as regras de posições existentes; o arquivamento não zera a contabilidade nem libera execução.
 
 ### Recuperação de tentativas interrompidas antes do envio
 
@@ -109,3 +109,12 @@ O painel separa operações encerradas, posição aberta estimada, total estimad
 O botão vermelho **Parar todos os bots**, no cabeçalho de todas as páginas para usuários autenticados, desliga imediatamente os robôs do titular em todas as carteiras, inclusive com posição aberta ou confirmação pendente. Não exige selecionar cada carteira nem aguardar o mutex de execução. Mantém ativos, posições, configurações, histórico, diário e travas. Não executa venda ou devolução. Para retomar, cada bot precisa ser iniciado explicitamente pelas verificações existentes.
 
 O executor consulta o estado persistido antes da preparação, antes de assinar e antes de registrar o envio e imediatamente antes da transmissão. Uma parada durante o registro encerra a submissão comprovadamente não transmitida sem criar ordem ou movimento fictício; falha nessa conclusão preserva o diário e a trava. Aprovações também identificam o bot; parar durante a aprovação bloqueia o swap seguinte. A versão `updated_at` invalida tentativas antigas mesmo se o usuário religar o bot. Uma ordem que já atravessou a última verificação e iniciou a transmissão pode confirmar após a parada: não há cancelamento garantido de transações na blockchain. O diário e a conciliação continuam tratando esses receipts normalmente. Esta mudança não requer migração do banco.
+
+
+### Manual automático
+
+A sala do robô oferece um assistente de cinco etapas: valor aplicado (BNB/BRL/USD/EUR), entrada por preço ou queda percentual, saída por preço ou percentual da compra registrada, stop loss opcional e revisão. Conversões para BNB/USD são fixadas na revisão; na entrada percentual a cotação atual do par é fixada no servidor ao salvar. O robô espera uma compra e uma venda total, sem recomprar no mesmo plano. Ao concluir, libera a reserva lógica e pausa na avaliação seguinte.
+
+`manualAuto` é uma regra explícita e isolada. Não exige velas/indicadores, recuperação, liquidez mínima, margem mínima de lucro ou teto artificial de gás. Não aumenta os preços de saída para cobrir custos. Taxas do token, DEX e gás são exibidos como custos; uma margem negativa é aceita. Mantém saldo real, capital compartilhado, cotação recente, slippage escolhido, simulação válida do contrato, mutex, parada forçada, diário e conciliação. As estimativas e o gatilho não garantem preço executado ou lucro. Regras antigas mantêm suas proteções.
+
+A migração `0021_archive_paused_positions.sql` permite arquivar posições sem alterar ativos ou estado de execução. `tests/remove-paused-bot.sql` valida arquivamento com posição/pendência, isolamento, auditoria e recibo tardio dentro de transação com rollback.

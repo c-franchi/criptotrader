@@ -148,6 +148,13 @@
       "when": 1792725748400,
       "tag": "0020_guided_bot_setup",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793582675276,
+      "tag": "0021_archive_paused_positions",
+      "breakpoints": true
     }
   ]
 }

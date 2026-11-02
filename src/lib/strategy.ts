@@ -1,9 +1,11 @@
+import type { ManualAutoRule } from "./manualAuto";
 import type { ChartRule } from "./chartRule";
 export type PresetId = "segura" | "equilibrada" | "ativa" | "adaptativa";
 
 export type StrategyConfig = {
-  guidedModel?: "dca" | "grid" | "recovery" | "trend" | "chart";
+  guidedModel?: "dca" | "grid" | "recovery" | "trend" | "chart" | "manual";
   chartRule?: ChartRule;
+  manualAuto?: ManualAutoRule;
   rulesVersion?: 1 | 2;
   /** Explicitly enabled by the owner; absent preserves existing real cycles. */
   recovery?: {
@@ -79,6 +81,14 @@ export const EMPTY_CONFIG: StrategyConfig = {
 };
 
 export function describeStrategy(c: StrategyConfig, quote = "WBNB"): string[] {
+  if (c.manualAuto)
+    return [
+      "Manual automático: uma compra no preço escolhido e venda total na saída escolhida. Sem indicadores ou exigência de lucro mínimo.",
+      c.manualAuto.stopLossPct == null
+        ? "Sem stop loss, por escolha do usuário."
+        : `Stop loss: ${c.manualAuto.stopLossPct}% do preço de compra.`,
+      "Taxas e gás são custos informativos; saldo real e capacidade de transmissão continuam necessários.",
+    ];
   if (c.chartRule)
     if (c.chartRule.version === 2)
       return [
