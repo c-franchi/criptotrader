@@ -145,7 +145,11 @@ export function AppTour({
         )}
         <div className="mt-2 flex min-w-0 gap-2 sm:gap-3">
           {step > 0 && (
-            <Button variant="secondary" className="min-w-0 h-11 flex-1 sm:h-12" onClick={() => setStep(step - 1)}>
+            <Button
+              variant="secondary"
+              className="min-w-0 h-11 flex-1 sm:h-12"
+              onClick={() => setStep(step - 1)}
+            >
               Voltar
             </Button>
           )}
