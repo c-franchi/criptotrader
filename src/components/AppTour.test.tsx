@@ -45,7 +45,7 @@ it("keeps the PWA guide scrollable and prevents duplicate mobile centering trans
   expect(dialog.className).toContain("min-w-0");
   // The Radix dialog already uses translate-x-[-50%] and translate-y-[-50%].
   // Adding an additional CSS transform shifts the entire guide off-screen.
-  const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+  const stylesheet = readFileSync("src/styles.css", "utf8");
   expect(stylesheet).not.toContain("transform: translateX(-50%)");
   expect(stylesheet).toContain("max-height: calc(100dvh - 1.5rem);");
 });
