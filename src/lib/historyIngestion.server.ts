@@ -79,13 +79,11 @@ export async function tickMarketHistory(admin: any) {
   }
   const status = { claimed: (work ?? []).length, saved, backfilled, failed };
   // A visible heartbeat distinguishes an active server cron from a closed browser.
-  await admin
-    .from("market_candle_heartbeat")
-    .upsert({
-      id: 1,
-      last_invoked_at: new Date().toISOString(),
-      last_success_at: failed === 0 ? new Date().toISOString() : null,
-      ...status,
-    });
+  await admin.from("market_candle_heartbeat").upsert({
+    id: 1,
+    last_invoked_at: new Date().toISOString(),
+    last_success_at: failed === 0 ? new Date().toISOString() : null,
+    ...status,
+  });
   return status;
 }

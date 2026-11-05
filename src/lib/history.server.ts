@@ -183,13 +183,14 @@ export async function readCandleHistoryPage(
     let fetched: Candle[] = [];
     try {
       fetched = (await fetchGecko(pool, token, false, cursor)).filter((c) => c[0] < cursor);
-      if (fetched.length)
-        await saveArchiveCandles(pool, token ?? "base", fetched).catch(() => {});
+      if (fetched.length) await saveArchiveCandles(pool, token ?? "base", fetched).catch(() => {});
     } catch (error) {
       // Cached real bars remain visible during provider rate limits/outages.
       if (!archived.length) throw error;
     }
-    const candles = mergeCandles(archived, fetched).filter((c) => c[0] < cursor).slice(-1000);
+    const candles = mergeCandles(archived, fetched)
+      .filter((c) => c[0] < cursor)
+      .slice(-1000);
     if (olderCache.size >= 200) olderCache.clear();
     olderCache.set(key, { candles, expires: Date.now() + 15 * 60000 });
     return candles;

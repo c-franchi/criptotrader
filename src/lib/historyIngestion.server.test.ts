@@ -15,7 +15,10 @@ function mockDb() {
   const changes: Record<string, unknown>[] = [];
   const update = vi.fn((value: Record<string, unknown>) => {
     changes.push(value);
-    const q = { eq: () => q, then: (resolve: (value: unknown) => void) => resolve({ error: null }) };
+    const q = {
+      eq: () => q,
+      then: (resolve: (value: unknown) => void) => resolve({ error: null }),
+    };
     return q;
   });
   const upsert = vi.fn(async () => ({ error: null }));

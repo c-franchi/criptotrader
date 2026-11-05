@@ -110,7 +110,8 @@ export function useCandles(pool: string | undefined, token: string) {
         setStatus({
           scope,
           loading: false,
-          error: "Fonte de histórico temporariamente indisponível. As velas salvas continuam visíveis; nova tentativa automática mais tarde.",
+          error:
+            "Fonte de histórico temporariamente indisponível. As velas salvas continuam visíveis; nova tentativa automática mais tarde.",
           empty: false,
         });
       } finally {
