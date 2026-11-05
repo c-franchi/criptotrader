@@ -83,7 +83,11 @@ export async function botSigner(enc: string) {
   };
 }
 
-export async function poolState(token: `0x${string}`, blockNumber?: bigint) {
+export async function poolState(
+  token: `0x${string}`,
+  blockNumber?: bigint,
+  expectedPriceBnb?: number,
+) {
   if (blockNumber == null)
     return sharedRead(`atomic-pool:${RPC()}:${token.toLowerCase()}`, 300, () =>
       withRpcSnapshot(RPC(), (client, block) => readPoolState(token, block.number, client)),
@@ -93,7 +97,7 @@ export async function poolState(token: `0x${string}`, blockNumber?: bigint) {
   // Serverless requests can run in different isolates: the market's process-local
   // snapshot may be absent here even though the pinned BSC block remains fresh.
   // Re-read that EXACT block from one verified RPC, never a newer price or mixed providers.
-  return sharedRead(`pinned-pool:${RPC()}:${token.toLowerCase()}:${blockNumber}`, 300, () =>
+  const recovered = await sharedRead(`pinned-pool:${RPC()}:${token.toLowerCase()}:${blockNumber}`, 300, () =>
     withRpcSnapshot(RPC(), async (client, latest) => {
       if (latest.number < blockNumber) throw new Error("Provedor ainda não alcançou o bloco cotado");
       const pinned = await client.getBlock({ blockNumber });
@@ -105,11 +109,22 @@ export async function poolState(token: `0x${string}`, blockNumber?: bigint) {
         age < -5_000
       )
         throw new Error("Bloco da cotação desatualizado ou inconsistente");
-      const refreshed = await readPoolState(token, blockNumber, client);
-      if (refreshed) saveLivePool(token, RPC(), blockNumber, refreshed);
-      return refreshed;
+      return readPoolState(token, blockNumber, client);
     }),
   );
+  // Only compare the rebuilt snapshot against the decision's quoted native price.
+  // The existing in-memory snapshot is already the one used by that decision.
+  if (recovered && expectedPriceBnb != null) {
+    if (
+      !Number.isFinite(expectedPriceBnb) ||
+      expectedPriceBnb <= 0 ||
+      !Number.isFinite(recovered.price) ||
+      Math.abs(recovered.price - expectedPriceBnb) / expectedPriceBnb > 0.000001
+    )
+      throw new Error("Reservas do bloco divergentes da cotação; aguardando nova leitura");
+  }
+  if (recovered) saveLivePool(token, RPC(), blockNumber, recovered);
+  return recovered;
 }
 async function readPoolState(
   token: `0x${string}`,

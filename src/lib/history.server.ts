@@ -81,7 +81,7 @@ async function fetchGecko(
         const retrySeconds = header && /^[0-9]+$/.test(header) ? Number(header) : 90;
         const waitMs = Math.min(300_000, Math.max(60_000, retrySeconds * 1000));
         geckoBlockedUntil = Math.max(geckoBlockedUntil, Date.now() + waitMs);
-        throw new Error("Limite de consultas do histórico; aguardando a fonte");
+        throw new Error("Histórico indisponível (429): limite de consultas; aguardando a fonte");
       }
       if (!res.ok) throw new Error(`Histórico indisponível (${res.status})`);
       const json = (await res.json()) as { data?: { attributes?: { ohlcv_list?: number[][] } } };

@@ -87,28 +87,19 @@ async function runStrategyStepImpl(
   const market = await readMarket(token, rpc, { live: true });
   if (market.error)
     return { patch: { last_error: "Preço desatualizado: aguardando nova consulta" }, order: null };
-  const pool = market.pools.some((p) => p.supported)
-    ? await poolState(token, market.blockNumber ? BigInt(market.blockNumber) : undefined)
+  const selectedPool = market.pools.find((p) => p.supported);
+  const quotedNative = Number(selectedPool?.priceNative);
+  const pool = selectedPool
+    ? await poolState(
+        token,
+        market.blockNumber ? BigInt(market.blockNumber) : undefined,
+        Number.isFinite(quotedNative) && quotedNative > 0 ? quotedNative : undefined,
+      )
     : null;
   timing?.mark("marketReady");
   const best = market.pools.find(
     (p) => p.supported && p.pairAddress.toLowerCase() === pool?.pair.toLowerCase() && p.priceUsd,
   );
-  // A refreshed pinned block must agree with the price used by the decision.
-  // If the chain reorganized or an RPC disagrees, skip trading and retry next tick.
-  if (pool && best) {
-    const quotedBnb = Number(best.priceNative);
-    if (
-      !Number.isFinite(quotedBnb) ||
-      quotedBnb <= 0 ||
-      !Number.isFinite(pool.price) ||
-      Math.abs(pool.price - quotedBnb) / quotedBnb > 0.000001
-    )
-      return {
-        patch: { last_error: "Reservas do bloco divergentes da cotação; aguardando nova leitura" },
-        order: null,
-      };
-  }
   const priceUsd = Number(best?.priceUsd);
   const priceBnb = pool?.price;
   if (!best || !(priceUsd > 0))

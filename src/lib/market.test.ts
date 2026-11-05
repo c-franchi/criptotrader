@@ -169,3 +169,18 @@ it("rejects an expired pinned quote instead of silently using the next block", a
     "Não foi possível obter uma cotação consistente",
   );
 });
+
+it("rejects divergent reconstructed reserves without persisting the inconsistent quote", async () => {
+  vi.clearAllMocks();
+  vi.stubEnv("BSC_RPC_URL", "live-inconsistent-instance");
+  const clock = vi.spyOn(Date, "now").mockReturnValue(1820000000000);
+  liveRpc();
+  getBlock.mockResolvedValue({ number: 123n, timestamp: 1820000000n });
+  const quote = await readMarket(BGA, "live-inconsistent-instance", { live: true });
+  expect(quote.error).toBeNull();
+  clock.mockReturnValue(1820000005500);
+  const { poolState } = await import("./bot.server");
+  await expect(
+    poolState(BGA, BigInt(quote.blockNumber!), Number(quote.pools[0]?.priceNative) * 1.1),
+  ).rejects.toThrow("Reservas do bloco divergentes");
+});
