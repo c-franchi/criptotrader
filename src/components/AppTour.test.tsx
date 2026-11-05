@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { AppTour } from "./AppTour";
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigate }));
@@ -33,4 +34,18 @@ it("opens only the chosen tool and restarts from the beginning when reopened thr
   expect(screen.getByRole("heading", { name: "Comece pelo painel" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   expect(navigate).toHaveBeenCalledTimes(1);
+});
+
+it("keeps the PWA guide scrollable and prevents duplicate mobile centering transforms", () => {
+  render(<AppTour open onOpenChange={vi.fn()} />);
+  const dialog = screen.getByRole("dialog");
+  expect(dialog.className).toContain("app-tour");
+  expect(dialog.className).toContain("overflow-y-auto");
+  expect(dialog.className).toContain("overscroll-contain");
+  expect(dialog.className).toContain("min-w-0");
+  // The Radix dialog already uses translate-x-[-50%] and translate-y-[-50%].
+  // Adding an additional CSS transform shifts the entire guide off-screen.
+  const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+  expect(stylesheet).not.toContain("transform: translateX(-50%)");
+  expect(stylesheet).toContain("max-height: calc(100dvh - 1.5rem);");
 });

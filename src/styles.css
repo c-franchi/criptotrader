@@ -422,7 +422,18 @@
   color: var(--muted-foreground);
 }
 .app-tour {
-  gap: 1.1rem;
+  /* Radix already centers with Tailwind translate utilities: never add transform here. */
+  width: min(32rem, calc(100vw - 1.5rem));
+  max-height: calc(100dvh - 1.5rem);
+  max-height: calc(100dvh - 1.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  gap: 0.75rem;
+}
+@media (min-width: 640px) {
+  .app-tour {
+    gap: 1.1rem;
+  }
 }
 
 /* Dashboard columns follow the market reference; SVG width is measured independently
@@ -477,15 +488,6 @@
     margin-bottom: 0;
   }
 }
-@media (max-width: 639px) {
-  .app-tour {
-    top: auto;
-    bottom: 0.75rem;
-    transform: translateX(-50%);
-  }
-}
-
-
 /* Brand splash shown on first PWA/browser load; hides as soon as React hydrates. */
 .startup-splash {
   position: fixed;
