@@ -17,7 +17,10 @@ export const getIntegrationHealth = createServerFn({ method: "GET" })
         .from("grid_bots")
         .select("armed,last_run_at,last_error")
         .eq("user_id", context.userId),
-      supabaseAdmin.from("execution_submissions" as never).select("id").limit(1),
+      supabaseAdmin
+        .from("execution_submissions" as never)
+        .select("id")
+        .limit(1),
       supabaseAdmin.from("internal_tokens").select("name").eq("name", "grid_tick").limit(1),
       probeRobotRpc(),
     ]);
@@ -46,9 +49,10 @@ export const getIntegrationHealth = createServerFn({ method: "GET" })
       {
         name: "Banco e diário de execução",
         ok: !botError && !journalError,
-        text: !botError && !journalError
-          ? "Conexão e estrutura de conciliação acessíveis"
-          : "Falha ao consultar robôs ou diário; confira o banco conectado ao workspace",
+        text:
+          !botError && !journalError
+            ? "Conexão e estrutura de conciliação acessíveis"
+            : "Falha ao consultar robôs ou diário; confira o banco conectado ao workspace",
       },
       {
         name: "Autorização do agendador",
@@ -58,16 +62,18 @@ export const getIntegrationHealth = createServerFn({ method: "GET" })
       {
         name: "Agendamento dos robôs",
         ok: active.length === 0 ? null : recent === active.length,
-        text: active.length === 0
-          ? "Nenhum robô ligado nesta conta"
-          : `${recent} de ${active.length} robôs ligados foram avaliados nos últimos 3 minutos`,
+        text:
+          active.length === 0
+            ? "Nenhum robô ligado nesta conta"
+            : `${recent} de ${active.length} robôs ligados foram avaliados nos últimos 3 minutos`,
       },
       {
         name: "Condição dos robôs ligados",
         ok: active.length === 0 ? null : problemCount === 0,
-        text: active.length === 0
-          ? "Nenhum robô ligado nesta conta"
-          : `${active.length - problemCount} sem erro · ${problemCount} com erro. Ligado não garante execução de ordens.`,
+        text:
+          active.length === 0
+            ? "Nenhum robô ligado nesta conta"
+            : `${active.length - problemCount} sem erro · ${problemCount} com erro. Ligado não garante execução de ordens.`,
       },
       {
         name: "Criptografia do executor",

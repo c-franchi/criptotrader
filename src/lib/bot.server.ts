@@ -97,20 +97,19 @@ export async function poolState(
   // Serverless requests can run in different isolates: the market's process-local
   // snapshot may be absent here even though the pinned BSC block remains fresh.
   // Re-read that EXACT block from one verified RPC, never a newer price or mixed providers.
-  const recovered = await sharedRead(`pinned-pool:${RPC()}:${token.toLowerCase()}:${blockNumber}`, 300, () =>
-    withRpcSnapshot(RPC(), async (client, latest) => {
-      if (latest.number < blockNumber) throw new Error("Provedor ainda não alcançou o bloco cotado");
-      const pinned = await client.getBlock({ blockNumber });
-      const age = Date.now() - Number(pinned.timestamp) * 1000;
-      if (
-        pinned.number !== blockNumber ||
-        !Number.isFinite(age) ||
-        age > 15_000 ||
-        age < -5_000
-      )
-        throw new Error("Bloco da cotação desatualizado ou inconsistente");
-      return readPoolState(token, blockNumber, client);
-    }),
+  const recovered = await sharedRead(
+    `pinned-pool:${RPC()}:${token.toLowerCase()}:${blockNumber}`,
+    300,
+    () =>
+      withRpcSnapshot(RPC(), async (client, latest) => {
+        if (latest.number < blockNumber)
+          throw new Error("Provedor ainda não alcançou o bloco cotado");
+        const pinned = await client.getBlock({ blockNumber });
+        const age = Date.now() - Number(pinned.timestamp) * 1000;
+        if (pinned.number !== blockNumber || !Number.isFinite(age) || age > 15_000 || age < -5_000)
+          throw new Error("Bloco da cotação desatualizado ou inconsistente");
+        return readPoolState(token, blockNumber, client);
+      }),
   );
   // Only compare the rebuilt snapshot against the decision's quoted native price.
   // The existing in-memory snapshot is already the one used by that decision.

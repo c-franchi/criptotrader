@@ -126,10 +126,7 @@ export async function readCandles(
   const active = pending.get(requestKey);
   if (active) return active;
   const request = (async () => {
-    if (
-      (failures.get(requestKey) ?? 0) <= Date.now() &&
-      Date.now() >= geckoBlockedUntil
-    ) {
+    if ((failures.get(requestKey) ?? 0) <= Date.now() && Date.now() >= geckoBlockedUntil) {
       try {
         const candles = await fetchGecko(pool, token, options?.fast);
         if (!candles.length) throw new Error("Histórico vazio");
