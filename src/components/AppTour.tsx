@@ -90,7 +90,7 @@ export function AppTour({
   const last = step === steps.length - 1;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="app-tour exchange-workspace w-[calc(100vw-1.5rem)] max-w-lg rounded-3xl border-0 p-5 sm:p-7">
+      <DialogContent className="app-tour exchange-workspace flex w-[calc(100vw-1.5rem)] max-w-lg min-w-0 flex-col overflow-y-auto overscroll-contain rounded-3xl border-0 p-4 sm:p-7">
         <div className="flex gap-1.5 pr-8" aria-label={`Passo ${step + 1} de ${steps.length}`}>
           {steps.map((s, i) => (
             <span
@@ -111,11 +111,11 @@ export function AppTour({
           </DialogDescription>
         </DialogHeader>
         <div
-          className="my-2 rounded-2xl bg-secondary p-6"
+          className="my-1 min-w-0 rounded-2xl bg-secondary p-4 sm:my-2 sm:p-6"
           aria-label="Visão das ferramentas deste passo"
         >
-          <div className="mb-5 flex items-center justify-between">
-            <Icon className="size-10 text-primary" strokeWidth={1.5} />
+          <div className="mb-3 flex items-center justify-between sm:mb-5">
+            <Icon className="size-8 text-primary sm:size-10" strokeWidth={1.5} />
             <MousePointer2 className="size-5 text-muted-foreground" />
           </div>
           <div className="flex flex-wrap gap-2">
@@ -129,7 +129,7 @@ export function AppTour({
             ))}
           </div>
         </div>
-        <p className="min-h-20 text-base leading-relaxed">{lesson.text}</p>
+        <p className="min-h-0 text-sm leading-relaxed sm:min-h-20 sm:text-base">{lesson.text}</p>
         {"route" in lesson && (
           <Button
             variant="ghost"
@@ -143,14 +143,18 @@ export function AppTour({
             <ArrowUpRight className="size-4" />
           </Button>
         )}
-        <div className="mt-2 flex gap-3">
+        <div className="mt-2 flex min-w-0 gap-2 sm:gap-3">
           {step > 0 && (
-            <Button variant="secondary" className="h-12 flex-1" onClick={() => setStep(step - 1)}>
+            <Button
+              variant="secondary"
+              className="min-w-0 h-11 flex-1 sm:h-12"
+              onClick={() => setStep(step - 1)}
+            >
               Voltar
             </Button>
           )}
           <Button
-            className="h-12 flex-1"
+            className="h-11 min-w-0 flex-1 sm:h-12"
             onClick={() => {
               if (last) onOpenChange(false);
               else setStep(step + 1);
