@@ -4,13 +4,15 @@ export async function notifyBotProblem(admin: any, bot: any, attention: string, 
   try {
     const problem = botProblem(attention);
     const link = botNoticeLink(bot, problem);
-    // A flapping RPC/quote source is one incident, rather than a new alarm every two seconds.
+    // Market/RPC outages are the same incident for an hour. Financial execution
+    // alerts are never suppressed by this function.
+    const dedupeMs = problem === "market" ? 60 * 60000 : 15 * 60000;
     const recent = await admin
       .from("notifications")
       .select("id")
       .eq("user_id", bot.user_id)
       .eq("link", link)
-      .gte("created_at", new Date(Date.now() - 15 * 60000).toISOString())
+      .gte("created_at", new Date(Date.now() - dedupeMs).toISOString())
       .limit(1);
     if (recent.error || recent.data?.length) return;
     const current = await admin

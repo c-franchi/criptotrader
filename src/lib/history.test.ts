@@ -66,6 +66,12 @@ it("coalesces concurrent reads and requests the selected token in five-minute in
 it("shows the last saved chart when the public source is down", async () => {
   const pool = "0x1111111111111111111111111111111111111111";
   store.set(`${pool}:${token.toLowerCase()}`, [[100, 1, 1, 1, 1]]);
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 429 }));
+  const fetcher = vi.fn().mockResolvedValue({ ok: false, status: 429 });
+  vi.stubGlobal("fetch", fetcher);
   expect(await readCandles(pool, token)).toEqual([[100, 1, 1, 1, 1]]);
+  // Subsequent pool requests must use their saved snapshots during the cooldown.
+  const secondPool = "0x2222222222222222222222222222222222222222";
+  store.set(`${secondPool}:${token.toLowerCase()}`, [[100, 2, 2, 2, 2]]);
+  expect(await readCandles(secondPool, token)).toEqual([[100, 2, 2, 2, 2]]);
+  expect(fetcher).toHaveBeenCalledTimes(1);
 }, 10_000);

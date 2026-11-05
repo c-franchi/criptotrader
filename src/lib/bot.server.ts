@@ -1,6 +1,6 @@
 import { chartMaxBuyFeeRaw } from "./chartExecution";
 import { robotRpcTransport, withRpcSnapshot } from "./robotRpc.server";
-import { loadLivePool, sharedRead } from "./sharedReads.server";
+import { loadLivePool, saveLivePool, sharedRead } from "./sharedReads.server";
 import type { ExecutionClock } from "./executionTiming";
 import Decimal from "decimal.js";
 import { incompatibleBotToken, INCOMPATIBLE_BNB, guidedGridExit } from "./guidedBot";
@@ -90,8 +90,25 @@ export async function poolState(token: `0x${string}`, blockNumber?: bigint) {
     );
   const hit = loadLivePool(token, RPC(), blockNumber);
   if (hit) return hit;
-  throw new Error(
-    "Reservas da cotação expiraram. Aguarde uma nova avaliação de bloco antes de executar.",
+  // Serverless requests can run in different isolates: the market's process-local
+  // snapshot may be absent here even though the pinned BSC block remains fresh.
+  // Re-read that EXACT block from one verified RPC, never a newer price or mixed providers.
+  return sharedRead(`pinned-pool:${RPC()}:${token.toLowerCase()}:${blockNumber}`, 300, () =>
+    withRpcSnapshot(RPC(), async (client, latest) => {
+      if (latest.number < blockNumber) throw new Error("Provedor ainda não alcançou o bloco cotado");
+      const pinned = await client.getBlock({ blockNumber });
+      const age = Date.now() - Number(pinned.timestamp) * 1000;
+      if (
+        pinned.number !== blockNumber ||
+        !Number.isFinite(age) ||
+        age > 15_000 ||
+        age < -5_000
+      )
+        throw new Error("Bloco da cotação desatualizado ou inconsistente");
+      const refreshed = await readPoolState(token, blockNumber, client);
+      if (refreshed) saveLivePool(token, RPC(), blockNumber, refreshed);
+      return refreshed;
+    }),
   );
 }
 async function readPoolState(

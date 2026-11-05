@@ -3,6 +3,10 @@ import type { Candle } from "./marketStats";
 const cache = new Map<string, { candles: Candle[]; expires: number }>();
 const pending = new Map<string, Promise<Candle[]>>();
 const failures = new Map<string, number>();
+// GeckoTerminal's free OHLC endpoint has a shared rate limit and 1-minute caching.
+// A 429 pauses requests across tokens in this instance instead of amplifying an outage.
+let geckoBlockedUntil = 0;
+const GECKO_CACHE_MS = 75_000;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 async function db(): Promise<any | null> {
@@ -61,12 +65,24 @@ async function fetchGecko(
   }).toString();
   if (before != null) url.searchParams.set("before_timestamp", String(before));
   let lastError: unknown;
+  if (Date.now() < geckoBlockedUntil)
+    throw new Error("Histórico temporariamente limitado pela fonte");
   for (let attempt = 0; attempt < (fast || before != null ? 1 : 3); attempt++) {
     try {
       const res = await fetch(url, {
-        headers: { accept: "application/json", "user-agent": "CryptoBot/1.0" },
+        headers: {
+          accept: "application/json;version=20230203",
+          "user-agent": "CryptoBot/1.0",
+        },
         signal: AbortSignal.timeout(fast ? 1_500 : 8_000),
       });
+      if (res.status === 429) {
+        const header = res.headers?.get("retry-after");
+        const retrySeconds = header && /^[0-9]+$/.test(header) ? Number(header) : 90;
+        const waitMs = Math.min(300_000, Math.max(60_000, retrySeconds * 1000));
+        geckoBlockedUntil = Math.max(geckoBlockedUntil, Date.now() + waitMs);
+        throw new Error("Limite de consultas do histórico; aguardando a fonte");
+      }
       if (!res.ok) throw new Error(`Histórico indisponível (${res.status})`);
       const json = (await res.json()) as { data?: { attributes?: { ohlcv_list?: number[][] } } };
       const list = json.data?.attributes?.ohlcv_list;
@@ -86,6 +102,7 @@ async function fetchGecko(
         .sort((a, b) => a[0] - b[0]);
     } catch (e) {
       lastError = e;
+      if (Date.now() < geckoBlockedUntil) break; // Never retry a 429 in the same call.
       if (!fast && before == null && attempt < 2)
         await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
     }
@@ -109,7 +126,10 @@ export async function readCandles(
   const active = pending.get(requestKey);
   if (active) return active;
   const request = (async () => {
-    if ((failures.get(requestKey) ?? 0) <= Date.now()) {
+    if (
+      (failures.get(requestKey) ?? 0) <= Date.now() &&
+      Date.now() >= geckoBlockedUntil
+    ) {
       try {
         const candles = await fetchGecko(pool, token, options?.fast);
         if (!candles.length) throw new Error("Histórico vazio");
@@ -117,12 +137,12 @@ export async function readCandles(
           cache.clear();
           failures.clear();
         }
-        cache.set(key, { candles, expires: Date.now() + 30_000 });
+        cache.set(key, { candles, expires: Date.now() + GECKO_CACHE_MS });
         failures.delete(requestKey);
         if (candles.length) await saveCandles(p, t, candles);
         return candles;
       } catch {
-        failures.set(requestKey, Date.now() + 20_000);
+        failures.set(requestKey, Math.max(Date.now() + 20_000, geckoBlockedUntil));
       }
     }
     if (saved?.candles.length) return saved.candles;

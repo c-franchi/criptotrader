@@ -131,3 +131,41 @@ it("reuses the live decision's pinned reserves in the executor instead of readin
   expect(pool?.price).toBe(0.02);
   expect(readContract.mock.calls.length).toBe(count);
 });
+
+it("re-reads the same recent BSC block when a live quote crosses server instances", async () => {
+  vi.clearAllMocks();
+  vi.stubEnv("BSC_RPC_URL", "live-cross-instance");
+  const clock = vi.spyOn(Date, "now").mockReturnValue(1800000000000);
+  liveRpc();
+  getBlock.mockResolvedValue({ number: 123n, timestamp: 1800000000n });
+  const quote = await readMarket(BGA, "live-cross-instance", { live: true });
+  expect(quote.error).toBeNull();
+  const before = readContract.mock.calls.length;
+  // The snapshot is intentionally older than the process-local 5s TTL,
+  // but still new enough for the executor's 15s quote-freshness guard.
+  clock.mockReturnValue(1800000005500);
+  const { poolState } = await import("./bot.server");
+  const pool = await poolState(BGA, BigInt(quote.blockNumber!));
+  expect(pool?.price).toBeCloseTo(Number(quote.pools[0]?.priceNative));
+  const pinnedReads = readContract.mock.calls
+    .slice(before)
+    .map(([call]) => call)
+    .filter((call) => ["getPair", "getReserves", "token0"].includes(call.functionName));
+  expect(pinnedReads.length).toBeGreaterThan(0);
+  expect(pinnedReads.every((call) => call.blockNumber === 123n)).toBe(true);
+});
+
+it("rejects an expired pinned quote instead of silently using the next block", async () => {
+  vi.clearAllMocks();
+  vi.stubEnv("BSC_RPC_URL", "live-expired-instance");
+  const clock = vi.spyOn(Date, "now").mockReturnValue(1810000000000);
+  liveRpc();
+  getBlock.mockResolvedValue({ number: 123n, timestamp: 1810000000n });
+  const quote = await readMarket(BGA, "live-expired-instance", { live: true });
+  expect(quote.error).toBeNull();
+  clock.mockReturnValue(1810000016000);
+  const { poolState } = await import("./bot.server");
+  await expect(poolState(BGA, BigInt(quote.blockNumber!))).rejects.toThrow(
+    "Não foi possível obter uma cotação consistente",
+  );
+});

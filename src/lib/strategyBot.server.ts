@@ -94,6 +94,21 @@ async function runStrategyStepImpl(
   const best = market.pools.find(
     (p) => p.supported && p.pairAddress.toLowerCase() === pool?.pair.toLowerCase() && p.priceUsd,
   );
+  // A refreshed pinned block must agree with the price used by the decision.
+  // If the chain reorganized or an RPC disagrees, skip trading and retry next tick.
+  if (pool && best) {
+    const quotedBnb = Number(best.priceNative);
+    if (
+      !Number.isFinite(quotedBnb) ||
+      quotedBnb <= 0 ||
+      !Number.isFinite(pool.price) ||
+      Math.abs(pool.price - quotedBnb) / quotedBnb > 0.000001
+    )
+      return {
+        patch: { last_error: "Reservas do bloco divergentes da cotação; aguardando nova leitura" },
+        order: null,
+      };
+  }
   const priceUsd = Number(best?.priceUsd);
   const priceBnb = pool?.price;
   if (!best || !(priceUsd > 0))
