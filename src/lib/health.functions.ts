@@ -24,6 +24,38 @@ export const getIntegrationHealth = createServerFn({ method: "GET" })
       supabaseAdmin.from("internal_tokens").select("name").eq("name", "grid_tick").limit(1),
       probeRobotRpc(),
     ]);
+    const [heartbeatResult, watchedResult] = await Promise.all([
+      supabaseAdmin
+        .from("market_candle_heartbeat" as never)
+        .select("last_invoked_at,last_success_at,claimed,saved,backfilled,failed")
+        .eq("id", 1)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("market_candle_watch" as never)
+        .select("pool,last_success_at,last_error")
+        .limit(50),
+    ]);
+    const heartbeat = heartbeatResult.data as {
+      last_invoked_at?: string;
+      claimed?: number;
+      saved?: number;
+      backfilled?: number;
+      failed?: number;
+    } | null;
+    const lastHeartbeat = heartbeat?.last_invoked_at ? Date.parse(heartbeat.last_invoked_at) : 0;
+    const schedulerFresh =
+      Number.isFinite(lastHeartbeat) &&
+      lastHeartbeat > 0 &&
+      Date.now() - lastHeartbeat < 4 * 60_000;
+    const watched = (watchedResult.data ?? []) as {
+      pool: string;
+      last_success_at: string | null;
+      last_error: string | null;
+    }[];
+    const lastCandleSync = Math.max(
+      0,
+      ...watched.map((row) => (row.last_success_at ? new Date(row.last_success_at).getTime() : 0)),
+    );
     const active = (bots ?? []).filter((b) => b.armed);
     const last = active.map((b) => (b.last_run_at ? new Date(b.last_run_at).getTime() : 0));
     const problemCount = active.filter((b) => !!b.last_error).length;
@@ -74,6 +106,32 @@ export const getIntegrationHealth = createServerFn({ method: "GET" })
           active.length === 0
             ? "Nenhum robô ligado nesta conta"
             : `${active.length - problemCount} sem erro · ${problemCount} com erro. Ligado não garante execução de ordens.`,
+      },
+      {
+        name: "Arquivo de velas no PostgreSQL",
+        ok: !heartbeatResult.error && !watchedResult.error,
+        text:
+          heartbeatResult.error || watchedResult.error
+            ? "Arquivo não instalado ou banco do workspace incorreto. Aplicar migração 0022."
+            : `${watched.length} mercados cadastrados. Velas antigas ficam gravadas no servidor.`,
+      },
+      {
+        name: "Coleta de velas com aplicativo fechado",
+        ok: heartbeatResult.error ? false : schedulerFresh,
+        text: !heartbeat
+          ? "Nenhuma execução registrada. Confira o job market-candle-tick no agendador do banco."
+          : `Última execução: ${new Date(lastHeartbeat).toLocaleString("pt-BR")}. ${heartbeat.claimed ?? 0} mercados processados, ${heartbeat.failed ?? 0} falhas. ${schedulerFresh ? "Agendador recente." : "Agendador atrasado ou parado."}`,
+      },
+      {
+        name: "Recuperação do histórico",
+        ok:
+          watched.length === 0
+            ? null
+            : lastCandleSync > 0 && Date.now() - lastCandleSync < 15 * 60_000,
+        text:
+          watched.length === 0
+            ? "Abra o gráfico do ativo uma vez para cadastrá-lo no arquivo contínuo."
+            : `Último mercado sincronizado em ${lastCandleSync ? new Date(lastCandleSync).toLocaleString("pt-BR") : "nenhuma sincronização"}. As velas só são válidas quando a fonte responde.`,
       },
       {
         name: "Criptografia do executor",

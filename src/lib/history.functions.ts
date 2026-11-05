@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { readCandles, readCandleHistoryPage } from "./history.server";
+import { watchMarketPair } from "./marketHistoryArchive.server";
 
 /** 5-minute USD candles for the last ~25h from GeckoTerminal (free, no key). */
 export const getCandles = createServerFn({ method: "GET" })
@@ -15,7 +16,10 @@ export const getCandles = createServerFn({ method: "GET" })
       })
       .parse(d),
   )
-  .handler(({ data }) => readCandles(data.pool, data.token));
+  .handler(async ({ data }) => {
+    if (data.token) await watchMarketPair(data.pool, data.token);
+    return readCandles(data.pool, data.token);
+  });
 
 /** Read-only historical chart page; before is Unix seconds, independent of executor data. */
 export const getCandleHistoryPage = createServerFn({ method: "GET" })
