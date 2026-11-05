@@ -1,4 +1,6 @@
 import type { Candle } from "./marketStats";
+import { mergeCandles } from "./historyPaging";
+import { getArchivedCandles, saveArchiveCandles } from "./marketHistoryArchive.server";
 
 const cache = new Map<string, { candles: Candle[]; expires: number }>();
 const pending = new Map<string, Promise<Candle[]>>();
@@ -35,7 +37,7 @@ async function savedCandles(pool: string, token: string): Promise<Candle[] | nul
     return null;
   }
 }
-async function saveCandles(pool: string, token: string, candles: Candle[]) {
+export async function saveCandles(pool: string, token: string, candles: Candle[]) {
   try {
     const admin = await db();
     if (admin && candles.length)
@@ -43,11 +45,13 @@ async function saveCandles(pool: string, token: string, candles: Candle[]) {
         .from("price_candles")
         .upsert({ pool, token, candles, updated_at: new Date().toISOString() });
   } catch {
-    /* cache only */
+    /* The recent snapshot is a fallback; archiving is attempted separately. */
   }
+  // The archive is append/upsert only, not a replacement of the previous day.
+  await saveArchiveCandles(pool, token, candles).catch(() => {});
 }
 
-async function fetchGecko(
+export async function fetchGecko(
   pool: string,
   token?: string,
   fast = false,
@@ -143,10 +147,14 @@ export async function readCandles(
       }
     }
     if (saved?.candles.length) return saved.candles;
-    const stored = await savedCandles(p, t);
-    if (stored) {
-      cache.set(key, { candles: stored, expires: Date.now() + 15_000 });
-      return stored;
+    const [stored, archived] = await Promise.all([
+      savedCandles(p, t),
+      getArchivedCandles(p, t, undefined, 400),
+    ]);
+    const preserved = mergeCandles(archived, stored ?? []);
+    if (preserved.length) {
+      cache.set(key, { candles: preserved, expires: Date.now() + 15_000 });
+      return preserved;
     }
     throw new Error("Fonte de histórico temporariamente indisponível");
   })().finally(() => pending.delete(requestKey));
@@ -168,14 +176,24 @@ export async function readCandleHistoryPage(
   if (saved && saved.expires > Date.now()) return saved.candles;
   const active = olderPending.get(key);
   if (active) return active;
-  const request = fetchGecko(pool, token, false, cursor)
-    .then((rows) => {
-      const candles = rows.filter((c) => c[0] < cursor);
-      if (olderCache.size >= 200) olderCache.clear();
-      olderCache.set(key, { candles, expires: Date.now() + 15 * 60000 });
-      return candles;
-    })
-    .finally(() => olderPending.delete(key));
+  const request = (async () => {
+    // Try the durable archive before consuming GeckoTerminal public API quota.
+    const archived = await getArchivedCandles(pool, token ?? "base", cursor, 1000);
+    if (archived.length >= 1000) return archived;
+    let fetched: Candle[] = [];
+    try {
+      fetched = (await fetchGecko(pool, token, false, cursor)).filter((c) => c[0] < cursor);
+      if (fetched.length)
+        await saveArchiveCandles(pool, token ?? "base", fetched).catch(() => {});
+    } catch (error) {
+      // Cached real bars remain visible during provider rate limits/outages.
+      if (!archived.length) throw error;
+    }
+    const candles = mergeCandles(archived, fetched).filter((c) => c[0] < cursor).slice(-1000);
+    if (olderCache.size >= 200) olderCache.clear();
+    olderCache.set(key, { candles, expires: Date.now() + 15 * 60000 });
+    return candles;
+  })().finally(() => olderPending.delete(key));
   olderPending.set(key, request);
   return request;
 }

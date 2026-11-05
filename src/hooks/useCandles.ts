@@ -106,11 +106,11 @@ export function useCandles(pool: string | undefined, token: string) {
         examined.current.set(scope, [...(examined.current.get(scope) ?? []), covered]);
         setStatus({ scope, loading: false, error: null, empty: !page.length });
       } catch {
-        failures.current.set(failureKey, Date.now() + 20000);
+        failures.current.set(failureKey, Date.now() + 2 * 60_000);
         setStatus({
           scope,
           loading: false,
-          error: "Não foi possível carregar as velas antigas. Os dados recebidos foram mantidos.",
+          error: "Fonte de histórico temporariamente indisponível. As velas salvas continuam visíveis; nova tentativa automática mais tarde.",
           empty: false,
         });
       } finally {
