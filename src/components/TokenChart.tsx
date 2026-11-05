@@ -70,7 +70,14 @@ function PriceChart({
   const { baseline, covered } = chartWindow(all, now, ms);
   const currentPool = pools.find((p) => p.pairAddress.toLowerCase() === pool?.toLowerCase());
   const rawPrice = Number(currentPool?.priceUsd);
-  const live = rawPrice > 0 && Number.isFinite(rawPrice) ? rawPrice : null;
+  const marketFresh =
+    !market.isError &&
+    !market.data?.error &&
+    !!market.data?.fetchedAt &&
+    Date.now() - Date.parse(market.data.fetchedAt) <= 120_000 &&
+    Date.now() - Date.parse(market.data.fetchedAt) >= -5_000;
+  // Never label a cached or errored market quote as a live price.
+  const live = marketFresh && rawPrice > 0 && Number.isFinite(rawPrice) ? rawPrice : null;
   const last = all.at(-1);
   const price = live ?? last?.[4] ?? null;
   const change = covered && baseline != null && price != null ? (price / baseline - 1) * 100 : null;
@@ -145,7 +152,7 @@ function PriceChart({
         {showHeading && last && <span>Última vela: {time(last[0] * 1000)} · abertura da vela de 5m</span>}
       </div>
       {showHeading && <p className="text-[11px] text-muted-foreground">
-        Preço: consulta a cada 15s · Histórico: a cada 30s
+        Preço: consulta a cada 15s · Histórico: a cada 60s
       </p>}
       {!all.length && (
         <div

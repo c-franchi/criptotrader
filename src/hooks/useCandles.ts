@@ -56,11 +56,11 @@ export function useCandles(pool: string | undefined, token: string) {
     },
     placeholderData: () =>
       pool && typeof window !== "undefined" ? readLocal(pool, token) : undefined,
-    staleTime: 30000,
+    staleTime: 60000,
     gcTime: 30 * 60000,
-    refetchInterval: 30000,
-    retry: 4,
-    retryDelay: (n) => Math.min(2000 * 2 ** n, 15000),
+    refetchInterval: 60000,
+    retry: 2,
+    retryDelay: (n) => Math.min(5000 * 2 ** n, 30000),
   });
   const loadRange = useCallback(
     async (start: number, end: number, force = false) => {

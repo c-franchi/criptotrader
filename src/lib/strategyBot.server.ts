@@ -87,8 +87,14 @@ async function runStrategyStepImpl(
   const market = await readMarket(token, rpc, { live: true });
   if (market.error)
     return { patch: { last_error: "Preço desatualizado: aguardando nova consulta" }, order: null };
-  const pool = market.pools.some((p) => p.supported)
-    ? await poolState(token, market.blockNumber ? BigInt(market.blockNumber) : undefined)
+  const selectedPool = market.pools.find((p) => p.supported);
+  const quotedNative = Number(selectedPool?.priceNative);
+  const pool = selectedPool
+    ? await poolState(
+        token,
+        market.blockNumber ? BigInt(market.blockNumber) : undefined,
+        Number.isFinite(quotedNative) && quotedNative > 0 ? quotedNative : undefined,
+      )
     : null;
   timing?.mark("marketReady");
   const best = market.pools.find(
