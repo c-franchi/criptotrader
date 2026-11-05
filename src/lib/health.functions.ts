@@ -118,10 +118,9 @@ export const getIntegrationHealth = createServerFn({ method: "GET" })
       {
         name: "Coleta de velas com aplicativo fechado",
         ok: heartbeatResult.error ? false : schedulerFresh,
-        text:
-          !heartbeat
-            ? "Nenhuma execução registrada. Confira o job market-candle-tick no agendador do banco."
-            : `Última execução: ${new Date(lastHeartbeat).toLocaleString("pt-BR")}. ${heartbeat.claimed ?? 0} mercados processados, ${heartbeat.failed ?? 0} falhas. ${schedulerFresh ? "Agendador recente." : "Agendador atrasado ou parado."}`,
+        text: !heartbeat
+          ? "Nenhuma execução registrada. Confira o job market-candle-tick no agendador do banco."
+          : `Última execução: ${new Date(lastHeartbeat).toLocaleString("pt-BR")}. ${heartbeat.claimed ?? 0} mercados processados, ${heartbeat.failed ?? 0} falhas. ${schedulerFresh ? "Agendador recente." : "Agendador atrasado ou parado."}`,
       },
       {
         name: "Recuperação do histórico",
