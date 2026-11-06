@@ -199,6 +199,7 @@ export const getGuidedBotPerformance = createServerFn({ method: "GET" })
       openEstimated: true,
       at: new Date().toISOString(),
       bnbBrl: fx.bnbUsd && fx.usdBrl ? fx.bnbUsd * fx.usdBrl : null,
+      accountingTraceConfigured: !!process.env["BSC_TRACE_RPC_URL"],
       scope:
         "Somente operações atribuídas a este robô por transações registradas; registros legados sem vínculo não entram no resultado.",
     };

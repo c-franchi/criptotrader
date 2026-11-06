@@ -82,3 +82,43 @@ it("keeps exact raw token quantities beyond twenty digits", () => {
   ])[0];
   expect(cycle).toMatchObject({ complete: true, received: "1.2", net: "0.17" });
 });
+
+it("reconstructs the GTE break-even from the reported purchase, both gas charges and pending sale", () => {
+  const boughtRaw = "112378225971855884915500";
+  const input: CycleOrder = {
+    ...buy,
+    id: "gte-buy",
+    created_at: "2026-11-06T02:55:54Z",
+    amount_in: "5199212254810774",
+    actual_token_delta: boughtRaw,
+    gas_bnb: "0.00000731915",
+  };
+  const sold: CycleOrder = {
+    ...sale,
+    id: "gte-sale",
+    created_at: "2026-11-06T03:08:17Z",
+    amount_in: boughtRaw,
+    actual_token_delta: "-" + boughtRaw,
+    gas_bnb: "0.00000998855",
+    actual_bnb_received: null,
+    tx_hash: "0xgte-sale",
+  };
+  const pending = closedBotCycles([sold, input])[0];
+  expect(pending).toMatchObject({
+    invested: "0.005199212254810774",
+    gas: "0.0000173077",
+    breakEven: "0.005216519954810774",
+    received: null,
+    net: null,
+    pendingHashes: ["0xgte-sale"],
+    complete: false,
+  });
+  // This hypothetical receipt is only a test fixture, NOT a claim about the real sale.
+  const confirmed = closedBotCycles([input, { ...sold, actual_bnb_received: "0.0053" }])[0];
+  expect(confirmed).toMatchObject({
+    received: "0.0053",
+    breakEven: "0.005216519954810774",
+    net: "0.000083480045189226",
+    complete: true,
+  });
+});

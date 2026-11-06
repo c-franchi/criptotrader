@@ -49,8 +49,9 @@ export async function reconcileAccounting(
   if (pending) return pending;
   const unavailable = {
     confirmed: false,
-    message:
-      "A rede ainda não forneceu o valor recebido. A venda permanece confirmada e o resultado está pendente de apuração.",
+    message: process.env["BSC_TRACE_RPC_URL"]
+      ? "Nenhum provedor de rastreamento conseguiu confirmar o BNB recebido. A venda continua confirmada, mas o lucro segue não apurado."
+      : "A venda foi confirmada, mas o RPC atual não forneceu as transferências internas. Um BSC_TRACE_RPC_URL com suporte a debug_traceTransaction pode recuperar esse valor. Nenhuma nova venda é necessária.",
   };
   if ((nextAttempt.get(key) ?? 0) > Date.now()) return unavailable;
   const request = (async () => {
