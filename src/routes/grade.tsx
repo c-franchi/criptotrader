@@ -1106,6 +1106,12 @@ function Robo() {
           </div>
         </section>
         <section hidden={workspaceTab !== "orders"} role="tabpanel" aria-label="Histórico do robô">
+          <BotPerformancePanel
+            walletScope={walletScope}
+            token={token}
+            onUpdated={() => void load()}
+            autoReconcile={false}
+          />
           <BotWithdrawalHistory
             key={walletScope}
             walletScope={walletScope}
@@ -1117,7 +1123,7 @@ function Robo() {
                 <p className="text-sm text-muted-foreground">Nenhuma operação ainda.</p>
               ) : (
                 orders.map((o) => (
-                  <div key={o.id} className="mb-2 rounded border border-border p-2 text-xs">
+                  <div key={o.id} className="mb-3 min-w-0 rounded-xl border border-border p-3 text-sm">
                     <div className="flex flex-wrap justify-between gap-2">
                       <span
                         className={`rounded border px-1 font-semibold uppercase ${o.side === "compra" ? "border-success/50 text-success" : "border-destructive/50 text-destructive"}`}
@@ -1144,41 +1150,55 @@ function Robo() {
                         Ver {o.side} no gráfico ↗
                       </Button>
                     )}
-                    <div className="my-2 grid grid-cols-2 gap-2">
-                      <p>
-                        Valor da ordem:{" "}
-                        <b>
-                          {rawAmount(o.amount_in, o.side === "compra" ? 18 : selected.decimals)}{" "}
+                    <div className="my-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <p className="min-w-0">
+                        <span className="block text-xs text-muted-foreground">
+                          {o.side === "compra" ? "BNB aplicado na compra" : `Quantidade vendida de ${sym}`}
+                        </span>
+                        <b
+                          className="block break-words tabular-nums [overflow-wrap:anywhere]"
+                          title={`${rawAmount(o.amount_in, o.side === "compra" ? 18 : selected.decimals)} ${o.side === "compra" ? "BNB" : sym}`}
+                        >
+                          {compactRawAmount(o.amount_in, o.side === "compra" ? 18 : selected.decimals, 12)}{" "}
                           {o.side === "compra" ? "BNB" : sym}
                         </b>
                       </p>
                       {o.side === "compra" && (
-                        <p>
-                          Quantidade recebida:{" "}
-                          <b>
+                        <p className="min-w-0">
+                          <span className="block text-xs text-muted-foreground">Tokens recebidos</span>
+                          <b
+                            className="block break-words tabular-nums [overflow-wrap:anywhere]"
+                            title={o.actual_token_delta == null ? undefined : rawAmount(o.actual_token_delta, selected.decimals)}
+                          >
                             {o.actual_token_delta == null
                               ? "Não apurada"
-                              : `${rawAmount(o.actual_token_delta, selected.decimals)} ${sym}`}
+                              : `${compactRawAmount(o.actual_token_delta, selected.decimals, 8)} ${sym}`}
                           </b>
                         </p>
                       )}
-                      <p>
-                        Gás registrado:{" "}
-                        <b>{o.gas_bnb == null ? "Não apurado" : `${o.gas_bnb} BNB`}</b>
+                      <p className="min-w-0">
+                        <span className="block text-xs text-muted-foreground">Gás registrado</span>
+                        <b className="block break-words tabular-nums [overflow-wrap:anywhere]">{o.gas_bnb == null ? "Não apurado" : `${o.gas_bnb} BNB`}</b>
                       </p>
                       {o.side === "venda" && (
-                        <p>
-                          BNB recebido:{" "}
-                          <b>
+                        <p className="min-w-0">
+                          <span className="block text-xs text-muted-foreground">BNB realmente recebido na venda</span>
+                          <b className={o.actual_bnb_received == null ? "block font-semibold text-warning" : "block break-words font-semibold tabular-nums [overflow-wrap:anywhere]"}>
                             {o.actual_bnb_received == null
-                              ? "Recebimento pendente de apuração"
+                              ? "Pendente — lucro ainda desconhecido"
                               : `${o.actual_bnb_received} BNB`}
                           </b>
                         </p>
                       )}
-                      <p>
-                        Contabilidade:{" "}
-                        {o.accounting_status ?? "Registro legado; conferir auditoria"}
+                      <p className="min-w-0">
+                        <span className="block text-xs text-muted-foreground">Apuração financeira</span>
+                        <b className="break-words">
+                          {o.side === "venda" && o.actual_bnb_received == null
+                            ? "Venda confirmada; resultado líquido pendente"
+                            : o.accounting_status === "confirmado"
+                              ? "Valores efetivos confirmados"
+                              : "Conferir contabilidade"}
+                        </b>
                       </p>
                     </div>
                     {o.side === "venda" &&
@@ -1640,4 +1660,15 @@ function rawAmount(value: string | null | undefined, decimals: number) {
   } catch {
     return "Não apurado";
   }
+}
+
+/** Compact mobile preview; exact on-chain amount is preserved in the title attribute. */
+function compactRawAmount(value: string | null | undefined, decimals: number, precision = 10) {
+  const raw = rawAmount(value, decimals);
+  if (raw === "Não apurado") return raw;
+  const [integer, fraction = ""] = raw.split(".");
+  const whole = (integer ?? "0").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const shown = fraction.slice(0, precision).replace(/0+$/, "");
+  const truncated = /[1-9]/.test(fraction.slice(precision));
+  return `${truncated ? "≈ " : ""}${whole}${shown ? "," + shown : ""}`;
 }

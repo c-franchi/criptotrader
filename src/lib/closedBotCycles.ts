@@ -15,6 +15,7 @@ export function closedBotCycles(orders: CycleOrder[], truncated = false) {
     buys: number;
     invested: string;
     gas: string | null;
+    breakEven: string | null;
     received: string | null;
     net: string | null;
     percent: string | null;
@@ -72,6 +73,7 @@ export function closedBotCycles(orders: CycleOrder[], truncated = false) {
       buys,
       invested: invested.toFixed(),
       gas: missingGas ? null : gas.toFixed(),
+      breakEven: missingGas || truncated ? null : invested.plus(gas).toFixed(),
       received: missingProceeds || truncated ? null : received.toFixed(),
       net: net?.toFixed() ?? null,
       percent: net && invested.gt(0) ? net.div(invested).mul(100).toFixed(2) : null,
