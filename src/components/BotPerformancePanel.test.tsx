@@ -59,13 +59,21 @@ it("keeps an unconfirmed receipt and cycle result pending with a reconciliation 
 it("keeps gain unknown and displays the exact break-even while sale proceeds are missing", () => {
   state.data = {
     accountingTraceConfigured: false,
-    cycles: [{
-      id: "gte-sale", closedAt: "2026-11-06T03:08:17Z",
-      buys: 1, invested: "0.005199212254810774",
-      received: null, gas: "0.0000173077",
-      breakEven: "0.005216519954810774",
-      net: null, percent: null, complete: false, pendingHashes: ["0xabc"],
-    }],
+    cycles: [
+      {
+        id: "gte-sale",
+        closedAt: "2026-11-06T03:08:17Z",
+        buys: 1,
+        invested: "0.005199212254810774",
+        received: null,
+        gas: "0.0000173077",
+        breakEven: "0.005216519954810774",
+        net: null,
+        percent: null,
+        complete: false,
+        pendingHashes: ["0xabc"],
+      },
+    ],
   };
   render(<BotPerformancePanel token="gte" walletScope="scope" />);
   expect(screen.getByText("Resultado pendente de apuração")).toBeTruthy();

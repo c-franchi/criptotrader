@@ -1123,7 +1123,10 @@ function Robo() {
                 <p className="text-sm text-muted-foreground">Nenhuma operação ainda.</p>
               ) : (
                 orders.map((o) => (
-                  <div key={o.id} className="mb-3 min-w-0 rounded-xl border border-border p-3 text-sm">
+                  <div
+                      key={o.id}
+                      className="mb-3 min-w-0 rounded-xl border border-border p-3 text-sm"
+                    >
                     <div className="flex flex-wrap justify-between gap-2">
                       <span
                         className={`rounded border px-1 font-semibold uppercase ${o.side === "compra" ? "border-success/50 text-success" : "border-destructive/50 text-destructive"}`}
@@ -1153,22 +1156,34 @@ function Robo() {
                     <div className="my-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <p className="min-w-0">
                         <span className="block text-xs text-muted-foreground">
-                          {o.side === "compra" ? "BNB aplicado na compra" : `Quantidade vendida de ${sym}`}
+                          {o.side === "compra"
+                            ? "BNB aplicado na compra"
+                            : `Quantidade vendida de ${sym}`}
                         </span>
                         <b
                           className="block break-words tabular-nums [overflow-wrap:anywhere]"
                           title={`${rawAmount(o.amount_in, o.side === "compra" ? 18 : selected.decimals)} ${o.side === "compra" ? "BNB" : sym}`}
                         >
-                          {compactRawAmount(o.amount_in, o.side === "compra" ? 18 : selected.decimals, 12)}{" "}
+                          {compactRawAmount(
+                            o.amount_in,
+                            o.side === "compra" ? 18 : selected.decimals,
+                            12,
+                          )}{" "}
                           {o.side === "compra" ? "BNB" : sym}
                         </b>
                       </p>
                       {o.side === "compra" && (
                         <p className="min-w-0">
-                          <span className="block text-xs text-muted-foreground">Tokens recebidos</span>
+                          <span className="block text-xs text-muted-foreground">
+                            Tokens recebidos
+                          </span>
                           <b
                             className="block break-words tabular-nums [overflow-wrap:anywhere]"
-                            title={o.actual_token_delta == null ? undefined : rawAmount(o.actual_token_delta, selected.decimals)}
+                            title={
+                              o.actual_token_delta == null
+                                ? undefined
+                                : rawAmount(o.actual_token_delta, selected.decimals)
+                            }
                           >
                             {o.actual_token_delta == null
                               ? "Não apurada"
@@ -1178,12 +1193,22 @@ function Robo() {
                       )}
                       <p className="min-w-0">
                         <span className="block text-xs text-muted-foreground">Gás registrado</span>
-                        <b className="block break-words tabular-nums [overflow-wrap:anywhere]">{o.gas_bnb == null ? "Não apurado" : `${o.gas_bnb} BNB`}</b>
+                        <b className="block break-words tabular-nums [overflow-wrap:anywhere]">
+                          {o.gas_bnb == null ? "Não apurado" : `${o.gas_bnb} BNB`}
+                        </b>
                       </p>
                       {o.side === "venda" && (
                         <p className="min-w-0">
-                          <span className="block text-xs text-muted-foreground">BNB realmente recebido na venda</span>
-                          <b className={o.actual_bnb_received == null ? "block font-semibold text-warning" : "block break-words font-semibold tabular-nums [overflow-wrap:anywhere]"}>
+                          <span className="block text-xs text-muted-foreground">
+                            BNB realmente recebido na venda
+                          </span>
+                          <b
+                            className={
+                              o.actual_bnb_received == null
+                                ? "block font-semibold text-warning"
+                                : "block break-words font-semibold tabular-nums [overflow-wrap:anywhere]"
+                            }
+                          >
                             {o.actual_bnb_received == null
                               ? "Pendente — lucro ainda desconhecido"
                               : `${o.actual_bnb_received} BNB`}
@@ -1191,7 +1216,9 @@ function Robo() {
                         </p>
                       )}
                       <p className="min-w-0">
-                        <span className="block text-xs text-muted-foreground">Apuração financeira</span>
+                        <span className="block text-xs text-muted-foreground">
+                          Apuração financeira
+                        </span>
                         <b className="break-words">
                           {o.side === "venda" && o.actual_bnb_received == null
                             ? "Venda confirmada; resultado líquido pendente"
