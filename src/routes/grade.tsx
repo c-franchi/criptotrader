@@ -1124,9 +1124,9 @@ function Robo() {
               ) : (
                 orders.map((o) => (
                   <div
-                      key={o.id}
-                      className="mb-3 min-w-0 rounded-xl border border-border p-3 text-sm"
-                    >
+                    key={o.id}
+                    className="mb-3 min-w-0 rounded-xl border border-border p-3 text-sm"
+                  >
                     <div className="flex flex-wrap justify-between gap-2">
                       <span
                         className={`rounded border px-1 font-semibold uppercase ${o.side === "compra" ? "border-success/50 text-success" : "border-destructive/50 text-destructive"}`}

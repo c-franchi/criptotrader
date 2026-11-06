@@ -155,8 +155,8 @@ export function BotPerformancePanel({
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Nenhuma compra e venda encerrada foi associada a este robô. Um saldo depositado
-                na carteira não equivale a lucro.
+                Nenhuma compra e venda encerrada foi associada a este robô. Um saldo depositado na
+                carteira não equivale a lucro.
               </p>
             )}
           </section>
