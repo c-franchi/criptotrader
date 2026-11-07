@@ -26,8 +26,8 @@ BEGIN
      NEW.status = 'confirmada' AND NEW.actual_bnb_received IS NULL THEN
     INSERT INTO public.order_accounting_retry (order_id, user_id)
       VALUES (NEW.id, NEW.user_id) ON CONFLICT (order_id) DO NOTHING;
-  ELSIF NEW.side = 'venda' AND NEW.status = 'confirmada' AND
-        NEW.actual_bnb_received IS NOT NULL THEN
+  ELSIF NEW.source <> 'manual' AND NEW.side = 'venda' AND
+        NEW.status = 'confirmada' AND NEW.actual_bnb_received IS NOT NULL THEN
     UPDATE public.order_accounting_retry SET resolved_at = now()
       WHERE order_id = NEW.id AND resolved_at IS NULL;
   END IF;
