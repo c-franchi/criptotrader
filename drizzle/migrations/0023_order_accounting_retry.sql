@@ -24,7 +24,7 @@ GRANT SELECT, INSERT, UPDATE ON public.order_accounting_retry TO service_role;
 -- The execution journal inserts the order before finalization. The trigger
 -- queues a sale only when its receipt is confirmed but actual proceeds are NULL.
 CREATE OR REPLACE FUNCTION public.queue_sale_accounting()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
   -- Only the orders trigger may call this narrowly scoped internal queue writer.
   IF TG_TABLE_SCHEMA <> 'public' OR TG_TABLE_NAME <> 'orders' THEN

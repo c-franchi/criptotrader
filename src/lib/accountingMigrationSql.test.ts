@@ -12,9 +12,8 @@ describe("accounting migration 0023 release safeguards", () => {
   });
 
   it("uses a scoped privileged trigger without giving clients queue access", () => {
-    expect(sql).toMatch(
-      /public\\.queue_sale_accounting\\(\\)[\\s\\S]*?SECURITY DEFINER SET search_path = ''/,
-    );
+    expect(sql).toContain("CREATE OR REPLACE FUNCTION public.queue_sale_accounting()");
+    expect(sql).toContain("RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$");
     expect(sql).toContain("TG_TABLE_NAME <> 'orders'");
     expect(sql).toContain("REVOKE ALL ON public.order_accounting_retry FROM PUBLIC, anon, authenticated");
     expect(sql).toContain("GRANT SELECT, INSERT, UPDATE ON public.order_accounting_retry TO service_role");
