@@ -8,7 +8,7 @@ DECLARE
   robot_id uuid := gen_random_uuid();
   n integer;
 BEGIN
-  SET LOCAL ROLE service_role;
+  EXECUTE 'SET LOCAL ROLE service_role';
   INSERT INTO public.orders
     (id,user_id,source,side,status,wallet,amount_in,amount_out_min,quoted_out,slippage_pct,deadline,tx_hash)
   VALUES
@@ -39,7 +39,7 @@ BEGIN
                  WHERE order_id = robot_id AND resolved_at IS NULL) THEN
     RAISE EXCEPTION 'Unconfirmed robot sale lost from queue';
   END IF;
-  RESET ROLE;
+  EXECUTE 'RESET ROLE';
 END
 $test$;
 ROLLBACK;
