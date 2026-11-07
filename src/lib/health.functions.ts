@@ -159,10 +159,7 @@ export const getIntegrationHealth = createServerFn({ method: "GET" })
       },
       {
         name: "Recuperação do histórico",
-        ok:
-          watched.length === 0
-            ? null
-            : recentCandles,
+        ok: watched.length === 0 ? null : recentCandles,
         text:
           watched.length === 0
             ? "Abra o gráfico do ativo uma vez para cadastrá-lo no arquivo contínuo."
