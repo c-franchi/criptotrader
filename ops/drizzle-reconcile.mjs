@@ -39,7 +39,7 @@ export function assertIsolated(url) {
 export async function reconcile(db, expectedCatalog, entries = migrations()) {
   return db.begin('isolation level serializable', async tx => {
     const [target] = await tx.unsafe('SELECT current_database() AS name, inet_server_addr()::text AS host, inet_server_port() AS port');
-    if (!target.name.startsWith('cryptobot_rehearsal') || target.host !== '127.0.0.1' || target.port !== 55432) throw new Error('Production reconciliation is disabled: privileged supported execution and recovery gates required');
+    if (!target.name.startsWith('cryptobot_rehearsal') || !['127.0.0.1','127.0.0.1/32'].includes(target.host) || target.port !== 55432) throw new Error('Production reconciliation is disabled: privileged supported execution and recovery gates required');
     await tx.unsafe("SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='30s'");
     await tx.unsafe('LOCK TABLE drizzle.__drizzle_migrations IN ACCESS EXCLUSIVE MODE');
     await tx.unsafe('LOCK TABLE public.bot_wallets,public.grid_bots,public.orders,public.execution_submissions,public.bot_execution_locks IN SHARE MODE');
