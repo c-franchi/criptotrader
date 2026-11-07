@@ -1,4 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
+import { encodeFunctionData } from "viem";
+import { PANCAKE_V2_ROUTER, WBNB, routerAbi } from "./pancake";
 
 const mocks = vi.hoisted(() => ({
   receiptProof: vi.fn(),
@@ -47,13 +49,45 @@ it("persists proven BNB proceeds and source in the atomic execution journal", as
   };
   const receipt = {
     status: "success",
+    transactionHash: HASH,
+    from: WALLET,
+    to: PANCAKE_V2_ROUTER,
     blockNumber: 200n,
     blockHash: BLOCK,
     gasUsed: 21000n,
     effectiveGasPrice: 1000000000n,
     logs: [],
   };
-  await settleSubmission(admin, {}, { id: "journal", intent, tx_hash: HASH }, receipt as never);
+  const pub = {
+    getChainId: async () => 56,
+    getBlock: async () => ({ hash: BLOCK }),
+    getTransaction: async () => ({
+      hash: HASH,
+      from: WALLET,
+      to: PANCAKE_V2_ROUTER,
+      value: 0n,
+      input: encodeFunctionData({
+        abi: routerAbi,
+        functionName: "swapExactTokensForETHSupportingFeeOnTransferTokens",
+        args: [112378n, 1n, [TOKEN, WBNB], WALLET, 9999999999n],
+      }),
+    }),
+    request: async () => ({
+      type: "CALL",
+      from: WALLET,
+      to: PANCAKE_V2_ROUTER,
+      value: "0x0",
+      calls: [
+        {
+          type: "CALL",
+          from: PANCAKE_V2_ROUTER,
+          to: WALLET,
+          value: "0x" + (5200000000000000n).toString(16),
+        },
+      ],
+    }),
+  };
+  await settleSubmission(admin, pub, { id: "journal", intent, tx_hash: HASH }, receipt as never);
   const request = rpc.mock.calls[0]![1] as {
     p_order: { actual_bnb_received: string; accounting_status: string };
     p_receipt: { accountingEvidence: { receivedWei: string; source: string } };
@@ -62,9 +96,72 @@ it("persists proven BNB proceeds and source in the atomic execution journal", as
   expect(request.p_order.accounting_status).toBe("confirmado");
   expect(request.p_receipt.accountingEvidence).toMatchObject({
     receivedWei: "5200000000000000",
-    source: "pancake_v2_wbnb_receipt",
+    source: "execution_rpc_call_trace",
   });
   expect(JSON.stringify(request)).not.toContain("9999999999999999");
+});
+
+it("does not mark WBNB receipt events as wallet profit when native tracing is unavailable", async () => {
+  mocks.receiptProof.mockResolvedValue({
+    raw: 5200000000000000n,
+    source: "pancake_v2_wbnb_receipt",
+    evidence: { chainId: 56, blockHash: BLOCK },
+  });
+  const rpc = vi.fn(async (_name: string, _params: unknown) => ({ error: null }));
+  const admin = { rpc };
+  const receipt = {
+    status: "success",
+    transactionHash: HASH,
+    from: WALLET,
+    to: PANCAKE_V2_ROUTER,
+    blockNumber: 200n,
+    blockHash: BLOCK,
+    gasUsed: 21000n,
+    effectiveGasPrice: 1000000000n,
+    logs: [],
+  };
+  await settleSubmission(
+    admin,
+    {
+      getChainId: async () => 56,
+      getBlock: async () => ({ hash: BLOCK }),
+      getTransaction: async () => ({
+        hash: HASH,
+        from: WALLET,
+        to: PANCAKE_V2_ROUTER,
+        value: 0n,
+        input: encodeFunctionData({
+          abi: routerAbi,
+          functionName: "swapExactTokensForETHSupportingFeeOnTransferTokens",
+          args: [112378n, 1n, [TOKEN, WBNB], WALLET, 9999999999n],
+        }),
+      }),
+      request: async () => {
+        throw new Error("debug_traceTransaction not supported");
+      },
+    },
+    {
+      id: "pending",
+      tx_hash: HASH,
+      intent: {
+        kind: "swap",
+        side: "venda",
+        wallet: WALLET,
+        token: TOKEN,
+        amountIn: "112378",
+        quotedOut: "5200000000000000",
+        order: { pair_address: PAIR, amount_in: "112378", side: "venda" },
+      },
+    },
+    receipt as never,
+  );
+  const params = rpc.mock.calls[0]?.[1] as {
+    p_order: { actual_bnb_received: string | null; accounting_status: string };
+    p_receipt: { accountingEvidence?: unknown };
+  };
+  expect(params.p_order.actual_bnb_received).toBeNull();
+  expect(params.p_order.accounting_status).toBe("estimado");
+  expect(params.p_receipt.accountingEvidence).toBeUndefined();
 });
 
 function dbForClaims() {

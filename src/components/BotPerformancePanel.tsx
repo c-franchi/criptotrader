@@ -100,7 +100,7 @@ export function BotPerformancePanel({
                     <FiatValue bnb={recent.net} />
                     <p className="mt-1 text-xs text-muted-foreground">
                       {receiptVerified
-                        ? "Comprovado pelo recibo da PancakeSwap V2 (transferência e retirada WBNB)."
+                        ? "Evidência parcial por eventos WBNB: o recebimento nativo exige nova auditoria."
                         : proofSources.length
                           ? "Comprovado por rastreamento da transação BSC."
                           : "Resultado registrado em operações confirmadas; consulte a auditoria para a origem da evidência."}

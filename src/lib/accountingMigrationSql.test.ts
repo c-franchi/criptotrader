@@ -11,6 +11,16 @@ describe("accounting migration 0023 release safeguards", () => {
     expect(sql).not.toMatch(/\bEND \$(?!\$);/);
   });
 
+  it("uses a scoped privileged trigger without giving clients queue access", () => {
+    expect(sql).toMatch(
+      /public\\.queue_sale_accounting\\(\\)[\\s\\S]*?SECURITY DEFINER SET search_path = ''/,
+    );
+    expect(sql).toContain("TG_TABLE_NAME <> 'orders'");
+    expect(sql).toContain("REVOKE ALL ON public.order_accounting_retry FROM PUBLIC, anon, authenticated");
+    expect(sql).toContain("GRANT SELECT, INSERT, UPDATE ON public.order_accounting_retry TO service_role");
+    expect(sql).toContain("REVOKE ALL ON FUNCTION public.queue_sale_accounting() FROM PUBLIC,anon,authenticated");
+  });
+
   it("does not install jobs or update trading orders during schema setup", () => {
     expect(sql).toContain("order_accounting_retry");
     expect(sql).toContain("reject_client_financial_proof");

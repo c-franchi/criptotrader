@@ -177,6 +177,15 @@ export const getGuidedBotPerformance = createServerFn({ method: "GET" })
           .order("created_at")
       : { data: [], error: null };
     if (orderError) throw new Error("Não foi possível conferir os resultados.");
+    // Keep previously saved receipt-only amounts for audit, but never promote
+    // legacy WBNB-event evidence to native-wallet realized profit.
+    const auditedOrders = (orders ?? []).map((order) =>
+      order.side === "venda" &&
+      order.tx_hash &&
+      verifiedSourceByHash[order.tx_hash] === "pancake_v2_wbnb_receipt"
+        ? { ...order, actual_bnb_received: null }
+        : order,
+    );
     const { readMarket } = await import("./market.server");
     const { getFxQuote } = await import("./fx.functions");
     const [market, fx] = await Promise.all([
@@ -193,7 +202,7 @@ export const getGuidedBotPerformance = createServerFn({ method: "GET" })
     } | null;
     const { botPerformance } = await import("./botPerformance");
     const report = botPerformance(
-      orders ?? [],
+      auditedOrders,
       Number(state?.costBnb ?? 0),
       Number(state?.tokens ?? 0),
       !market.error && price > 0 ? price : null,
@@ -203,7 +212,7 @@ export const getGuidedBotPerformance = createServerFn({ method: "GET" })
     const { closedBotCycles } = await import("./closedBotCycles");
     return {
       ...report,
-      cycles: closedBotCycles(orders ?? [], (journal?.length ?? 0) > 1000),
+      cycles: closedBotCycles(auditedOrders, (journal?.length ?? 0) > 1000),
       total: state?.accountingEstimated && Number(state?.tokens ?? 0) > 0 ? null : report.total,
       openEstimated: true,
       at: new Date().toISOString(),
