@@ -32,7 +32,7 @@ export const getIntegrationHealth = createServerFn({ method: "GET" })
         .maybeSingle(),
       supabaseAdmin
         .from("market_candle_watch" as never)
-        .select("pool,last_success_at,last_error")
+        .select("pool,last_success_at,last_error,last_candle_at")
         .limit(50),
     ]);
     const heartbeat = heartbeatResult.data as {
@@ -51,11 +51,21 @@ export const getIntegrationHealth = createServerFn({ method: "GET" })
       pool: string;
       last_success_at: string | null;
       last_error: string | null;
+      last_candle_at: number | null;
     }[];
-    const lastCandleSync = Math.max(
+    // A successful provider request does not mean the returned OHLCV is recent.
+    // Use the timestamp of the actual stored market bar for freshness.
+    const latestCandleAt = Math.max(
       0,
-      ...watched.map((row) => (row.last_success_at ? new Date(row.last_success_at).getTime() : 0)),
+      ...watched.map((row) => {
+        const seconds = Number(row.last_candle_at);
+        return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 0;
+      }),
     );
+    const recentCandles =
+      latestCandleAt > 0 &&
+      latestCandleAt <= Date.now() + 5 * 60_000 &&
+      Date.now() - latestCandleAt < 20 * 60_000;
     const [accountingHealth, pendingAccounting] = await Promise.all([
       supabaseAdmin
         .from("accounting_worker_heartbeat" as never)
@@ -152,19 +162,19 @@ export const getIntegrationHealth = createServerFn({ method: "GET" })
         ok:
           watched.length === 0
             ? null
-            : lastCandleSync > 0 && Date.now() - lastCandleSync < 15 * 60_000,
+            : recentCandles,
         text:
           watched.length === 0
             ? "Abra o gráfico do ativo uma vez para cadastrá-lo no arquivo contínuo."
-            : `Último mercado sincronizado em ${lastCandleSync ? new Date(lastCandleSync).toLocaleString("pt-BR") : "nenhuma sincronização"}. As velas só são válidas quando a fonte responde.`,
+            : `Última vela real armazenada em ${latestCandleAt ? new Date(latestCandleAt).toLocaleString("pt-BR") : "horário não encontrado"}. Consultas bem-sucedidas à fonte não garantem velas atualizadas.`,
       },
       {
-        name: "Conciliação BNB por transação",
+        name: "Fila de conciliação BNB no banco",
         ok: !accountingHealth.error && !pendingAccounting.error,
         text:
           accountingHealth.error || pendingAccounting.error
             ? "Fila de auditoria não instalada ou banco do workspace incorreto (migração 0023)."
-            : `${pendingAccounting.count ?? 0} vendas aguardando comprovação. Nenhum lucro é inferido do saldo geral.`,
+            : `${pendingAccounting.count ?? 0} vendas na fila aguardando prova. Fila acessível não significa lucro confirmado nem agendador ativo.`,
       },
       {
         name: "Conciliação automática com aplicativo fechado",
@@ -172,6 +182,13 @@ export const getIntegrationHealth = createServerFn({ method: "GET" })
         text: !accountingHeartbeat
           ? "Nenhum processamento registrado. Confirme o job accounting-tick no banco."
           : `Última execução: ${new Date(accountingLast).toLocaleString("pt-BR")}. ${accountingHeartbeat.verified ?? 0} apurados, ${accountingHeartbeat.pending ?? 0} pendentes. ${accountingRunning ? "Ativo." : "Atrasado ou parado."}`,
+      },
+      {
+        name: "Rastreamento histórico de vendas GTE",
+        ok: process.env["BSC_TRACE_RPC_URL"] ? null : false,
+        text: process.env["BSC_TRACE_RPC_URL"]
+          ? "Provedor adicional configurado, mas a cobertura de debug_traceTransaction histórico ainda precisa ser comprovada por leitura. Não confirma valores."
+          : "BSC_TRACE_RPC_URL não configurado. Vendas antigas permanecem pendentes sem prova nativa compatível.",
       },
       {
         name: "Criptografia do executor",
