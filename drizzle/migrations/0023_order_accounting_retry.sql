@@ -85,14 +85,14 @@ GRANT SELECT, INSERT, UPDATE ON public.accounting_worker_heartbeat TO service_ro
 
 -- Prevent clients from fabricating an append-only proof in the shared audit_log.
 CREATE OR REPLACE FUNCTION public.reject_client_financial_proof()
-RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $$
 BEGIN
   IF NEW.action = 'order_native_proceeds_confirmed' AND
      current_user IN ('anon', 'authenticated') THEN
     RAISE EXCEPTION 'Financial receipt evidence is server-owned';
   END IF;
   RETURN NEW;
-END $;
+END $$;
 DROP TRIGGER IF EXISTS reject_client_financial_proof ON public.audit_log;
 CREATE TRIGGER reject_client_financial_proof
   BEFORE INSERT ON public.audit_log FOR EACH ROW
