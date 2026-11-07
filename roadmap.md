@@ -1,4 +1,10 @@
 # Correção da seleção e do mercado
+## Finalização controlada PR #55 (07/11/2026)
+- [ ] Revisar PR #55 e executar testes específicos sem aplicar SQL em produção.
+- [ ] Conferir evidências read-only das sete vendas GTE e capacidade do RPC.
+- [ ] Validar processos de contabilidade e gráficos isoladamente; manter novos agendadores desligados.
+- [ ] Verificar navegação autenticada, carteiras, robôs, histórico, gráficos e PWA/mobile sem operações financeiras.
+- [ ] Entregar relatório de prontidão; implantação exige backup baixado/restaurável, segredo independente e autorização.
 ## Reconciliação financeira segura (07/11/2026)
 - [x] Construir ensaio PostgreSQL isolado com esquema 0021 e histórico 0014; catálogo completo 44/44 objetos corresponde à produção.
 - [x] Implementar reconciliação transacional idempotente com hashes e timestamps reais; divergência e execução ativa abortam; locks explícitos protegem concorrência (teste paralelo ainda não realizado).
