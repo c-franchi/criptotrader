@@ -11,8 +11,7 @@ export function netBrlAtCurrentQuote(
   netBnb: string | number | null | undefined,
   bnbBrl: number | null | undefined,
 ): string | null {
-  if (netBnb == null || bnbBrl == null || !Number.isFinite(bnbBrl) || bnbBrl <= 0)
-    return null;
+  if (netBnb == null || bnbBrl == null || !Number.isFinite(bnbBrl) || bnbBrl <= 0) return null;
   try {
     const net = new Decimal(netBnb);
     if (!net.isFinite()) return null;

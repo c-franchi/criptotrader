@@ -33,8 +33,7 @@ export function BotPerformancePanel({
   });
   const recent = q.data?.cycles?.[0];
   const knownTaxes = knownTokenTaxes(token);
-  const netBrl =
-    recent?.net == null ? null : netBrlAtCurrentQuote(recent.net, q.data?.bnbBrl);
+  const netBrl = recent?.net == null ? null : netBrlAtCurrentQuote(recent.net, q.data?.bnbBrl);
   const proofSources = (recent?.saleHashes ?? [])
     .map((hash) => q.data?.verifiedSourceByHash?.[hash])
     .filter((source): source is string => !!source);
@@ -102,7 +101,10 @@ export function BotPerformancePanel({
                         {recent.percent}% sobre compras e gás registrado
                       </p>
                     )}
-                    <p className="mt-1 text-sm font-semibold" aria-label="Resultado líquido em reais">
+                    <p
+                      className="mt-1 text-sm font-semibold"
+                      aria-label="Resultado líquido em reais"
+                    >
                       {netBrl == null
                         ? "Conversão em reais indisponível"
                         : `≈ ${formatFiat(Number(netBrl), "BRL")} · cotação atual`}
@@ -152,10 +154,10 @@ export function BotPerformancePanel({
                 </dl>
                 {knownTaxes && (
                   <p className="text-xs text-muted-foreground">
-                    Taxas do token cadastradas: {knownTaxes.buy}% na compra e {knownTaxes.sell}%
-                    na venda. Os valores líquidos efetivos de tokens e BNB já refletem esses
-                    descontos: não subtrair essas taxas uma segunda vez. São taxas conhecidas para
-                    o ativo, não uma comprovação isolada do histórico de cada transação.
+                    Taxas do token cadastradas: {knownTaxes.buy}% na compra e {knownTaxes.sell}% na
+                    venda. Os valores líquidos efetivos de tokens e BNB já refletem esses descontos:
+                    não subtrair essas taxas uma segunda vez. São taxas conhecidas para o ativo, não
+                    uma comprovação isolada do histórico de cada transação.
                   </p>
                 )}
                 {recent.net == null && (
@@ -206,8 +208,8 @@ export function BotPerformancePanel({
           </div>
           <p className="text-xs text-muted-foreground">
             Operações pendentes não entram no lucro realizado. Posição aberta é apenas uma
-            estimativa e ainda não inclui uma futura taxa de venda. Gas de transações avulsas
-            não vinculadas a este robô pode não constar no relatório; confira os hashes na BSC.
+            estimativa e ainda não inclui uma futura taxa de venda. Gas de transações avulsas não
+            vinculadas a este robô pode não constar no relatório; confira os hashes na BSC.
           </p>
           {(q.data.cycles ?? []).slice(1).map((cycle) => (
             <details key={cycle.id} className="rounded-lg border border-border p-3 text-xs">

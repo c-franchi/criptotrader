@@ -81,9 +81,7 @@ export function closedBotCycles(orders: CycleOrder[], truncated = false) {
       net: net?.toFixed() ?? null,
       // ROI includes the recorded gas in the denominator, matching net costs.
       percent:
-        net && invested.plus(gas).gt(0)
-          ? net.div(invested.plus(gas)).mul(100).toFixed(2)
-          : null,
+        net && invested.plus(gas).gt(0) ? net.div(invested.plus(gas)).mul(100).toFixed(2) : null,
       pendingHashes,
       saleHashes,
       complete,
