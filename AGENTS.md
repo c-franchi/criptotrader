@@ -39,3 +39,4 @@
 - Live robot quotes use readMarket(..., { live: true }): reserves and BNB/USD pinned to one fresh BSC block, coalesced for two seconds. RobotVision polls every two seconds; executor is scheduled every two seconds and read-only preview every five seconds. Never substitute historical candle wicks or aggregator cache as a current execution price. Current-price chart markers are separate from OHLCV and never alter closed indicators.
 
 - Fixed strategy exits are evaluated from a fresh on-chain quote before reading historical candles. Robot history reads use one bounded attempt, independent of UI history retries; candle closes remain required for new entries.
+- Migration reconciliation tooling stays offline in ops, rejects non-disposable database targets, and requires exact catalog and ledger matching before adding genuine journal hashes/timestamps; this prevents replay and keeps privileged repair out of the app.
