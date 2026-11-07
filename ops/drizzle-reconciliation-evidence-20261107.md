@@ -5,7 +5,7 @@
 - Drizzle ORM **0.45.4**, Kit **0.31.11**, PostgreSQL isolado **17.11**.
 - Criados `ops/drizzle-reconcile.mjs`, `ops/drizzle-catalog.sql`, `ops/drizzle-rehearsal.mjs` e `tests/accounting-release-isolated.sql`.
 - Reconstruído o esquema por execução literal de 0000–0021 **apenas no banco temporário**; ledger preenchido até 0014, usando bytes e timestamps reais.
-- Ensaio registrou 0015–0021 sem executar seu SQL novamente; repetição não duplicou registros; seleção restante exatamente 0022 e 0023.
+- Ensaio registrou 0015–0021 sem executar seu SQL novamente; repetição não duplicou registros; seleção restante exatamente 0022 e 0023. Divergência de catálogo/hash e trava ativa abortaram corretamente. Teste de concorrência paralelo ainda não realizado.
 - Instaladas 0022 e 0023 separadamente **somente no ensaio**. Testadas leases, heartbeat, escrita de ordens com `authenticated` e `service_role`, rejeição de fila direta e prova financeira forjada, backfill e repetição.
 - 20 testes Vitest passaram em quatro arquivos existentes de contabilidade e velas. Build automático observado como `build OK`; não houve execução manual de build/typecheck.
 
