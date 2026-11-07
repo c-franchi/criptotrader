@@ -20,6 +20,7 @@ export function closedBotCycles(orders: CycleOrder[], truncated = false) {
     net: string | null;
     percent: string | null;
     pendingHashes: string[];
+    saleHashes: string[];
     complete: boolean;
   }[] = [];
   let quantity = new LedgerDecimal(0),
@@ -31,6 +32,7 @@ export function closedBotCycles(orders: CycleOrder[], truncated = false) {
     missingGas = false,
     missingProceeds = false;
   let pendingHashes: string[] = [];
+  let saleHashes: string[] = [];
   for (const o of [...orders].sort(
     (a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id),
   )) {
@@ -59,6 +61,7 @@ export function closedBotCycles(orders: CycleOrder[], truncated = false) {
       buys++;
       continue;
     }
+    if (o.tx_hash) saleHashes.push(o.tx_hash);
     if (o.actual_bnb_received == null) {
       complete = false;
       missingProceeds = true;
@@ -78,6 +81,7 @@ export function closedBotCycles(orders: CycleOrder[], truncated = false) {
       net: net?.toFixed() ?? null,
       percent: net && invested.gt(0) ? net.div(invested).mul(100).toFixed(2) : null,
       pendingHashes,
+      saleHashes,
       complete,
     });
     invested = new LedgerDecimal(0);
@@ -88,6 +92,7 @@ export function closedBotCycles(orders: CycleOrder[], truncated = false) {
     missingGas = false;
     missingProceeds = false;
     pendingHashes = [];
+    saleHashes = [];
   }
   return cycles.reverse();
 }

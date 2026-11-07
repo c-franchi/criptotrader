@@ -7,6 +7,7 @@ import Decimal from "decimal.js";
 import { encodeFunctionData, keccak256, formatEther, formatUnits, parseUnits } from "viem";
 import type { TransactionReceipt } from "viem";
 import { walletTokenDelta } from "./receiptAudit";
+import { proveSaleWithPublicRpc } from "./nativeSaleEvidence.server";
 import { afterTrade, normalizeState } from "./autoStrategy";
 import { releaseExecution } from "./executionLock.server";
 
@@ -162,17 +163,22 @@ export async function nativeProceeds(
     });
     if (!root || root.error || !root.type) return null;
     let sum = 0n;
+    let incoming = 0n;
     const visit = (c: any) => {
       if (c.error) return;
       if (["CALL", "CREATE", "CREATE2", "SELFDESTRUCT"].includes(String(c.type).toUpperCase())) {
         const value = BigInt(c.value ?? "0x0");
-        if (String(c.to).toLowerCase() === wallet.toLowerCase()) sum += value;
+        if (String(c.to).toLowerCase() === wallet.toLowerCase()) {
+          sum += value;
+          incoming += value;
+        }
         if (String(c.from).toLowerCase() === wallet.toLowerCase()) sum -= value;
       }
       for (const child of c.calls ?? []) visit(child);
     };
     visit(root);
-    return sum >= 0n ? sum : null;
+    // A zero/empty trace does not prove a successful native-asset receipt.
+    return incoming > 0n && sum > 0n ? sum : null;
   } catch {
     return null;
   }
@@ -190,13 +196,43 @@ export async function settleSubmission(
   const gas = transactionGas + BigInt(i.approvalGasRaw ?? "0");
   let patch: Record<string, unknown> = {};
   let order: Record<string, unknown> | null = null;
+  let accountingEvidence: Record<string, unknown> | null = null;
   if (i.kind === "swap") {
     const success = receipt.status === "success";
     const delta = walletTokenDelta(receipt.logs, i.token, i.wallet);
-    const native =
-      success && i.side === "venda"
+    const receiptProof =
+      success && i.side === "venda" && i.order?.pair_address && i.token && i.amountIn
+        ? await proveSaleWithPublicRpc(
+            pub,
+            submission.tx_hash,
+            {
+              wallet: i.wallet,
+              token: i.token,
+              pair: i.order.pair_address,
+              amountInRaw: String(i.amountIn),
+            },
+            receipt,
+          )
+        : null;
+    const traced =
+      success && i.side === "venda" && !receiptProof
         ? await nativeProceeds(pub, submission.tx_hash, i.wallet)
         : null;
+    const native = receiptProof?.raw ?? traced;
+    if (native != null) {
+      accountingEvidence = {
+        chainId: 56,
+        blockHash: receipt.blockHash,
+        blockNumber: receipt.blockNumber.toString(),
+        txHash: submission.tx_hash,
+        wallet: i.wallet,
+        token: i.token,
+        pair: i.order?.pair_address,
+        receivedWei: native.toString(),
+        source: receiptProof?.source ?? "execution_rpc_call_trace",
+        ...(receiptProof ? { verifiedReceipt: receiptProof.evidence } : {}),
+      };
+    }
     order = {
       ...i.order,
       tx_hash: submission.tx_hash,
@@ -279,6 +315,7 @@ export async function settleSubmission(
       block: receipt.blockNumber.toString(),
       gasBnb: formatEther(transactionGas),
       executionGasBnb: formatEther(gas),
+      ...(accountingEvidence ? { accountingEvidence } : {}),
       ...(i.executionTiming ? { executionTiming: i.executionTiming } : {}),
       ...(i.kind === "withdrawal" && i.token && i.to && receipt.status === "success"
         ? {

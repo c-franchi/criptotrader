@@ -56,6 +56,31 @@ export const getIntegrationHealth = createServerFn({ method: "GET" })
       0,
       ...watched.map((row) => (row.last_success_at ? new Date(row.last_success_at).getTime() : 0)),
     );
+    const [accountingHealth, pendingAccounting] = await Promise.all([
+      supabaseAdmin
+        .from("accounting_worker_heartbeat" as never)
+        .select("last_run_at,verified,pending,errors")
+        .eq("id", 1)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("order_accounting_retry" as never)
+        .select("order_id", { count: "exact", head: true })
+        .eq("user_id", context.userId)
+        .is("resolved_at", null),
+    ]);
+    const accountingHeartbeat = accountingHealth.data as {
+      last_run_at?: string;
+      verified?: number;
+      pending?: number;
+      errors?: number;
+    } | null;
+    const accountingLast = accountingHeartbeat?.last_run_at
+      ? Date.parse(accountingHeartbeat.last_run_at)
+      : 0;
+    const accountingRunning =
+      Number.isFinite(accountingLast) &&
+      accountingLast > 0 &&
+      Date.now() - accountingLast < 6 * 60_000;
     const active = (bots ?? []).filter((b) => b.armed);
     const last = active.map((b) => (b.last_run_at ? new Date(b.last_run_at).getTime() : 0));
     const problemCount = active.filter((b) => !!b.last_error).length;
@@ -132,6 +157,21 @@ export const getIntegrationHealth = createServerFn({ method: "GET" })
           watched.length === 0
             ? "Abra o gráfico do ativo uma vez para cadastrá-lo no arquivo contínuo."
             : `Último mercado sincronizado em ${lastCandleSync ? new Date(lastCandleSync).toLocaleString("pt-BR") : "nenhuma sincronização"}. As velas só são válidas quando a fonte responde.`,
+      },
+      {
+        name: "Conciliação BNB por transação",
+        ok: !accountingHealth.error && !pendingAccounting.error,
+        text:
+          accountingHealth.error || pendingAccounting.error
+            ? "Fila de auditoria não instalada ou banco do workspace incorreto (migração 0023)."
+            : `${pendingAccounting.count ?? 0} vendas aguardando comprovação. Nenhum lucro é inferido do saldo geral.`,
+      },
+      {
+        name: "Conciliação automática com aplicativo fechado",
+        ok: accountingHealth.error ? false : accountingRunning,
+        text: !accountingHeartbeat
+          ? "Nenhum processamento registrado. Confirme o job accounting-tick no banco."
+          : `Última execução: ${new Date(accountingLast).toLocaleString("pt-BR")}. ${accountingHeartbeat.verified ?? 0} apurados, ${accountingHeartbeat.pending ?? 0} pendentes. ${accountingRunning ? "Ativo." : "Atrasado ou parado."}`,
       },
       {
         name: "Criptografia do executor",
