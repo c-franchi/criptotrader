@@ -122,3 +122,43 @@ it("reconstructs the GTE break-even from the reported purchase, both gas charges
     complete: true,
   });
 });
+
+it("accounts for the GTE 8%/8% swap via actual amounts, fees and failed attempt exactly once", () => {
+  // Hypothetical native proof fixture: NOT a claim that live GTE's trace was verified.
+  const orders: CycleOrder[] = [
+    {
+      ...buy,
+      id: "gte-failed-purchase",
+      created_at: "2026-11-06T02:55:50Z",
+      status: "falhou",
+      gas_bnb: "0.00000800465",
+    },
+    {
+      ...buy,
+      id: "gte-buy",
+      created_at: "2026-11-06T02:55:54Z",
+      amount_in: "5199212254810774",
+      actual_token_delta: "112378225971855588491550",
+      gas_bnb: "0.00000731915",
+    },
+    {
+      ...sale,
+      id: "gte-sell",
+      created_at: "2026-11-06T03:08:17Z",
+      actual_token_delta: "-112378225971855588491550",
+      actual_bnb_received: "0.007164175836730549",
+      // Sale gas 0.000007643 + one approval gas 0.00000234555.
+      gas_bnb: "0.00000998855",
+    },
+  ];
+  const cycle = closedBotCycles(orders)[0];
+  expect(cycle).toMatchObject({
+    invested: "0.005199212254810774",
+    gas: "0.00002531235",
+    received: "0.007164175836730549",
+    net: "0.001939651231919775",
+    percent: "37.13",
+  });
+  // 8% purchase/sale tax already affects actual_token_delta and actual_bnb_received:
+  // applying 16% again would double-charge the user.
+});

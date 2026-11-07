@@ -1,6 +1,8 @@
 import Decimal from "decimal.js";
 import { ReconcileSaleButton } from "./ReconcileSaleButton";
 import { FiatValue } from "@/hooks/useCurrency";
+import { formatFiat } from "@/lib/fiat";
+import { knownTokenTaxes, netBrlAtCurrentQuote } from "@/lib/tradeResultDisclosure";
 import { useQuery } from "@tanstack/react-query";
 import { getGuidedBotPerformance } from "@/lib/guidedBot.functions";
 import { Panel } from "./AppShell";
@@ -30,6 +32,8 @@ export function BotPerformancePanel({
     retry: false,
   });
   const recent = q.data?.cycles?.[0];
+  const knownTaxes = knownTokenTaxes(token);
+  const netBrl = recent?.net == null ? null : netBrlAtCurrentQuote(recent.net, q.data?.bnbBrl);
   const proofSources = (recent?.saleHashes ?? [])
     .map((hash) => q.data?.verifiedSourceByHash?.[hash])
     .filter((source): source is string => !!source);
@@ -94,10 +98,17 @@ export function BotPerformancePanel({
                     {recent.percent != null && (
                       <p className="font-semibold text-sm">
                         {resultSign! > 0 ? "+" : ""}
-                        {recent.percent}% sobre o valor investido
+                        {recent.percent}% sobre compras e gás registrado
                       </p>
                     )}
-                    <FiatValue bnb={recent.net} />
+                    <p
+                      className="mt-1 text-sm font-semibold"
+                      aria-label="Resultado líquido em reais"
+                    >
+                      {netBrl == null
+                        ? "Conversão em reais indisponível"
+                        : `≈ ${formatFiat(Number(netBrl), "BRL")} · cotação atual`}
+                    </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {receiptVerified
                         ? "Evidência parcial por eventos WBNB: o recebimento nativo exige nova auditoria."
@@ -123,7 +134,7 @@ export function BotPerformancePanel({
                 <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
                   {[
                     ["Valor aplicado nas compras", recent.invested],
-                    ["Gás total (compra, venda e eventuais falhas)", recent.gas],
+                    ["Gás registrado no histórico do robô", recent.gas],
                     ["BNB recebido nas vendas", recent.received],
                     ["Recebimento mínimo para não ter perda", recent.breakEven],
                   ].map(([label, value]) => (
@@ -141,6 +152,14 @@ export function BotPerformancePanel({
                     </div>
                   ))}
                 </dl>
+                {knownTaxes && (
+                  <p className="text-xs text-muted-foreground">
+                    Taxas do token cadastradas: {knownTaxes.buy}% na compra e {knownTaxes.sell}% na
+                    venda. Os valores líquidos efetivos de tokens e BNB já refletem esses descontos:
+                    não subtrair essas taxas uma segunda vez. São taxas conhecidas para o ativo, não
+                    uma comprovação isolada do histórico de cada transação.
+                  </p>
+                )}
                 {recent.net == null && (
                   <p className="text-xs text-muted-foreground">
                     Resultado real = BNB recebido − BNB das compras − gás registrado. A apuração
@@ -189,7 +208,8 @@ export function BotPerformancePanel({
           </div>
           <p className="text-xs text-muted-foreground">
             Operações pendentes não entram no lucro realizado. Posição aberta é apenas uma
-            estimativa e ainda não inclui uma futura taxa de venda.
+            estimativa e ainda não inclui uma futura taxa de venda. Gas de transações avulsas não
+            vinculadas a este robô pode não constar no relatório; confira os hashes na BSC.
           </p>
           {(q.data.cycles ?? []).slice(1).map((cycle) => (
             <details key={cycle.id} className="rounded-lg border border-border p-3 text-xs">
