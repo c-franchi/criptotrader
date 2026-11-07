@@ -236,9 +236,19 @@ it("unknown proceeds remain pending with retry, never recorded as realized gain"
 it("retries a provider failure and resolves only after a later successful proof", async () => {
   const { admin, updates } = dbForClaims();
   mocks.reconcile.mockRejectedValueOnce(new Error("provider unavailable"));
-  expect(await tickAccounting(admin, {})).toEqual({ claimed: 1, verified: 0, pending: 0, errors: 1 });
+  expect(await tickAccounting(admin, {})).toEqual({
+    claimed: 1,
+    verified: 0,
+    pending: 0,
+    errors: 1,
+  });
   expect(updates[0]).not.toHaveProperty("resolved_at");
   mocks.reconcile.mockResolvedValueOnce({ confirmed: true, message: "proof" });
-  expect(await tickAccounting(admin, {})).toEqual({ claimed: 1, verified: 1, pending: 0, errors: 0 });
+  expect(await tickAccounting(admin, {})).toEqual({
+    claimed: 1,
+    verified: 1,
+    pending: 0,
+    errors: 0,
+  });
   expect(updates[1]).toHaveProperty("resolved_at");
 });
