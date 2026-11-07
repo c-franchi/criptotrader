@@ -25,6 +25,9 @@ try {
   for (const e of entries.slice(0, 22)) {
     await db.begin(async tx => { await tx.unsafe(e.sql); if (e.idx <= 14) await tx`INSERT INTO drizzle.__drizzle_migrations(hash,created_at) VALUES(${e.hash},${e.when})`; });
   }
+  // Cloud places pgcrypto in extensions; the historical file uses an unqualified
+  // default, so match the observed extension namespace without editing its bytes.
+  await db.unsafe('CREATE SCHEMA extensions; ALTER EXTENSION pgcrypto SET SCHEMA extensions');
   const catalog = await db.unsafe(readFileSync('ops/drizzle-catalog.sql','utf8'));
   writeFileSync('/tmp/cryptobot-pg/expected-catalog.json', JSON.stringify(catalog,null,2));
   await check('seven legitimate missing entries reconciled', async () => assert.equal((await reconcile(db,catalog,entries)).length,7));
@@ -42,6 +45,11 @@ try {
   await check('wrong hash aborts even when timestamp matches', async () => {
     const rows=await db.unsafe('SELECT hash,created_at FROM drizzle.__drizzle_migrations ORDER BY created_at');
     assert.throws(()=>verifyLedger(rows.map((r,i)=> i===15?{...r,hash:'invalid'}:r),entries),/Ledger divergence/);
+  });
+  await check('active execution lock aborts reconciliation',async()=>{
+    await db.unsafe("INSERT INTO public.bot_execution_locks(user_id,owner) VALUES('55555555-5555-5555-5555-555555555555','66666666-6666-6666-6666-666666666666')");
+    await assert.rejects(reconcile(db,catalog,entries),/Active execution/);
+    await db.unsafe("DELETE FROM public.bot_execution_locks WHERE user_id='55555555-5555-5555-5555-555555555555'");
   });
   const sale='33333333-3333-3333-3333-333333333333';
   await db.unsafe(`INSERT INTO public.orders(id,user_id,side,status,wallet,amount_in,amount_out_min,quoted_out,slippage_pct,deadline,source)
