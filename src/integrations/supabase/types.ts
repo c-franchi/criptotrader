@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounting_worker_heartbeat: {
+        Row: {
+          errors: number
+          id: number
+          last_run_at: string
+          pending: number
+          verified: number
+        }
+        Insert: {
+          errors?: number
+          id: number
+          last_run_at?: string
+          pending?: number
+          verified?: number
+        }
+        Update: {
+          errors?: number
+          id?: number
+          last_run_at?: string
+          pending?: number
+          verified?: number
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -215,6 +239,99 @@ export type Database = {
         }
         Relationships: []
       }
+      market_candle_bars: {
+        Row: {
+          candle: Json
+          pool: string
+          stored_at: string
+          token: string
+          ts: number
+        }
+        Insert: {
+          candle: Json
+          pool: string
+          stored_at?: string
+          token: string
+          ts: number
+        }
+        Update: {
+          candle?: Json
+          pool?: string
+          stored_at?: string
+          token?: string
+          ts?: number
+        }
+        Relationships: []
+      }
+      market_candle_heartbeat: {
+        Row: {
+          backfilled: number
+          claimed: number
+          failed: number
+          id: number
+          last_invoked_at: string
+          last_success_at: string | null
+          saved: number
+        }
+        Insert: {
+          backfilled?: number
+          claimed?: number
+          failed?: number
+          id: number
+          last_invoked_at?: string
+          last_success_at?: string | null
+          saved?: number
+        }
+        Update: {
+          backfilled?: number
+          claimed?: number
+          failed?: number
+          id?: number
+          last_invoked_at?: string
+          last_success_at?: string | null
+          saved?: number
+        }
+        Relationships: []
+      }
+      market_candle_watch: {
+        Row: {
+          backfill_before: number | null
+          backfill_complete: boolean
+          last_attempt_at: string | null
+          last_candle_at: number | null
+          last_error: string | null
+          last_seen_at: string
+          last_success_at: string | null
+          next_run_at: string
+          pool: string
+          token: string
+        }
+        Insert: {
+          backfill_before?: number | null
+          backfill_complete?: boolean
+          last_attempt_at?: string | null
+          last_candle_at?: number | null
+          last_error?: string | null
+          last_seen_at?: string
+          last_success_at?: string | null
+          next_run_at?: string
+          pool: string
+          token: string
+        }
+        Update: {
+          backfill_before?: number | null
+          backfill_complete?: boolean
+          last_attempt_at?: string | null
+          last_candle_at?: number | null
+          last_error?: string | null
+          last_seen_at?: string
+          last_success_at?: string | null
+          next_run_at?: string
+          pool?: string
+          token?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string
@@ -253,6 +370,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      order_accounting_retry: {
+        Row: {
+          attempts: number
+          created_at: string
+          last_attempt_at: string | null
+          last_error: string | null
+          next_attempt_at: string
+          order_id: string
+          resolved_at: string | null
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          next_attempt_at?: string
+          order_id: string
+          resolved_at?: string | null
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          next_attempt_at?: string
+          order_id?: string
+          resolved_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_accounting_retry_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       orders: {
         Row: {
@@ -704,6 +862,23 @@ export type Database = {
         }
         Returns: undefined
       }
+      claim_market_candle_pairs: {
+        Args: { p_limit?: number }
+        Returns: {
+          backfill_before: number
+          backfill_complete: boolean
+          pool: string
+          token: string
+        }[]
+      }
+      claim_order_accounting: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempts: number
+          order_id: string
+          user_id: string
+        }[]
+      }
       complete_execution_submission: {
         Args: { p_id: string; p_order: Json; p_patch: Json; p_receipt: Json }
         Returns: undefined
@@ -796,6 +971,10 @@ export type Database = {
           p_user: string
           p_version: number
         }
+        Returns: undefined
+      }
+      watch_market_candle_pair: {
+        Args: { p_pool: string; p_token: string }
         Returns: undefined
       }
     }
