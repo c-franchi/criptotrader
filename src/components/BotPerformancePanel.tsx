@@ -30,6 +30,10 @@ export function BotPerformancePanel({
     retry: false,
   });
   const recent = q.data?.cycles?.[0];
+  const proofSources = (recent?.saleHashes ?? [])
+    .map((hash) => q.data?.verifiedSourceByHash?.[hash])
+    .filter((source): source is string => !!source);
+  const receiptVerified = proofSources.includes("pancake_v2_wbnb_receipt");
   const resultSign = recent?.net == null ? null : decimalSign(recent.net);
   const headline = !recent
     ? "Nenhum ciclo encerrado"
@@ -94,6 +98,13 @@ export function BotPerformancePanel({
                       </p>
                     )}
                     <FiatValue bnb={recent.net} />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {receiptVerified
+                        ? "Comprovado pelo recibo da PancakeSwap V2 (transferência e retirada WBNB)."
+                        : proofSources.length
+                          ? "Comprovado por rastreamento da transação BSC."
+                          : "Resultado registrado em operações confirmadas; consulte a auditoria para a origem da evidência."}
+                    </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       Conversão monetária aproximada pela cotação disponível agora, não pela taxa da
                       data da venda.

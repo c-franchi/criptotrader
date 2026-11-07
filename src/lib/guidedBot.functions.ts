@@ -148,7 +148,7 @@ export const getGuidedBotPerformance = createServerFn({ method: "GET" })
     if (!bot) return null;
     const { data: journal, error: journalError } = await admin
       .from("execution_submissions")
-      .select("tx_hash")
+      .select("tx_hash,receipt")
       .eq("user_id", context.userId)
       .eq("wallet_scope", data.walletScope)
       .contains("intent", { botId: bot.id })
@@ -156,6 +156,15 @@ export const getGuidedBotPerformance = createServerFn({ method: "GET" })
       .limit(1001);
     if (journalError) throw new Error("Histórico de confirmação indisponível.");
     const hashes = (journal ?? []).map((r) => r.tx_hash);
+    const verifiedSourceByHash: Record<string, string> = {};
+    for (const item of journal ?? []) {
+      const receipt = item.receipt;
+      if (!receipt || typeof receipt !== "object" || Array.isArray(receipt)) continue;
+      const proof = (receipt as Record<string, unknown>).accountingEvidence;
+      if (!proof || typeof proof !== "object" || Array.isArray(proof)) continue;
+      const source = (proof as Record<string, unknown>).source;
+      if (typeof source === "string") verifiedSourceByHash[item.tx_hash] = source;
+    }
     const { data: orders, error: orderError } = hashes.length
       ? await admin
           .from("orders")
@@ -200,6 +209,7 @@ export const getGuidedBotPerformance = createServerFn({ method: "GET" })
       at: new Date().toISOString(),
       bnbBrl: fx.bnbUsd && fx.usdBrl ? fx.bnbUsd * fx.usdBrl : null,
       accountingTraceConfigured: !!process.env["BSC_TRACE_RPC_URL"],
+      verifiedSourceByHash,
       scope:
         "Somente operações atribuídas a este robô por transações registradas; registros legados sem vínculo não entram no resultado.",
     };
