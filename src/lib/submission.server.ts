@@ -8,6 +8,8 @@ import { encodeFunctionData, keccak256, formatEther, formatUnits, parseUnits } f
 import type { TransactionReceipt } from "viem";
 import { walletTokenDelta } from "./receiptAudit";
 import { proveSaleWithPublicRpc } from "./nativeSaleEvidence.server";
+import { matchesExpectedSaleTransaction } from "./nativeSaleEvidence";
+import { PANCAKE_V2_ROUTER } from "./pancake";
 import { afterTrade, normalizeState } from "./autoStrategy";
 import { releaseExecution } from "./executionLock.server";
 
@@ -161,7 +163,17 @@ export async function nativeProceeds(
       method: "debug_traceTransaction",
       params: [hash, { tracer: "callTracer" }],
     });
-    if (!root || root.error || !root.type) return null;
+    // A call trace belongs to the specified transaction. Reject an incomplete,
+    // reverted, or unrelated root call even when a child mentions the wallet.
+    if (
+      !root ||
+      root.error ||
+      String(root.type).toUpperCase() !== "CALL" ||
+      String(root.from).toLowerCase() !== wallet.toLowerCase() ||
+      String(root.to).toLowerCase() !== PANCAKE_V2_ROUTER.toLowerCase() ||
+      BigInt(root.value ?? "0x0") !== 0n
+    )
+      return null;
     let sum = 0n;
     let incoming = 0n;
     const visit = (c: any) => {
@@ -179,6 +191,44 @@ export async function nativeProceeds(
     visit(root);
     // A zero/empty trace does not prove a successful native-asset receipt.
     return incoming > 0n && sum > 0n ? sum : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A value can enter realized profit ONLY when a complete successful native
+ * call trace matches a canonical BSC receipt AND the expected V2 transaction.
+ * WBNB logs alone are useful diagnostic evidence, not actual wallet proceeds.
+ */
+export async function verifiedNativeSaleProceeds(
+  pub: any,
+  hash: `0x${string}`,
+  wallet: string,
+  receipt: TransactionReceipt,
+  expected: { token: string; pair: string; amountInRaw: string },
+): Promise<bigint | null> {
+  try {
+    if (
+      receipt.status !== "success" ||
+      receipt.transactionHash.toLowerCase() !== hash.toLowerCase()
+    )
+      return null;
+    const [chainId, transaction, canonical] = await Promise.all([
+      pub.getChainId(),
+      pub.getTransaction({ hash }),
+      pub.getBlock({ blockNumber: receipt.blockNumber }),
+    ]);
+    if (
+      chainId !== 56 ||
+      !canonical?.hash ||
+      canonical.hash.toLowerCase() !== receipt.blockHash.toLowerCase() ||
+      transaction.hash.toLowerCase() !== hash.toLowerCase() ||
+      receipt.from.toLowerCase() !== wallet.toLowerCase() ||
+      !matchesExpectedSaleTransaction(transaction, { wallet, ...expected })
+    )
+      return null;
+    return nativeProceeds(pub, hash, wallet);
   } catch {
     return null;
   }
@@ -215,10 +265,16 @@ export async function settleSubmission(
           )
         : null;
     const traced =
-      success && i.side === "venda" && !receiptProof
-        ? await nativeProceeds(pub, submission.tx_hash, i.wallet)
+      success && i.side === "venda" && i.order?.pair_address && i.token && i.amountIn
+        ? await verifiedNativeSaleProceeds(pub, submission.tx_hash, i.wallet, receipt, {
+            token: i.token,
+            pair: i.order.pair_address,
+            amountInRaw: String(i.amountIn),
+          })
         : null;
-    const native = receiptProof?.raw ?? traced;
+    // A mismatch between the receipt's WBNB events and the native call trace
+    // must block financial confirmation, never be resolved with a quoted price.
+    const native = traced != null && (!receiptProof || receiptProof.raw === traced) ? traced : null;
     if (native != null) {
       accountingEvidence = {
         chainId: 56,
@@ -229,7 +285,7 @@ export async function settleSubmission(
         token: i.token,
         pair: i.order?.pair_address,
         receivedWei: native.toString(),
-        source: receiptProof?.source ?? "execution_rpc_call_trace",
+        source: "execution_rpc_call_trace",
         ...(receiptProof ? { verifiedReceipt: receiptProof.evidence } : {}),
       };
     }

@@ -17,11 +17,19 @@ ALTER TABLE public.order_accounting_retry ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.order_accounting_retry FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.order_accounting_retry TO service_role;
 
+-- Queue bookkeeping runs under the trusted migration owner because authenticated
+-- writers cannot insert into the service-role-only queue. Never grant them direct
+-- INSERT/UPDATE access. This trigger has a pinned search_path, qualified tables,
+-- and may ONLY touch the accounting retry queue; see release role tests.
 -- The execution journal inserts the order before finalization. The trigger
 -- queues a sale only when its receipt is confirmed but actual proceeds are NULL.
 CREATE OR REPLACE FUNCTION public.queue_sale_accounting()
-RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
+  -- Only the orders trigger may call this narrowly scoped internal queue writer.
+  IF TG_TABLE_SCHEMA <> 'public' OR TG_TABLE_NAME <> 'orders' THEN
+    RAISE EXCEPTION 'Accounting trigger invoked outside orders';
+  END IF;
   IF NEW.source <> 'manual' AND NEW.side = 'venda' AND
      NEW.status = 'confirmada' AND NEW.actual_bnb_received IS NULL THEN
     INSERT INTO public.order_accounting_retry (order_id, user_id)

@@ -150,7 +150,7 @@ it("native receipts require a successful trace and exclude reverted branches", a
     request: async () => ({
       type: "CALL",
       from: me,
-      to: token as `0x${string}`,
+      to: "0x10ED43C718714eb63d5aA57B78B54704E256024E",
       value: "0x0",
       calls: [
         { type: "CALL", to: me, from: token, value: "0xa" },
@@ -159,6 +159,21 @@ it("native receipts require a successful trace and exclude reverted branches", a
     }),
   };
   expect(await nativeProceeds(p, "0x1", me)).toBe(10n);
+  expect(
+    await nativeProceeds(
+      {
+        request: async () => ({
+          type: "CALL",
+          from: me,
+          to: token,
+          value: "0x0",
+          calls: [{ type: "CALL", from: token, to: me, value: "0xa" }],
+        }),
+      },
+      "0x1",
+      me,
+    ),
+  ).toBeNull();
 });
 
 it("the real viem local account signs a BSC transaction without touching a real RPC", async () => {

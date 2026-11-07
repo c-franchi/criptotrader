@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createPublicClient, formatEther, http } from "viem";
 import { bsc } from "viem/chains";
-import { nativeProceeds } from "./submission.server";
+import { verifiedNativeSaleProceeds } from "./submission.server";
 import { proveSaleWithPublicRpc } from "./nativeSaleEvidence.server";
 import { matchesExpectedSaleTransaction } from "./nativeSaleEvidence";
 
@@ -13,39 +13,24 @@ export async function readAccountingProceeds(
   blockHash: string,
   expected?: { token: string; pair: string; amountInRaw: string },
 ) {
-  if (expected) {
-    const receiptProof = await proveSaleWithPublicRpc(pub, hash, {
-      wallet,
-      token: expected.token,
-      pair: expected.pair,
-      amountInRaw: expected.amountInRaw,
-    });
-    if (receiptProof && receiptProof.evidence.blockHash.toLowerCase() === blockHash.toLowerCase())
-      return receiptProof;
-  }
-  // Trace is also tied to the original router call and canonical transaction.
-  // Never accept an unrelated native transfer just because the wallet sent it.
-  let directVerified = !expected;
-  if (expected) {
-    try {
-      const [tx, receipt, chain] = await Promise.all([
-        pub.getTransaction({ hash }),
-        pub.getTransactionReceipt({ hash }),
-        pub.getChainId(),
-      ]);
-      const canonical = await pub.getBlock({ blockNumber: receipt.blockNumber });
-      directVerified =
-        chain === 56 &&
-        receipt.status === "success" &&
-        receipt.blockHash.toLowerCase() === blockHash.toLowerCase() &&
-        canonical.hash.toLowerCase() === blockHash.toLowerCase() &&
-        matchesExpectedSaleTransaction(tx, { wallet, ...expected });
-    } catch {
-      directVerified = false;
+  // Never infer native wallet proceeds from WBNB events, balance deltas,
+  // generic traces or a price quote. Without the expected sale call it is pending.
+  if (!expected) return null;
+  try {
+    const receipt = await pub.getTransactionReceipt({ hash });
+    if (receipt.status !== "success" || receipt.blockHash.toLowerCase() !== blockHash.toLowerCase())
+      return null;
+    const [trace, receiptEvidence] = await Promise.all([
+      verifiedNativeSaleProceeds(pub, hash, wallet, receipt, expected),
+      proveSaleWithPublicRpc(pub, hash, { wallet, ...expected }, receipt),
+    ]);
+    if (trace != null) {
+      if (receiptEvidence && receiptEvidence.raw !== trace) return null;
+      return { raw: trace, source: "execution_rpc_call_trace" };
     }
+  } catch {
+    // The public RPC may not support historical native traces.
   }
-  const direct = directVerified ? await nativeProceeds(pub, hash, wallet) : null;
-  if (direct != null) return { raw: direct, source: "execution_rpc_call_trace" };
   const url = process.env["BSC_TRACE_RPC_URL"];
   if (!url) return null;
   const archive = createPublicClient({
@@ -53,27 +38,15 @@ export async function readAccountingProceeds(
     transport: http(url, { timeout: 8000, retryCount: 0 }),
   });
   try {
-    const [chain, receipt] = await Promise.all([
-      archive.getChainId(),
-      archive.getTransactionReceipt({ hash }),
-    ]);
-    if (
-      chain !== 56 ||
-      receipt.status !== "success" ||
-      receipt.blockHash.toLowerCase() !== blockHash.toLowerCase()
-    )
+    const receipt = await archive.getTransactionReceipt({ hash });
+    if (receipt.status !== "success" || receipt.blockHash.toLowerCase() !== blockHash.toLowerCase())
       return null;
-    if (expected) {
-      const tx = await archive.getTransaction({ hash });
-      const canonical = await archive.getBlock({ blockNumber: receipt.blockNumber });
-      if (
-        !matchesExpectedSaleTransaction(tx, { wallet, ...expected }) ||
-        canonical.hash.toLowerCase() !== blockHash.toLowerCase()
-      )
-        return null;
-    }
-    const raw = await nativeProceeds(archive, hash, wallet);
-    return raw == null ? null : { raw, source: "archive_rpc_call_trace" };
+    const [trace, receiptEvidence] = await Promise.all([
+      verifiedNativeSaleProceeds(archive, hash, wallet, receipt, expected),
+      proveSaleWithPublicRpc(archive, hash, { wallet, ...expected }, receipt),
+    ]);
+    if (trace == null || (receiptEvidence && receiptEvidence.raw !== trace)) return null;
+    return { raw: trace, source: "archive_rpc_call_trace" };
   } catch {
     return null;
   }
@@ -161,10 +134,7 @@ export async function reconcileAccounting(
         );
       return {
         confirmed: true,
-        message:
-          evidence.source === "pancake_v2_wbnb_receipt"
-            ? "BNB recebido comprovado pelos eventos da venda na PancakeSwap V2."
-            : "BNB recebido confirmado pelo rastreamento da rede. Resultado atualizado.",
+        message: "BNB recebido comprovado pelo rastreamento nativo da venda na BSC.",
       };
     } finally {
       if (nextAttempt.size > 1000) nextAttempt.clear();
