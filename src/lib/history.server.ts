@@ -78,7 +78,10 @@ export async function fetchGecko(
           accept: "application/json;version=20230203",
           "user-agent": "CryptoBot/1.0",
         },
-        signal: AbortSignal.timeout(fast ? 1_500 : 8_000),
+        // Server-side background collection is a single attempt; 1.5s caused
+        // avoidable timeouts on the public, minute-cached GeckoTerminal API.
+        // Keep it bounded below the scheduler's HTTP timeout.
+        signal: AbortSignal.timeout(fast ? 6_000 : 8_000),
       });
       if (res.status === 429) {
         const header = res.headers?.get("retry-after");

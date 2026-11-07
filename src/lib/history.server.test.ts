@@ -24,7 +24,7 @@ it("keeps robot history independent of a stalled chart request, bounded to one s
     /Histórico|histórico/,
   );
   expect(fetcher).toHaveBeenCalledTimes(2);
-  expect(timeout.mock.calls.map(([ms]) => ms)).toEqual([8000, 1500]);
+  expect(timeout.mock.calls.map(([ms]) => ms)).toEqual([8000, 6000]);
   finishChart({
     ok: true,
     json: async () => ({ data: { attributes: { ohlcv_list: [[100, 10, 11, 9, 10, 1]] } } }),
