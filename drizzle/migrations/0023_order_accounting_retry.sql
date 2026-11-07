@@ -83,4 +83,20 @@ ALTER TABLE public.accounting_worker_heartbeat ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.accounting_worker_heartbeat FROM PUBLIC,anon,authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.accounting_worker_heartbeat TO service_role;
 
+-- Prevent clients from fabricating an append-only proof in the shared audit_log.
+CREATE OR REPLACE FUNCTION public.reject_client_financial_proof()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $
+BEGIN
+  IF NEW.action = 'order_native_proceeds_confirmed' AND
+     current_user IN ('anon', 'authenticated') THEN
+    RAISE EXCEPTION 'Financial receipt evidence is server-owned';
+  END IF;
+  RETURN NEW;
+END $;
+DROP TRIGGER IF EXISTS reject_client_financial_proof ON public.audit_log;
+CREATE TRIGGER reject_client_financial_proof
+  BEFORE INSERT ON public.audit_log FOR EACH ROW
+  EXECUTE FUNCTION public.reject_client_financial_proof();
+REVOKE ALL ON FUNCTION public.reject_client_financial_proof() FROM PUBLIC, anon, authenticated;
+
 NOTIFY pgrst, 'reload schema';
