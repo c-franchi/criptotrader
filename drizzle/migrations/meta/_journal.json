@@ -162,6 +162,13 @@
       "when": 1793926800000,
       "tag": "0022_market_candle_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794006300000,
+      "tag": "0023_order_accounting_retry",
+      "breakpoints": true
     }
   ]
 }

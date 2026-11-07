@@ -46,7 +46,7 @@ export const reconcileUserOrders = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { pubClient } = await import("./bot.server");
     const { inspectReceipt } = await import("./receiptAudit.server");
-    const { nativeProceeds } = await import("./submission.server");
+    const { readAccountingProceeds } = await import("./reconcileAccounting.server");
     const { formatEther } = await import("viem");
     const pub = pubClient();
     const { data: orders } = await context.supabase
@@ -75,10 +75,19 @@ export const reconcileUserOrders = createServerFn({ method: "POST" })
           continue;
         }
         const audited = await inspectReceipt(o.tx_hash as `0x${string}`, o.token, o.wallet);
-        const native =
+        const evidence =
           o.side === "venda" && receipt.status === "success"
-            ? await nativeProceeds(pub, o.tx_hash as `0x${string}`, o.wallet)
+            ? await readAccountingProceeds(
+                pub,
+                o.tx_hash as `0x${string}`,
+                o.wallet,
+                receipt.blockHash,
+                o.pair_address && o.token && o.amount_in
+                  ? { token: o.token, pair: o.pair_address, amountInRaw: o.amount_in }
+                  : undefined,
+              )
             : null;
+        const native = evidence?.raw ?? null;
         await supabaseAdmin
           .from("orders")
           .update({
@@ -86,7 +95,7 @@ export const reconcileUserOrders = createServerFn({ method: "POST" })
             block_number: Number(receipt.blockNumber),
             actual_token_delta: audited.tokenDeltaRaw,
             gas_bnb: Number(audited.gasBnb),
-            actual_bnb_received: native == null ? null : Number(formatEther(native)),
+            actual_bnb_received: native == null ? null : formatEther(native),
             accounting_status: o.side === "compra" || native != null ? "confirmado" : "estimado",
             error: receipt.status === "success" ? null : "Transação revertida na rede",
           })
@@ -107,7 +116,7 @@ export const reconcileOrderAccounting = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { data: order, error } = await context.supabase
       .from("orders")
-      .select("id,tx_hash,wallet,wallet_scope,actual_bnb_received,side,status")
+      .select("id,tx_hash,wallet,wallet_scope,actual_bnb_received,side,status,token,pair_address,amount_in")
       .eq("user_id", context.userId)
       .eq("tx_hash", data.hash)
       .maybeSingle();
