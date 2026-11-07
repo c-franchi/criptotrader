@@ -95,7 +95,8 @@ export const reconcileUserOrders = createServerFn({ method: "POST" })
             block_number: Number(receipt.blockNumber),
             actual_token_delta: audited.tokenDeltaRaw,
             gas_bnb: Number(audited.gasBnb),
-            actual_bnb_received: native == null ? null : formatEther(native),
+            // PostgREST accepts a decimal string for numeric; generated TS assumes number.
+            actual_bnb_received: native == null ? null : (formatEther(native) as unknown as number),
             accounting_status: o.side === "compra" || native != null ? "confirmado" : "estimado",
             error: receipt.status === "success" ? null : "Transação revertida na rede",
           })

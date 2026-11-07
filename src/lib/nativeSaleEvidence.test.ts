@@ -17,7 +17,9 @@ const received = 5_200_000_000_000_000n;
 function transfer(address: string, from: string, to: string, value: bigint) {
   return {
     address,
-    topics: encodeEventTopics({ abi: transferAbi, eventName: "Transfer", args: { from, to } }),
+    topics: encodeEventTopics({ abi: transferAbi, eventName: "Transfer", args: { from: from as `0x${string}`, to: to as `0x${string}` } }).filter(
+      (topic): topic is `0x${string}` => typeof topic === "string",
+    ),
     data: encodeAbiParameters([{ type: "uint256" }], [value]),
     logIndex: 0,
   };
@@ -25,7 +27,9 @@ function transfer(address: string, from: string, to: string, value: bigint) {
 function withdrawal(src: string, value: bigint) {
   return {
     address: WBNB,
-    topics: encodeEventTopics({ abi: withdrawAbi, eventName: "Withdrawal", args: { src } }),
+    topics: encodeEventTopics({ abi: withdrawAbi, eventName: "Withdrawal", args: { src: src as `0x${string}` } }).filter(
+      (topic): topic is `0x${string}` => typeof topic === "string",
+    ),
     data: encodeAbiParameters([{ type: "uint256" }], [value]),
     logIndex: 1,
   };
