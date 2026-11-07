@@ -34,7 +34,9 @@ describe("standalone manual-sale accounting queue patch", () => {
 
   it("does not execute cron, rewrite orders, trade, reset wallets or replay migration history", () => {
     expect(sql).not.toMatch(/\b(?:UPDATE|DELETE\s+FROM|TRUNCATE)\s+public\.orders\b/i);
-    expect(sql).not.toMatch(/\b(?:UPDATE|DELETE\s+FROM|TRUNCATE)\s+public\.(?:grid_bots|bot_wallets|strategies|execution_submissions)\b/i);
+    expect(sql).not.toMatch(
+      /\b(?:UPDATE|DELETE\s+FROM|TRUNCATE)\s+public\.(?:grid_bots|bot_wallets|strategies|execution_submissions)\b/i,
+    );
     expect(sql).not.toMatch(/\b(?:cron\.schedule|drizzle\.__drizzle_migrations)\b/i);
     expect(sql).not.toMatch(/\b(?:actual_bnb_received\s*=|accounting_status\s*=)\s*'confirmado'/i);
     expect(sql).toMatch(/^BEGIN;/m);
