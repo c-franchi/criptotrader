@@ -169,6 +169,13 @@
       "when": 1794006300000,
       "tag": "0023_order_accounting_retry",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794030454712,
+      "tag": "0024_reload_schema_after_accounting",
+      "breakpoints": true
     }
   ]
 }
