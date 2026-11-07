@@ -21,5 +21,6 @@ it("gives background OHLCV one bounded, realistic chance before fallback", async
   await expect(fetchGecko(POOL, TOKEN, true)).resolves.toEqual([[300, 2, 3, 1, 2, 10]]);
   expect(timeout).toHaveBeenCalledWith(6_000);
   expect(fetcher).toHaveBeenCalledTimes(1);
-  expect(fetcher.mock.calls[0]?.[1].signal).toBe(signal);
+  const request = fetcher.mock.calls[0] as unknown as [URL, RequestInit];
+  expect(request[1].signal).toBe(signal);
 });
