@@ -19,9 +19,9 @@ import { Route as IntegracoesRouteImport } from './routes/integracoes'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MetricasRouteImport } from './routes/metricas'
 import { Route as OperarRouteImport } from './routes/operar'
+import { Route as ApiPublicHooksAccountingTickRouteImport } from './routes/api/public/hooks/accounting-tick'
 import { Route as ApiPublicHooksAlertTickRouteImport } from './routes/api/public/hooks/alert-tick'
 import { Route as ApiPublicHooksCandleTickRouteImport } from './routes/api/public/hooks/candle-tick'
-import { Route as ApiPublicHooksAccountingTickRouteImport } from './routes/api/public/hooks/accounting-tick'
 import { Route as ApiPublicHooksGridTickRouteImport } from './routes/api/public/hooks/grid-tick'
 
 const IndexRoute = IndexRouteImport.update({
@@ -74,21 +74,23 @@ const OperarRoute = OperarRouteImport.update({
   path: '/operar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksAccountingTickRoute =
+  ApiPublicHooksAccountingTickRouteImport.update({
+    id: '/api/public/hooks/accounting-tick',
+    path: '/api/public/hooks/accounting-tick',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksAlertTickRoute = ApiPublicHooksAlertTickRouteImport.update({
   id: '/api/public/hooks/alert-tick',
   path: '/api/public/hooks/alert-tick',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicHooksCandleTickRoute = ApiPublicHooksCandleTickRouteImport.update({
-  id: '/api/public/hooks/candle-tick',
-  path: '/api/public/hooks/candle-tick',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicHooksAccountingTickRoute = ApiPublicHooksAccountingTickRouteImport.update({
-  id: '/api/public/hooks/accounting-tick',
-  path: '/api/public/hooks/accounting-tick',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const ApiPublicHooksCandleTickRoute =
+  ApiPublicHooksCandleTickRouteImport.update({
+    id: '/api/public/hooks/candle-tick',
+    path: '/api/public/hooks/candle-tick',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksGridTickRoute = ApiPublicHooksGridTickRouteImport.update({
   id: '/api/public/hooks/grid-tick',
   path: '/api/public/hooks/grid-tick',
@@ -106,9 +108,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/metricas': typeof MetricasRoute
   '/operar': typeof OperarRoute
+  '/api/public/hooks/accounting-tick': typeof ApiPublicHooksAccountingTickRoute
   '/api/public/hooks/alert-tick': typeof ApiPublicHooksAlertTickRoute
   '/api/public/hooks/candle-tick': typeof ApiPublicHooksCandleTickRoute
-  '/api/public/hooks/accounting-tick': typeof ApiPublicHooksAccountingTickRoute
   '/api/public/hooks/grid-tick': typeof ApiPublicHooksGridTickRoute
 }
 export interface FileRoutesByTo {
@@ -122,9 +124,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/metricas': typeof MetricasRoute
   '/operar': typeof OperarRoute
+  '/api/public/hooks/accounting-tick': typeof ApiPublicHooksAccountingTickRoute
   '/api/public/hooks/alert-tick': typeof ApiPublicHooksAlertTickRoute
   '/api/public/hooks/candle-tick': typeof ApiPublicHooksCandleTickRoute
-  '/api/public/hooks/accounting-tick': typeof ApiPublicHooksAccountingTickRoute
   '/api/public/hooks/grid-tick': typeof ApiPublicHooksGridTickRoute
 }
 export interface FileRoutesById {
@@ -139,9 +141,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/metricas': typeof MetricasRoute
   '/operar': typeof OperarRoute
+  '/api/public/hooks/accounting-tick': typeof ApiPublicHooksAccountingTickRoute
   '/api/public/hooks/alert-tick': typeof ApiPublicHooksAlertTickRoute
   '/api/public/hooks/candle-tick': typeof ApiPublicHooksCandleTickRoute
-  '/api/public/hooks/accounting-tick': typeof ApiPublicHooksAccountingTickRoute
   '/api/public/hooks/grid-tick': typeof ApiPublicHooksGridTickRoute
 }
 export interface FileRouteTypes {
@@ -157,7 +159,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/metricas'
     | '/operar'
+    | '/api/public/hooks/accounting-tick'
     | '/api/public/hooks/alert-tick'
+    | '/api/public/hooks/candle-tick'
     | '/api/public/hooks/grid-tick'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -171,7 +175,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/metricas'
     | '/operar'
+    | '/api/public/hooks/accounting-tick'
     | '/api/public/hooks/alert-tick'
+    | '/api/public/hooks/candle-tick'
     | '/api/public/hooks/grid-tick'
   id:
     | '__root__'
@@ -185,7 +191,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/metricas'
     | '/operar'
+    | '/api/public/hooks/accounting-tick'
     | '/api/public/hooks/alert-tick'
+    | '/api/public/hooks/candle-tick'
     | '/api/public/hooks/grid-tick'
   fileRoutesById: FileRoutesById
 }
@@ -200,9 +208,9 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MetricasRoute: typeof MetricasRoute
   OperarRoute: typeof OperarRoute
+  ApiPublicHooksAccountingTickRoute: typeof ApiPublicHooksAccountingTickRoute
   ApiPublicHooksAlertTickRoute: typeof ApiPublicHooksAlertTickRoute
   ApiPublicHooksCandleTickRoute: typeof ApiPublicHooksCandleTickRoute
-  ApiPublicHooksAccountingTickRoute: typeof ApiPublicHooksAccountingTickRoute
   ApiPublicHooksGridTickRoute: typeof ApiPublicHooksGridTickRoute
 }
 
@@ -278,6 +286,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OperarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/accounting-tick': {
+      id: '/api/public/hooks/accounting-tick'
+      path: '/api/public/hooks/accounting-tick'
+      fullPath: '/api/public/hooks/accounting-tick'
+      preLoaderRoute: typeof ApiPublicHooksAccountingTickRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/alert-tick': {
       id: '/api/public/hooks/alert-tick'
       path: '/api/public/hooks/alert-tick'
@@ -290,13 +305,6 @@ declare module '@tanstack/react-router' {
       path: '/api/public/hooks/candle-tick'
       fullPath: '/api/public/hooks/candle-tick'
       preLoaderRoute: typeof ApiPublicHooksCandleTickRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/hooks/accounting-tick': {
-      id: '/api/public/hooks/accounting-tick'
-      path: '/api/public/hooks/accounting-tick'
-      fullPath: '/api/public/hooks/accounting-tick'
-      preLoaderRoute: typeof ApiPublicHooksAccountingTickRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/grid-tick': {
@@ -320,9 +328,9 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MetricasRoute: MetricasRoute,
   OperarRoute: OperarRoute,
+  ApiPublicHooksAccountingTickRoute: ApiPublicHooksAccountingTickRoute,
   ApiPublicHooksAlertTickRoute: ApiPublicHooksAlertTickRoute,
   ApiPublicHooksCandleTickRoute: ApiPublicHooksCandleTickRoute,
-  ApiPublicHooksAccountingTickRoute: ApiPublicHooksAccountingTickRoute,
   ApiPublicHooksGridTickRoute: ApiPublicHooksGridTickRoute,
 }
 export const routeTree = rootRouteImport
