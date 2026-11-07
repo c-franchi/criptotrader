@@ -28,7 +28,9 @@ export const Route = createFileRoute("/api/public/hooks/accounting-tick")({
           const outcome = await tickAccounting(supabaseAdmin, pubClient());
           return Response.json(outcome, { status: 200 });
         } catch {
-          return new Response("Serviço de conciliação indisponível ou não instalado", { status: 503 });
+          return new Response("Serviço de conciliação indisponível ou não instalado", {
+            status: 503,
+          });
         }
       },
     },

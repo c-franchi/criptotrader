@@ -10,16 +10,20 @@ const pair = "0x3333333333333333333333333333333333333333";
 const other = "0x4444444444444444444444444444444444444444";
 const hash = ("0x" + "a".repeat(64)) as `0x${string}`;
 const blockHash = ("0x" + "b".repeat(64)) as `0x${string}`;
-const transferAbi = parseAbi(["event Transfer(address indexed from,address indexed to,uint256 value)"]);
+const transferAbi = parseAbi([
+  "event Transfer(address indexed from,address indexed to,uint256 value)",
+]);
 const withdrawAbi = parseAbi(["event Withdrawal(address indexed src,uint256 wad)"]);
 const amount = 112_378n;
 const received = 5_200_000_000_000_000n;
 function transfer(address: string, from: string, to: string, value: bigint) {
   return {
     address,
-    topics: encodeEventTopics({ abi: transferAbi, eventName: "Transfer", args: { from: from as `0x${string}`, to: to as `0x${string}` } }).filter(
-      (topic): topic is `0x${string}` => typeof topic === "string",
-    ),
+    topics: encodeEventTopics({
+      abi: transferAbi,
+      eventName: "Transfer",
+      args: { from: from as `0x${string}`, to: to as `0x${string}` },
+    }).filter((topic): topic is `0x${string}` => typeof topic === "string"),
     data: encodeAbiParameters([{ type: "uint256" }], [value]),
     logIndex: 0,
   };
@@ -27,9 +31,11 @@ function transfer(address: string, from: string, to: string, value: bigint) {
 function withdrawal(src: string, value: bigint) {
   return {
     address: WBNB,
-    topics: encodeEventTopics({ abi: withdrawAbi, eventName: "Withdrawal", args: { src: src as `0x${string}` } }).filter(
-      (topic): topic is `0x${string}` => typeof topic === "string",
-    ),
+    topics: encodeEventTopics({
+      abi: withdrawAbi,
+      eventName: "Withdrawal",
+      args: { src: src as `0x${string}` },
+    }).filter((topic): topic is `0x${string}` => typeof topic === "string"),
     data: encodeAbiParameters([{ type: "uint256" }], [value]),
     logIndex: 1,
   };
@@ -73,19 +79,24 @@ it("proves exact router-native BNB proceeds without a paid trace or a wallet sna
 it("rejects a quote, another recipient, another router and a forged block receipt", () => {
   const { tx, receipt, expected } = fixture();
   expect(verifyPancakeV2SaleReceipt(tx, { ...receipt, status: "reverted" }, expected)).toBeNull();
+  expect(verifyPancakeV2SaleReceipt({ ...tx, to: other }, receipt, expected)).toBeNull();
   expect(
-    verifyPancakeV2SaleReceipt({ ...tx, to: other }, receipt, expected),
-  ).toBeNull();
-  expect(
-    verifyPancakeV2SaleReceipt(tx, { ...receipt, transactionHash: ("0x" + "f".repeat(64)) as `0x${string}` }, expected),
+    verifyPancakeV2SaleReceipt(
+      tx,
+      { ...receipt, transactionHash: ("0x" + "f".repeat(64)) as `0x${string}` },
+      expected,
+    ),
   ).toBeNull();
   expect(
     verifyPancakeV2SaleReceipt(
-      { ...tx, input: encodeFunctionData({
-        abi: routerAbi,
-        functionName: "swapExactTokensForETHSupportingFeeOnTransferTokens",
-        args: [amount, received - 1n, [token, WBNB], other, 9999999999n],
-      }) },
+      {
+        ...tx,
+        input: encodeFunctionData({
+          abi: routerAbi,
+          functionName: "swapExactTokensForETHSupportingFeeOnTransferTokens",
+          args: [amount, received - 1n, [token, WBNB], other, 9999999999n],
+        }),
+      },
       receipt,
       expected,
     ),

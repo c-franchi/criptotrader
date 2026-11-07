@@ -61,7 +61,8 @@ export async function tickAccounting(admin: any, pub: any) {
         ...(finished ? { resolved_at: new Date().toISOString() } : {}),
         last_error: finished ? null : status,
         next_attempt_at: new Date(
-          Date.now() + (finished ? 0 : Math.min(6 * 60, 20 * 2 ** Math.min(4, job.attempts))) * 60000,
+          Date.now() +
+            (finished ? 0 : Math.min(6 * 60, 20 * 2 ** Math.min(4, job.attempts))) * 60000,
         ).toISOString(),
       })
       .eq("order_id", job.order_id)

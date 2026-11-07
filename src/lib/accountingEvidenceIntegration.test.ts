@@ -27,7 +27,7 @@ it("persists proven BNB proceeds and source in the atomic execution journal", as
     source: "pancake_v2_wbnb_receipt",
     evidence: { chainId: 56, blockHash: BLOCK, wbnbWithdrawalRaw: "5200000000000000" },
   });
-  const rpc = vi.fn(async () => ({ error: null }));
+  const rpc = vi.fn(async (_name: string, _params: unknown) => ({ error: null }));
   const admin = { rpc };
   const intent = {
     kind: "swap",

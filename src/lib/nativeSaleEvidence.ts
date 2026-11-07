@@ -68,8 +68,7 @@ export function matchesExpectedSaleTransaction(
     return false;
   try {
     const decoded = decodeFunctionData({ abi: routerAbi, data: tx.input });
-    if (decoded.functionName !== "swapExactTokensForETHSupportingFeeOnTransferTokens")
-      return false;
+    if (decoded.functionName !== "swapExactTokensForETHSupportingFeeOnTransferTokens") return false;
     const [amount, , path, recipient] = decoded.args as readonly [
       bigint,
       bigint,
@@ -116,8 +115,7 @@ export function verifyPancakeV2SaleReceipt(
   let minimum: bigint;
   try {
     const decoded = decodeFunctionData({ abi: routerAbi, data: tx.input });
-    if (decoded.functionName !== "swapExactTokensForETHSupportingFeeOnTransferTokens")
-      return null;
+    if (decoded.functionName !== "swapExactTokensForETHSupportingFeeOnTransferTokens") return null;
     const [amount, minimumOut, path, recipient] = decoded.args as readonly [
       bigint,
       bigint,

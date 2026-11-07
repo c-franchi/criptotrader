@@ -117,7 +117,9 @@ export const reconcileOrderAccounting = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { data: order, error } = await context.supabase
       .from("orders")
-      .select("id,tx_hash,wallet,wallet_scope,actual_bnb_received,side,status,token,pair_address,amount_in")
+      .select(
+        "id,tx_hash,wallet,wallet_scope,actual_bnb_received,side,status,token,pair_address,amount_in",
+      )
       .eq("user_id", context.userId)
       .eq("tx_hash", data.hash)
       .maybeSingle();

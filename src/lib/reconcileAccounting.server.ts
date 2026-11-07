@@ -140,7 +140,7 @@ export async function reconcileAccounting(
           block_hash: receipt.blockHash,
           native_received_raw: evidence.raw.toString(),
           source: evidence.source,
-          ...( "evidence" in evidence ? { verified_receipt: evidence.evidence } : {}),
+          ...("evidence" in evidence ? { verified_receipt: evidence.evidence } : {}),
         },
       });
       if (auditError) throw new Error("Não foi possível registrar a evidência da apuração.");

@@ -160,9 +160,9 @@ export const getGuidedBotPerformance = createServerFn({ method: "GET" })
     for (const item of journal ?? []) {
       const receipt = item.receipt;
       if (!receipt || typeof receipt !== "object" || Array.isArray(receipt)) continue;
-      const proof = (receipt as Record<string, unknown>).accountingEvidence;
+      const proof = (receipt as Record<string, unknown>)["accountingEvidence"];
       if (!proof || typeof proof !== "object" || Array.isArray(proof)) continue;
-      const source = (proof as Record<string, unknown>).source;
+      const source = (proof as Record<string, unknown>)["source"];
       if (typeof source === "string") verifiedSourceByHash[item.tx_hash] = source;
     }
     const { data: orders, error: orderError } = hashes.length
