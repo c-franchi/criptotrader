@@ -1,4 +1,10 @@
 # Correção da seleção e do mercado
+## Reconciliação financeira segura (07/11/2026)
+- [ ] Construir ensaio PostgreSQL isolado com esquema 0021 e histórico 0014; comparar catálogo completo com produção.
+- [ ] Implementar reconciliação transacional idempotente com hashes e timestamps reais; testar divergência e concorrência.
+- [ ] Ensaiar 0022/0023 separadamente e testar escrita, RLS, triggers e backfill sem blockchain.
+- [ ] Comprovar exportação atual recuperável e preservação independente do segredo (depende do proprietário).
+- [ ] Aplicar em produção somente com gates aprovados e mecanismo privilegiado suportado; publicar e validar três ciclos dos novos agendadores.
 ## Painel inspirado nos modelos (25/10/2026)
 - [x] Organizar dados do token à esquerda e gráfico compacto à direita no computador; empilhar no celular e preservar fundos existentes.
 - [x] Conferir mercado real, seleção e ampliação no computador/celular; 37 testes passaram, sem erros de execução ou rolagem horizontal; verificações básicas de segurança concluídas, sem análise profunda.
