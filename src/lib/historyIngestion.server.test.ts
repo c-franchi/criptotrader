@@ -64,3 +64,14 @@ it("does not fabricate candles after public API failures and records a retry", a
   expect(archive).not.toHaveBeenCalled();
   expect(changes[0]).toMatchObject({ last_error: "Histórico indisponível (429)" });
 });
+
+it("recovers a failed collection without a browser and clears the stored failure", async () => {
+  const { db, changes } = mockDb();
+  source.mockRejectedValueOnce(new Error("provider unavailable"));
+  expect((await tickMarketHistory(db)).failed).toBe(1);
+  expect(archive).not.toHaveBeenCalled();
+  source.mockResolvedValueOnce([[900, 2, 3, 1, 2]]).mockResolvedValueOnce([]);
+  archive.mockResolvedValueOnce(1);
+  expect(await tickMarketHistory(db)).toMatchObject({ saved: 1, failed: 0 });
+  expect(changes[1]).toMatchObject({ last_error: null });
+});

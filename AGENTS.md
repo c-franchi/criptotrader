@@ -40,3 +40,4 @@
 
 - Fixed strategy exits are evaluated from a fresh on-chain quote before reading historical candles. Robot history reads use one bounded attempt, independent of UI history retries; candle closes remain required for new entries.
 - Migration reconciliation tooling stays offline in ops, rejects non-disposable database targets, and requires exact catalog and ledger matching before adding genuine journal hashes/timestamps; this prevents replay and keeps privileged repair out of the app.
+- Manual-sale queue preparation remains offline SQL with a disposable-database rehearsal; reviewing or copying the patch must never apply it on application startup.

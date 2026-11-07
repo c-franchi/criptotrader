@@ -1,4 +1,11 @@
 # Correção da seleção e do mercado
+## Finalização controlada PR #55 (07/11/2026)
+- [x] Revisar PR #55 e reutilizar seus quatro arquivos; 48 testes específicos passaram, lint dos arquivos envolvidos OK, SQL não aplicado em produção. Merge depende do check global de lint preexistente (1035 erros).
+- [x] Conferir as sete vendas GTE read-only: sete receipts com sucesso; nenhum trace nativo disponível, RPC -32000/missing historical state; nenhum valor financeiro gravado.
+- [x] Ensaiar patch/repetição/RLS, claims realmente paralelos e leases de 20min/5min em PostgreSQL descartável; testes de falha/recuperação dos dois workers passam. Frequência HTTP real continua não testada; novos agendadores desligados.
+- [x] Verificar páginas públicas, gráficos e recursos PWA no computador/celular, sem overflow ou erros runtime; banco mantém 8 robôs desarmados, 3 carteiras completas, 6 estratégias, 23 ordens, 0 locks/submissões pendentes.
+- [ ] Verificar exibição autenticada de carteiras/robôs/histórico: mint da conta solicitante falhou; titular precisa entrar na prévia (sem fornecer credenciais no chat).
+- [ ] Implantar/publicar somente após exportação atual baixada/restaurável, recuperação independente do segredo, RPC histórico e autorização; nenhum desses gates foi comprovado nesta etapa.
 ## Reconciliação financeira segura (07/11/2026)
 - [x] Construir ensaio PostgreSQL isolado com esquema 0021 e histórico 0014; catálogo completo 44/44 objetos corresponde à produção.
 - [x] Implementar reconciliação transacional idempotente com hashes e timestamps reais; divergência e execução ativa abortam; locks explícitos protegem concorrência (teste paralelo ainda não realizado).
