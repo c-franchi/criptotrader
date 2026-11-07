@@ -209,7 +209,10 @@ export async function verifiedNativeSaleProceeds(
   expected: { token: string; pair: string; amountInRaw: string },
 ): Promise<bigint | null> {
   try {
-    if (receipt.status !== "success" || receipt.transactionHash.toLowerCase() !== hash.toLowerCase())
+    if (
+      receipt.status !== "success" ||
+      receipt.transactionHash.toLowerCase() !== hash.toLowerCase()
+    )
       return null;
     const [chainId, transaction, canonical] = await Promise.all([
       pub.getChainId(),
@@ -262,11 +265,7 @@ export async function settleSubmission(
           )
         : null;
     const traced =
-      success &&
-      i.side === "venda" &&
-      i.order?.pair_address &&
-      i.token &&
-      i.amountIn
+      success && i.side === "venda" && i.order?.pair_address && i.token && i.amountIn
         ? await verifiedNativeSaleProceeds(pub, submission.tx_hash, i.wallet, receipt, {
             token: i.token,
             pair: i.order.pair_address,
@@ -275,8 +274,7 @@ export async function settleSubmission(
         : null;
     // A mismatch between the receipt's WBNB events and the native call trace
     // must block financial confirmation, never be resolved with a quoted price.
-    const native =
-      traced != null && (!receiptProof || receiptProof.raw === traced) ? traced : null;
+    const native = traced != null && (!receiptProof || receiptProof.raw === traced) ? traced : null;
     if (native != null) {
       accountingEvidence = {
         chainId: 56,

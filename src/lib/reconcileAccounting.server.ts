@@ -18,10 +18,7 @@ export async function readAccountingProceeds(
   if (!expected) return null;
   try {
     const receipt = await pub.getTransactionReceipt({ hash });
-    if (
-      receipt.status !== "success" ||
-      receipt.blockHash.toLowerCase() !== blockHash.toLowerCase()
-    )
+    if (receipt.status !== "success" || receipt.blockHash.toLowerCase() !== blockHash.toLowerCase())
       return null;
     const [trace, receiptEvidence] = await Promise.all([
       verifiedNativeSaleProceeds(pub, hash, wallet, receipt, expected),
@@ -42,10 +39,7 @@ export async function readAccountingProceeds(
   });
   try {
     const receipt = await archive.getTransactionReceipt({ hash });
-    if (
-      receipt.status !== "success" ||
-      receipt.blockHash.toLowerCase() !== blockHash.toLowerCase()
-    )
+    if (receipt.status !== "success" || receipt.blockHash.toLowerCase() !== blockHash.toLowerCase())
       return null;
     const [trace, receiptEvidence] = await Promise.all([
       verifiedNativeSaleProceeds(archive, hash, wallet, receipt, expected),

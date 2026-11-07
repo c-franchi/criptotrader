@@ -82,7 +82,7 @@ it("persists proven BNB proceeds and source in the atomic execution journal", as
           type: "CALL",
           from: PANCAKE_V2_ROUTER,
           to: WALLET,
-          value: "0x" + (5200000000000000n).toString(16),
+          value: "0x" + 5200000000000000n.toString(16),
         },
       ],
     }),
