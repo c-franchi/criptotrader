@@ -71,7 +71,10 @@ function dbForClaims() {
   const updates: Record<string, unknown>[] = [];
   const update = vi.fn((data: Record<string, unknown>) => {
     updates.push(data);
-    const chain = { eq: () => chain, then: (done: (value: unknown) => unknown) => done({ error: null }) };
+    const chain = {
+      eq: () => chain,
+      then: (done: (value: unknown) => unknown) => done({ error: null }),
+    };
     return chain;
   });
   const upsert = vi.fn(async () => ({ error: null }));

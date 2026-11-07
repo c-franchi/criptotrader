@@ -105,11 +105,40 @@ it("rejects a quote, another recipient, another router and a forged block receip
 it("does not mistake other pools, wrong token debits, duplicate withdrawals or incomplete WBNB events for proceeds", () => {
   const { tx, receipt, expected } = fixture();
   expect(verifyPancakeV2SaleReceipt(tx, receipt, { ...expected, pair: other })).toBeNull();
-  const withoutTransfer = receipt.logs.filter((log) => log.address.toLowerCase() !== WBNB.toLowerCase() || log.topics.length !== 3);
-  expect(verifyPancakeV2SaleReceipt(tx, { ...receipt, logs: withoutTransfer }, expected)).toBeNull();
-  expect(verifyPancakeV2SaleReceipt(tx, { ...receipt, logs: [...receipt.logs, withdrawal(PANCAKE_V2_ROUTER, 1n)] }, expected)).toBeNull();
-  expect(verifyPancakeV2SaleReceipt(tx, { ...receipt, logs: [transfer(token, wallet, pair, amount - 1n), ...receipt.logs.slice(1)] }, expected)).toBeNull();
-  expect(verifyPancakeV2SaleReceipt(tx, { ...receipt, logs: [receipt.logs[0]!, transfer(WBNB, pair, PANCAKE_V2_ROUTER, received + 1n), receipt.logs[2]!] }, expected)).toBeNull();
+  const withoutTransfer = receipt.logs.filter(
+    (log) => log.address.toLowerCase() !== WBNB.toLowerCase() || log.topics.length !== 3,
+  );
+  expect(
+    verifyPancakeV2SaleReceipt(tx, { ...receipt, logs: withoutTransfer }, expected),
+  ).toBeNull();
+  expect(
+    verifyPancakeV2SaleReceipt(
+      tx,
+      { ...receipt, logs: [...receipt.logs, withdrawal(PANCAKE_V2_ROUTER, 1n)] },
+      expected,
+    ),
+  ).toBeNull();
+  expect(
+    verifyPancakeV2SaleReceipt(
+      tx,
+      { ...receipt, logs: [transfer(token, wallet, pair, amount - 1n), ...receipt.logs.slice(1)] },
+      expected,
+    ),
+  ).toBeNull();
+  expect(
+    verifyPancakeV2SaleReceipt(
+      tx,
+      {
+        ...receipt,
+        logs: [
+          receipt.logs[0]!,
+          transfer(WBNB, pair, PANCAKE_V2_ROUTER, received + 1n),
+          receipt.logs[2]!,
+        ],
+      },
+      expected,
+    ),
+  ).toBeNull();
 });
 it("never treats a token purchase as a native sale", () => {
   const { tx, receipt, expected } = fixture();
@@ -118,5 +147,7 @@ it("never treats a token purchase as a native sale", () => {
     functionName: "swapExactETHForTokensSupportingFeeOnTransferTokens",
     args: [1n, [WBNB, token], wallet, 9999999999n],
   });
-  expect(verifyPancakeV2SaleReceipt({ ...tx, input: buy, value: received }, receipt, expected)).toBeNull();
+  expect(
+    verifyPancakeV2SaleReceipt({ ...tx, input: buy, value: received }, receipt, expected),
+  ).toBeNull();
 });
