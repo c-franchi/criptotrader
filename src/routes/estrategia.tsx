@@ -1502,7 +1502,7 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
             </Button>
           )}
         </div>
-        <ResetStrategiesButton key={walletScope} walletScope={walletScope} />
+        {!embedded && <ResetStrategiesButton key={walletScope} walletScope={walletScope} />}
         <Panel title="Prévia em linguagem simples">
           {chosen && (
             <p className="mb-3 flex flex-wrap items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 p-2 text-sm font-semibold text-primary">
