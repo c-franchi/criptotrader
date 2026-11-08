@@ -1,22 +1,34 @@
 import { useCallback, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getCandles, getCandleHistoryPage } from "@/lib/history.functions";
+import { getChartFeed, getCandleHistoryPage } from "@/lib/history.functions";
+import type { ChartFeed } from "@/lib/chartFeed.server";
 import type { Candle } from "@/lib/marketStats";
 import { candleRanges, mergeCandles, missingHistory, type TimeRange } from "@/lib/historyPaging";
 const keyOf = (pool: string, token: string) =>
   `candles:${pool.toLowerCase()}:${token.toLowerCase()}`;
-function readLocal(pool: string, token: string): Candle[] | undefined {
+function readLocal(pool: string, token: string): ChartFeed | undefined {
   try {
     const raw = window.localStorage.getItem(keyOf(pool, token));
-    const data = raw ? JSON.parse(raw) : null;
-    return Array.isArray(data) && data.length ? data : undefined;
+    const value: unknown = raw ? JSON.parse(raw) : null;
+    // Backward compatibility: existing mobile installations stored a bare list.
+    if (Array.isArray(value) && value.length) return { source: "gecko", candles: value };
+    if (value && typeof value === "object") {
+      const feed = value as Partial<ChartFeed>;
+      if (
+        (feed.source === "gecko" || feed.source === "dexpaprika") &&
+        Array.isArray(feed.candles) &&
+        feed.candles.length
+      )
+        return { source: feed.source, candles: feed.candles };
+    }
+    return undefined;
   } catch {
     return undefined;
   }
 }
-function saveLocal(pool: string, token: string, data: Candle[]) {
+function saveLocal(pool: string, token: string, feed: ChartFeed) {
   try {
-    window.localStorage.setItem(keyOf(pool, token), JSON.stringify(data));
+    window.localStorage.setItem(keyOf(pool, token), JSON.stringify(feed));
   } catch {
     /* Memory cache keeps older pages if device storage is full. */
   }
@@ -41,16 +53,19 @@ export function useCandles(pool: string | undefined, token: string) {
     queryFn: async () => {
       if (!pool) throw Error("Pool indisponível");
       try {
-        const latest = await getCandles({ data: { pool, token } });
-        const data = mergeCandles(
-          client.getQueryData<Candle[]>(key) ?? readLocal(pool, token) ?? [],
-          latest,
-        );
-        if (data.length) saveLocal(pool, token, data);
-        return data;
+        const latest = await getChartFeed({ data: { pool, token } });
+        const saved = client.getQueryData<ChartFeed>(key) ?? readLocal(pool, token);
+        // Never splice OHLCV from a different provider's price methodology.
+        const candles =
+          saved?.source === latest.source
+            ? mergeCandles(saved.candles, latest.candles)
+            : latest.candles;
+        const feed: ChartFeed = { ...latest, candles };
+        if (candles.length) saveLocal(pool, token, feed);
+        return feed;
       } catch (e) {
-        const saved = client.getQueryData<Candle[]>(key) ?? readLocal(pool, token);
-        if (saved?.length) return saved;
+        const saved = client.getQueryData<ChartFeed>(key) ?? readLocal(pool, token);
+        if (saved?.candles.length) return saved;
         throw e;
       }
     },
@@ -67,7 +82,11 @@ export function useCandles(pool: string | undefined, token: string) {
       if (!pool || loading.current.has(scope) || !Number.isFinite(start) || !Number.isFinite(end))
         return;
       const queryKey = ["candles", pool.toLowerCase(), token.toLowerCase()];
-      const current = client.getQueryData<Candle[]>(queryKey) ?? readLocal(pool, token) ?? [];
+      const feed = client.getQueryData<ChartFeed>(queryKey) ?? readLocal(pool, token);
+      // GeckoTerminal archive pages are pool candles; DexPaprika's aggregated
+      // token candles must never be combined with them.
+      if (feed?.source === "dexpaprika") return;
+      const current = feed?.candles ?? [];
       const gap = missingHistory(start, Math.min(end, Date.now()), [
         ...candleRanges(current),
         ...(examined.current.get(scope) ?? []),
@@ -96,10 +115,12 @@ export function useCandles(pool: string | undefined, token: string) {
           retry: false,
         });
         // Historical evidence cannot overwrite a newer live refresh at the same timestamp.
-        client.setQueryData<Candle[]>(queryKey, (previous) => {
-          const merged = mergeCandles(page, previous ?? current);
-          saveLocal(pool, token, merged);
-          return merged;
+        client.setQueryData<ChartFeed>(queryKey, (previous) => {
+          if (previous?.source === "dexpaprika") return previous;
+          const merged = mergeCandles(page, previous?.candles ?? current);
+          const next: ChartFeed = { source: "gecko", candles: merged };
+          saveLocal(pool, token, next);
+          return next;
         });
         failures.current.delete(failureKey);
         const covered = page.length ? { start: page[0]![0] * 1000, end: before * 1000 } : gap;
@@ -123,11 +144,13 @@ export function useCandles(pool: string | undefined, token: string) {
   const state = status.scope === scope ? status : { loading: false, error: null, empty: false };
   return {
     ...query,
+    data: query.data?.candles,
+    source: query.data?.source ?? null,
     history: {
       loadRange,
       loading: state.loading || (!query.data && query.isFetching),
-      error: state.error,
-      empty: state.empty,
+      error: query.data?.source === "dexpaprika" ? null : state.error,
+      empty: query.data?.source === "dexpaprika" ? false : state.empty,
     },
   };
 }
