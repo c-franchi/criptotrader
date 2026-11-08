@@ -631,6 +631,7 @@ export function ChartPlanWizard({
         compact
         initialAllLevels
         candles={candles.data ?? []}
+        source={candles.source}
         history={candles.history}
         now={now}
         preferenceKey="cryptobot:chart-plan-view"
