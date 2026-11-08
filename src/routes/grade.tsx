@@ -240,7 +240,8 @@ function Robo() {
       (!target.carteira || target.carteira === walletScope) &&
       (!target.token || target.token.toLowerCase() === token.toLowerCase())
     ) {
-      openRules();
+      setRulesVisited(true);
+      setWorkspaceTab("rules");
     }
   }, [target.aba, target.carteira, target.token, token, walletReady, walletScope]);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -1076,7 +1077,15 @@ function Robo() {
               As regras ficam vinculadas a esta carteira e moeda. Salvar não inicia operações.
               Para alterar outro robô, selecione-o na aba Meus bots.
             </p>
-            {mode === "grade" ? (
+            {!walletReady ||
+            (target.aba === "regras" &&
+              ((target.carteira && target.carteira !== walletScope) ||
+                (target.token && target.token.toLowerCase() !== token.toLowerCase()))) ||
+            cfg === undefined ? (
+              <p role="status" className="text-sm">
+                Conferindo a carteira, a moeda e as regras do robô selecionado…
+              </p>
+            ) : mode === "grade" ? (
               <p role="status" className="rounded-md bg-secondary p-3 text-sm">
                 Este robô usa Grade de preços. Ajuste sua faixa, degraus e limites na
                 Configuração do robô acima. Para utilizar as regras de compra e venda desta
@@ -1085,10 +1094,7 @@ function Robo() {
             ) : (
               rulesVisited && (
                 <Suspense fallback={<p className="text-sm">Carregando as regras deste robô…</p>}>
-                  <AdvancedBotRules
-                    key={selectionKey}
-                    embedded
-                  />
+                  <AdvancedBotRules key={selectionKey} embedded />
                 </Suspense>
               )
             )}
