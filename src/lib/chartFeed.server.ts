@@ -25,7 +25,10 @@ function validBar(c: Candle, nowSeconds: number) {
   );
 }
 
-export function parseDexPaprikaCandles(input: unknown, nowSeconds = Math.floor(Date.now() / 1000)): Candle[] {
+export function parseDexPaprikaCandles(
+  input: unknown,
+  nowSeconds = Math.floor(Date.now() / 1000),
+): Candle[] {
   if (!Array.isArray(input)) throw new Error("DexPaprika: formato OHLCV inválido");
   const sorted = new Map<number, Candle>();
   for (const row of input) {
@@ -84,8 +87,7 @@ export async function readChartFeed(pool: string, token: string): Promise<ChartF
     const backup = await fetchDexPaprikaChart(token);
     // Fall back only when the independent token-level series is demonstrably
     // NEWER. Never splice weighted token OHLCV into a pool-specific series.
-    if (backup.at(-1)![0] > latest + 300)
-      return { source: "dexpaprika", candles: backup };
+    if (backup.at(-1)![0] > latest + 300) return { source: "dexpaprika", candles: backup };
   } catch {
     // Last verified pool candles remain available if the secondary source fails.
   }
