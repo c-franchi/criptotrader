@@ -382,3 +382,54 @@ it("requires a clear confirmation after selecting or dragging a chart point and 
   expect(io.save).not.toHaveBeenCalled();
   expect(io.start).not.toHaveBeenCalled();
 });
+
+it("explains open-position blockers beside Save and protects active bot strategies", async () => {
+  io.settings.mockResolvedValue({
+    strategy: { version: 2, config: { ...EMPTY_CONFIG, sizingMode: "fixo" } },
+    draft: null,
+    bot: { armed: false, strat_state: { tokens: 2, costBnb: 0.01 } },
+  });
+  show();
+  await enter();
+  fireEvent.click(screen.getByRole("button", { name: "Ponto de entrada no gráfico" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar ponto escolhido" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continuar para saídas" }));
+  fireEvent.click(screen.getByRole("radio", { name: /Manter os tokens/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Revisar atividade" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /Revisei carteira, valor/ }));
+  expect(screen.getByRole("button", { name: /Salvar atividade/ })).toBeDisabled();
+  expect(screen.getByRole("alert")).toHaveTextContent(/posição aberta/);
+  fireEvent.click(screen.getByRole("button", { name: /Guardar rascunho local/ }));
+  expect(screen.getByText(/Rascunho guardado neste aparelho/)).toBeTruthy();
+  expect(io.save).not.toHaveBeenCalled();
+  expect(io.start).not.toHaveBeenCalled();
+});
+
+it("lets a reviewed PAUSED strategy save with stale display quote and local balance, server still checks funds", async () => {
+  show();
+  await enter();
+  fireEvent.click(screen.getByRole("button", { name: "Ponto de entrada no gráfico" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar ponto escolhido" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continuar para saídas" }));
+  fireEvent.click(screen.getByRole("radio", { name: /Manter os tokens/ }));
+  const stale = new Date(Date.now() - 120000).toISOString();
+  io.market.mockResolvedValue({
+    fetchedAt: stale,
+    error: null,
+    pools: [{ supported: true, pairAddress: "pair", priceUsd: "100", priceNative: "0.001" }],
+  });
+  io.capital.mockResolvedValue({ free: "0.03", address: "0xrobot", at: stale });
+  const client = clients.at(-1)!;
+  await client.invalidateQueries({ queryKey: ["trading-market", token] });
+  await client.invalidateQueries({ queryKey: ["chart-plan-capital", "user-a", "scope-a"] });
+  fireEvent.click(screen.getByRole("button", { name: "Revisar atividade" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /Revisei carteira, valor/ }));
+  await waitFor(() => {
+    expect(screen.getByText(/Cotação atual indisponível/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Salvar atividade/ })).toBeEnabled();
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Salvar atividade/ }));
+  await screen.findByText("Atividade salva · robô pausado");
+  expect(io.save).toHaveBeenCalledTimes(1);
+  expect(io.start).not.toHaveBeenCalled();
+});
