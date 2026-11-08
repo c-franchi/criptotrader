@@ -31,12 +31,12 @@ export function parseDexPaprikaCandles(input: unknown, nowSeconds = Math.floor(D
   for (const row of input) {
     if (!row || typeof row !== "object") continue;
     const obj = row as Record<string, unknown>;
-    const time = typeof obj.time_open === "string" ? Date.parse(obj.time_open) / 1000 : NaN;
-    const open = Number(obj.open);
-    const high = Number(obj.high);
-    const low = Number(obj.low);
-    const close = Number(obj.close);
-    const volume = obj.volume == null ? undefined : Number(obj.volume);
+    const time = typeof obj["time_open"] === "string" ? Date.parse(obj["time_open"]) / 1000 : NaN;
+    const open = Number(obj["open"]);
+    const high = Number(obj["high"]);
+    const low = Number(obj["low"]);
+    const close = Number(obj["close"]);
+    const volume = obj["volume"] == null ? undefined : Number(obj["volume"]);
     const bar: Candle = [time, open, high, low, close, volume];
     if (validBar(bar, nowSeconds)) sorted.set(time, bar);
   }
