@@ -121,6 +121,7 @@ function SetupChart({ pool, token }: { pool: string | undefined; token: string }
       <CandleChart
         compact
         history={candles.history}
+        source={candles.source}
         candles={candles.data ?? []}
         now={now}
         preferenceKey="cryptobot:setup-chart"
