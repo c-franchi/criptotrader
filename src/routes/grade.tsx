@@ -25,7 +25,7 @@ import { recoverStrategyExecution } from "@/lib/strategy.functions";
 import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { LEGACY_WALLET_SCOPE } from "@/lib/walletScope";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,6 +56,12 @@ import { EMPTY_CONFIG, describeStrategy, type StrategyConfig } from "@/lib/strat
 import { PRESETS } from "@/lib/presets";
 import { normalizeState } from "@/lib/autoStrategy";
 import type { Tables } from "@/integrations/supabase/types";
+
+// Keep the established strategy editor, loading it only when a user opens
+// the rules tab for the selected wallet and token.
+const AdvancedBotRules = lazy(() =>
+  import("./estrategia").then(({ StrategyForm }) => ({ default: StrategyForm })),
+);
 
 export const Route = createFileRoute("/grade")({
   validateSearch: botSearch,
@@ -120,10 +126,12 @@ function Robo() {
   } = useSelectedToken();
   const target = Route.useSearch();
   const navigateTarget = Route.useNavigate();
-  const chooseToken = (address: string) => {
+  const chooseToken = (address: string, scope = walletScope, tab?: "regras") => {
     setTargetError("");
     setToken(address);
-    void navigateTarget({ search: { token: address, carteira: walletScope } });
+    void navigateTarget({
+      search: { token: address, carteira: scope, ...(tab ? { aba: tab } : {}) },
+    });
   };
   const [targetError, setTargetError] = useState("");
   useEffect(() => {
@@ -217,7 +225,37 @@ function Robo() {
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
-  const [workspaceTab, setWorkspaceTab] = useState<"bots" | "assets" | "orders">("bots");
+  const [workspaceTab, setWorkspaceTab] = useState<"bots" | "assets" | "orders" | "rules">(
+    target.aba === "regras" ? "rules" : "bots",
+  );
+  const [rulesVisited, setRulesVisited] = useState(target.aba === "regras");
+  const openRules = () => {
+    setRulesVisited(true);
+    setWorkspaceTab("rules");
+    requestAnimationFrame(() => {
+      document.getElementById("robot-advanced-rules")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  };
+  useEffect(() => {
+    if (
+      target.aba === "regras" &&
+      walletReady &&
+      (!target.carteira || target.carteira === walletScope) &&
+      (!target.token || target.token.toLowerCase() === token.toLowerCase())
+    ) {
+      setRulesVisited(true);
+      setWorkspaceTab("rules");
+      requestAnimationFrame(() => {
+        document.getElementById("robot-advanced-rules")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    }
+  }, [target.aba, target.carteira, target.token, token, walletReady, walletScope]);
   const [setupOpen, setSetupOpen] = useState(false);
   const [setupProblem, setSetupProblem] = useState<ReadinessAction | undefined>();
   const showExecutionProblem = useCallback(() => {
@@ -597,6 +635,14 @@ function Robo() {
                 {armed ? "Editar robô" : bot ? "Configurar e iniciar" : "Criar robô"}
               </Button>
             )}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!walletReady || cfg === undefined}
+              onClick={openRules}
+            >
+              Regras avançadas deste robô
+            </Button>
           </div>
         </div>
         <div>
@@ -936,6 +982,7 @@ function Robo() {
               ["bots", `Meus bots (${allBots.length})`],
               ["assets", "Ativos e saldo"],
               ["orders", `Histórico (${orders.length})`],
+              ["rules", "Regras deste robô"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -976,8 +1023,8 @@ function Robo() {
                     <li key={b.id}>
                       <button
                         onClick={() => {
-                          selectWallet(b.wallet_scope);
-                          chooseToken(tk?.address ?? b.token);
+                          if (selectWallet(b.wallet_scope))
+                            chooseToken(tk?.address ?? b.token, b.wallet_scope);
                         }}
                         className={`w-full rounded-md border p-3 text-left text-xs ${active ? "border-primary bg-primary/10" : b.armed ? "border-success/50 bg-success/5" : "border-border"}`}
                       >
@@ -1012,7 +1059,19 @@ function Robo() {
                             : ""}
                         </p>
                       </button>
-                      <div className="mt-2">
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (!selectWallet(b.wallet_scope)) return;
+                            chooseToken(tk?.address ?? b.token, b.wallet_scope, "regras");
+                            if (b.wallet_scope === walletScope) openRules();
+                          }}
+                        >
+                          Regras de {tk?.symbol ?? "robô"}
+                        </Button>
                         <RemoveBotButton
                           botId={b.id}
                           walletScope={b.wallet_scope}
@@ -1025,6 +1084,41 @@ function Robo() {
                   );
                 })}
               </ul>
+            )}
+          </Panel>
+        </section>
+        <section
+          id="robot-advanced-rules"
+          className="scroll-mt-24"
+          hidden={workspaceTab !== "rules"}
+          role="tabpanel"
+          aria-label={`Regras avançadas do robô de ${sym}`}
+        >
+          <Panel title={`Regras · ${sym} · ${walletName}`}>
+            <p className="mb-3 text-sm text-muted-foreground">
+              As regras ficam vinculadas a esta carteira e moeda. Salvar não inicia operações. Para
+              alterar outro robô, selecione-o na aba Meus bots.
+            </p>
+            {!walletReady ||
+            (target.aba === "regras" &&
+              ((target.carteira && target.carteira !== walletScope) ||
+                (target.token && target.token.toLowerCase() !== token.toLowerCase()))) ||
+            cfg === undefined ? (
+              <p role="status" className="text-sm">
+                Conferindo a carteira, a moeda e as regras do robô selecionado…
+              </p>
+            ) : mode === "grade" ? (
+              <p role="status" className="rounded-md bg-secondary p-3 text-sm">
+                Este robô usa Grade de preços. Ajuste sua faixa, degraus e limites na Configuração
+                do robô acima. Para utilizar as regras de compra e venda desta aba, primeiro escolha
+                o modo Minha estratégia com o robô pausado.
+              </p>
+            ) : (
+              rulesVisited && (
+                <Suspense fallback={<p className="text-sm">Carregando as regras deste robô…</p>}>
+                  <AdvancedBotRules key={selectionKey} embedded />
+                </Suspense>
+              )
             )}
           </Panel>
         </section>
@@ -1356,9 +1450,13 @@ function Robo() {
                   ) : cfg === null ? (
                     <div className="rounded border border-warning/40 bg-warning/10 p-3 text-sm">
                       Você ainda não salvou uma estratégia para {sym}.{" "}
-                      <Link to="/estrategia" className="font-medium text-primary underline">
-                        Criar agora ›
-                      </Link>
+                      <button
+                        type="button"
+                        onClick={openRules}
+                        className="font-medium text-primary underline"
+                      >
+                        Configurar neste robô ›
+                      </button>
                     </div>
                   ) : (
                     <div className="rounded-md border border-primary/40 p-3">
@@ -1366,12 +1464,13 @@ function Robo() {
                         <p className="min-w-0 text-sm font-semibold text-primary">
                           ✓ {modelName} · {sym}
                         </p>
-                        <Link
-                          to="/estrategia"
+                        <button
+                          type="button"
+                          onClick={openRules}
                           className="shrink-0 text-xs font-medium text-primary underline"
                         >
-                          Ver ou mudar ›
-                        </Link>
+                          Ver ou mudar neste robô ›
+                        </button>
                       </div>
                       <details className="group mt-2">
                         <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-muted-foreground [&::-webkit-details-marker]:hidden">
