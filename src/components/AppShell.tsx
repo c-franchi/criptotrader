@@ -20,7 +20,6 @@ import {
   LayoutDashboard,
   Menu,
   Settings,
-  Target,
   Wallet,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -42,12 +41,6 @@ const nav = [
     label: "Métricas avançadas",
     desc: "Evolução em 1h, 12h, 24h e histórico de preços",
     icon: LineChart,
-  },
-  {
-    to: "/estrategia",
-    label: "Regras avançadas",
-    desc: "Regras de compra, venda e risco",
-    icon: Target,
   },
   {
     to: "/operar",
