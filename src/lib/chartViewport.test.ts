@@ -3,10 +3,7 @@ import type { Candle } from "./marketStats";
 import { latestCandleViewport } from "./chartViewport";
 
 const NOW = 1_800_000_000_000;
-const mark = (ms: number): Candle => [
-  Math.floor(ms / 300_000) * 300,
-  2, 3, 1, 2, 10,
-];
+const mark = (ms: number): Candle => [Math.floor(ms / 300_000) * 300, 2, 3, 1, 2, 10];
 
 describe("last verified chart candle viewport", () => {
   it("opens an hour window next to an old last bar rather than an empty present", () => {
