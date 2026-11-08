@@ -172,7 +172,7 @@ function Num({
   );
 }
 
-function StrategyForm() {
+export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
   const {
     walletScope,
@@ -593,16 +593,22 @@ function StrategyForm() {
     <div className="grid w-full min-w-0 grid-cols-1 gap-4 [&>*]:min-w-0 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="space-y-4">
         <PageHeading
-          title="Regras avançadas"
-          description="Ajustes detalhados de entrada, saída e proteção."
+          title={embedded ? `Regras de ${token.symbol} · robô selecionado` : "Regras avançadas"}
+          description={
+            embedded
+              ? `Configuração exclusiva para ${token.symbol} na carteira selecionada. Salvar não inicia o robô.`
+              : "Ajustes detalhados de entrada, saída e proteção."
+          }
         />
-        <div className="rounded-xl bg-secondary p-4 text-sm">
-          <b>Configuração avançada</b>
-          <p>Para criar e configurar o robô em um só lugar, use o assistente em Meus robôs.</p>
-          <Button className="mt-2" onClick={() => navigate({ to: "/grade" })}>
-            Abrir Meus robôs
-          </Button>
-        </div>
+        {!embedded && (
+          <div className="rounded-xl bg-secondary p-4 text-sm">
+            <b>Configuração avançada</b>
+            <p>Para criar e configurar o robô em um só lugar, use o assistente em Meus robôs.</p>
+            <Button className="mt-2" onClick={() => navigate({ to: "/grade" })}>
+              Abrir Meus robôs
+            </Button>
+          </div>
+        )}
         <ExecutionTimingPanel
           key={`timing:${walletScope}:${token.address}`}
           walletScope={walletScope}
@@ -750,11 +756,18 @@ function StrategyForm() {
         </Panel>
 
         <fieldset disabled={!walletOk} className={walletOk ? "space-y-4" : "space-y-4 opacity-50"}>
-          <Panel title="Passo 2 · Escolha o token">
-            <div className="flex flex-wrap gap-2">
-              <TokenPicker tokens={tokens} value={token.address} onChange={selectToken} />
-              <AddTokenDialog wallet={wallet || null} />
-            </div>
+          <Panel title={embedded ? "Passo 2 · Token deste robô" : "Passo 2 · Escolha o token"}>
+            {embedded ? (
+              <p className="rounded-md bg-secondary p-3 text-sm">
+                <b>{token.symbol}</b> · As regras desta aba pertencem somente ao token e à
+                carteira selecionados em Meus robôs. Volte à lista para configurar outro robô.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <TokenPicker tokens={tokens} value={token.address} onChange={selectToken} />
+                <AddTokenDialog wallet={wallet || null} />
+              </div>
+            )}
             <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
               <div className="rounded-md border border-border p-2">
                 <span className="font-semibold">Comprar:</span> você paga <b>BNB</b> e recebe{" "}
