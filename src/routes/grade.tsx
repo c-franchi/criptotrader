@@ -623,6 +623,14 @@ function Robo() {
                 {armed ? "Editar robô" : bot ? "Configurar e iniciar" : "Criar robô"}
               </Button>
             )}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!walletReady || cfg === undefined}
+              onClick={openRules}
+            >
+              Regras avançadas deste robô
+            </Button>
           </div>
         </div>
         <div>
