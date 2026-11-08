@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useCandles } from "./useCandles";
 const mocks = vi.hoisted(() => ({ latest: vi.fn(), older: vi.fn() }));
 vi.mock("@/lib/history.functions", () => ({
-  getCandles: mocks.latest,
+  getChartFeed: mocks.latest,
   getCandleHistoryPage: mocks.older,
 }));
 afterEach(() => {
@@ -20,16 +20,19 @@ function setup() {
   );
 }
 it("loads an older visible range and preserves it after the next live refresh", async () => {
-  mocks.latest.mockResolvedValue([[3600, 100, 101, 99, 100, 10]]);
+  mocks.latest.mockResolvedValue({ source: "gecko", candles: [[3600, 100, 101, 99, 100, 10]] });
   mocks.older.mockResolvedValue([[300, 90, 91, 89, 90, 10]]);
   const view = renderHook(() => useCandles("pool-a", "token-a"), { wrapper: setup() });
   await waitFor(() => expect(view.result.current.data).toHaveLength(1));
   await act(() => view.result.current.history.loadRange(300000, 600000));
   expect(view.result.current.data?.map((c) => c[0])).toEqual([300, 3600]);
-  mocks.latest.mockResolvedValue([
-    [3600, 100, 102, 99, 102, 12],
-    [3900, 102, 103, 100, 103, 1],
-  ]);
+  mocks.latest.mockResolvedValue({
+    source: "gecko",
+    candles: [
+      [3600, 100, 102, 99, 102, 12],
+      [3900, 102, 103, 100, 103, 1],
+    ],
+  });
   await act(async () => {
     await view.result.current.refetch();
   });
@@ -50,4 +53,23 @@ it("preserves candles on failure and allows an explicit retry instead of claimin
   await act(() => view.result.current.history.loadRange(300000, 600000, true));
   expect(view.result.current.data).toHaveLength(2);
   expect(view.result.current.history.error).toBeNull();
+});
+
+it("switches provider series without merging token VWAP bars with pool bars", async () => {
+  mocks.latest.mockResolvedValueOnce({
+    source: "gecko",
+    candles: [[3600, 100, 101, 99, 100, 10]],
+  });
+  const view = renderHook(() => useCandles("pool-dual", "token-dual"), { wrapper: setup() });
+  await waitFor(() => expect(view.result.current.source).toBe("gecko"));
+  mocks.latest.mockResolvedValueOnce({
+    source: "dexpaprika",
+    candles: [[3900, 80, 81, 79, 80, 20]],
+  });
+  await act(async () => { await view.result.current.refetch(); });
+  expect(view.result.current.source).toBe("dexpaprika");
+  expect(view.result.current.data).toEqual([[3900, 80, 81, 79, 80, 20]]);
+  // A separate Gecko history page must not be spliced into the VWAP series.
+  await act(async () => view.result.current.history.loadRange(300000, 600000));
+  expect(mocks.older).not.toHaveBeenCalled();
 });
