@@ -201,6 +201,9 @@ function PriceChart({
             candles={all}
             source={candles.source}
             now={now}
+            liveQuote={live != null && market.data?.fetchedAt
+              ? { price: live, at: Date.parse(market.data.fetchedAt) }
+              : undefined}
             strategyMinutes={strategyMinutes}
             rulesVersion={rulesVersion}
           />
