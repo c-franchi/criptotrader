@@ -366,10 +366,20 @@ it("keeps the selected initial period and can explicitly show all held entries",
 
 it("requests earlier real candles when panning beyond the initial window", async () => {
   const loadRange = vi.fn();
+  const now = 1_700_000_000_000;
+  const start = Math.floor((now - 6 * 3_600_000) / 300_000) * 300;
+  const recentCandles: Candle[] = candles.map((c) => [
+    start + c[0],
+    c[1],
+    c[2],
+    c[3],
+    c[4],
+    c[5],
+  ]);
   render(
     <CandleChart
-      candles={candles}
-      now={1700000000000}
+      candles={recentCandles}
+      now={now}
       history={{ loadRange, loading: false, error: null, empty: false }}
     />,
   );
