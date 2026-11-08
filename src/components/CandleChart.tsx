@@ -43,6 +43,9 @@ const windows = [
   { id: "4h", hours: 4 },
   { id: "12h", hours: 12 },
   { id: "1 dia", hours: 24 },
+  { id: "3 dias", hours: 72 },
+  { id: "7 dias", hours: 168 },
+  { id: "30 dias", hours: 720 },
 ];
 const usd = formatPrice;
 const MIN_SPAN = 30 * 60_000; // 30 min — velas continuam legíveis
@@ -181,7 +184,7 @@ function ChartBody({
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null");
       if (!alignStrategy && [5, 15, 30, 60].includes(saved?.minutes)) setMinutes(saved.minutes);
-      if ([1, 4, 12, 24].includes(saved?.hours)) setHours(saved.hours);
+      if ([1, 4, 12, 24, 72, 168, 720].includes(saved?.hours)) setHours(saved.hours);
       if ([260, 320, 420, 560].includes(saved?.height)) setHeight(saved.height);
       if (["candles", "line"].includes(saved?.mode)) setMode(saved.mode);
       if (typeof saved?.allLevels === "boolean") setAllLevels(saved.allLevels);
