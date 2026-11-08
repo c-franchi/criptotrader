@@ -68,6 +68,7 @@ function ChartBody({
   focusRequest,
   fitTradeIds = [],
   history,
+  source = "gecko",
   pickingPrice = false,
   onPickPrice,
   onEditLevel,
@@ -76,6 +77,7 @@ function ChartBody({
 }: {
   candles: Candle[];
   history?: ChartHistory | undefined;
+  source?: "gecko" | "dexpaprika" | null;
   now: number;
   strategyMinutes?: number;
   rulesVersion?: 1 | 2;
@@ -1471,8 +1473,10 @@ function ChartBody({
             <span className="text-chart-4">SMA {slowLength}</span> ·{" "}
           </>
         )}
-        USD · OHLCV do pool / GeckoTerminal ·{" "}
-        {bars.some((b) => b.forming) ? "Última vela em formação" : "Sem vela atual"} ·{" "}
+        {source === "dexpaprika"
+          ? "USD · DexPaprika · token agregado (não é a pool de execução)"
+          : "USD · GeckoTerminal · velas reais da pool"}{" "}
+        {bars.some((b) => b.forming) ? "Vela recente em formação" : "Última vela registrada"} ·{" "}
         {volumeMax ? "Volume em USD" : "Volume indisponível"}
       </p>
       {technical && (
@@ -1589,6 +1593,7 @@ export function CandleChart(props: {
   onCommitLevel?: ((id: string, price: number) => void) | undefined;
   candles: Candle[];
   history?: ChartHistory | undefined;
+  source?: "gecko" | "dexpaprika" | null;
   now: number;
   strategyMinutes?: number;
   alignStrategy?: boolean;
