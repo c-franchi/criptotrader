@@ -6,6 +6,7 @@ import type { Candle } from "@/lib/marketStats";
 import { aggregateCandles, engineSeries, completeEngineSeries } from "@/lib/candleSeries";
 import { Button } from "@/components/ui/button";
 import { chartIndicators } from "@/lib/chartIndicators";
+import { latestCandleViewport } from "@/lib/chartViewport";
 import { cn } from "@/lib/utils";
 import { Maximize2, Minus, Plus, RotateCcw, X } from "lucide-react";
 
@@ -232,10 +233,11 @@ function ChartBody({
     storageKey,
   ]);
 
-  // Enquadramento previsível: seguir o presente dentro da janela escolhida.
+  // Always open on the newest TRUE candle. If the feed stops for hours,
+  // the chart must not advance into an empty wall-clock-only window.
   const frame = useCallback(
-    (h: number) => ({ start: stateRef.current.now - h * 3_600_000, end: stateRef.current.now }),
-    [],
+    (h: number) => latestCandleViewport(candles, stateRef.current.now, h, stateRef.current.minutes),
+    [candles],
   );
   useEffect(() => {
     if (follow) {
@@ -283,7 +285,9 @@ function ChartBody({
     const cur = stateRef.current.view ?? frame(stateRef.current.hours);
     const ns = { start: cur.start + dt, end: cur.end + dt };
     setView(ns);
-    setFollow(Math.abs(ns.end - stateRef.current.now) < stateRef.current.minutes * 60_000);
+    setFollow(
+      Math.abs(ns.end - frame(stateRef.current.hours).end) < stateRef.current.minutes * 60_000,
+    );
   };
 
   // Zoom pela roda apenas com o gráfico em foco (listener nativo não-passivo).
@@ -606,7 +610,7 @@ function ChartBody({
               <span className="text-xs text-success">Acompanhar últimas velas: ativo</span>
             ) : (
               <Button size="sm" variant="secondary" onClick={() => setFollow(true)}>
-                Voltar ao tempo real
+                Voltar à última vela
               </Button>
             )}
           </div>
