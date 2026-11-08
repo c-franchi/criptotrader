@@ -151,6 +151,13 @@ export const getIntegrationHealth = createServerFn({ method: "GET" })
             : `${watched.length} mercados cadastrados. Velas antigas ficam gravadas no servidor.`,
       },
       {
+        name: "Fonte secundária de gráfico 5m",
+        ok: process.env["DEXPAPRIKA_API_KEY"] ? null : false,
+        text: process.env["DEXPAPRIKA_API_KEY"]
+          ? "Chave DexPaprika configurada; requer plano Dev/Pro para OHLCV de 5 minutos. Acesso e cobertura dependem de teste real. Consulta somente para gráficos, nunca para o executor."
+          : "Sem chave DexPaprika Dev/Pro. O gráfico usa GeckoTerminal e mantém as últimas velas verificadas; a segunda fonte pode ser habilitada no servidor.",
+      },
+      {
         name: "Coleta de velas com aplicativo fechado",
         ok: heartbeatResult.error ? false : schedulerFresh,
         text: !heartbeat
