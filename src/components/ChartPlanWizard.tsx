@@ -504,7 +504,9 @@ export function ChartPlanWizard({
     saveBlockers.push("As configurações não estão disponíveis. Atualize os dados do robô.");
   if (!ack) saveBlockers.push("Marque a confirmação de revisão acima.");
   if (partialRisk && !partialAck)
-    saveBlockers.push("Confirme o risco de prejuízo caso apenas parte das entradas seja executada.");
+    saveBlockers.push(
+      "Confirme o risco de prejuízo caso apenas parte das entradas seja executada.",
+    );
   if (ack && !validInput.success)
     saveBlockers.push(
       formIssueMessage(
@@ -1367,10 +1369,15 @@ export function ChartPlanWizard({
             garantem lucro e que executar leva tempo.
           </label>
           {ack && saveBlockers.length > 0 && (
-            <div role="alert" className="space-y-2 rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm">
+            <div
+              role="alert"
+              className="space-y-2 rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm"
+            >
               <p className="font-semibold">O que impede salvar esta atividade:</p>
               <ul className="list-disc space-y-1 pl-5">
-                {saveBlockers.map((issue, i) => <li key={i}>{issue}</li>)}
+                {saveBlockers.map((issue, i) => (
+                  <li key={i}>{issue}</li>
+                ))}
               </ul>
               {locked && (
                 <Button
@@ -1392,10 +1399,12 @@ export function ChartPlanWizard({
               {[
                 !fresh ? "Cotação atual indisponível" : null,
                 !capitalFresh ? "Consulta de saldo desatualizada" : null,
-              ].filter(Boolean).join(" · ")}.
-              Os preços já escolhidos ficam fixos em BNB. Salvar pausado não compra nem vende;
-              o servidor conferirá o saldo livre novamente antes de gravar.
-              Para iniciar o robô, será necessária outra verificação das condições atuais.
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+              . Os preços já escolhidos ficam fixos em BNB. Salvar pausado não compra nem vende; o
+              servidor conferirá o saldo livre novamente antes de gravar. Para iniciar o robô, será
+              necessária outra verificação das condições atuais.
             </p>
           )}
           {ack && locked && (
@@ -1409,21 +1418,33 @@ export function ChartPlanWizard({
                     localStorage.setItem(
                       draftKey,
                       JSON.stringify({
-                        budget: chosen, entryCount, exitCount, entries,
-                        exits: manualExits, target, stopChoice, stop,
+                        budget: chosen,
+                        entryCount,
+                        exitCount,
+                        entries,
+                        exits: manualExits,
+                        target,
+                        stopChoice,
+                        stop,
                         version: settings.data?.strategy?.version ?? 0,
                         revision: settings.data?.draft?.revision ?? 0,
                       }),
                     );
                     setDraftNotice("Rascunho guardado neste aparelho. Não cria nem liga um robô.");
                   } catch {
-                    setDraftNotice("Não foi possível guardar o rascunho: armazenamento local indisponível.");
+                    setDraftNotice(
+                      "Não foi possível guardar o rascunho: armazenamento local indisponível.",
+                    );
                   }
                 }}
               >
                 Guardar rascunho local (sem criar robô)
               </Button>
-              {draftNotice && <p role="status" className="text-xs">{draftNotice}</p>}
+              {draftNotice && (
+                <p role="status" className="text-xs">
+                  {draftNotice}
+                </p>
+              )}
             </div>
           )}
           <Button
