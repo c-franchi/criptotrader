@@ -40,7 +40,7 @@ it("loads an older visible range and preserves it after the next live refresh", 
   expect(view.result.current.data?.[1]?.[4]).toBe(102);
 });
 it("preserves candles on failure and allows an explicit retry instead of claiming history ended", async () => {
-  mocks.latest.mockResolvedValue([[3600, 100, 101, 99, 100, 10]]);
+  mocks.latest.mockResolvedValue({ source: "gecko", candles: [[3600, 100, 101, 99, 100, 10]] });
   mocks.older
     .mockRejectedValueOnce(Error("429"))
     .mockResolvedValueOnce([[300, 90, 91, 89, 90, 10]]);
