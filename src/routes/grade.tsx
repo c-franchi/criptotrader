@@ -232,6 +232,12 @@ function Robo() {
   const openRules = () => {
     setRulesVisited(true);
     setWorkspaceTab("rules");
+    requestAnimationFrame(() => {
+      document.getElementById("robot-advanced-rules")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
   };
   useEffect(() => {
     if (
@@ -242,6 +248,12 @@ function Robo() {
     ) {
       setRulesVisited(true);
       setWorkspaceTab("rules");
+      requestAnimationFrame(() => {
+        document.getElementById("robot-advanced-rules")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
     }
   }, [target.aba, target.carteira, target.token, token, walletReady, walletScope]);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -1076,6 +1088,8 @@ function Robo() {
           </Panel>
         </section>
         <section
+          id="robot-advanced-rules"
+          className="scroll-mt-24"
           hidden={workspaceTab !== "rules"}
           role="tabpanel"
           aria-label={`Regras avançadas do robô de ${sym}`}
