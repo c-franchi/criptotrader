@@ -113,7 +113,8 @@ export function ChartPlanWizard({
   const [ack, setAck] = useState(false),
     [saved, setSaved] = useState(false),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [draftNotice, setDraftNotice] = useState("");
   const [editingGas, setEditingGas] = useState(false);
   const [gasNotice, setGasNotice] = useState("");
   const [startAck, setStartAck] = useState(false),
@@ -165,10 +166,9 @@ export function ChartPlanWizard({
   const cfg = settings.data?.strategy?.config as Partial<StrategyConfig> | undefined;
   const state = settings.data?.bot?.strat_state as
     { tokens?: number; costBnb?: number } | null | undefined;
-  const locked =
-    !!settings.data?.bot?.armed ||
-    Number(state?.tokens ?? 0) > 0 ||
-    Number(state?.costBnb ?? 0) > 0;
+  const botArmed = !!settings.data?.bot?.armed;
+  const hasOpenPosition = Number(state?.tokens ?? 0) > 0 || Number(state?.costBnb ?? 0) > 0;
+  const locked = botArmed || hasOpenPosition;
   const knownTax = hasVerifiedTax(token, cfg);
   const tax = useQuery({
     queryKey: ["chart-plan-tax", userId, walletScope, token],
@@ -336,6 +336,13 @@ export function ChartPlanWizard({
         )
           setManualExits(d.exits);
         if (typeof d.target === "string") setTarget(d.target);
+        if (d.stopChoice === "none") {
+          setStopChoice("none");
+          setStop(0);
+        } else if (d.stopChoice === "price" && Number.isFinite(d.stop) && d.stop > 0) {
+          setStopChoice("price");
+          setStop(d.stop);
+        }
       }
     } catch {
       /* Optional scoped draft. Never restore authorizations or confirmations. */
@@ -354,6 +361,8 @@ export function ChartPlanWizard({
           entries,
           exits: manualExits,
           target,
+          stopChoice,
+          stop,
           version: settings.data.strategy?.version ?? 0,
           revision: settings.data.draft?.revision ?? 0,
         }),
@@ -373,6 +382,8 @@ export function ChartPlanWizard({
     entries,
     manualExits,
     target,
+    stopChoice,
+    stop,
   ]);
   const markedEntries = entries.filter((p) => p > 0).sort((a, b) => b - a);
   const breakEven =
@@ -477,6 +488,32 @@ export function ChartPlanWizard({
     acknowledge: ack,
     partialEntriesAccepted: partialAck,
   });
+  // Saving a PAUSED strategy only stores fixed BNB levels. A live quote is
+  // required to choose/drag points, not to persist reviewed, fixed prices.
+  // The server re-reads available capital and the atomic RPC rejects replacing
+  // an armed bot, an open position or an out-of-date strategy version.
+  const saveBlockers: string[] = [];
+  if (locked) {
+    saveBlockers.push(
+      hasOpenPosition
+        ? "Este token tem uma posição aberta. Não é seguro substituir suas regras enquanto houver ativos ou custo de compra vinculados. Pausar o robô não encerra a posição."
+        : "Este robô está ligado. Pause-o antes de substituir a estratégia; a pausa não vende tokens.",
+    );
+  }
+  if (settings.isError || !settings.data)
+    saveBlockers.push("As configurações não estão disponíveis. Atualize os dados do robô.");
+  if (!ack) saveBlockers.push("Marque a confirmação de revisão acima.");
+  if (partialRisk && !partialAck)
+    saveBlockers.push("Confirme o risco de prejuízo caso apenas parte das entradas seja executada.");
+  if (ack && !validInput.success)
+    saveBlockers.push(
+      formIssueMessage(
+        validInput.error.issues[0]!,
+        String(validInput.error.issues[0]?.path[0] ?? "atividade"),
+      ),
+    );
+  const canSavePaused = !busy && saveBlockers.length === 0;
+
   const ready = useQuery({
     queryKey: ["chart-plan-readiness", userId, walletScope, token],
     queryFn: () => getBotReadiness({ data: { walletScope, token } }),
@@ -1329,18 +1366,70 @@ export function ChartPlanWizard({
             Revisei carteira, valor, entradas, saídas, taxas e stop. Entendo que as projeções não
             garantem lucro e que executar leva tempo.
           </label>
+          {ack && saveBlockers.length > 0 && (
+            <div role="alert" className="space-y-2 rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm">
+              <p className="font-semibold">O que impede salvar esta atividade:</p>
+              <ul className="list-disc space-y-1 pl-5">
+                {saveBlockers.map((issue, i) => <li key={i}>{issue}</li>)}
+              </ul>
+              {locked && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy || settings.isFetching}
+                  onClick={() => {
+                    void settings.refetch();
+                    void capital.refetch();
+                  }}
+                >
+                  Conferir novamente o estado do robô e as posições
+                </Button>
+              )}
+            </div>
+          )}
+          {ack && (!fresh || !capitalFresh) && (
+            <p role="status" className="text-xs text-muted-foreground">
+              {[
+                !fresh ? "Cotação atual indisponível" : null,
+                !capitalFresh ? "Consulta de saldo desatualizada" : null,
+              ].filter(Boolean).join(" · ")}.
+              Os preços já escolhidos ficam fixos em BNB. Salvar pausado não compra nem vende;
+              o servidor conferirá o saldo livre novamente antes de gravar.
+              Para iniciar o robô, será necessária outra verificação das condições atuais.
+            </p>
+          )}
+          {ack && locked && (
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!draftReady || !settings.data}
+                onClick={() => {
+                  try {
+                    localStorage.setItem(
+                      draftKey,
+                      JSON.stringify({
+                        budget: chosen, entryCount, exitCount, entries,
+                        exits: manualExits, target, stopChoice, stop,
+                        version: settings.data?.strategy?.version ?? 0,
+                        revision: settings.data?.draft?.revision ?? 0,
+                      }),
+                    );
+                    setDraftNotice("Rascunho guardado neste aparelho. Não cria nem liga um robô.");
+                  } catch {
+                    setDraftNotice("Não foi possível guardar o rascunho: armazenamento local indisponível.");
+                  }
+                }}
+              >
+                Guardar rascunho local (sem criar robô)
+              </Button>
+              {draftNotice && <p role="status" className="text-xs">{draftNotice}</p>}
+            </div>
+          )}
           <Button
-            disabled={
-              busy ||
-              !ack ||
-              (partialRisk && !partialAck) ||
-              !validInput.success ||
-              locked ||
-              !fresh ||
-              !capitalFresh
-            }
+            disabled={!canSavePaused}
             onClick={async () => {
-              if (!validInput.success || !settings.data) return;
+              if (!canSavePaused || !validInput.success || !settings.data) return;
               setBusy(true);
               setError("");
               try {
