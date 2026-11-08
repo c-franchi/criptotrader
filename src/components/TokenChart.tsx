@@ -15,6 +15,9 @@ const PERIODS = [
   { id: "4H", ms: 4 * 3_600_000 },
   { id: "12H", ms: 12 * 3_600_000 },
   { id: "1D", ms: 24 * 3_600_000 },
+  { id: "3D", ms: 3 * 24 * 3_600_000 },
+  { id: "7D", ms: 7 * 24 * 3_600_000 },
+  { id: "30D", ms: 30 * 24 * 3_600_000 },
 ] as const;
 const usd = formatUsd;
 const time = (n: number) =>
@@ -210,7 +213,7 @@ function PriceChart({
         )}
       </div>
       {showHeading && <><p className="mt-3 text-xs text-muted-foreground">Variação da cotação</p>
-      <div className="mt-1 grid grid-cols-4 gap-1">
+      <div className="mt-1 flex flex-wrap gap-1">
         {PERIODS.map((p) => (
           <Button
             key={p.id}
