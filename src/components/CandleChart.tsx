@@ -236,8 +236,7 @@ function ChartBody({
   // Always open on the newest TRUE candle. If the feed stops for hours,
   // the chart must not advance into an empty wall-clock-only window.
   const frame = useCallback(
-    (h: number) =>
-      latestCandleViewport(candles, stateRef.current.now, h, stateRef.current.minutes),
+    (h: number) => latestCandleViewport(candles, stateRef.current.now, h, stateRef.current.minutes),
     [candles],
   );
   useEffect(() => {
