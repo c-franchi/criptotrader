@@ -1096,8 +1096,8 @@ function Robo() {
         >
           <Panel title={`Regras · ${sym} · ${walletName}`}>
             <p className="mb-3 text-sm text-muted-foreground">
-              As regras ficam vinculadas a esta carteira e moeda. Salvar não inicia operações.
-              Para alterar outro robô, selecione-o na aba Meus bots.
+              As regras ficam vinculadas a esta carteira e moeda. Salvar não inicia operações. Para
+              alterar outro robô, selecione-o na aba Meus bots.
             </p>
             {!walletReady ||
             (target.aba === "regras" &&
@@ -1109,9 +1109,9 @@ function Robo() {
               </p>
             ) : mode === "grade" ? (
               <p role="status" className="rounded-md bg-secondary p-3 text-sm">
-                Este robô usa Grade de preços. Ajuste sua faixa, degraus e limites na
-                Configuração do robô acima. Para utilizar as regras de compra e venda desta
-                aba, primeiro escolha o modo Minha estratégia com o robô pausado.
+                Este robô usa Grade de preços. Ajuste sua faixa, degraus e limites na Configuração
+                do robô acima. Para utilizar as regras de compra e venda desta aba, primeiro escolha
+                o modo Minha estratégia com o robô pausado.
               </p>
             ) : (
               rulesVisited && (
