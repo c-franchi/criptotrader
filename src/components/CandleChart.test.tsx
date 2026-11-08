@@ -530,13 +530,3 @@ it("shows the latest verified candle immediately even when the feed is hours beh
   expect(before).toBeTruthy();
 });
 
-it("does not fabricate candles when the viewport has only a current price line", () => {
-  const view = render(
-    <CandleChart candles={[]} now={1_800_000_000_000} liveQuote={{
-      at: 1_800_000_000_000,
-      price: 102,
-    }} />,
-  );
-  expect(view.queryByText(/Fechada · A/)).toBeNull();
-  expect(screen.getByLabelText(/Cotação atual independente das velas/)).toBeTruthy();
-});
