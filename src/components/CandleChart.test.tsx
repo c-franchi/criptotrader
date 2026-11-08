@@ -127,7 +127,7 @@ it.each([
   fireEvent.click(svg, { clientX: 400, clientY: 150, button });
   expect(screen.getByText(/Medição concluída:/).textContent).toBe(result);
   expect(svg.querySelector('circle[r="5"]')?.getAttribute("cx")).not.toBe(before);
-  expect(screen.getByRole("button", { name: "Voltar ao tempo real" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Voltar à última vela" })).toBeTruthy();
   expect(fireEvent.contextMenu(svg)).toBe(false);
   // A fresh primary click must still start another measurement.
   pointer(svg, "pointerdown", 250, 130);
@@ -144,7 +144,7 @@ it("keeps the first point during a touch drag and accepts a second tap", () => {
   pointer(svg, "pointerup", 312, 150, 0, 0, "touch");
   fireEvent.click(svg, { clientX: 312, clientY: 150 });
   expect(screen.getByText("Ponto 1 marcado. Toque ou clique no segundo ponto.")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Voltar ao tempo real" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Voltar à última vela" })).toBeTruthy();
   pointer(svg, "pointerdown", 250, 100, 0, 1, "touch");
   pointer(svg, "pointerup", 250, 100, 0, 0, "touch");
   fireEvent.click(svg, { clientX: 250, clientY: 100 });
@@ -393,7 +393,7 @@ it("requests earlier real candles when panning beyond the initial window", async
   pointer(svg, "pointermove", 650, 150);
   pointer(svg, "pointerup", 650, 150, 0, 0);
   await waitFor(() => expect(loadRange.mock.calls.at(-1)![0]).toBeLessThan(initial[0]));
-  expect(screen.getByRole("button", { name: "Voltar ao tempo real" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Voltar à última vela" })).toBeTruthy();
 });
 
 it("picks a rule price without adding measurement marks and keeps drag navigation from creating points", () => {
@@ -499,4 +499,44 @@ it("previews a dragged level and requests confirmation only after release", () =
     "aria-valuenow",
     "100",
   );
+});
+
+it("shows the latest verified candle immediately even when the feed is hours behind the clock", () => {
+  const now = 1_800_000_000_000;
+  const first = Math.floor((now - 7 * 3_600_000) / 300_000) * 300;
+  const older: Candle[] = Array.from({ length: 24 }, (_, i) => [
+    first + i * 300, 100, 101, 99, 100, 10,
+  ]);
+  const view = render(<CandleChart compact candles={older} now={now} />);
+  const svg = screen.getByRole("img", {
+    name: "Velas OHLCV, escala de preços e médias SMA do robô",
+  });
+  const visible = () => svg.querySelectorAll("g > title").length;
+  expect(visible()).toBeGreaterThan(0);
+
+  // New verified candles should advance the auto-follow window.
+  const newer: Candle[] = [
+    ...older,
+    [Math.floor((now - 2 * 3_600_000) / 300_000) * 300, 102, 103, 101, 102, 10],
+  ];
+  view.rerender(<CandleChart compact candles={newer} now={now} />);
+  expect(visible()).toBeGreaterThan(0);
+
+  // A user can still pan away, and explicitly return to the last real bar.
+  const before = svg.querySelector("g > title")?.textContent;
+  fireEvent.click(screen.getByRole("button", { name: "1h" }));
+  expect(visible()).toBeGreaterThan(0);
+  expect(svg.querySelector("g > title")?.textContent).toBeTruthy();
+  expect(before).toBeTruthy();
+});
+
+it("does not fabricate candles when the viewport has only a current price line", () => {
+  const view = render(
+    <CandleChart candles={[]} now={1_800_000_000_000} liveQuote={{
+      at: 1_800_000_000_000,
+      price: 102,
+    }} />,
+  );
+  expect(view.queryByText(/Fechada · A/)).toBeNull();
+  expect(screen.getByLabelText(/Cotação atual independente das velas/)).toBeTruthy();
 });
