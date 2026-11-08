@@ -19,6 +19,7 @@ export function botSearch(s: Record<string, unknown>): {
   token?: string;
   carteira?: string;
   problema?: BotProblem;
+  aba?: "regras";
 } {
   const problem = s["problema"];
   return {
@@ -27,6 +28,7 @@ export function botSearch(s: Record<string, unknown>): {
     ...(typeof s["carteira"] === "string" && uuid.test(s["carteira"])
       ? { carteira: s["carteira"] }
       : {}),
+    ...(s["aba"] === "regras" ? { aba: "regras" as const } : {}),
     ...(typeof problem === "string" &&
     ["market", "execution", "fund", "fees", "rules", "history"].includes(problem)
       ? { problema: problem as BotProblem }
