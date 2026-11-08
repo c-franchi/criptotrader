@@ -122,6 +122,7 @@ export function TradeMarket({
           strategyMinutes={strategyMinutes}
           rulesVersion={rulesVersion}
           history={candles.history}
+          source={candles.source}
           candles={candles.data ?? []}
           now={now}
           liveQuote={fresh ? { price, at } : undefined}

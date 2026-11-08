@@ -157,6 +157,7 @@ function Metrics() {
             preferenceKey="cryptobot:metrics-chart-view"
             key={token.address}
             history={candles.history}
+            source={candles.source}
             candles={candles.data ?? []}
             now={clock}
             strategyMinutes={15}

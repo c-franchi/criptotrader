@@ -15,6 +15,9 @@ const PERIODS = [
   { id: "4H", ms: 4 * 3_600_000 },
   { id: "12H", ms: 12 * 3_600_000 },
   { id: "1D", ms: 24 * 3_600_000 },
+  { id: "3D", ms: 3 * 24 * 3_600_000 },
+  { id: "7D", ms: 7 * 24 * 3_600_000 },
+  { id: "30D", ms: 30 * 24 * 3_600_000 },
 ] as const;
 const usd = formatUsd;
 const time = (n: number) =>
@@ -89,6 +92,11 @@ function PriceChart({
     (!!market.data?.fetchedAt && now - Date.parse(market.data.fetchedAt) > 120_000) ||
     candles.isError ||
     (!!last && now - (last[0] + 300) * 1000 > 600000);
+  const candleLagging = !!last && now - last[0] * 1000 > 20 * 60_000;
+  const chartSource =
+    candles.source === "dexpaprika"
+      ? "DexPaprika · token agregado, somente visualização"
+      : "GeckoTerminal · pool selecionada";
   const refresh = () => {
     void market.refetch();
     if (pool) void candles.refetch();
@@ -141,15 +149,16 @@ function PriceChart({
         <span
           className={stale ? "text-warning" : fetching ? "text-muted-foreground" : "text-success"}
         >
-          {stale
-            ? "Dados antigos ou fonte indisponível"
-            : fetching
-              ? "Atualizando"
+          {fetching
+            ? "Sincronizando histórico"
+            : stale
+              ? "Histórico preservado"
               : last
-                ? "Atualizado"
+                ? "Histórico sincronizado"
                 : "Aguardando dados"}
         </span>
         {showHeading && last && <span>Última vela: {time(last[0] * 1000)} · abertura da vela de 5m</span>}
+        {last && <span>Fonte: {chartSource}</span>}
       </div>
       {showHeading && <p className="text-[11px] text-muted-foreground">
         Preço: consulta a cada 15s · Histórico: a cada 60s
@@ -193,14 +202,20 @@ function PriceChart({
             preferenceKey="cryptobot:panel-chart-view"
             history={candles.history}
             candles={all}
+            source={candles.source}
             now={now}
+            liveQuote={
+              live != null && market.data?.fetchedAt
+                ? { price: live, at: Date.parse(market.data.fetchedAt) }
+                : undefined
+            }
             strategyMinutes={strategyMinutes}
             rulesVersion={rulesVersion}
           />
         )}
       </div>
       {showHeading && <><p className="mt-3 text-xs text-muted-foreground">Variação da cotação</p>
-      <div className="mt-1 grid grid-cols-4 gap-1">
+      <div className="mt-1 flex flex-wrap gap-1">
         {PERIODS.map((p) => (
           <Button
             key={p.id}
@@ -213,15 +228,10 @@ function PriceChart({
           </Button>
         ))}
       </div></>}
-      {stale && all.length > 0 && (
-        <p role="status" className="mt-2 text-xs text-warning">
-          Atualização indisponível. Os últimos dados recebidos foram mantidos; tentando novamente.
-        </p>
-      )}
-      {last && now - last[0] * 1000 > 20 * 60_000 && (
-        <p role="status" className="mt-2 text-xs text-warning">
-          Gráfico com dados até {time(last[0] * 1000)} — buscando atualização. O preço acima é
-          atualizado separadamente quando a fonte responde.
+      {candleLagging && last && (
+        <p role="status" className="mt-2 text-xs text-muted-foreground">
+          Última vela confirmada: {time(last[0] * 1000)}. O histórico é preservado sem preencher
+          intervalos com preços fictícios; a cotação atual é consultada separadamente.
         </p>
       )}
       {all.length > 0 && !covered && (
