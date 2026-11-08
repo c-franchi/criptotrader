@@ -368,14 +368,7 @@ it("requests earlier real candles when panning beyond the initial window", async
   const loadRange = vi.fn();
   const now = 1_700_000_000_000;
   const start = Math.floor((now - 6 * 3_600_000) / 300_000) * 300;
-  const recentCandles: Candle[] = candles.map((c) => [
-    start + c[0],
-    c[1],
-    c[2],
-    c[3],
-    c[4],
-    c[5],
-  ]);
+  const recentCandles: Candle[] = candles.map((c) => [start + c[0], c[1], c[2], c[3], c[4], c[5]]);
   render(
     <CandleChart
       candles={recentCandles}
@@ -515,7 +508,12 @@ it("shows the latest verified candle immediately even when the feed is hours beh
   const now = 1_800_000_000_000;
   const first = Math.floor((now - 7 * 3_600_000) / 300_000) * 300;
   const older: Candle[] = Array.from({ length: 24 }, (_, i) => [
-    first + i * 300, 100, 101, 99, 100, 10,
+    first + i * 300,
+    100,
+    101,
+    99,
+    100,
+    10,
   ]);
   const view = render(<CandleChart compact candles={older} now={now} />);
   const svg = screen.getByRole("img", {
@@ -539,4 +537,3 @@ it("shows the latest verified candle immediately even when the feed is hours beh
   expect(svg.querySelector("g > title")?.textContent).toBeTruthy();
   expect(before).toBeTruthy();
 });
-
