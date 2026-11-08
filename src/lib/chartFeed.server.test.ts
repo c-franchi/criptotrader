@@ -54,10 +54,13 @@ it("reads true 5-minute USD token candles when pool history is stale and a paid 
 it("never invents missing candles or mixes an old or failed backup into the pool", async () => {
   vi.stubEnv("DEXPAPRIKA_API_KEY", "api_test");
   mocked.read.mockResolvedValue([[nowBucket() - 3600, 2, 3, 1, 2, 20]]);
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-    ok: true,
-    json: async () => [altBar(nowBucket() - 3900, 4)],
-  }));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [altBar(nowBucket() - 3900, 4)],
+    }),
+  );
   expect(await readChartFeed(POOL, TOKEN)).toMatchObject({ source: "gecko" });
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("429")));
   expect(await readChartFeed(POOL, TOKEN)).toMatchObject({ source: "gecko" });
@@ -65,14 +68,19 @@ it("never invents missing candles or mixes an old or failed backup into the pool
 
 it("rejects malformed and future bars without converting them to price samples", () => {
   const ts = nowBucket();
-  expect(parseDexPaprikaCandles([
-    altBar(ts - 300, 4),
-    altBar(ts - 300, 0),
-    altBar(ts + 3600, 4),
-    { ...altBar(ts - 600, 4), high: 3 },
-    { ...altBar(ts - 900, 4), volume: -50 },
-    { ...altBar(ts - 1200, 4), time_open: "not-a-time" },
-  ], ts)).toEqual([[ts - 300, 4, 5, 3, 4, 120]]);
+  expect(
+    parseDexPaprikaCandles(
+      [
+        altBar(ts - 300, 4),
+        altBar(ts - 300, 0),
+        altBar(ts + 3600, 4),
+        { ...altBar(ts - 600, 4), high: 3 },
+        { ...altBar(ts - 900, 4), volume: -50 },
+        { ...altBar(ts - 1200, 4), time_open: "not-a-time" },
+      ],
+      ts,
+    ),
+  ).toEqual([[ts - 300, 4, 5, 3, 4, 120]]);
 });
 
 it("does not attempt unauthorized alternative calls without the paid key", async () => {
