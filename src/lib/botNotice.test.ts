@@ -17,6 +17,18 @@ it("routes a notice to the precise robot, wallet, token and issue", () => {
     botSearch({ token: "javascript:alert(1)", carteira: "foreign", problema: "start" }),
   ).toEqual({});
 });
+it("accepts a scoped advanced-rules tab only for its explicit known value", () => {
+  expect(botSearch({ token: bot.token, carteira: bot.wallet_scope, aba: "regras" })).toEqual({
+    token: bot.token,
+    carteira: bot.wallet_scope,
+    aba: "regras",
+  });
+  expect(botSearch({ token: bot.token, carteira: bot.wallet_scope, aba: "desconhecida" })).toEqual({
+    token: bot.token,
+    carteira: bot.wallet_scope,
+  });
+});
+
 it("groups alternating market warnings without deleting records or mixing different bots", () => {
   const rows = [
     { id: "1", title: "Robô", body: "0x123: Preço desatualizado", link: "/grade" },
