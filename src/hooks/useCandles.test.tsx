@@ -66,8 +66,10 @@ it("switches provider series without merging token VWAP bars with pool bars", as
     source: "dexpaprika",
     candles: [[3900, 80, 81, 79, 80, 20]],
   });
-  await act(async () => { await view.result.current.refetch(); });
-  expect(view.result.current.source).toBe("dexpaprika");
+  await act(async () => {
+    await view.result.current.refetch();
+  });
+  await waitFor(() => expect(view.result.current.source).toBe("dexpaprika"));
   expect(view.result.current.data).toEqual([[3900, 80, 81, 79, 80, 20]]);
   // A separate Gecko history page must not be spliced into the VWAP series.
   await act(async () => view.result.current.history.loadRange(300000, 600000));
