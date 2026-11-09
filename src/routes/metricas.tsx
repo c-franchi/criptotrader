@@ -136,29 +136,32 @@ function Metrics() {
                 <p className="text-muted-foreground">Preço atual</p>
                 <p className="font-semibold">{usd(stats.close)}</p>
               </div>
-
             </div>
             <div className="mt-3">
-              <UxActionTile label="Detalhes do período" icon={Activity} onClick={() => setAdvancedOpen(true)} />
+              <UxActionTile
+                label="Detalhes do período"
+                icon={Activity}
+                onClick={() => setAdvancedOpen(true)}
+              />
             </div>
             <UxDetailDialog open={advancedOpen} onOpenChange={setAdvancedOpen} title={`Detalhes de ${token.symbol} · ${hours}h`} icon={Activity}>
               <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-muted-foreground">Abertura</p>
-                <p>{usd(stats.open)}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Máxima</p>
-                <p>{usd(stats.high)}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Mínima</p>
-                <p>{usd(stats.low)}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Velas de 5 min</p>
-                <p>{win.length}</p>
-              </div>
+                <div>
+                  <p className="text-muted-foreground">Abertura</p>
+                  <p>{usd(stats.open)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Máxima</p>
+                  <p>{usd(stats.high)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Mínima</p>
+                  <p>{usd(stats.low)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Velas de 5 min</p>
+                  <p>{win.length}</p>
+                </div>
               </div>
             </UxDetailDialog>
           </Panel>
