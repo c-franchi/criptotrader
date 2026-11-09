@@ -40,8 +40,12 @@ it("opens the robot with an empty sale price without crashing its route", () => 
   );
   expect(screen.getByRole("region", { name: /Ativos e venda inicial/ })).toBeTruthy();
   expect(screen.getByText(/Saldo on-chain de GTE/)).toBeTruthy();
-  expect((screen.getByRole("textbox", { name: /Preço mínimo BNB por token/ }) as HTMLInputElement).value).toBe("");
-  expect((screen.getByRole("button", { name: /Guardar plano de venda/ }) as HTMLButtonElement).disabled).toBe(true);
+  expect(
+    (screen.getByRole("textbox", { name: /Preço mínimo BNB por token/ }) as HTMLInputElement).value,
+  ).toBe("");
+  expect(
+    (screen.getByRole("button", { name: /Guardar plano de venda/ }) as HTMLButtonElement).disabled,
+  ).toBe(true);
   expect(screen.queryByText(/painel de tokens não pôde ser exibido/)).toBeNull();
 });
 
@@ -68,5 +72,7 @@ it("shows a safe empty state without tokens, and does not render an executable s
   render(<BotTokenIntake {...makeProps()} holdings={[]} />);
   expect(screen.getByText(/Nenhum saldo positivo confirmado/)).toBeTruthy();
   expect(screen.getByText(/Saldo de GTE ainda não confirmado/)).toBeTruthy();
-  expect(screen.queryByRole("button", { name: /Executar venda|Vender agora|Ativar venda/ })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: /Executar venda|Vender agora|Ativar venda/ }),
+  ).toBeNull();
 });
