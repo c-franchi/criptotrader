@@ -59,6 +59,18 @@ describe("sale-first PREVIEW only", () => {
     ).toBe(false);
   });
 
+  it("never crashes the robot route when the initial sale price and balance are blank", () => {
+    // Previously Decimal("") threw from Zod's .refine on the first render.
+    for (const value of ["", " ", ".", ",", "0.", "abc", "Infinity", "1e-9"]) {
+      const data = { ...base, minPriceBnb: value, balanceSnapshot: "" };
+      expect(() => initialSellDraftSchema.safeParse(data)).not.toThrow();
+      expect(initialSellDraftSchema.safeParse(data).success).toBe(false);
+    }
+    expect(initialSellDraftSchema.safeParse({ ...base, minPriceBnb: "" }).success).toBe(
+      false,
+    );
+  });
+
   it("requires positive price and planned quantity but offers no executable order", () => {
     expect(initialSellDraftSchema.safeParse(base).success).toBe(true);
     expect(initialSellDraftSchema.safeParse({ ...base, minPriceBnb: "0" }).success).toBe(false);
