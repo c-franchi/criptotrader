@@ -174,107 +174,139 @@ function Alerts() {
       <div className="ux-summary-card text-sm">
         <p className="font-semibold">Avisos no celular</p>
         <p className="mt-2 text-muted-foreground">
-          {hasDevice && pushOn ? "Notificações habilitadas neste aparelho" : "Notificações ainda não confirmadas"}
-          {" · "}{alerts.data?.length ?? 0} aviso(s) cadastrado(s).
+          {hasDevice && pushOn
+            ? "Notificações habilitadas neste aparelho"
+            : "Notificações ainda não confirmadas"}
+          {" · "}
+          {alerts.data?.length ?? 0} aviso(s) cadastrado(s).
         </p>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <UxActionTile label="Ativar neste celular" icon={BellRing} onClick={() => setActiveDialog("device")} />
-        <UxActionTile label="Configurar avisos" icon={SlidersHorizontal} onClick={() => setActiveDialog("configure")} />
-        <UxActionTile label="Ver todos os avisos" icon={ListChecks} onClick={() => setActiveDialog("all")} />
+        <UxActionTile
+          label="Ativar neste celular"
+          icon={BellRing}
+          onClick={() => setActiveDialog("device")}
+        />
+        <UxActionTile
+          label="Configurar avisos"
+          icon={SlidersHorizontal}
+          onClick={() => setActiveDialog("configure")}
+        />
+        <UxActionTile
+          label="Ver todos os avisos"
+          icon={ListChecks}
+          onClick={() => setActiveDialog("all")}
+        />
       </div>
-      <UxDetailDialog open={activeDialog === "device"} onOpenChange={(open) => setActiveDialog(open ? "device" : null)} title="Ativar avisos no celular" icon={BellRing}>
-      <Panel title="Ativar avisos neste celular">
-        {hasDevice && pushOn ? (
-          <p className="rounded-md border border-primary bg-primary/10 p-3 text-sm font-medium text-primary">
-            ✓ Avisos ativados neste celular
-          </p>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Toque no botão e aceite quando o celular perguntar. Funciona melhor com o app
-              instalado.
+      <UxDetailDialog
+        open={activeDialog === "device"}
+        onOpenChange={(open) => setActiveDialog(open ? "device" : null)}
+        title="Ativar avisos no celular"
+        icon={BellRing}
+      >
+        <Panel title="Ativar avisos neste celular">
+          {hasDevice && pushOn ? (
+            <p className="rounded-md border border-primary bg-primary/10 p-3 text-sm font-medium text-primary">
+              ✓ Avisos ativados neste celular
             </p>
-            <Button size="lg" className="w-full" onClick={activate} disabled={busy}>
-              Ativar avisos no celular
-            </Button>
-          </div>
-        )}
-      </Panel>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Toque no botão e aceite quando o celular perguntar. Funciona melhor com o app
+                instalado.
+              </p>
+              <Button size="lg" className="w-full" onClick={activate} disabled={busy}>
+                Ativar avisos no celular
+              </Button>
+            </div>
+          )}
+        </Panel>
       </UxDetailDialog>
 
-      <UxDetailDialog open={activeDialog === "configure"} onOpenChange={(open) => setActiveDialog(open ? "configure" : null)} title="Configurar avisos" icon={SlidersHorizontal}>
-      <Panel title="Configure os avisos em cada token">
-        <p className="text-sm text-muted-foreground">
-          Cada token tem sua própria taxa e seu jeito de comprar e vender. Por isso os pontos de
-          aviso ficam na Estratégia do token: escolha o token lá e role até “Avisos no celular”.
-        </p>
-        <Button asChild size="lg" className="mt-3 w-full">
-          <Link to="/estrategia">Configurar avisos do {token.symbol}</Link>
-        </Button>
-      </Panel>
+      <UxDetailDialog
+        open={activeDialog === "configure"}
+        onOpenChange={(open) => setActiveDialog(open ? "configure" : null)}
+        title="Configurar avisos"
+        icon={SlidersHorizontal}
+      >
+        <Panel title="Configure os avisos em cada token">
+          <p className="text-sm text-muted-foreground">
+            Cada token tem sua própria taxa e seu jeito de comprar e vender. Por isso os pontos de
+            aviso ficam na Estratégia do token: escolha o token lá e role até “Avisos no celular”.
+          </p>
+          <Button asChild size="lg" className="mt-3 w-full">
+            <Link to="/estrategia">Configurar avisos do {token.symbol}</Link>
+          </Button>
+        </Panel>
       </UxDetailDialog>
 
-      <UxDetailDialog open={activeDialog === "all"} onOpenChange={(open) => setActiveDialog(open ? "all" : null)} title="Todos os seus avisos" icon={ListChecks}>
-      <Panel title="Todos os seus avisos">
-        {!alerts.data?.length ? (
-          <p className="text-sm text-muted-foreground">Nenhum aviso criado ainda.</p>
-        ) : (
-          <ul className="space-y-2">
-            {alerts.data.map((a) => {
-              const r = {
-                direction: a.direction as "queda" | "alta",
-                basePrice: Number(a.base_price),
-                targetPct: Number(a.target_pct),
-                warnBeforePct: Number(a.warn_before_pct),
-              };
-              const p =
-                a.token_address.toLowerCase() === token.address.toLowerCase() && price
-                  ? price
-                  : a.last_price
-                    ? Number(a.last_price)
-                    : null;
-              const st = p ? alertState(r, p) : null;
-              return (
-                <li
-                  key={a.id}
-                  className={`rounded-md border p-3 text-sm ${st && st !== "longe" ? "border-primary" : "border-border"}`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold">
-                        {a.symbol} · {r.direction === "queda" ? "queda" : "alta"} de{" "}
-                        {fmt(r.targetPct)}%
-                      </p>
-                      <p className="text-muted-foreground">
-                        Partida US$ {fmt(r.basePrice)} → ponto US$ {fmt(targetPrice(r))}
-                      </p>
-                      {p && (
+      <UxDetailDialog
+        open={activeDialog === "all"}
+        onOpenChange={(open) => setActiveDialog(open ? "all" : null)}
+        title="Todos os seus avisos"
+        icon={ListChecks}
+      >
+        <Panel title="Todos os seus avisos">
+          {!alerts.data?.length ? (
+            <p className="text-sm text-muted-foreground">Nenhum aviso criado ainda.</p>
+          ) : (
+            <ul className="space-y-2">
+              {alerts.data.map((a) => {
+                const r = {
+                  direction: a.direction as "queda" | "alta",
+                  basePrice: Number(a.base_price),
+                  targetPct: Number(a.target_pct),
+                  warnBeforePct: Number(a.warn_before_pct),
+                };
+                const p =
+                  a.token_address.toLowerCase() === token.address.toLowerCase() && price
+                    ? price
+                    : a.last_price
+                      ? Number(a.last_price)
+                      : null;
+                const st = p ? alertState(r, p) : null;
+                return (
+                  <li
+                    key={a.id}
+                    className={`rounded-md border p-3 text-sm ${st && st !== "longe" ? "border-primary" : "border-border"}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold">
+                          {a.symbol} · {r.direction === "queda" ? "queda" : "alta"} de{" "}
+                          {fmt(r.targetPct)}%
+                        </p>
                         <p className="text-muted-foreground">
-                          Agora: {r.direction === "queda" ? "caiu" : "subiu"}{" "}
-                          {fmt(Math.max(0, movePct(r, p)))}%
+                          Partida US$ {fmt(r.basePrice)} → ponto US$ {fmt(targetPrice(r))}
                         </p>
-                      )}
-                      {st && (
-                        <p
-                          className={
-                            st === "longe" ? "text-muted-foreground" : "font-semibold text-primary"
-                          }
-                        >
-                          {STATE_TXT[st]}
-                        </p>
-                      )}
+                        {p && (
+                          <p className="text-muted-foreground">
+                            Agora: {r.direction === "queda" ? "caiu" : "subiu"}{" "}
+                            {fmt(Math.max(0, movePct(r, p)))}%
+                          </p>
+                        )}
+                        {st && (
+                          <p
+                            className={
+                              st === "longe"
+                                ? "text-muted-foreground"
+                                : "font-semibold text-primary"
+                            }
+                          >
+                            {STATE_TXT[st]}
+                          </p>
+                        )}
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => remove(a.id)}>
+                        Remover
+                      </Button>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => remove(a.id)}>
-                      Remover
-                    </Button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Panel>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Panel>
       </UxDetailDialog>
     </div>
   );
