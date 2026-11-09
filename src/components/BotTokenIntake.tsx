@@ -119,9 +119,24 @@ export function BotTokenIntake({
           <p className="font-mono text-xs break-all" title={walletAddress}>
             {walletAddress}
           </p>
-          <Button type="button" size="sm" variant="outline" onClick={onRefresh}>
-            Atualizar saldos
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                void navigator.clipboard
+                  .writeText(walletAddress)
+                  .then(() => setNotice("Endereço da carteira automática copiado."))
+                  .catch(() => setNotice("Não foi possível copiar. Utilize o endereço acima."));
+              }}
+            >
+              Copiar endereço
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={onRefresh}>
+              Atualizar saldos
+            </Button>
+          </div>
         </div>
         <p>
           <strong>BNB para operações/gás: </strong>
