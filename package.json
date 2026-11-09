@@ -12,7 +12,10 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:offline": "NODE_OPTIONS=\"--require ./ops/test-offline-network.cjs\" vitest run",
+    "test:ui:serve": "vite --config tests/mobile-dialogs/vite.config.ts",
+    "test:ui": "playwright test"
   },
   "overrides": {
     "rolldown": "1.2.1"
@@ -81,8 +84,10 @@
     "decimal.js": "10.6.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "2.26.5",
+    "@playwright/test": "1.56.1",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.0.0",
     "@types/node": "^22.16.5",

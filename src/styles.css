@@ -617,6 +617,9 @@
   font-variant-numeric: tabular-nums;
 }
 [data-ux-detail-dialog] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   width: min(35rem, calc(100vw - 1rem));
   border: 1px solid var(--border);
   border-radius: 1.4rem;
@@ -628,9 +631,13 @@
   overflow: hidden;
 }
 [data-ux-dialog-body] {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-wrap: anywhere;
   overflow-y: auto;
   overscroll-behavior: contain;
-  max-height: min(65dvh, 44rem);
   padding: 0.15rem 0.1rem 0.5rem;
 }
 [data-ux-dialog-body] > [data-panel] {
@@ -648,80 +655,103 @@
   font-size: 1rem;
   background: var(--secondary);
 }
+.ux-dialog-heading,
+.ux-dialog-footer {
+  flex: 0 0 auto;
+  min-width: 0;
+}
 .ux-dialog-footer {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.65rem;
   padding-top: 0.85rem;
   border-top: 1px solid var(--border);
 }
-@media (max-width: 639px) {
-  [data-ux-detail-dialog] {
-    position: fixed;
-    left: 0.4rem;
-    top: auto;
-    bottom: calc(0.5rem + env(safe-area-inset-bottom));
-    width: calc(100vw - 0.8rem);
-    max-width: none;
-    max-height: calc(92dvh - env(safe-area-inset-bottom));
-    transform: none;
-    translate: none;
-    border-radius: 1.35rem 1.35rem 1.05rem 1.05rem;
-    padding: 1rem;
-  }
-  [data-ux-detail-dialog]::before {
-    content: "";
-    width: 2.25rem;
-    height: 0.28rem;
-    border-radius: 999px;
-    background: var(--muted-foreground);
-    margin: -0.3rem auto 0.25rem;
-    opacity: 0.6;
-  }
-  [data-ux-dialog-body] {
-    max-height: 69dvh;
-  }
-  .exchange-workspace {
-    padding-bottom: 0.75rem;
-  }
-  .exchange-workspace [data-panel] {
-    margin-block: 0.4rem;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .ux-action-tile { transition: none; }
 }
 
-/* Existing Dialog-based wizards also adopt the approved mobile bottom-sheet style.
-   AlertDialogs (real money confirmations) and the navigation Sheet keep their own layout. */
+/* One positioning owner: DialogContent has no centering/translation utilities.
+   AlertDialogs (financial confirmations) and the navigation Sheet stay separate. */
 [data-ux-app-dialog] {
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  max-height: calc(100dvh - 2rem);
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
   border: 1px solid var(--border);
   border-radius: 1.25rem;
   background: var(--card);
   color: var(--foreground);
   box-shadow: 0 20px 65px -22px oklch(0 0 0 / 0.8);
 }
+[data-ux-app-dialog][data-ux-detail-dialog] {
+  width: min(35rem, calc(100% - 1.5rem));
+  overflow: hidden;
+}
+[data-ux-app-dialog] :where(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+.ux-dialog-heading {
+  padding-right: 0.5rem;
+}
+.ux-dialog-footer [data-slot="button"] {
+  min-height: 2.75rem;
+}
 @media (max-width: 639px) {
-  [data-ux-app-dialog]:not([data-ux-detail-dialog]) {
+  [data-ux-app-dialog] {
+    /* Reset both individual transforms and the legacy Tailwind transform inputs. */
+    --tw-translate-x: 0px;
+    --tw-translate-y: 0px;
+    left: max(0.5rem, env(safe-area-inset-left));
+    right: max(0.5rem, env(safe-area-inset-right));
     top: auto;
-    bottom: calc(0.4rem + env(safe-area-inset-bottom));
-    left: 0.4rem;
+    bottom: max(0.5rem, env(safe-area-inset-bottom));
+    translate: 0 0;
     transform: none;
-    translate: none;
-    width: calc(100vw - 0.8rem);
+    width: auto;
     max-width: none;
-    max-height: calc(92dvh - env(safe-area-inset-bottom));
-    overflow-y: auto;
-    border-radius: 1.4rem 1.4rem 1rem 1rem;
+    max-height: calc(100dvh - max(0.5rem, env(safe-area-inset-bottom)) - max(0.5rem, env(safe-area-inset-top)));
+    border-radius: 1.35rem 1.35rem 1rem 1rem;
     padding: 1rem;
   }
-  [data-ux-app-dialog]:not([data-ux-detail-dialog])::before {
+  [data-ux-app-dialog][data-ux-detail-dialog] {
+    width: auto;
+  }
+  [data-ux-app-dialog]::before {
     content: "";
-    width: 2.1rem;
-    min-height: 0.27rem;
+    display: block;
+    flex: 0 0 0.25rem;
+    width: 2.25rem;
+    min-height: 0.25rem;
     border-radius: 999px;
     background: var(--muted-foreground);
     opacity: 0.55;
-    margin: 0 auto;
+    margin: 0 auto 0.25rem;
   }
+  .ux-app-toolbar {
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+  }
+  .ux-app-toolbar-actions {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  .ux-app-toolbar [data-size="icon"] {
+    width: 2.75rem;
+    height: 2.75rem;
+    flex-shrink: 0;
+  }
+  .exchange-workspace [data-panel] {
+    margin-block: 0.4rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-ux-app-dialog] { animation: none; }
 }

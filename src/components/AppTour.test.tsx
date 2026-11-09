@@ -32,7 +32,7 @@ it("opens only the chosen tool and restarts from the beginning when reopened thr
   view.rerender(<AppTour open={false} onOpenChange={close} />);
   view.rerender(<AppTour open onOpenChange={close} />);
   expect(screen.getByRole("heading", { name: "Comece pelo painel" })).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Fechar modal" }));
   expect(navigate).toHaveBeenCalledTimes(1);
 });
 

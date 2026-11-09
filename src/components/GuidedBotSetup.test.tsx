@@ -202,7 +202,7 @@ it("closes with X without a browser confirmation and restores amounts, currency 
   fireEvent.change(screen.getByRole("spinbutton", { name: "Valor de cada compra (R$)" }), {
     target: { value: "14" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Fechar modal" }));
   expect(close).toHaveBeenCalledWith(false);
   expect(confirm).not.toHaveBeenCalled();
   view.unmount();
@@ -248,7 +248,7 @@ it("keeps the close action available when storage is denied", async () => {
   const close = vi.fn();
   show(undefined, false, undefined, { onClose: close });
   await screen.findByText(/navegador não permitiu/);
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Fechar modal" }));
   expect(close).toHaveBeenCalledWith(false);
 });
 
@@ -298,8 +298,8 @@ it("lets X close during an explicitly requested save without starting the bot", 
   fireEvent.click(screen.getByRole("button", { name: "Manter stop atual (8%)" }));
   fireEvent.click(screen.getByRole("button", { name: "Confirmar escolha e salvar regras" }));
   await screen.findByRole("button", { name: "Salvando…" });
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Fechar modal" }));
+  fireEvent.click(screen.getByRole("button", { name: "Fechar modal" }));
   expect(close).toHaveBeenCalledWith(false);
   expect(mocks.start).not.toHaveBeenCalled();
   finish({ id: "bot", version: 3 });
