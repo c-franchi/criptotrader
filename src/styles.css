@@ -665,6 +665,7 @@
     max-width: none;
     max-height: calc(92dvh - env(safe-area-inset-bottom));
     transform: none;
+    translate: none;
     border-radius: 1.35rem 1.35rem 1.05rem 1.05rem;
     padding: 1rem;
   }
@@ -706,6 +707,7 @@
     bottom: calc(0.4rem + env(safe-area-inset-bottom));
     left: 0.4rem;
     transform: none;
+    translate: none;
     width: calc(100vw - 0.8rem);
     max-width: none;
     max-height: calc(92dvh - env(safe-area-inset-bottom));
