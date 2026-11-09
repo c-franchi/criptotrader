@@ -47,6 +47,7 @@ import { formatEther, formatUnits } from "viem";
 import { HelpTip } from "@/components/HelpTip";
 import { RobotVision } from "@/components/RobotVision";
 import { FundBotDialog } from "@/components/FundBotDialog";
+import { BotTokenIntake } from "@/components/BotTokenIntake";
 import { requiredBotBnb } from "@/lib/botFunding";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { Button } from "@/components/ui/button";
@@ -174,6 +175,7 @@ function Robo() {
     );
   };
   const [w, setW] = useState<Wallet | null>(null);
+  const [walletLoadedScope, setWalletLoadedScope] = useState<string | null>(null);
   const [bot, setBot] = useState<Bot | null>(null);
   const [mode, setMode] = useState<Mode>("estrategia");
   const [cfg, setCfg] = useState<StrategyConfig | null | undefined>(undefined);
@@ -304,10 +306,16 @@ function Robo() {
           }),
         getW({ data: { walletScope } })
           .then((value) => {
-            if (selectionRef.current === key) setW(value);
+            if (selectionRef.current === key) {
+              setW(value);
+              setWalletLoadedScope(walletScope);
+            }
           })
           .catch(() => {
-            if (selectionRef.current === key) setW({ address: null, bnb: null, tokens: [] });
+            if (selectionRef.current === key) {
+              setW({ address: null, bnb: null, tokens: [] });
+              setWalletLoadedScope(walletScope);
+            }
           }),
       ]);
       const { data: list } = await supabase
@@ -652,6 +660,26 @@ function Robo() {
             <AddTokenDialog />
           </div>
         </div>
+
+        {walletLoadedScope === walletScope && w?.address && (
+          <BotTokenIntake
+            key={selectionKey}
+            userId={user?.id ?? ""}
+            walletScope={walletScope}
+            walletName={walletName}
+            walletAddress={w.address}
+            bnb={w.bnb}
+            holdings={w.tokens}
+            token={token}
+            symbol={sym}
+            botArmed={armed}
+            botPositionTokens={st.costBnb > 0 ? Math.max(st.tokens, 1) : st.tokens}
+            onSelectToken={(address) => chooseToken(address)}
+            onRefresh={() => {
+              void load();
+            }}
+          />
+        )}
 
         {target.problema && (
           <section
