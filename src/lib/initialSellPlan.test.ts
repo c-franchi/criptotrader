@@ -43,9 +43,20 @@ describe("sale-first PREVIEW only", () => {
   it("refuses stale balances and other token or wallet addresses", () => {
     expect(validSellDraftForWallet(base, WALLET, TOKEN, base.balanceSnapshot)).toBe(true);
     expect(validSellDraftForWallet(base, WALLET, TOKEN, "123456.12")).toBe(false);
-    expect(validSellDraftForWallet(base, "0x" + "c".repeat(40), TOKEN, base.balanceSnapshot)).toBe(false);
-    expect(validSellDraftForWallet(base, WALLET, "0x" + "c".repeat(40), base.balanceSnapshot)).toBe(false);
-    expect(validSellDraftForWallet({ ...base, mode: "execute_now" }, WALLET, TOKEN, base.balanceSnapshot)).toBe(false);
+    expect(validSellDraftForWallet(base, "0x" + "c".repeat(40), TOKEN, base.balanceSnapshot)).toBe(
+      false,
+    );
+    expect(validSellDraftForWallet(base, WALLET, "0x" + "c".repeat(40), base.balanceSnapshot)).toBe(
+      false,
+    );
+    expect(
+      validSellDraftForWallet(
+        { ...base, mode: "execute_now" },
+        WALLET,
+        TOKEN,
+        base.balanceSnapshot,
+      ),
+    ).toBe(false);
   });
 
   it("requires positive price and planned quantity but offers no executable order", () => {
