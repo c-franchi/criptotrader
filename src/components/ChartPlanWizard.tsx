@@ -8,6 +8,8 @@ import {
   AlertDialogCancel,
 } from "./ui/alert-dialog";
 import { useEffect, useRef, useState } from "react";
+import { useWizardStepScroll } from "@/hooks/useWizardStepScroll";
+import { ReplaceChartPlanDialog } from "./ReplaceChartPlanDialog";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import Decimal from "decimal.js";
@@ -36,7 +38,7 @@ import {
   chartPlanInputSchema,
 } from "@/lib/chartPlan";
 import { formatFiat } from "@/lib/fiat";
-import { formatPrice, formatDistancePct } from "@/lib/display";
+import { formatPrice, formatDistancePct, formatQuote } from "@/lib/display";
 import { userMessage, formIssueMessage } from "@/lib/userMessage";
 import type { StrategyConfig } from "@/lib/strategy";
 import { CandleChart, type ChartLevel } from "./CandleChart";
@@ -116,6 +118,8 @@ export function ChartPlanWizard({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [draftNotice, setDraftNotice] = useState("");
+  const [replaceOpen, setReplaceOpen] = useState(false);
+  const wizardRoot = useWizardStepScroll(step, saved);
   const [editingGas, setEditingGas] = useState(false);
   const [gasNotice, setGasNotice] = useState("");
   const [startAck, setStartAck] = useState(false),
@@ -167,6 +171,9 @@ export function ChartPlanWizard({
   const cfg = settings.data?.strategy?.config as Partial<StrategyConfig> | undefined;
   const state = settings.data?.bot?.strat_state as
     { tokens?: number; costBnb?: number } | null | undefined;
+  const retained = (
+    settings.data?.bot?.strat_state as { retainedPosition?: { count?: number } } | null
+  )?.retainedPosition;
   const botArmed = !!settings.data?.bot?.armed;
   const hasOpenPosition = Number(state?.tokens ?? 0) > 0 || Number(state?.costBnb ?? 0) > 0;
   const locked = botArmed || hasOpenPosition;
@@ -251,8 +258,14 @@ export function ChartPlanWizard({
         : Number(n) !== 0 && Math.abs(Number(n) * rate) < 0.01
           ? `${currency === "BRL" ? "R$" : currency === "EUR" ? "€" : "US$"} ${formatPrice(Number(n) * rate)}`
           : formatFiat(Number(n) * rate, currency);
-  const priceText = (n: number) =>
-    n > 0 ? `${money(n)} por ${symbol}` : "Toque no gráfico para marcar";
+  const priceText = (n: number) => {
+    if (!(n > 0)) return "Toque no gráfico para marcar";
+    if (rate == null) return "Cotação indisponível";
+    const quote = formatQuote(n * rate);
+    return currency === "BNB"
+      ? `${quote} BNB`
+      : `${currency === "BRL" ? "R$" : currency === "EUR" ? "€" : "US$"} ${quote}`;
+  };
   const capitalFresh =
     !!capital.data && !capital.isError && now - Date.parse(capital.data.at) < 30000;
   const available = capitalFresh ? capital.data!.free : null;
@@ -491,16 +504,9 @@ export function ChartPlanWizard({
   });
   // Saving a PAUSED strategy only stores fixed BNB levels. A live quote is
   // required to choose/drag points, not to persist reviewed, fixed prices.
-  // The server re-reads available capital and the atomic RPC rejects replacing
-  // an armed bot, an open position or an out-of-date strategy version.
+  // Replacement requires its own confirmation and an atomic, version-fenced RPC.
+  // Pending network submissions remain authoritative blockers in the database.
   const saveBlockers: string[] = [];
-  if (locked) {
-    saveBlockers.push(
-      hasOpenPosition
-        ? "Este token tem uma posição aberta. Não é seguro substituir suas regras enquanto houver ativos ou custo de compra vinculados. Pausar o robô não encerra a posição."
-        : "Este robô está ligado. Pause-o antes de substituir a estratégia; a pausa não vende tokens.",
-    );
-  }
   if (settings.isError || !settings.data)
     saveBlockers.push("As configurações não estão disponíveis. Atualize os dados do robô.");
   if (!ack) saveBlockers.push("Marque a confirmação de revisão acima.");
@@ -604,6 +610,52 @@ export function ChartPlanWizard({
       setAck(false);
     }
   };
+  const persist = async (replace: boolean) => {
+    if (!canSavePaused || !validInput.success || !settings.data) return;
+    const previous = settings.data.bot;
+    if (replace && (!previous?.id || !previous.updated_at)) {
+      setError("Atualize o estado da atividade anterior antes de confirmar a substituição.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await saveChartPlan({
+        data: {
+          walletScope,
+          token,
+          settings: validInput.data,
+          version: settings.data.strategy?.version ?? 0,
+          draftRevision: settings.data.draft?.revision ?? 0,
+          ...(replace && previous
+            ? {
+                replacement: {
+                  confirmation: "SUBSTITUIR ATIVIDADE" as const,
+                  botId: previous.id,
+                  updatedAt: previous.updated_at!,
+                  state: previous.strat_state as Record<string, unknown> | null,
+                },
+              }
+            : {}),
+        },
+      });
+      if (!mounted.current) return;
+      setReplaceOpen(false);
+      setSaved(true);
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        /* Optional storage. */
+      }
+      await settings.refetch();
+      await capital.refetch();
+      await onSaved?.();
+    } catch (e) {
+      if (mounted.current) setError(userMessage(e));
+    } finally {
+      if (mounted.current) setBusy(false);
+    }
+  };
   const requestPoint = (kind: "entry" | "exit" | "stop", index: number, priceUsd: number) => {
     if (!fresh || bnbUsd == null || !(priceUsd > 0)) return;
     const native = priceUsd / bnbUsd;
@@ -654,14 +706,36 @@ export function ChartPlanWizard({
         }
       />
       <p className="text-xs text-muted-foreground">
-        O gráfico mantém os preços em US$. Os campos usam {currency}. Ao tocar ou ajustar um ponto,
-        confirme o preço na janela. Arrastar o fundo move o histórico. As ordens serão avaliadas no
-        futuro, com preços fixados em BNB internamente.
+        O gráfico está em dólares. Os campos usam{" "}
+        {currency === "BRL"
+          ? "reais"
+          : currency === "EUR"
+            ? "euros"
+            : currency === "USD"
+              ? "dólares"
+              : "BNB"}
+        . Ao escolher um ponto, confirme a cotação de {symbol}. O valor investido aparece separado
+        do preço da moeda.
       </p>
     </>
   );
   return (
-    <div className="space-y-4">
+    <div
+      ref={wizardRoot}
+      tabIndex={-1}
+      role="region"
+      aria-label={`Configuração da atividade, etapa ${step + 1} de 4`}
+      className="space-y-4 outline-none"
+    >
+      <ReplaceChartPlanDialog
+        open={replaceOpen}
+        onOpenChange={setReplaceOpen}
+        walletName={walletName}
+        symbol={symbol}
+        busy={busy}
+        error={error}
+        onConfirm={() => void persist(true)}
+      />
       <AlertDialog
         open={!!candidate}
         onOpenChange={(v) => {
@@ -684,9 +758,21 @@ export function ChartPlanWizard({
               atividade nem envia uma ordem.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <p className="break-words rounded-xl bg-primary/10 p-4 text-xl font-bold">
-            {candidate?.label}
-          </p>
+          <div className="space-y-1 rounded-xl bg-primary/10 p-4">
+            <p className="text-sm text-muted-foreground">
+              Preço{" "}
+              {candidate?.kind === "entry"
+                ? "de compra"
+                : candidate?.kind === "exit"
+                  ? "de venda"
+                  : "de proteção"}{" "}
+              do {symbol}
+            </p>
+            <p className="break-words text-2xl font-bold">{candidate?.label}</p>
+            <p className="text-xs text-muted-foreground">
+              Esta é a cotação da moeda, não o total investido.
+            </p>
+          </div>
           {!fresh && (
             <p role="alert">A cotação ficou antiga. Cancele e atualize antes de confirmar.</p>
           )}
@@ -754,10 +840,18 @@ export function ChartPlanWizard({
           Conversão indisponível nesta moeda. Atualize ou selecione US$ ou BNB.
         </p>
       )}
+      {!!retained?.count && (
+        <p role="status" className="rounded-xl border border-border p-3 text-sm">
+          Há registro de tokens preservados de atividades anteriores. Eles continuam fora desta
+          atividade; confira o saldo atual em Ativos e saldo. As regras deste plano gerenciam
+          somente suas novas compras.
+        </p>
+      )}
       {locked && (
         <p role="status" className="rounded-xl bg-warning/10 p-3 text-sm text-warning">
-          Este token tem robô ligado ou posição aberta. Você pode estudar os pontos; substituir as
-          regras exige pausar e encerrar a posição.
+          Há uma atividade anterior registrada para este token, mesmo que você já tenha removido o
+          robô da lista. Você pode revisar este plano e confirmar a substituição ao salvar. Os
+          tokens anteriores continuam na carteira.
         </p>
       )}
       {settings.isError && (
@@ -1362,6 +1456,15 @@ export function ChartPlanWizard({
             Revisei carteira, valor, entradas, saídas, taxas e stop. Entendo que as projeções não
             garantem lucro e que executar leva tempo.
           </label>
+          {ack && locked && (
+            <p
+              role="status"
+              className="rounded-xl border border-primary/30 bg-primary/10 p-3 text-sm"
+            >
+              Ao salvar, você poderá substituir a atividade anterior. A nova atividade fica pausada
+              e os tokens anteriores ficam fora dela.
+            </p>
+          )}
           {ack && saveBlockers.length > 0 && (
             <div
               role="alert"
@@ -1406,6 +1509,17 @@ export function ChartPlanWizard({
               <Button
                 type="button"
                 variant="outline"
+                disabled={busy || settings.isFetching}
+                onClick={() => {
+                  void settings.refetch();
+                  void capital.refetch();
+                }}
+              >
+                Atualizar atividade anterior
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
                 disabled={!draftReady || !settings.data}
                 onClick={() => {
                   try {
@@ -1443,38 +1557,14 @@ export function ChartPlanWizard({
           )}
           <Button
             disabled={!canSavePaused}
-            onClick={async () => {
-              if (!canSavePaused || !validInput.success || !settings.data) return;
-              setBusy(true);
-              setError("");
-              try {
-                await saveChartPlan({
-                  data: {
-                    walletScope,
-                    token,
-                    settings: validInput.data,
-                    version: settings.data.strategy?.version ?? 0,
-                    draftRevision: settings.data.draft?.revision ?? 0,
-                  },
-                });
-                if (!mounted.current) return;
-                setSaved(true);
-                try {
-                  localStorage.removeItem(draftKey);
-                } catch {
-                  /* Optional storage. */
-                }
-                await settings.refetch();
-                await capital.refetch();
-                await onSaved?.();
-              } catch (e) {
-                if (mounted.current) setError(userMessage(e));
-              } finally {
-                if (mounted.current) setBusy(false);
-              }
+            onClick={() => {
+              if (locked) {
+                setError("");
+                setReplaceOpen(true);
+              } else void persist(false);
             }}
           >
-            Salvar atividade · manter pausado
+            {locked ? "Substituir pela nova atividade" : "Salvar atividade · manter pausado"}
           </Button>
         </section>
       )}
@@ -1483,12 +1573,20 @@ export function ChartPlanWizard({
           aria-label="Resultado e custos das saídas"
           className="space-y-3 rounded-xl border p-3 text-sm"
         >
-          <h3 className="font-semibold">Com todas as {entryCount} entradas</h3>
-          <p>
-            Preço médio das compras: <b>{priceText(projection.averageBnb)}</b>
+          <h3 className="font-semibold">
+            {entryCount === 1
+              ? "Resumo da entrada planejada"
+              : `Resumo das ${entryCount} entradas planejadas`}
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Os preços abaixo são cotações de {symbol}. O resultado estimado é o valor total após os
+            custos.
           </p>
           <p>
-            Equilíbrio estimado do conjunto: <b>{priceText(projection.breakEvenBnb)}</b>
+            Preço médio de compra: <b>{priceText(projection.averageBnb)}</b>
+          </p>
+          <p>
+            Preço estimado para cobrir os custos: <b>{priceText(projection.breakEvenBnb)}</b>
           </p>
           <p>
             Ganho bruto pelos preços escolhidos: <b>{money(projection.grossProfit)}</b>

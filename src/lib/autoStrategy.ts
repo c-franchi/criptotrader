@@ -31,6 +31,9 @@ export type BotState = {
   tokensRaw?: string;
   lastFillHash?: string;
   accountingEstimated?: boolean;
+  /** Historical snapshots only; these quantities are no longer managed by the active plan. */
+  retainedPosition?: { count: number; tokensAtReplacement: number; costBnbAtReplacement: number };
+  activityStartedAt?: string;
 };
 
 export const EMPTY_STATE: BotState = {

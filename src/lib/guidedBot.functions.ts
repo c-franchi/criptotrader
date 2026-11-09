@@ -36,7 +36,7 @@ export const getGuidedBotSettings = createServerFn({ method: "GET" })
         .maybeSingle(),
       admin
         .from("grid_bots")
-        .select("id,armed,strat_state,mode,lower_price,upper_price,levels")
+        .select("id,armed,strat_state,mode,lower_price,upper_price,levels,updated_at,archived_at")
         .eq("user_id", context.userId)
         .eq("wallet_scope", data.walletScope)
         .ilike("token", data.token)
@@ -146,7 +146,12 @@ export const getGuidedBotPerformance = createServerFn({ method: "GET" })
       .maybeSingle();
     if (error) throw new Error("Resultados indisponíveis.");
     if (!bot) return null;
-    const { data: journal, error: journalError } = await admin
+    const replacementState = bot.strat_state as {
+      activityStartedAt?: string;
+      retainedPosition?: { count?: number };
+    } | null;
+    const activityStartedAt = replacementState?.activityStartedAt;
+    let journalQuery = admin
       .from("execution_submissions")
       .select("tx_hash,receipt")
       .eq("user_id", context.userId)
@@ -154,6 +159,9 @@ export const getGuidedBotPerformance = createServerFn({ method: "GET" })
       .contains("intent", { botId: bot.id })
       .not("finished_at", "is", null)
       .limit(1001);
+    if (activityStartedAt && Number.isFinite(Date.parse(activityStartedAt)))
+      journalQuery = journalQuery.gte("created_at", activityStartedAt);
+    const { data: journal, error: journalError } = await journalQuery;
     if (journalError) throw new Error("Histórico de confirmação indisponível.");
     const hashes = (journal ?? []).map((r) => r.tx_hash);
     const verifiedSourceByHash: Record<string, string> = {};
@@ -212,6 +220,7 @@ export const getGuidedBotPerformance = createServerFn({ method: "GET" })
     const { closedBotCycles } = await import("./closedBotCycles");
     return {
       ...report,
+      retainedPositionCount: replacementState?.retainedPosition?.count ?? 0,
       cycles: closedBotCycles(auditedOrders, (journal?.length ?? 0) > 1000),
       total: state?.accountingEstimated && Number(state?.tokens ?? 0) > 0 ? null : report.total,
       openEstimated: true,
@@ -220,6 +229,9 @@ export const getGuidedBotPerformance = createServerFn({ method: "GET" })
       accountingTraceConfigured: !!process.env["BSC_TRACE_RPC_URL"],
       verifiedSourceByHash,
       scope:
+        (activityStartedAt
+          ? "Somente a atividade atual, após a última substituição. Tokens anteriores preservados ficam fora deste resultado. "
+          : "") +
         "Somente operações atribuídas a este robô por transações registradas; registros legados sem vínculo não entram no resultado.",
     };
   });

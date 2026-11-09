@@ -217,7 +217,7 @@ it("disables point selection when the native quote is stale", async () => {
   expect(screen.getByRole("button", { name: "Ponto de entrada no gráfico" })).toBeDisabled();
   expect(screen.getByText(/Aguardando cotação atual/)).toBeTruthy();
 });
-it("keeps open positions locked and closes the scoped tool when changing wallets", async () => {
+it("explains the replacement option and closes the scoped tool when changing wallets", async () => {
   io.settings.mockResolvedValue({
     strategy: { version: 2, config: EMPTY_CONFIG },
     bot: { armed: false, strat_state: { tokens: 10, costBnb: 0.01 } },
@@ -232,7 +232,7 @@ it("keeps open positions locked and closes the scoped tool when changing wallets
   );
   const { rerender } = render(view());
   fireEvent.click(screen.getByRole("button", { name: "Criar regra pelo gráfico" }));
-  await screen.findByText(/Este token tem robô ligado ou posição aberta/);
+  await screen.findByText(/Há uma atividade anterior registrada/);
   io.selection = { ...io.selection, walletScope: "scope-b", name: "Carteira B" };
   rerender(view());
   expect(screen.queryByRole("dialog")).toBeNull();
@@ -383,11 +383,16 @@ it("requires a clear confirmation after selecting or dragging a chart point and 
   expect(io.start).not.toHaveBeenCalled();
 });
 
-it("explains open-position blockers beside Save and protects active bot strategies", async () => {
+it("requires an explicit replacement confirmation for old positions and never starts on save", async () => {
   io.settings.mockResolvedValue({
     strategy: { version: 2, config: { ...EMPTY_CONFIG, sizingMode: "fixo" } },
     draft: null,
-    bot: { armed: false, strat_state: { tokens: 2, costBnb: 0.01 } },
+    bot: {
+      id: "33333333-3333-4333-8333-333333333333",
+      updated_at: "2026-11-09T10:00:00Z",
+      armed: false,
+      strat_state: { tokens: 2, costBnb: 0.01 },
+    },
   });
   show();
   await enter();
@@ -397,11 +402,29 @@ it("explains open-position blockers beside Save and protects active bot strategi
   fireEvent.click(screen.getByRole("radio", { name: /Manter os tokens/ }));
   fireEvent.click(screen.getByRole("button", { name: "Revisar atividade" }));
   fireEvent.click(screen.getByRole("checkbox", { name: /Revisei carteira, valor/ }));
-  expect(screen.getByRole("button", { name: /Salvar atividade/ })).toBeDisabled();
-  expect(screen.getByRole("alert")).toHaveTextContent(/posição aberta/);
+  expect(screen.getByRole("button", { name: "Substituir pela nova atividade" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "Substituir pela nova atividade" }));
+  const confirm = screen.getByRole("button", { name: "Confirmar substituição e salvar pausado" });
+  expect(confirm).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Manter atividade anterior" }));
+  expect(io.save).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: /Guardar rascunho local/ }));
   expect(screen.getByText(/Rascunho guardado neste aparelho/)).toBeTruthy();
-  expect(io.save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Substituir pela nova atividade" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /Entendo que os tokens anteriores/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar substituição e salvar pausado" }));
+  await waitFor(() =>
+    expect(io.save).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        replacement: {
+          confirmation: "SUBSTITUIR ATIVIDADE",
+          botId: "33333333-3333-4333-8333-333333333333",
+          updatedAt: "2026-11-09T10:00:00Z",
+          state: { tokens: 2, costBnb: 0.01 },
+        },
+      }),
+    }),
+  );
   expect(io.start).not.toHaveBeenCalled();
 });
 
@@ -467,4 +490,13 @@ it("keeps the selected fraction when changing display currency", async () => {
   expect(screen.getByText("50% selecionado")).toBeVisible();
   expect(screen.getByRole("spinbutton", { name: "Valor para a atividade" })).toHaveValue(1500);
   expect(screen.getByRole("button", { name: "50%" })).toHaveAttribute("aria-pressed", "true");
+});
+
+it("labels the chosen quote clearly without presenting it as an invested total", async () => {
+  show();
+  await enter();
+  fireEvent.click(screen.getByRole("button", { name: "Ponto de entrada no gráfico" }));
+  expect(screen.getByText("Preço de compra do TEST")).toBeVisible();
+  expect(screen.getByText("Esta é a cotação da moeda, não o total investido.")).toBeVisible();
+  expect(screen.queryByText(/por TEST/)).toBeNull();
 });

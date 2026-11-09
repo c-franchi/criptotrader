@@ -99,6 +99,14 @@ export const saveChartPlan = createServerFn({ method: "POST" })
         settings: chartPlanInputSchema,
         version: z.number().int().nonnegative(),
         draftRevision: z.number().int().nonnegative(),
+        replacement: z
+          .object({
+            confirmation: z.literal("SUBSTITUIR ATIVIDADE"),
+            botId: z.string().uuid(),
+            updatedAt: z.string().datetime({ offset: true }),
+            state: z.record(z.unknown()).nullable(),
+          })
+          .optional(),
       })
       .parse(raw),
   )
@@ -171,7 +179,7 @@ export const saveChartPlan = createServerFn({ method: "POST" })
     const { strategySchema } = await import("./strategyValidation");
     strategySchema.parse(config);
     const { data: id, error } = await admin.rpc(
-      "configure_guided_bot" as never,
+      (data.replacement ? "replace_chart_plan" : "configure_guided_bot") as never,
       {
         p_user: context.userId,
         p_scope: data.walletScope,
@@ -180,8 +188,31 @@ export const saveChartPlan = createServerFn({ method: "POST" })
         p_version: data.version,
         p_draft_revision: data.draftRevision,
         p_grid: { lower: 0, upper: 0, levels: 10 },
+        ...(data.replacement
+          ? {
+              p_bot: data.replacement.botId,
+              p_updated_at: data.replacement.updatedAt,
+              p_confirmation: data.replacement.confirmation,
+              p_state: data.replacement.state,
+            }
+          : {}),
       } as never,
     );
+    if (error && data.replacement) {
+      if (error.code === "PGRST202")
+        throw new Error(
+          "A substituição está temporariamente indisponível. A atividade anterior e seu rascunho foram preservados.",
+        );
+      const known =
+        /Operação pendente|estado mudou|não encontrada|configuração mudou|rascunho mudou/i.test(
+          error.message,
+        );
+      throw new Error(
+        known
+          ? error.message
+          : "Não foi possível substituir a atividade. Atualize o estado e tente novamente. A posição e o histórico anteriores foram preservados.",
+      );
+    }
     if (error)
       throw new Error(
         "Não foi possível salvar a atividade. Pause o robô e confira posições, operações pendentes e alterações feitas em outra janela. O rascunho foi mantido.",

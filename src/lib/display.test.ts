@@ -6,3 +6,9 @@ it("never rounds an unmet positive trigger distance to zero", () => {
   expect(formatDistancePct(0)).toBe("0%");
   expect(formatUsd(81649.14)).toBe("US$ 81.649,14");
 });
+
+it("keeps ten significant digits for tiny quotes instead of rounding them to cents", async () => {
+  const { formatQuote } = await import("./display");
+  expect(formatQuote(0.000144250123456)).toBe("0,0001442501235");
+  expect(formatQuote(NaN)).toBe("—");
+});

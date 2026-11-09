@@ -220,3 +220,72 @@ it("does not revise a stale or foreign chart gas ceiling and never retries an oc
   ).rejects.toThrow("Carteira inválida");
   expect(io.rpc).not.toHaveBeenCalled();
 });
+
+it("uses only the explicit, fenced replacement RPC and never falls back when it refuses", async () => {
+  const replacement = {
+    confirmation: "SUBSTITUIR ATIVIDADE" as const,
+    botId: "33333333-3333-4333-8333-333333333333",
+    updatedAt: "2026-11-09T10:00:00Z",
+    state: null,
+  };
+  await saveChartPlan({ data: { ...data, replacement } });
+  expect(io.rpc).toHaveBeenCalledWith(
+    "replace_chart_plan",
+    expect.objectContaining({
+      p_user: "owner",
+      p_scope: scope,
+      p_bot: replacement.botId,
+      p_updated_at: replacement.updatedAt,
+      p_confirmation: replacement.confirmation,
+      p_state: null,
+      p_version: 7,
+      p_draft_revision: 2,
+    }),
+  );
+  io.rpc.mockClear();
+  io.rpc.mockResolvedValue({
+    data: null,
+    error: { message: "Operação pendente: aguarde a confirmação antes de substituir" },
+  });
+  await expect(saveChartPlan({ data: { ...data, replacement } })).rejects.toThrow(
+    "Operação pendente",
+  );
+  expect(io.rpc).toHaveBeenCalledTimes(1);
+});
+it("preserves the previous activity if the replacement function is not installed", async () => {
+  io.rpc.mockResolvedValue({
+    data: null,
+    error: { code: "PGRST202", message: "function missing" },
+  });
+  await expect(
+    saveChartPlan({
+      data: {
+        ...data,
+        replacement: {
+          confirmation: "SUBSTITUIR ATIVIDADE",
+          botId: "33333333-3333-4333-8333-333333333333",
+          updatedAt: "2026-11-09T10:00:00Z",
+          state: null,
+        },
+      },
+    }),
+  ).rejects.toThrow("atividade anterior e seu rascunho foram preservados");
+  expect(io.rpc).toHaveBeenCalledTimes(1);
+});
+it("rejects an unconfirmed replacement before any API access", async () => {
+  await expect(async () =>
+    saveChartPlan({
+      data: {
+        ...data,
+        replacement: {
+          confirmation: "",
+          botId: "33333333-3333-4333-8333-333333333333",
+          updatedAt: "2026-11-09T10:00:00Z",
+          state: null,
+        },
+      },
+    } as never),
+  ).rejects.toThrow();
+  expect(io.from).not.toHaveBeenCalled();
+  expect(io.rpc).not.toHaveBeenCalled();
+});

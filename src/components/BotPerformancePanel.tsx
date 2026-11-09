@@ -69,6 +69,13 @@ export function BotPerformancePanel({
         </p>
       ) : (
         <div className="space-y-4">
+          {!!q.data.retainedPositionCount && (
+            <p role="status" className="rounded-xl border border-border p-3 text-sm">
+              Tokens de atividades anteriores foram preservados na carteira, fora desta atividade.
+              Este resultado considera somente o plano atual. Consulte o saldo e o histórico para
+              acompanhar os ativos anteriores.
+            </p>
+          )}
           <section
             aria-label="Resultado financeiro da última operação encerrada"
             className="space-y-3 rounded-2xl border border-border bg-secondary/30 p-3 sm:p-4"

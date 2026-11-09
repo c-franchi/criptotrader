@@ -1,5 +1,7 @@
 import { useState } from "react";
 import Decimal from "decimal.js";
+import { useWizardStepScroll } from "../../src/hooks/useWizardStepScroll";
+import { ReplaceChartPlanDialog } from "../../src/components/ReplaceChartPlanDialog";
 import { BudgetPercentageSelector } from "../../src/components/BudgetPercentageSelector";
 import { createRoot } from "react-dom/client";
 import { Bot, Coins, Settings2, Wallet } from "lucide-react";
@@ -14,6 +16,8 @@ const tools = [
   "Estado e controles",
   "Outras ferramentas",
   "Escolher porcentagem",
+  "Etapas da atividade",
+  "Substituir atividade",
 ];
 const wallets = [
   {
@@ -30,6 +34,41 @@ const wallets = [
   },
 ];
 
+export function WizardStepPreview() {
+  const [step, setStep] = useState(1);
+  const root = useWizardStepScroll(step, false);
+  return (
+    <div ref={root} tabIndex={-1} className="outline-none">
+      <h2 className="text-lg font-bold">{step === 1 ? "Marcar entrada" : "Marcar saída"}</h2>
+      <div style={{ minHeight: 1000 }}>
+        <p>Conteúdo extenso de teste para rolagem entre etapas.</p>
+      </div>
+      <Button onClick={() => setStep(step === 1 ? 2 : 1)}>Avançar etapa</Button>
+    </div>
+  );
+}
+export function ReplacementPreview() {
+  const [open, setOpen] = useState(false);
+  const [saved, setSaved] = useState(false);
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>Revisar substituição</Button>
+      {saved && <p role="status">Nova atividade salva pausada · teste</p>}
+      <ReplaceChartPlanDialog
+        open={open}
+        onOpenChange={setOpen}
+        walletName="Carteira fictícia"
+        symbol="GTE"
+        busy={false}
+        error=""
+        onConfirm={() => {
+          setSaved(true);
+          setOpen(false);
+        }}
+      />
+    </>
+  );
+}
 export function Preview() {
   const [tool, setTool] = useState<string | null>(null);
   const [wallet, setWallet] = useState("a");
@@ -76,7 +115,11 @@ export function Preview() {
           icon={Coins}
           description="Teste dos componentes reais usados no aplicativo."
         >
-          {tool === "Escolher porcentagem" ? (
+          {tool === "Etapas da atividade" ? (
+            <WizardStepPreview />
+          ) : tool === "Substituir atividade" ? (
+            <ReplacementPreview />
+          ) : tool === "Escolher porcentagem" ? (
             <>
               <label htmlFor="preview-budget">Valor para a atividade</label>
               <input

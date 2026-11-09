@@ -150,3 +150,30 @@ for (const theme of ["dark", "light"]) {
     await expect(dialog.getByRole("button", { pressed: true })).toHaveCount(0);
   });
 }
+
+test("nova etapa começa no topo do modal depois de avançar pelo rodapé", async ({ page }) => {
+  await page.getByRole("button", { name: "Etapas da atividade", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Etapas da atividade", exact: true });
+  const body = dialog.locator("[data-ux-dialog-body]");
+  await dialog.getByRole("button", { name: "Avançar etapa" }).click();
+  await expect(dialog.getByRole("heading", { name: "Marcar saída" })).toBeVisible();
+  await expect.poll(() => body.evaluate((node) => node.scrollTop)).toBe(0);
+  await inViewport(page, dialog.getByRole("heading", { name: "Marcar saída" }));
+});
+test("substituição exige aceite e permite cancelar sem salvar", async ({ page }, testInfo) => {
+  await page.getByRole("button", { name: "Substituir atividade", exact: true }).click();
+  const trigger = page.getByRole("button", { name: "Revisar substituição", exact: true });
+  await trigger.click();
+  const dialog = page.getByRole("alertdialog", { name: "Substituir pela nova atividade?" });
+  await inViewport(page, dialog);
+  const confirm = dialog.getByRole("button", { name: "Confirmar substituição e salvar pausado" });
+  await expect(confirm).toBeDisabled();
+  await dialog.getByRole("button", { name: "Manter atividade anterior" }).click();
+  await expect(page.getByText("Nova atividade salva pausada · teste")).toHaveCount(0);
+  await trigger.click();
+  await dialog.getByRole("checkbox", { name: /Entendo que os tokens anteriores/ }).check();
+  await expect(confirm).toBeEnabled();
+  await page.screenshot({ path: testInfo.outputPath("substituicao.png"), animations: "disabled" });
+  await confirm.click();
+  await expect(page.getByText("Nova atividade salva pausada · teste")).toBeVisible();
+});
