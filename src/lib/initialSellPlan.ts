@@ -14,16 +14,13 @@ export const initialSellDraftSchema = z.object({
     .string()
     .regex(/^(?:0|[1-9]\d*)(?:\.\d{1,18})?$/, "Informe o preço em BNB por token.")
     .refine((p) => new Decimal(p).greaterThan(0), "O preço precisa ser maior que zero."),
-  balanceSnapshot: z.string().refine(
-    (p) => {
-      try {
-        return new Decimal(p).isFinite() && new Decimal(p).greaterThan(0);
-      } catch {
-        return false;
-      }
-    },
-    "Confirme que há tokens efetivamente na carteira.",
-  ),
+  balanceSnapshot: z.string().refine((p) => {
+    try {
+      return new Decimal(p).isFinite() && new Decimal(p).greaterThan(0);
+    } catch {
+      return false;
+    }
+  }, "Confirme que há tokens efetivamente na carteira."),
   walletAddress: z.string().regex(/^0x[0-9a-f]{40}$/i),
   tokenAddress: z.string().regex(/^0x[0-9a-f]{40}$/i),
   createdAt: z.string().datetime(),
@@ -32,7 +29,12 @@ export const initialSellDraftSchema = z.object({
 export type InitialSellDraft = z.infer<typeof initialSellDraftSchema>;
 
 /** Strict separation across user, bot wallet and token; never a global trading setting. */
-export function initialSellDraftKey(userId: string, walletScope: string, walletAddress: string, token: string) {
+export function initialSellDraftKey(
+  userId: string,
+  walletScope: string,
+  walletAddress: string,
+  token: string,
+) {
   return [
     "cryptobot:initial-sell-preview:v1",
     userId,
