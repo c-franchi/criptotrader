@@ -66,9 +66,7 @@ describe("sale-first PREVIEW only", () => {
       expect(() => initialSellDraftSchema.safeParse(data)).not.toThrow();
       expect(initialSellDraftSchema.safeParse(data).success).toBe(false);
     }
-    expect(initialSellDraftSchema.safeParse({ ...base, minPriceBnb: "" }).success).toBe(
-      false,
-    );
+    expect(initialSellDraftSchema.safeParse({ ...base, minPriceBnb: "" }).success).toBe(false);
   });
 
   it("requires positive price and planned quantity but offers no executable order", () => {
