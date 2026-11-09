@@ -675,7 +675,9 @@ function Robo() {
             botArmed={armed}
             botPositionTokens={st.tokens}
             onSelectToken={(address) => chooseToken(address)}
-            onRefresh={() => { void load(); }}
+            onRefresh={() => {
+              void load();
+            }}
           />
         )}
 
