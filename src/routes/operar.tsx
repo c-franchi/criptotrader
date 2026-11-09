@@ -1225,7 +1225,12 @@ function Operar() {
           onClick={() => setMarketTab("assets")}
         />
       </div>
-      <UxDetailDialog open={marketTab === "assets"} onOpenChange={(open) => setMarketTab(open ? "assets" : null)} title={`Ativos e resultado · ${sym}`} icon={ChartNoAxesCombined}>
+      <UxDetailDialog
+        open={marketTab === "assets"}
+        onOpenChange={(open) => setMarketTab(open ? "assets" : null)}
+        title={`Ativos e resultado · ${sym}`}
+        icon={ChartNoAxesCombined}
+      >
         <section role="tabpanel" aria-label="Ativos e resultado">
           <Panel title={`Seus resultados com ${sym}`}>
             {pnl.buys + pnl.sells === 0 ? (
