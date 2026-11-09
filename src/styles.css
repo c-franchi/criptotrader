@@ -312,10 +312,11 @@
   color: var(--foreground);
 }
 .exchange-workspace [data-panel] {
-  border-radius: 0;
-  border-width: 0 0 1px;
-  box-shadow: none;
-  padding: 1.25rem 0;
+  border-radius: 1.1rem;
+  border: 1px solid var(--border);
+  background: linear-gradient(145deg, var(--card), var(--background));
+  box-shadow: 0 14px 28px -26px oklch(0 0 0 / 0.7);
+  padding: clamp(0.9rem, 2.5vw, 1.3rem);
 }
 .exchange-workspace [data-panel] h2 {
   font-size: 1rem;
@@ -543,4 +544,149 @@
 @media (prefers-reduced-motion: reduce) {
   .startup-splash { transition: none; }
   .startup-splash__candles { display: none; }
+}
+
+
+/* === CryptoBot approved UX: concise information on the screen, details in modals === */
+.exchange-shell {
+  background:
+    radial-gradient(ellipse 75% 20rem at 70% -8rem, oklch(0.36 0.1 262 / 0.14), transparent),
+    var(--background);
+}
+.exchange-workspace [data-panel] > :is(header, div):first-child h2 {
+  letter-spacing: -0.015em;
+}
+.exchange-workspace [data-panel] h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.exchange-workspace [data-ux-action],
+.ux-action-tile {
+  display: flex;
+  width: 100%;
+  min-height: 4.1rem;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.9rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: linear-gradient(140deg, var(--card), var(--secondary));
+  color: var(--foreground);
+  text-align: left;
+  font-size: 0.9rem;
+  box-shadow: 0 7px 20px -19px oklch(0 0 0 / 0.8);
+  transition: border-color 150ms, background-color 150ms, transform 150ms;
+}
+.ux-action-tile:hover {
+  border-color: var(--primary);
+}
+.ux-action-tile:active {
+  transform: scale(0.99);
+}
+.ux-action-tile:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ux-action-tile:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.ux-summary-card {
+  border: 1px solid var(--border);
+  background: linear-gradient(145deg, var(--card), var(--secondary));
+  border-radius: 1.15rem;
+  padding: 1rem;
+}
+.ux-summary-list > div {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  border-bottom: 1px solid var(--border);
+  padding: 0.55rem 0;
+}
+.ux-summary-list > div:last-child {
+  border-bottom: none;
+}
+.ux-summary-list > div > :last-child {
+  min-width: 0;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+[data-ux-detail-dialog] {
+  width: min(35rem, calc(100vw - 1rem));
+  border: 1px solid var(--border);
+  border-radius: 1.4rem;
+  background: var(--card);
+  color: var(--foreground);
+  padding: 1.2rem;
+  gap: 0.8rem;
+  box-shadow: 0 20px 70px -18px oklch(0 0 0 / 0.65);
+  overflow: hidden;
+}
+[data-ux-dialog-body] {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  max-height: min(65dvh, 44rem);
+  padding: 0.15rem 0.1rem 0.5rem;
+}
+[data-ux-dialog-body] [data-panel] {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+[data-ux-dialog-body] [data-panel] h2 {
+  display: none;
+}
+[data-ux-detail-dialog] :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  border-radius: 0.75rem;
+  min-height: 2.75rem;
+  font-size: 1rem;
+  background: var(--secondary);
+}
+.ux-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 639px) {
+  [data-ux-detail-dialog] {
+    position: fixed;
+    left: 0.4rem;
+    top: auto;
+    bottom: calc(0.5rem + env(safe-area-inset-bottom));
+    width: calc(100vw - 0.8rem);
+    max-width: none;
+    max-height: calc(92dvh - env(safe-area-inset-bottom));
+    transform: none;
+    border-radius: 1.35rem 1.35rem 1.05rem 1.05rem;
+    padding: 1rem;
+  }
+  [data-ux-detail-dialog]::before {
+    content: "";
+    width: 2.25rem;
+    height: 0.28rem;
+    border-radius: 999px;
+    background: var(--muted-foreground);
+    margin: -0.3rem auto 0.25rem;
+    opacity: 0.6;
+  }
+  [data-ux-dialog-body] {
+    max-height: 69dvh;
+  }
+  .exchange-workspace {
+    padding-bottom: 0.75rem;
+  }
+  .exchange-workspace [data-panel] {
+    margin-block: 0.4rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ux-action-tile { transition: none; }
 }
