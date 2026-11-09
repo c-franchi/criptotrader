@@ -36,7 +36,17 @@ import { recommendPreset } from "@/lib/recommend";
 import { useCandles } from "@/hooks/useCandles";
 import { TokenAlerts } from "@/components/TokenAlerts";
 import { HelpTip } from "@/components/HelpTip";
-import { Check, Coins, ArrowDownToLine, ArrowUpFromLine, Shield, Clock3, SlidersHorizontal, ClipboardCheck, BellRing } from "lucide-react";
+import {
+  Check,
+  Coins,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Shield,
+  Clock3,
+  SlidersHorizontal,
+  ClipboardCheck,
+  BellRing,
+} from "lucide-react";
 import { UxActionTile, UxDetailDialog } from "@/components/UxDetailDialog";
 import { cn } from "@/lib/utils";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
@@ -548,7 +558,18 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
     }
   };
   const [askTrade, setAskTrade] = useState(false);
-  const [detailOpen, setDetailOpen] = useState<"values" | "setup" | "entry" | "exit" | "protect" | "gas" | "timing" | "preview" | "alerts" | null>(null);
+  const [detailOpen, setDetailOpen] = useState<
+    | "values"
+    | "setup"
+    | "entry"
+    | "exit"
+    | "protect"
+    | "gas"
+    | "timing"
+    | "preview"
+    | "alerts"
+    | null
+  >(null);
   const navigate = useNavigate();
   const editorFooter = (
     <>
@@ -624,95 +645,167 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
         <div className="ux-summary-card">
           <h2 className="mb-2 text-base font-bold">Resumo do robô · {token.symbol}</h2>
           <div className="ux-summary-list text-sm">
-            <div><span className="text-muted-foreground">Valor por compra</span><strong>{c.buyAmount.toLocaleString("pt-BR", { maximumFractionDigits: 8 })} {c.sizingMode === "fixo" ? "BNB" : "%"}</strong></div>
-            <div><span className="text-muted-foreground">Máx. compras</span><strong>{c.maxEntries}</strong></div>
-            <div><span className="text-muted-foreground">Entrada</span><strong>{mode === "manual" ? "Personalizada" : chosen?.name ?? "Não definida"}</strong></div>
-            <div><span className="text-muted-foreground">Saída</span><strong>{c.takeProfits.length} meta(s)</strong></div>
-            <div><span className="text-muted-foreground">Stop loss</span><strong>{c.stopLossPct > 0 ? `${c.stopLossPct}%` : "Desativado"}</strong></div>
+            <div>
+              <span className="text-muted-foreground">Valor por compra</span>
+              <strong>
+                {c.buyAmount.toLocaleString("pt-BR", { maximumFractionDigits: 8 })}{" "}
+                {c.sizingMode === "fixo" ? "BNB" : "%"}
+              </strong>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Máx. compras</span>
+              <strong>{c.maxEntries}</strong>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Entrada</span>
+              <strong>
+                {mode === "manual" ? "Personalizada" : (chosen?.name ?? "Não definida")}
+              </strong>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Saída</span>
+              <strong>{c.takeProfits.length} meta(s)</strong>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Stop loss</span>
+              <strong>{c.stopLossPct > 0 ? `${c.stopLossPct}%` : "Desativado"}</strong>
+            </div>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Editar configuração do robô">
-          <UxActionTile label="Editar valores" icon={Coins} onClick={() => setDetailOpen("values")} />
-          <UxActionTile label="Editar entrada" icon={ArrowDownToLine} onClick={() => setDetailOpen(mode === "manual" ? "entry" : "setup")} />
-          <UxActionTile label="Editar saída" icon={ArrowUpFromLine} onClick={() => setDetailOpen(mode === "manual" ? "exit" : "setup")} />
-          <UxActionTile label="Editar proteções" icon={Shield} onClick={() => setDetailOpen("protect")} />
-          <UxActionTile label="Tempo e verificações" icon={Clock3} onClick={() => setDetailOpen("timing")} />
-          <UxActionTile label="Carteira e estratégia" icon={SlidersHorizontal} onClick={() => setDetailOpen("setup")} />
+        <div
+          className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+          aria-label="Editar configuração do robô"
+        >
+          <UxActionTile
+            label="Editar valores"
+            icon={Coins}
+            onClick={() => setDetailOpen("values")}
+          />
+          <UxActionTile
+            label="Editar entrada"
+            icon={ArrowDownToLine}
+            onClick={() => setDetailOpen(mode === "manual" ? "entry" : "setup")}
+          />
+          <UxActionTile
+            label="Editar saída"
+            icon={ArrowUpFromLine}
+            onClick={() => setDetailOpen(mode === "manual" ? "exit" : "setup")}
+          />
+          <UxActionTile
+            label="Editar proteções"
+            icon={Shield}
+            onClick={() => setDetailOpen("protect")}
+          />
+          <UxActionTile
+            label="Tempo e verificações"
+            icon={Clock3}
+            onClick={() => setDetailOpen("timing")}
+          />
+          <UxActionTile
+            label="Carteira e estratégia"
+            icon={SlidersHorizontal}
+            onClick={() => setDetailOpen("setup")}
+          />
           <UxActionTile label="Taxas de rede" icon={Coins} onClick={() => setDetailOpen("gas")} />
-          <UxActionTile label="Avisos do token" icon={BellRing} onClick={() => setDetailOpen("alerts")} />
-          <UxActionTile label="Resumo e salvar" icon={ClipboardCheck} onClick={() => setDetailOpen("preview")} />
+          <UxActionTile
+            label="Avisos do token"
+            icon={BellRing}
+            onClick={() => setDetailOpen("alerts")}
+          />
+          <UxActionTile
+            label="Resumo e salvar"
+            icon={ClipboardCheck}
+            onClick={() => setDetailOpen("preview")}
+          />
         </div>
-        <UxDetailDialog open={detailOpen === "timing"} onOpenChange={(open) => setDetailOpen(open ? "timing" : null)} title="Tempo e verificações" icon={Clock3}>
+        <UxDetailDialog
+          open={detailOpen === "timing"}
+          onOpenChange={(open) => setDetailOpen(open ? "timing" : null)}
+          title="Tempo e verificações"
+          icon={Clock3}
+        >
           <ExecutionTimingPanel
             key={`timing:${walletScope}:${token.address}`}
             walletScope={walletScope}
             token={token.address}
           />
         </UxDetailDialog>
-        <UxDetailDialog open={detailOpen === "values"} onOpenChange={(open) => setDetailOpen(open ? "values" : null)} title="Editar valores" icon={Coins} description="Quanto o robô pode usar em cada compra. Salvar a estratégia não inicia operações." footer={editorFooter}>
+        <UxDetailDialog
+          open={detailOpen === "values"}
+          onOpenChange={(open) => setDetailOpen(open ? "values" : null)}
+          title="Editar valores"
+          icon={Coins}
+          description="Quanto o robô pode usar em cada compra. Salvar a estratégia não inicia operações."
+          footer={editorFooter}
+        >
           <section id="strategy-values" className="scroll-mt-24">
-          <Panel title="Valores das operações do robô">
-            <p className="mb-3 text-sm text-muted-foreground">
-              Estes são os valores que serão salvos e usados pelo robô automático de {token.symbol}
-              na carteira selecionada. Você pode editar também nas estratégias prontas.
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-sm">
-                Como calcular cada compra
-                <select
-                  aria-label="Como calcular cada compra"
-                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-3"
-                  value={c.sizingMode}
-                  onChange={(e) => set("sizingMode", e.target.value as "fixo" | "percentual")}
+            <Panel title="Valores das operações do robô">
+              <p className="mb-3 text-sm text-muted-foreground">
+                Estes são os valores que serão salvos e usados pelo robô automático de{" "}
+                {token.symbol}
+                na carteira selecionada. Você pode editar também nas estratégias prontas.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-sm">
+                  Como calcular cada compra
+                  <select
+                    aria-label="Como calcular cada compra"
+                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-3"
+                    value={c.sizingMode}
+                    onChange={(e) => set("sizingMode", e.target.value as "fixo" | "percentual")}
+                  >
+                    <option value="fixo">Valor fixo em BNB</option>
+                    <option value="percentual">Percentual do saldo disponível</option>
+                  </select>
+                </label>
+                <Num
+                  id="strategy-buy-amount"
+                  label={
+                    c.sizingMode === "fixo"
+                      ? "Valor por compra (BNB)"
+                      : "Saldo disponível por compra (%)"
+                  }
+                  value={c.buyAmount}
+                  onChange={(n) => set("buyAmount", n)}
+                  hint={
+                    c.sizingMode === "fixo" && bnbBrl
+                      ? `Aproximadamente ${brl(c.buyAmount * bnbBrl)} por compra.`
+                      : c.sizingMode === "fixo"
+                        ? "Valor em BNB usado em cada compra. A taxa da rede fica fora deste valor."
+                        : "O percentual considera o saldo liberado para este robô, depois das reservas."
+                  }
+                />
+                <Num
+                  label="Máximo de compras por posição"
+                  value={c.maxEntries}
+                  onChange={(n) => set("maxEntries", n)}
+                  hint="Na recuperação real, uma posição admite somente uma entrada."
+                />
+                <Num
+                  label="Capital máximo deste robô (BNB)"
+                  value={c.allocationBnb ?? 0}
+                  onChange={(n) => set("allocationBnb", n)}
+                  hint="0 = sem teto individual. A carteira continua compartilhada e o saldo não pode ser usado duas vezes."
+                />
+                <Num
+                  label="Máximo aplicado na posição (BNB)"
+                  value={c.maxExposureQuote}
+                  onChange={(n) => set("maxExposureQuote", n)}
+                  hint="0 = sem teto adicional por posição. O saldo liberado e o limite do robô continuam valendo."
+                />
+              </div>
+              <p className="mt-3 text-sm">
+                Depois de definir os valores e as regras, toque em{" "}
+                <button
+                  type="button"
+                  className="font-semibold text-primary underline"
+                  onClick={() => setDetailOpen("preview")}
                 >
-                  <option value="fixo">Valor fixo em BNB</option>
-                  <option value="percentual">Percentual do saldo disponível</option>
-                </select>
-              </label>
-              <Num
-                id="strategy-buy-amount"
-                label={
-                  c.sizingMode === "fixo"
-                    ? "Valor por compra (BNB)"
-                    : "Saldo disponível por compra (%)"
-                }
-                value={c.buyAmount}
-                onChange={(n) => set("buyAmount", n)}
-                hint={
-                  c.sizingMode === "fixo" && bnbBrl
-                    ? `Aproximadamente ${brl(c.buyAmount * bnbBrl)} por compra.`
-                    : c.sizingMode === "fixo"
-                      ? "Valor em BNB usado em cada compra. A taxa da rede fica fora deste valor."
-                      : "O percentual considera o saldo liberado para este robô, depois das reservas."
-                }
-              />
-              <Num
-                label="Máximo de compras por posição"
-                value={c.maxEntries}
-                onChange={(n) => set("maxEntries", n)}
-                hint="Na recuperação real, uma posição admite somente uma entrada."
-              />
-              <Num
-                label="Capital máximo deste robô (BNB)"
-                value={c.allocationBnb ?? 0}
-                onChange={(n) => set("allocationBnb", n)}
-                hint="0 = sem teto individual. A carteira continua compartilhada e o saldo não pode ser usado duas vezes."
-              />
-              <Num
-                label="Máximo aplicado na posição (BNB)"
-                value={c.maxExposureQuote}
-                onChange={(n) => set("maxExposureQuote", n)}
-                hint="0 = sem teto adicional por posição. O saldo liberado e o limite do robô continuam valendo."
-              />
-            </div>
-            <p className="mt-3 text-sm">
-              Depois de definir os valores e as regras, toque em{" "}
-              <button type="button" className="font-semibold text-primary underline" onClick={() => setDetailOpen("preview")}>
-                Salvar estratégia
-              </button>{" "}
-              e abra o robô para iniciar.
-            </p>
-          </Panel>
+                  Salvar estratégia
+                </button>{" "}
+                e abra o robô para iniciar.
+              </p>
+            </Panel>
           </section>
         </UxDetailDialog>
         {botRunning && (
@@ -726,726 +819,771 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
             </p>
           </div>
         )}
-        <UxDetailDialog open={detailOpen === "setup"} onOpenChange={(open) => setDetailOpen(open ? "setup" : null)} title="Carteira e estratégia" icon={SlidersHorizontal} description="Confirme a carteira, o token, as taxas e o modelo antes de salvar." footer={editorFooter}>
-        <Panel title="Passo 1 · Carteira pessoal para operações manuais">
-          <p className="mb-2 text-xs text-muted-foreground">
-            Esta é a carteira usada ao operar manualmente. O robô automático usa uma carteira
-            própria da área selecionada acima; envie saldo para ela na tela Robô.
-          </p>
-          <SavedWalletPicker value={wallet} onPick={setWallet} />
-          <Input
-            className="mt-2"
-            placeholder="ou cole o endereço 0x…"
-            value={wallet}
-            onChange={(e) => setWallet(e.target.value.trim())}
-          />
-          {walletOk ? (
-            <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
-              <p className="text-xs text-muted-foreground">Saldo de BNB nesta carteira</p>
-              <p className="text-xl font-semibold">
-                {bnbBalance === null
-                  ? "carregando…"
-                  : `${Number(bnbBalance).toLocaleString("pt-BR", { maximumFractionDigits: 5 })} BNB`}
-              </p>
-              {bnbBalance !== null && bnbBrl && (
-                <p className="text-sm text-muted-foreground">
-                  ≈ {brl(Number(bnbBalance) * bnbBrl)}
-                </p>
-              )}
-              {bnbBalance !== null && Number(bnbBalance) < 0.002 && (
-                <p className="mt-1 text-xs text-destructive">
-                  Saldo baixo: deixe pelo menos ~0,002 BNB para pagar as taxas de rede (gás).
-                </p>
-              )}
-            </div>
-          ) : (
-            <p className="mt-2 text-xs text-muted-foreground">
-              {wallet ? "Endereço inválido." : "Nenhuma carteira escolhida ainda."} O endereço
-              sozinho não autoriza nenhuma movimentação.
+        <UxDetailDialog
+          open={detailOpen === "setup"}
+          onOpenChange={(open) => setDetailOpen(open ? "setup" : null)}
+          title="Carteira e estratégia"
+          icon={SlidersHorizontal}
+          description="Confirme a carteira, o token, as taxas e o modelo antes de salvar."
+          footer={editorFooter}
+        >
+          <Panel title="Passo 1 · Carteira pessoal para operações manuais">
+            <p className="mb-2 text-xs text-muted-foreground">
+              Esta é a carteira usada ao operar manualmente. O robô automático usa uma carteira
+              própria da área selecionada acima; envie saldo para ela na tela Robô.
             </p>
-          )}
-        </Panel>
+            <SavedWalletPicker value={wallet} onPick={setWallet} />
+            <Input
+              className="mt-2"
+              placeholder="ou cole o endereço 0x…"
+              value={wallet}
+              onChange={(e) => setWallet(e.target.value.trim())}
+            />
+            {walletOk ? (
+              <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
+                <p className="text-xs text-muted-foreground">Saldo de BNB nesta carteira</p>
+                <p className="text-xl font-semibold">
+                  {bnbBalance === null
+                    ? "carregando…"
+                    : `${Number(bnbBalance).toLocaleString("pt-BR", { maximumFractionDigits: 5 })} BNB`}
+                </p>
+                {bnbBalance !== null && bnbBrl && (
+                  <p className="text-sm text-muted-foreground">
+                    ≈ {brl(Number(bnbBalance) * bnbBrl)}
+                  </p>
+                )}
+                {bnbBalance !== null && Number(bnbBalance) < 0.002 && (
+                  <p className="mt-1 text-xs text-destructive">
+                    Saldo baixo: deixe pelo menos ~0,002 BNB para pagar as taxas de rede (gás).
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {wallet ? "Endereço inválido." : "Nenhuma carteira escolhida ainda."} O endereço
+                sozinho não autoriza nenhuma movimentação.
+              </p>
+            )}
+          </Panel>
 
-        <fieldset disabled={!walletOk} className={walletOk ? "space-y-4" : "space-y-4 opacity-50"}>
-          <Panel title={embedded ? "Passo 2 · Token deste robô" : "Passo 2 · Escolha o token"}>
-            {embedded ? (
-              <p className="rounded-md bg-secondary p-3 text-sm">
+          <fieldset
+            disabled={!walletOk}
+            className={walletOk ? "space-y-4" : "space-y-4 opacity-50"}
+          >
+            <Panel title={embedded ? "Passo 2 · Token deste robô" : "Passo 2 · Escolha o token"}>
+              {embedded ? (
+                <p className="rounded-md bg-secondary p-3 text-sm">
                 <b>{token.symbol}</b> · As regras desta aba pertencem somente ao token e à carteira
                 selecionados em Meus robôs. Volte à lista para configurar outro robô.
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <TokenPicker tokens={tokens} value={token.address} onChange={selectToken} />
-                <AddTokenDialog wallet={wallet || null} />
-              </div>
-            )}
-            <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-              <div className="rounded-md border border-border p-2">
-                <span className="font-semibold">Comprar:</span> você paga <b>BNB</b> e recebe{" "}
-                <b>{token.symbol}</b>
-              </div>
-              <div className="rounded-md border border-border p-2">
-                <span className="font-semibold">Vender:</span> você entrega <b>{token.symbol}</b> e
-                recebe <b>BNB</b>
-              </div>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Liquidez atual do pool {token.symbol}/BNB:{" "}
-              {liq === null
-                ? "indisponível"
-                : `US$ ${liq.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`}
-            </p>
-            <div className="mt-3 rounded-md border border-warning/40 bg-warning/5 p-3">
-              <p className="text-sm font-semibold">Taxa cobrada pelo {token.symbol}</p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <label className="text-xs text-muted-foreground">
-                  Na compra (%)
-                  <Input
-                    type="number"
-                    step="any"
-                    min={0}
-                    max={50}
-                    value={tax.buy}
-                    onChange={(e) =>
-                      set("buyTaxPct", Math.min(50, Math.max(0, Number(e.target.value) || 0)))
-                    }
-                  />
-                </label>
-                <label className="text-xs text-muted-foreground">
-                  Na venda (%)
-                  <Input
-                    type="number"
-                    step="any"
-                    min={0}
-                    max={50}
-                    value={tax.sell}
-                    onChange={(e) =>
-                      set("sellTaxPct", Math.min(50, Math.max(0, Number(e.target.value) || 0)))
-                    }
-                  />
-                </label>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                {measured === "loading" && (
-                  <span className="text-muted-foreground">Medindo a taxa direto no contrato…</span>
-                )}
-                {auto && (
-                  <span>
-                    ✓ Medido no contrato agora: compra <b>{auto.buy}%</b> · venda{" "}
-                    <b>{auto.sell}%</b>
-                  </span>
-                )}
-                {measured === "fail" && (
-                  <span className="text-destructive">
-                    Não deu para medir a taxa automaticamente. Preencha à mão.
-                  </span>
-                )}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => measure(true)}
-                  disabled={measured === "loading"}
-                >
-                  Medir de novo e usar
-                </Button>
-              </div>
-              <p className="mt-2 text-xs">
-                {tax.buy + tax.sell > 0 ? (
-                  <>
-                    Com essas taxas, o preço precisa subir <b>{breakEvenPct(tax).toFixed(1)}%</b> só
-                    para empatar. As metas de venda das estratégias prontas já somam isso.
-                  </>
-                ) : (
-                  "Nenhuma taxa informada. Confira se o token cobra taxas; omiti-las pode subestimar os custos e o prejuízo."
-                )}
-              </p>
-            </div>
-          </Panel>
-
-          <Panel title={`Passo 3 · Orçamento para montar uma estratégia pronta`}>
-            <div className="mb-2 flex gap-2">
-              {(["BRL", "BNB"] as const).map((cur) => (
-                <Button
-                  key={cur}
-                  size="sm"
-                  variant={currency === cur ? "default" : "outline"}
-                  onClick={() => setCurrency(cur)}
-                >
-                  {cur === "BRL" ? "Real (R$)" : "BNB"}
-                </Button>
-              ))}
-            </div>
-            <Input
-              type="number"
-              step="any"
-              min={0}
-              placeholder={currency === "BRL" ? "ex.: 100" : "ex.: 0,1"}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-            <p className="mt-1 text-sm">
-              {typed > 0 && amountBnb > 0 ? (
-                <>
-                  = <b>{amountBnb.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB</b>
-                  {bnbBrl ? <> ≈ {brl(amountBnb * bnbBrl)}</> : null} que serão trocados por{" "}
-                  {token.symbol}
-                </>
-              ) : currency === "BRL" && !bnbBrl ? (
-                "Cotação do real indisponível agora; use BNB."
+                </p>
               ) : (
-                "Digite um valor."
+                <div className="flex flex-wrap gap-2">
+                  <TokenPicker tokens={tokens} value={token.address} onChange={selectToken} />
+                  <AddTokenDialog wallet={wallet || null} />
+                </div>
               )}
-            </p>
-            {bnbBalance !== null && amountBnb > Number(bnbBalance) && (
-              <p className="text-xs text-destructive">
-                Valor maior que o saldo de BNB da carteira.
+              <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                <div className="rounded-md border border-border p-2">
+                  <span className="font-semibold">Comprar:</span> você paga <b>BNB</b> e recebe{" "}
+                  <b>{token.symbol}</b>
+                </div>
+                <div className="rounded-md border border-border p-2">
+                  <span className="font-semibold">Vender:</span> você entrega <b>{token.symbol}</b>{" "}
+                  e recebe <b>BNB</b>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Liquidez atual do pool {token.symbol}/BNB:{" "}
+                {liq === null
+                  ? "indisponível"
+                  : `US$ ${liq.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`}
               </p>
-            )}
-
-            <p className="mt-2 text-xs text-muted-foreground">
-              Este orçamento monta os valores ao aplicar um modelo no passo 4. Digitar aqui não
-              altera uma estratégia existente. Os valores efetivos ficam em “Valores das operações
-              do robô”, no início da tela.
-            </p>
-          </Panel>
-
-          <Panel title="Passo 4 · Como você quer operar?">
-            <BotRulesGuide
-              open={guideOpen}
-              onOpenChange={setGuideOpen}
-              fields={guideFields}
-              title="Entenda e ajuste suas regras"
-              summary={describeStrategy(c, "BNB")}
-            />
-            <Button variant="outline" className="mb-3" onClick={() => setGuideOpen(true)}>
-              Revisar comigo · iniciantes e avançados
-            </Button>
-            <div className="flex items-center gap-1">
-              <Label htmlFor="modo">Escolha o tipo de estratégia</Label>
-              <HelpTip title="Tipos de estratégia">
-                <p>
-                  <b>Prontas (robô automático):</b> regras já montadas para o robô seguir sozinho. O
-                  robô automático executa as regras reais quando estiver ligado e sem bloqueios de
-                  execução.
-                </p>
-                <p>
-                  <b>Manual:</b> você mesmo define quando comprar e vender, e recebe avisos no
-                  celular para fazer a operação.
-                </p>
-              </HelpTip>
-            </div>
-            <select
-              id="modo"
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-3 text-base"
-              value={mode}
-              onChange={(e) => pickMode(e.target.value as Mode)}
-            >
-              <option value="">Toque para escolher…</option>
-              <optgroup label="Prontas · também usadas pelo Robô automático">
-                {PRESETS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Você no controle">
-                <option value="manual">Manual · eu configuro e recebo avisos</option>
-              </optgroup>
-            </select>
-
-            {rec && (
-              <div className="mt-3 rounded-md border border-primary/60 bg-primary/5 p-3 text-sm">
-                <p className="font-semibold text-primary">
-                  💡 Sugestão do robô para {token.symbol} hoje:{" "}
-                  {PRESETS.find((p) => p.id === rec.id)?.name}
-                </p>
-                <p className="mt-1 text-muted-foreground">{rec.reason}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Baseado no preço das últimas 24h. É uma sugestão, não garantia de lucro.
-                </p>
-                {c.presetId === rec.id ? (
-                  <p className="mt-2 text-xs font-medium text-primary">
-                    ✓ Você já está usando a recomendação.
-                  </p>
-                ) : (
+              <div className="mt-3 rounded-md border border-warning/40 bg-warning/5 p-3">
+                <p className="text-sm font-semibold">Taxa cobrada pelo {token.symbol}</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <label className="text-xs text-muted-foreground">
+                    Na compra (%)
+                    <Input
+                      type="number"
+                      step="any"
+                      min={0}
+                      max={50}
+                      value={tax.buy}
+                      onChange={(e) =>
+                        set("buyTaxPct", Math.min(50, Math.max(0, Number(e.target.value) || 0)))
+                      }
+                    />
+                  </label>
+                  <label className="text-xs text-muted-foreground">
+                    Na venda (%)
+                    <Input
+                      type="number"
+                      step="any"
+                      min={0}
+                      max={50}
+                      value={tax.sell}
+                      onChange={(e) =>
+                        set("sellTaxPct", Math.min(50, Math.max(0, Number(e.target.value) || 0)))
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  {measured === "loading" && (
+                    <span className="text-muted-foreground">
+                      Medindo a taxa direto no contrato…
+                    </span>
+                  )}
+                  {auto && (
+                    <span>
+                      ✓ Medido no contrato agora: compra <b>{auto.buy}%</b> · venda{" "}
+                      <b>{auto.sell}%</b>
+                    </span>
+                  )}
+                  {measured === "fail" && (
+                    <span className="text-destructive">
+                      Não deu para medir a taxa automaticamente. Preencha à mão.
+                    </span>
+                  )}
                   <Button
+                    type="button"
                     size="sm"
-                    className="mt-2"
-                    disabled={!(amountBnb > 0)}
-                    onClick={() => {
-                      setMode(rec.id);
-                      applyPreset(rec.id);
-                    }}
+                    variant="outline"
+                    onClick={() => measure(true)}
+                    disabled={measured === "loading"}
                   >
-                    Aplicar recomendação
+                    Medir de novo e usar
                   </Button>
-                )}
-                {!(amountBnb > 0) && (
-                  <p className="mt-1 text-xs text-destructive">
-                    Digite o valor no passo 3 para aplicar.
-                  </p>
-                )}
+                </div>
+                <p className="mt-2 text-xs">
+                  {tax.buy + tax.sell > 0 ? (
+                    <>
+                      Com essas taxas, o preço precisa subir <b>{breakEvenPct(tax).toFixed(1)}%</b>{" "}
+                      só para empatar. As metas de venda das estratégias prontas já somam isso.
+                    </>
+                  ) : (
+                    "Nenhuma taxa informada. Confira se o token cobra taxas; omiti-las pode subestimar os custos e o prejuízo."
+                  )}
+                </p>
               </div>
-            )}
+            </Panel>
 
-            {!mode && (
-              <p className="mt-3 rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
-                Não sabe qual escolher? Comece pela <b>Entrada segura</b> para ver como funciona, ou
-                pela <b>Manual</b> se quer apenas ser avisado e decidir sozinho.
-              </p>
-            )}
-
-            {preset && (
-              <StrategyPresetCard
-                preset={preset}
-                selected={c.presetId === preset.id}
-                edited={edited}
-                canApply={amountBnb > 0}
-                onApply={() => applyPreset(preset.id)}
+            <Panel title={`Passo 3 · Orçamento para montar uma estratégia pronta`}>
+              <div className="mb-2 flex gap-2">
+                {(["BRL", "BNB"] as const).map((cur) => (
+                  <Button
+                    key={cur}
+                    size="sm"
+                    variant={currency === cur ? "default" : "outline"}
+                    onClick={() => setCurrency(cur)}
+                  >
+                    {cur === "BRL" ? "Real (R$)" : "BNB"}
+                  </Button>
+                ))}
+              </div>
+              <Input
+                type="number"
+                step="any"
+                min={0}
+                placeholder={currency === "BRL" ? "ex.: 100" : "ex.: 0,1"}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
               />
-            )}
+              <p className="mt-1 text-sm">
+                {typed > 0 && amountBnb > 0 ? (
+                  <>
+                    = <b>{amountBnb.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB</b>
+                    {bnbBrl ? <> ≈ {brl(amountBnb * bnbBrl)}</> : null} que serão trocados por{" "}
+                    {token.symbol}
+                  </>
+                ) : currency === "BRL" && !bnbBrl ? (
+                  "Cotação do real indisponível agora; use BNB."
+                ) : (
+                  "Digite um valor."
+                )}
+              </p>
+              {bnbBalance !== null && amountBnb > Number(bnbBalance) && (
+                <p className="text-xs text-destructive">
+                  Valor maior que o saldo de BNB da carteira.
+                </p>
+              )}
 
-            {mode === "manual" && (
-              <div className="mt-3 rounded-md border-2 border-primary bg-primary/10 p-3 text-sm">
-                <p className="flex items-center gap-1.5 font-semibold text-primary">
-                  <Check className="h-4 w-4" /> Manual: você no controle
-                </p>
-                <p className="mt-1">
-                  Abaixo aparecem as regras de compra e venda e os avisos no celular. Toque nos{" "}
-                  <b>?</b> para entender cada campo. Quando o preço chegar perto do ponto, você
-                  recebe o aviso e faz a operação em Operar.
-                </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Este orçamento monta os valores ao aplicar um modelo no passo 4. Digitar aqui não
+                altera uma estratégia existente. Os valores efetivos ficam em “Valores das operações
+                do robô”, no início da tela.
+              </p>
+            </Panel>
+
+            <Panel title="Passo 4 · Como você quer operar?">
+              <BotRulesGuide
+                open={guideOpen}
+                onOpenChange={setGuideOpen}
+                fields={guideFields}
+                title="Entenda e ajuste suas regras"
+                summary={describeStrategy(c, "BNB")}
+              />
+              <Button variant="outline" className="mb-3" onClick={() => setGuideOpen(true)}>
+                Revisar comigo · iniciantes e avançados
+              </Button>
+              <div className="flex items-center gap-1">
+                <Label htmlFor="modo">Escolha o tipo de estratégia</Label>
+                <HelpTip title="Tipos de estratégia">
+                  <p>
+                    <b>Prontas (robô automático):</b> regras já montadas para o robô seguir sozinho.
+                    O robô automático executa as regras reais quando estiver ligado e sem bloqueios
+                    de execução.
+                  </p>
+                  <p>
+                    <b>Manual:</b> você mesmo define quando comprar e vender, e recebe avisos no
+                    celular para fazer a operação.
+                  </p>
+                </HelpTip>
               </div>
-            )}
-            <p className="mt-2 text-xs text-muted-foreground">Nenhuma estratégia garante lucro.</p>
-          </Panel>
-        </fieldset>
+              <select
+                id="modo"
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-3 text-base"
+                value={mode}
+                onChange={(e) => pickMode(e.target.value as Mode)}
+              >
+                <option value="">Toque para escolher…</option>
+                <optgroup label="Prontas · também usadas pelo Robô automático">
+                  {PRESETS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Você no controle">
+                  <option value="manual">Manual · eu configuro e recebo avisos</option>
+                </optgroup>
+              </select>
+
+              {rec && (
+                <div className="mt-3 rounded-md border border-primary/60 bg-primary/5 p-3 text-sm">
+                  <p className="font-semibold text-primary">
+                    💡 Sugestão do robô para {token.symbol} hoje:{" "}
+                    {PRESETS.find((p) => p.id === rec.id)?.name}
+                  </p>
+                  <p className="mt-1 text-muted-foreground">{rec.reason}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Baseado no preço das últimas 24h. É uma sugestão, não garantia de lucro.
+                  </p>
+                  {c.presetId === rec.id ? (
+                    <p className="mt-2 text-xs font-medium text-primary">
+                      ✓ Você já está usando a recomendação.
+                    </p>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="mt-2"
+                      disabled={!(amountBnb > 0)}
+                      onClick={() => {
+                        setMode(rec.id);
+                        applyPreset(rec.id);
+                      }}
+                    >
+                      Aplicar recomendação
+                    </Button>
+                  )}
+                  {!(amountBnb > 0) && (
+                    <p className="mt-1 text-xs text-destructive">
+                      Digite o valor no passo 3 para aplicar.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {!mode && (
+                <p className="mt-3 rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+                  Não sabe qual escolher? Comece pela <b>Entrada segura</b> para ver como funciona,
+                  ou pela <b>Manual</b> se quer apenas ser avisado e decidir sozinho.
+                </p>
+              )}
+
+              {preset && (
+                <StrategyPresetCard
+                  preset={preset}
+                  selected={c.presetId === preset.id}
+                  edited={edited}
+                  canApply={amountBnb > 0}
+                  onApply={() => applyPreset(preset.id)}
+                />
+              )}
+
+              {mode === "manual" && (
+                <div className="mt-3 rounded-md border-2 border-primary bg-primary/10 p-3 text-sm">
+                  <p className="flex items-center gap-1.5 font-semibold text-primary">
+                    <Check className="h-4 w-4" /> Manual: você no controle
+                  </p>
+                  <p className="mt-1">
+                    Abaixo aparecem as regras de compra e venda e os avisos no celular. Toque nos{" "}
+                    <b>?</b> para entender cada campo. Quando o preço chegar perto do ponto, você
+                    recebe o aviso e faz a operação em Operar.
+                  </p>
+                </div>
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">
+                Nenhuma estratégia garante lucro.
+              </p>
+            </Panel>
+          </fieldset>
         </UxDetailDialog>
 
         {mode && (
-          <UxDetailDialog open={detailOpen === "protect"} onOpenChange={(open) => setDetailOpen(open ? "protect" : null)} title="Editar proteções" icon={Shield} footer={editorFooter}>
-          <Panel title="Proteções · limite de perda da posição">
-            <div id="strategy-protection" className="scroll-mt-24" />
-            <Label htmlFor="stop-mode">Regra do stop</Label>
-            <select
-              id="stop-mode"
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-3 text-base"
-              value={c.stopLossMode ?? "preco"}
-              onChange={(e) => {
-                set("stopLossMode", e.target.value as "preco" | "liquido");
-                set("buyTaxPct", tax.buy);
-                set("sellTaxPct", tax.sell);
-              }}
-            >
-              <option value="preco">Queda do preço (regra atual)</option>
-              <option value="liquido">Perda líquida (inclui taxas do token)</option>
-            </select>
-            <div className="mt-3">
-              <Num
-                label={
-                  c.stopLossMode === "liquido"
-                    ? "Limite de perda líquida (%)"
-                    : "Limite de queda do preço (%)"
-                }
-                hint="0 = desativado por sua escolha. Taxas não ativam nem desativam o stop automaticamente."
-                value={c.stopLossPct}
-                onChange={(n) => set("stopLossPct", n)}
+          <UxDetailDialog
+            open={detailOpen === "protect"}
+            onOpenChange={(open) => setDetailOpen(open ? "protect" : null)}
+            title="Editar proteções"
+            icon={Shield}
+            footer={editorFooter}
+          >
+            <Panel title="Proteções · limite de perda da posição">
+              <div id="strategy-protection" className="scroll-mt-24" />
+              <Label htmlFor="stop-mode">Regra do stop</Label>
+              <select
+                id="stop-mode"
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-3 text-base"
+                value={c.stopLossMode ?? "preco"}
+                onChange={(e) => {
+                  set("stopLossMode", e.target.value as "preco" | "liquido");
+                  set("buyTaxPct", tax.buy);
+                  set("sellTaxPct", tax.sell);
+                }}
+              >
+                <option value="preco">Queda do preço (regra atual)</option>
+                <option value="liquido">Perda líquida (inclui taxas do token)</option>
+              </select>
+              <div className="mt-3">
+                <Num
+                  label={
+                    c.stopLossMode === "liquido"
+                      ? "Limite de perda líquida (%)"
+                      : "Limite de queda do preço (%)"
+                  }
+                  hint="0 = desativado por sua escolha. Taxas não ativam nem desativam o stop automaticamente."
+                  value={c.stopLossPct}
+                  onChange={(n) => set("stopLossPct", n)}
+                />
+              </div>
+              <StopPreview
+                c={{ ...c, buyTaxPct: tax.buy, sellTaxPct: tax.sell }}
+                amount={c.maxExposureQuote || amountBnb}
+                symbol={token.symbol}
               />
-            </div>
-            <StopPreview
-              c={{ ...c, buyTaxPct: tax.buy, sellTaxPct: tax.sell }}
-              amount={c.maxExposureQuote || amountBnb}
-              symbol={token.symbol}
-            />
-            <p className="mt-2 text-xs text-muted-foreground">
-              O stop tenta vender a posição, não desliga o robô nem bloqueia saques. Ele pode voltar
-              a comprar conforme os limites da estratégia.
-            </p>
-            {c.stopLossMode === "liquido" && (
-              <>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Inclui taxas de compra e venda sobre o preço médio. Não inclui gás, slippage ou
-                  impacto de preço; a perda real pode ser maior. Essa regra pode vender antes do
-                  stop por preço, não aumenta o espaço para recuperação.
-                </p>
-                {c.stopLossPct > 0 &&
-                  c.stopLossPct <= (1 - (1 - tax.buy / 100) * (1 - tax.sell / 100)) * 100 && (
-                    <p role="alert" className="mt-2 text-sm text-destructive">
-                      Só as taxas já representam{" "}
-                      {((1 - (1 - tax.buy / 100) * (1 - tax.sell / 100)) * 100).toFixed(2)}% de
-                      perda se vender pelo mesmo preço. Esse limite pode provocar venda na primeira
-                      verificação após a compra. Revise antes de salvar.
-                    </p>
-                  )}
-              </>
-            )}
-          </Panel>
+              <p className="mt-2 text-xs text-muted-foreground">
+                O stop tenta vender a posição, não desliga o robô nem bloqueia saques. Ele pode
+                voltar a comprar conforme os limites da estratégia.
+              </p>
+              {c.stopLossMode === "liquido" && (
+                <>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Inclui taxas de compra e venda sobre o preço médio. Não inclui gás, slippage ou
+                    impacto de preço; a perda real pode ser maior. Essa regra pode vender antes do
+                    stop por preço, não aumenta o espaço para recuperação.
+                  </p>
+                  {c.stopLossPct > 0 &&
+                    c.stopLossPct <= (1 - (1 - tax.buy / 100) * (1 - tax.sell / 100)) * 100 && (
+                      <p role="alert" className="mt-2 text-sm text-destructive">
+                        Só as taxas já representam{" "}
+                        {((1 - (1 - tax.buy / 100) * (1 - tax.sell / 100)) * 100).toFixed(2)}% de
+                        perda se vender pelo mesmo preço. Esse limite pode provocar venda na
+                        primeira verificação após a compra. Revise antes de salvar.
+                      </p>
+                    )}
+                </>
+              )}
+            </Panel>
           </UxDetailDialog>
         )}
 
-        <UxDetailDialog open={detailOpen === "gas"} onOpenChange={(open) => setDetailOpen(open ? "gas" : null)} title="Reserva para taxas da rede" icon={Coins} footer={editorFooter}>
-        <section id="strategy-gas" className="scroll-mt-28">
-          <Panel title="Reserva para taxas da rede">
-            <p className="mb-3 text-sm text-muted-foreground">
-              A reserva é BNB que fica disponível para pagar operações futuras; não é uma taxa
-              cobrada por transação. O gás efetivo depende da rede e da operação.
-            </p>
-            <Num
-              id="strategy-gas-reserve"
-              label="Reserva do robô (BNB)"
-              value={c.gasReserveBnb}
-              onChange={(n) => set("gasReserveBnb", n)}
-              hint="Você pode reduzir este valor. O robô ainda precisa de BNB suficiente para a taxa estimada de cada transação."
-            />
-            {c.gasReserveBnb === 0 && (
-              <p className="mt-2 text-xs text-warning">
-                Sem reserva configurada. Compras ainda precisam deixar BNB para a taxa; as vendas
-                dependem do custo estimado, não desta reserva.
+        <UxDetailDialog
+          open={detailOpen === "gas"}
+          onOpenChange={(open) => setDetailOpen(open ? "gas" : null)}
+          title="Reserva para taxas da rede"
+          icon={Coins}
+          footer={editorFooter}
+        >
+          <section id="strategy-gas" className="scroll-mt-28">
+            <Panel title="Reserva para taxas da rede">
+              <p className="mb-3 text-sm text-muted-foreground">
+                A reserva é BNB que fica disponível para pagar operações futuras; não é uma taxa
+                cobrada por transação. O gás efetivo depende da rede e da operação.
               </p>
-            )}
-            <p className="mt-2 text-xs text-muted-foreground">
-              Depois de editar, use Salvar alterações ou Aplicar rascunho. A mudança vale somente
-              para a estratégia e carteira selecionadas.
-            </p>
-          </Panel>
-        </section>
+              <Num
+                id="strategy-gas-reserve"
+                label="Reserva do robô (BNB)"
+                value={c.gasReserveBnb}
+                onChange={(n) => set("gasReserveBnb", n)}
+                hint="Você pode reduzir este valor. O robô ainda precisa de BNB suficiente para a taxa estimada de cada transação."
+              />
+              {c.gasReserveBnb === 0 && (
+                <p className="mt-2 text-xs text-warning">
+                  Sem reserva configurada. Compras ainda precisam deixar BNB para a taxa; as vendas
+                  dependem do custo estimado, não desta reserva.
+                </p>
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">
+                Depois de editar, use Salvar alterações ou Aplicar rascunho. A mudança vale somente
+                para a estratégia e carteira selecionadas.
+              </p>
+            </Panel>
+          </section>
         </UxDetailDialog>
 
         {mode === "manual" && (
           <>
-            <UxDetailDialog open={detailOpen === "entry"} onOpenChange={(open) => setDetailOpen(open ? "entry" : null)} title="Editar entrada" icon={ArrowDownToLine} footer={editorFooter}>
-            <div id="strategy-entry" className="scroll-mt-24" />
-            <Panel title="Entrada · quando comprar">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <div className="flex items-center gap-1">
-                    <Label>Tipo de sinal</Label>
-                    <HelpTip title="Tipo de sinal">
-                      <p>
-                        <b>Queda percentual:</b> tenta comprar após a queda definida. O preço pode
-                        continuar caindo.
+            <UxDetailDialog
+              open={detailOpen === "entry"}
+              onOpenChange={(open) => setDetailOpen(open ? "entry" : null)}
+              title="Editar entrada"
+              icon={ArrowDownToLine}
+              footer={editorFooter}
+            >
+              <div id="strategy-entry" className="scroll-mt-24" />
+              <Panel title="Entrada · quando comprar">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <div className="flex items-center gap-1">
+                      <Label>Tipo de sinal</Label>
+                      <HelpTip title="Tipo de sinal">
+                        <p>
+                          <b>Queda percentual:</b> tenta comprar após a queda definida. O preço pode
+                          continuar caindo.
+                        </p>
+                        <p>
+                          <b>Cruzamento de médias:</b> exige tendência de alta e recuo até a média
+                          lenta. Para comprar retomadas após quedas, use a recuperação real na
+                          adaptativa.
+                        </p>
+                      </HelpTip>
+                    </div>
+                    <select
+                      className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={c.entryType}
+                      onChange={(e) => {
+                        set("entryType", e.target.value as "queda");
+                        if (e.target.value !== "adaptativa" && c.recovery)
+                          set("recovery", { ...c.recovery, enabled: false });
+                      }}
+                    >
+                      <option value="queda">Queda percentual</option>
+                      <option value="medias">Tendência + recuo (médias)</option>
+                      <option value="adaptativa">Adaptativa (lê o padrão do preço)</option>
+                    </select>
+                  </div>
+                  {c.entryType === "adaptativa" && (
+                    <div className="space-y-3 rounded-md border border-primary/40 p-3">
+                      <label className="flex items-center gap-2 text-sm font-semibold">
+                        <input
+                          type="checkbox"
+                          checked={c.recovery?.enabled ?? false}
+                          onChange={(e) =>
+                            set("recovery", {
+                              minDropPct: 8,
+                              reboundPct: 2,
+                              maxReboundPct: 8,
+                              confirmationBars: 2,
+                              minNetPct: 1.5,
+                              ...c.recovery,
+                              enabled: e.target.checked,
+                            })
+                          }
+                        />
+                        Comprar recuperação no robô REAL
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        Ao salvar, substitui as entradas adaptativas por recuperação confirmada. Usa
+                        velas fechadas, uma compra por fundo, sem recompra. Valores iniciais são
+                        exemplos editáveis, sem desempenho comprovado. As proteções e saídas
+                        continuam.
                       </p>
+                      {c.recovery?.enabled && (
+                        <>
+                          <Num
+                            label="Queda mínima (%)"
+                            value={c.recovery.minDropPct}
+                            onChange={(n) => set("recovery", { ...c.recovery!, minDropPct: n })}
+                          />
+                          <Num
+                            label="Recuperação mínima desde o fundo (%)"
+                            value={c.recovery.reboundPct}
+                            onChange={(n) => set("recovery", { ...c.recovery!, reboundPct: n })}
+                          />
+                          <Num
+                            label="Recuperação máxima para entrar (%)"
+                            value={c.recovery.maxReboundPct}
+                            onChange={(n) => set("recovery", { ...c.recovery!, maxReboundPct: n })}
+                          />
+                          <Num
+                            label="Fechamentos consecutivos em alta"
+                            value={c.recovery.confirmationBars}
+                            onChange={(n) =>
+                              set("recovery", { ...c.recovery!, confirmationBars: n })
+                            }
+                          />
+                          <Num
+                            label="Meta líquida mínima estimada (%)"
+                            value={c.recovery.minNetPct}
+                            onChange={(n) => set("recovery", { ...c.recovery!, minNetPct: n })}
+                          />
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {c.entryType === "queda" ? (
+                    <>
+                      <Num
+                        label="Queda que dispara a compra (%)"
+                        hint="Movimento do preço, não do saldo."
+                        value={c.dropPct}
+                        help="Quanto o preço precisa cair para comprar. Ex.: 10% significa comprar quando o token ficar 10% mais barato que a referência. Quedas maiores = compras mais raras e mais baratas."
+                        onChange={(n) => set("dropPct", n)}
+                      />
+                      <div>
+                        <div className="flex items-center gap-1">
+                          <Label>Referência da queda</Label>
+                          <HelpTip title="Referência da queda">
+                            <p>
+                              De onde a queda é contada: do preço mais alto recente (automático) ou
+                              de um preço que você define.
+                            </p>
+                          </HelpTip>
+                        </div>
+                        <select
+                          className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={c.referenceType}
+                          onChange={(e) => set("referenceType", e.target.value as "manual")}
+                        >
+                          <option value="maxima">Máxima na janela</option>
+                          <option value="manual">Preço definido por mim</option>
+                        </select>
+                      </div>
+                      {c.referenceType === "manual" ? (
+                        <Num
+                          label="Preço de referência (moeda do par)"
+                          value={c.manualReference}
+                          help="Preço que você considera 'normal'. A queda é medida a partir dele. Use o preço de hoje se não souber."
+                          onChange={(n) => set("manualReference", n)}
+                        />
+                      ) : (
+                        <Num
+                          label="Janela (horas)"
+                          value={c.windowHours}
+                          help="Período usado para achar o preço mais alto. Ex.: 24h = a queda é medida a partir da máxima do último dia."
+                          onChange={(n) => set("windowHours", n)}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Num
+                        label="Média rápida (velas)"
+                        value={c.maFast}
+                        help="Média do preço das últimas poucas velas. Reage rápido às mudanças."
+                        onChange={(n) => set("maFast", n)}
+                      />
+                      <Num
+                        label="Média lenta (velas)"
+                        value={c.maSlow}
+                        help="Média de mais velas, reage devagar. Quando a média rápida passa acima da lenta, sinal de que o preço começou a subir."
+                        onChange={(n) => set("maSlow", n)}
+                      />
+                      <div>
+                        <Label>Intervalo das velas</Label>
+                        <select
+                          className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={c.candleInterval}
+                          onChange={(e) => set("candleInterval", e.target.value)}
+                        >
+                          {["5m", "15m", "1h", "4h"].map((i) => (
+                            <option key={i}>{i}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
+                  <Num
+                    label="Liquidez mínima (US$)"
+                    value={c.minLiquidityUsd}
+                    help="Dinheiro disponível no pool para trocas. Pouca liquidez = preço salta muito e pode ser difícil vender. Abaixo deste valor, não compra."
+                    onChange={(n) => set("minLiquidityUsd", n)}
+                  />
+
+                  <Num
+                    label="Intervalo mínimo entre compras (min)"
+                    value={c.cooldownMin}
+                    help="Tempo mínimo de espera entre uma compra e outra, para não gastar tudo numa queda rápida."
+                    onChange={(n) => set("cooldownMin", n)}
+                  />
+
+                  <Num
+                    label="Máx. operações por dia"
+                    value={c.maxTradesPerDay}
+                    help="Limite de operações por dia. Menos operações = menos taxas pagas."
+                    onChange={(n) => set("maxTradesPerDay", n)}
+                  />
+                </div>
+              </Panel>
+
+              <Panel title="Versão das regras e orçamento">
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Ciclos antigos preservam as regras salvas. A versão 2 exige rearme em entradas por
+                  médias e respeita o percentual de cada alvo. Posições abertas impedem alteração de
+                  configuração.
+                </p>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={c.rulesVersion === 2}
+                    onChange={(e) => set("rulesVersion", e.target.checked ? 2 : 1)}
+                  />
+                  Usar regras versão 2
+                </label>
+                <label className="mt-3 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={c.taxVerified === true}
+                    onChange={(e) => set("taxVerified", e.target.checked)}
+                  />
+                  Confirmo os percentuais de taxa de compra e venda informados
+                </label>
+                <p className="mt-2 text-xs text-warning">
+                  Taxa desconhecida não significa taxa zero. Metas de lucro descontam as taxas do
+                  token; gás, DEX e execução ainda precisam ser considerados.
+                </p>
+              </Panel>
+            </UxDetailDialog>
+            <UxDetailDialog
+              open={detailOpen === "exit"}
+              onOpenChange={(open) => setDetailOpen(open ? "exit" : null)}
+              title="Editar saída"
+              icon={ArrowUpFromLine}
+              footer={editorFooter}
+            >
+              <div id="strategy-exit" className="scroll-mt-24" />
+              <Panel
+                title="Saída · metas de venda e stop móvel"
+                right={
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => set("takeProfits", [...c.takeProfits, { pct: 0, sellPct: 0 }])}
+                  >
+                    + Take-profit
+                  </Button>
+                }
+              >
+                <div className="space-y-3">
+                  {c.takeProfits.map((t, i) => (
+                    <div
+                      key={i}
+                      className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2"
+                    >
+                      <Num
+                        label={`TP ${i + 1}: valorização sobre preço médio (%)`}
+                        help="Take-profit (realizar lucro): quando o preço subir esse % acima do que você pagou, vende uma parte. Ex.: +10% pode disparar a venda de parte da posição. Custos podem reduzir o resultado ou deixá-lo negativo."
+                        value={t.pct}
+                        onChange={(n) =>
+                          set(
+                            "takeProfits",
+                            c.takeProfits.map((x, j) => (j === i ? { ...x, pct: n } : x)),
+                          )
+                        }
+                      />
+                      <Num
+                        label="% do saldo remanescente vendido"
+                        help="Quanto do que sobrou vender nesse alvo. 100% = vende tudo."
+                        value={t.sellPct}
+                        onChange={(n) =>
+                          set(
+                            "takeProfits",
+                            c.takeProfits.map((x, j) => (j === i ? { ...x, sellPct: n } : x)),
+                          )
+                        }
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          set(
+                            "takeProfits",
+                            c.takeProfits.filter((_, j) => j !== i),
+                          )
+                        }
+                      >
+                        Remover
+                      </Button>
+                    </div>
+                  ))}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Num
+                      label="Limite de perda diária (moeda do par)"
+                      value={c.dailyLossLimit}
+                      help="Se as perdas do dia chegarem a esse valor, o robô para até o dia seguinte."
+                      onChange={(n) => set("dailyLossLimit", n)}
+                    />
+                    <Num
+                      label="Slippage máximo (%)"
+                      value={c.maxSlippagePct}
+                      help="Quanto o preço pode mudar entre a cotação e a execução. Tokens com taxa precisam de um valor um pouco maior."
+                      onChange={(n) => set("maxSlippagePct", n)}
+                    />
+                    <Num
+                      label="Impacto de preço máximo (%)"
+                      value={c.maxPriceImpactPct}
+                      help="Quanto a sua própria compra/venda move o preço. Alto = você paga mais caro. Evite passar de 3%."
+                      onChange={(n) => set("maxPriceImpactPct", n)}
+                    />
+                    <Num
+                      label="Gas máximo (gwei)"
+                      value={c.maxGasGwei}
+                      help="Preço máximo da taxa de rede. Se a rede estiver cara, espera."
+                      onChange={(n) => set("maxGasGwei", n)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Transações pendentes não são repetidas automaticamente. Uma nova tentativa
+                      depende da conciliação do hash.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={c.trailingEnabled}
+                      onCheckedChange={(v) => set("trailingEnabled", v)}
+                    />
+                    <span className="text-sm">Trailing stop</span>
+                    <HelpTip title="Trailing stop (stop móvel)">
                       <p>
-                        <b>Cruzamento de médias:</b> exige tendência de alta e recuo até a média
-                        lenta. Para comprar retomadas após quedas, use a recuperação real na
-                        adaptativa.
+                        Segue o preço para cima. Depois de lucrar, se o preço virar e cair um pouco
+                        do topo, tenta vender. O resultado líquido depende dos custos e da execução.
                       </p>
                     </HelpTip>
                   </div>
-                  <select
-                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={c.entryType}
-                    onChange={(e) => {
-                      set("entryType", e.target.value as "queda");
-                      if (e.target.value !== "adaptativa" && c.recovery)
-                        set("recovery", { ...c.recovery, enabled: false });
-                    }}
-                  >
-                    <option value="queda">Queda percentual</option>
-                    <option value="medias">Tendência + recuo (médias)</option>
-                    <option value="adaptativa">Adaptativa (lê o padrão do preço)</option>
-                  </select>
+                  {c.trailingEnabled && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Num
+                        label="Lucro para ativar (%)"
+                        value={c.trailingActivatePct}
+                        help="Lucro a partir do qual o 'stop móvel' começa a seguir o preço."
+                        onChange={(n) => set("trailingActivatePct", n)}
+                      />
+                      <Num
+                        label="Distância da máxima (%)"
+                        value={c.trailingDistancePct}
+                        help="Se o preço cair esse % do ponto mais alto depois de ativado, tenta vender, sem garantia de lucro líquido."
+                        onChange={(n) => set("trailingDistancePct", n)}
+                      />
+                    </div>
+                  )}
                 </div>
-                {c.entryType === "adaptativa" && (
-                  <div className="space-y-3 rounded-md border border-primary/40 p-3">
-                    <label className="flex items-center gap-2 text-sm font-semibold">
-                      <input
-                        type="checkbox"
-                        checked={c.recovery?.enabled ?? false}
-                        onChange={(e) =>
-                          set("recovery", {
-                            minDropPct: 8,
-                            reboundPct: 2,
-                            maxReboundPct: 8,
-                            confirmationBars: 2,
-                            minNetPct: 1.5,
-                            ...c.recovery,
-                            enabled: e.target.checked,
-                          })
-                        }
-                      />
-                      Comprar recuperação no robô REAL
-                    </label>
-                    <p className="text-xs text-muted-foreground">
-                      Ao salvar, substitui as entradas adaptativas por recuperação confirmada. Usa
-                      velas fechadas, uma compra por fundo, sem recompra. Valores iniciais são
-                      exemplos editáveis, sem desempenho comprovado. As proteções e saídas
-                      continuam.
-                    </p>
-                    {c.recovery?.enabled && (
-                      <>
-                        <Num
-                          label="Queda mínima (%)"
-                          value={c.recovery.minDropPct}
-                          onChange={(n) => set("recovery", { ...c.recovery!, minDropPct: n })}
-                        />
-                        <Num
-                          label="Recuperação mínima desde o fundo (%)"
-                          value={c.recovery.reboundPct}
-                          onChange={(n) => set("recovery", { ...c.recovery!, reboundPct: n })}
-                        />
-                        <Num
-                          label="Recuperação máxima para entrar (%)"
-                          value={c.recovery.maxReboundPct}
-                          onChange={(n) => set("recovery", { ...c.recovery!, maxReboundPct: n })}
-                        />
-                        <Num
-                          label="Fechamentos consecutivos em alta"
-                          value={c.recovery.confirmationBars}
-                          onChange={(n) => set("recovery", { ...c.recovery!, confirmationBars: n })}
-                        />
-                        <Num
-                          label="Meta líquida mínima estimada (%)"
-                          value={c.recovery.minNetPct}
-                          onChange={(n) => set("recovery", { ...c.recovery!, minNetPct: n })}
-                        />
-                      </>
-                    )}
-                  </div>
-                )}
-                {c.entryType === "queda" ? (
-                  <>
-                    <Num
-                      label="Queda que dispara a compra (%)"
-                      hint="Movimento do preço, não do saldo."
-                      value={c.dropPct}
-                      help="Quanto o preço precisa cair para comprar. Ex.: 10% significa comprar quando o token ficar 10% mais barato que a referência. Quedas maiores = compras mais raras e mais baratas."
-                      onChange={(n) => set("dropPct", n)}
-                    />
-                    <div>
-                      <div className="flex items-center gap-1">
-                        <Label>Referência da queda</Label>
-                        <HelpTip title="Referência da queda">
-                          <p>
-                            De onde a queda é contada: do preço mais alto recente (automático) ou de
-                            um preço que você define.
-                          </p>
-                        </HelpTip>
-                      </div>
-                      <select
-                        className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        value={c.referenceType}
-                        onChange={(e) => set("referenceType", e.target.value as "manual")}
-                      >
-                        <option value="maxima">Máxima na janela</option>
-                        <option value="manual">Preço definido por mim</option>
-                      </select>
-                    </div>
-                    {c.referenceType === "manual" ? (
-                      <Num
-                        label="Preço de referência (moeda do par)"
-                        value={c.manualReference}
-                        help="Preço que você considera 'normal'. A queda é medida a partir dele. Use o preço de hoje se não souber."
-                        onChange={(n) => set("manualReference", n)}
-                      />
-                    ) : (
-                      <Num
-                        label="Janela (horas)"
-                        value={c.windowHours}
-                        help="Período usado para achar o preço mais alto. Ex.: 24h = a queda é medida a partir da máxima do último dia."
-                        onChange={(n) => set("windowHours", n)}
-                      />
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <Num
-                      label="Média rápida (velas)"
-                      value={c.maFast}
-                      help="Média do preço das últimas poucas velas. Reage rápido às mudanças."
-                      onChange={(n) => set("maFast", n)}
-                    />
-                    <Num
-                      label="Média lenta (velas)"
-                      value={c.maSlow}
-                      help="Média de mais velas, reage devagar. Quando a média rápida passa acima da lenta, sinal de que o preço começou a subir."
-                      onChange={(n) => set("maSlow", n)}
-                    />
-                    <div>
-                      <Label>Intervalo das velas</Label>
-                      <select
-                        className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        value={c.candleInterval}
-                        onChange={(e) => set("candleInterval", e.target.value)}
-                      >
-                        {["5m", "15m", "1h", "4h"].map((i) => (
-                          <option key={i}>{i}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </>
-                )}
-                <Num
-                  label="Liquidez mínima (US$)"
-                  value={c.minLiquidityUsd}
-                  help="Dinheiro disponível no pool para trocas. Pouca liquidez = preço salta muito e pode ser difícil vender. Abaixo deste valor, não compra."
-                  onChange={(n) => set("minLiquidityUsd", n)}
-                />
-
-                <Num
-                  label="Intervalo mínimo entre compras (min)"
-                  value={c.cooldownMin}
-                  help="Tempo mínimo de espera entre uma compra e outra, para não gastar tudo numa queda rápida."
-                  onChange={(n) => set("cooldownMin", n)}
-                />
-
-                <Num
-                  label="Máx. operações por dia"
-                  value={c.maxTradesPerDay}
-                  help="Limite de operações por dia. Menos operações = menos taxas pagas."
-                  onChange={(n) => set("maxTradesPerDay", n)}
-                />
-              </div>
-            </Panel>
-
-            <Panel title="Versão das regras e orçamento">
-              <p className="mb-3 text-xs text-muted-foreground">
-                Ciclos antigos preservam as regras salvas. A versão 2 exige rearme em entradas por
-                médias e respeita o percentual de cada alvo. Posições abertas impedem alteração de
-                configuração.
-              </p>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={c.rulesVersion === 2}
-                  onChange={(e) => set("rulesVersion", e.target.checked ? 2 : 1)}
-                />
-                Usar regras versão 2
-              </label>
-              <label className="mt-3 flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={c.taxVerified === true}
-                  onChange={(e) => set("taxVerified", e.target.checked)}
-                />
-                Confirmo os percentuais de taxa de compra e venda informados
-              </label>
-              <p className="mt-2 text-xs text-warning">
-                Taxa desconhecida não significa taxa zero. Metas de lucro descontam as taxas do
-                token; gás, DEX e execução ainda precisam ser considerados.
-              </p>
-            </Panel>
+              </Panel>
             </UxDetailDialog>
-            <UxDetailDialog open={detailOpen === "exit"} onOpenChange={(open) => setDetailOpen(open ? "exit" : null)} title="Editar saída" icon={ArrowUpFromLine} footer={editorFooter}>
-            <div id="strategy-exit" className="scroll-mt-24" />
-            <Panel
-              title="Saída · metas de venda e stop móvel"
-              right={
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => set("takeProfits", [...c.takeProfits, { pct: 0, sellPct: 0 }])}
-                >
-                  + Take-profit
-                </Button>
-              }
+            <UxDetailDialog
+              open={detailOpen === "alerts"}
+              onOpenChange={(open) => setDetailOpen(open ? "alerts" : null)}
+              title="Avisos do token"
+              icon={BellRing}
             >
-              <div className="space-y-3">
-                {c.takeProfits.map((t, i) => (
-                  <div
-                    key={i}
-                    className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2"
-                  >
-                    <Num
-                      label={`TP ${i + 1}: valorização sobre preço médio (%)`}
-                      help="Take-profit (realizar lucro): quando o preço subir esse % acima do que você pagou, vende uma parte. Ex.: +10% pode disparar a venda de parte da posição. Custos podem reduzir o resultado ou deixá-lo negativo."
-                      value={t.pct}
-                      onChange={(n) =>
-                        set(
-                          "takeProfits",
-                          c.takeProfits.map((x, j) => (j === i ? { ...x, pct: n } : x)),
-                        )
-                      }
-                    />
-                    <Num
-                      label="% do saldo remanescente vendido"
-                      help="Quanto do que sobrou vender nesse alvo. 100% = vende tudo."
-                      value={t.sellPct}
-                      onChange={(n) =>
-                        set(
-                          "takeProfits",
-                          c.takeProfits.map((x, j) => (j === i ? { ...x, sellPct: n } : x)),
-                        )
-                      }
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        set(
-                          "takeProfits",
-                          c.takeProfits.filter((_, j) => j !== i),
-                        )
-                      }
-                    >
-                      Remover
-                    </Button>
-                  </div>
-                ))}
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Num
-                    label="Limite de perda diária (moeda do par)"
-                    value={c.dailyLossLimit}
-                    help="Se as perdas do dia chegarem a esse valor, o robô para até o dia seguinte."
-                    onChange={(n) => set("dailyLossLimit", n)}
-                  />
-                  <Num
-                    label="Slippage máximo (%)"
-                    value={c.maxSlippagePct}
-                    help="Quanto o preço pode mudar entre a cotação e a execução. Tokens com taxa precisam de um valor um pouco maior."
-                    onChange={(n) => set("maxSlippagePct", n)}
-                  />
-                  <Num
-                    label="Impacto de preço máximo (%)"
-                    value={c.maxPriceImpactPct}
-                    help="Quanto a sua própria compra/venda move o preço. Alto = você paga mais caro. Evite passar de 3%."
-                    onChange={(n) => set("maxPriceImpactPct", n)}
-                  />
-                  <Num
-                    label="Gas máximo (gwei)"
-                    value={c.maxGasGwei}
-                    help="Preço máximo da taxa de rede. Se a rede estiver cara, espera."
-                    onChange={(n) => set("maxGasGwei", n)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Transações pendentes não são repetidas automaticamente. Uma nova tentativa
-                    depende da conciliação do hash.
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Switch
-                    checked={c.trailingEnabled}
-                    onCheckedChange={(v) => set("trailingEnabled", v)}
-                  />
-                  <span className="text-sm">Trailing stop</span>
-                  <HelpTip title="Trailing stop (stop móvel)">
-                    <p>
-                      Segue o preço para cima. Depois de lucrar, se o preço virar e cair um pouco do
-                      topo, tenta vender. O resultado líquido depende dos custos e da execução.
-                    </p>
-                  </HelpTip>
-                </div>
-                {c.trailingEnabled && (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Num
-                      label="Lucro para ativar (%)"
-                      value={c.trailingActivatePct}
-                      help="Lucro a partir do qual o 'stop móvel' começa a seguir o preço."
-                      onChange={(n) => set("trailingActivatePct", n)}
-                    />
-                    <Num
-                      label="Distância da máxima (%)"
-                      value={c.trailingDistancePct}
-                      help="Se o preço cair esse % do ponto mais alto depois de ativado, tenta vender, sem garantia de lucro líquido."
-                      onChange={(n) => set("trailingDistancePct", n)}
-                    />
-                  </div>
-                )}
-              </div>
-            </Panel>
-            </UxDetailDialog>
-            <UxDetailDialog open={detailOpen === "alerts"} onOpenChange={(open) => setDetailOpen(open ? "alerts" : null)} title="Avisos do token" icon={BellRing}>
               <TokenAlerts token={token} tax={tax} />
             </UxDetailDialog>
           </>
@@ -1524,75 +1662,80 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
           )}
         </div>
         {!embedded && <ResetStrategiesButton key={walletScope} walletScope={walletScope} />}
-        <UxDetailDialog open={detailOpen === "preview"} onOpenChange={(open) => setDetailOpen(open ? "preview" : null)} title="Resumo da estratégia" icon={ClipboardCheck}>
-        <Panel title="Prévia em linguagem simples">
-          {chosen && (
-            <p className="mb-3 flex flex-wrap items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 p-2 text-sm font-semibold text-primary">
-              <Check className="h-4 w-4 shrink-0" /> {chosen.name}
-              {edited && (
-                <span className="font-normal text-muted-foreground">(com ajustes manuais)</span>
-              )}
-            </p>
-          )}
-          <ul className="min-w-0 space-y-2 break-words text-sm">
-            {describeStrategy(c).map((l, i) => (
-              <li key={i}>• {l}</li>
-            ))}
-          </ul>
-          {errors.length > 0 && (
-            <ul className="mt-3 space-y-1 text-sm text-destructive">
-              {errors.map((e) => (
-                <li key={e}>{e}</li>
+        <UxDetailDialog
+          open={detailOpen === "preview"}
+          onOpenChange={(open) => setDetailOpen(open ? "preview" : null)}
+          title="Resumo da estratégia"
+          icon={ClipboardCheck}
+        >
+          <Panel title="Prévia em linguagem simples">
+            {chosen && (
+              <p className="mb-3 flex flex-wrap items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 p-2 text-sm font-semibold text-primary">
+                <Check className="h-4 w-4 shrink-0" /> {chosen.name}
+                {edited && (
+                  <span className="font-normal text-muted-foreground">(com ajustes manuais)</span>
+                )}
+              </p>
+            )}
+            <ul className="min-w-0 space-y-2 break-words text-sm">
+              {describeStrategy(c).map((l, i) => (
+                <li key={i}>• {l}</li>
               ))}
             </ul>
-          )}
-          <AlertDialog open={askTrade} onOpenChange={setAskTrade}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Estratégia salva! Abrir o robô?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  A estratégia de {token.symbol} está salva. Abra a sala do robô para conferir os
-                  valores, o saldo disponível e o gráfico, e iniciar quando estiver pronto. Salvar a
-                  estratégia não inicia operações automaticamente.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Agora não</AlertDialogCancel>
-                <AlertDialogAction onClick={() => navigate({ to: "/grade" })}>
-                  Abrir robô e gráfico
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          <StopLossDecision
-            open={askStop}
-            onOpenChange={setAskStop}
-            value={c.stopLossPct}
-            onChange={(n) => set("stopLossPct", n)}
-            onConfirm={() => {
-              setAskStop(false);
-              void save();
-            }}
-            busy={saving}
-            buyTax={tax.buy}
-            sellTax={tax.sell}
-            mode={c.stopLossMode ?? "preco"}
-          />
-          <Button
-            className="mt-4 h-auto min-h-10 w-full whitespace-normal break-words"
-            onClick={requestSave}
-            disabled={saving || savedSnapshot == null || errors.length > 0}
-          >
-            {saving ? "Salvando…" : draftRevision > 0 ? "Aplicar rascunho" : "Salvar estratégia"}
-            {chosen ? ` · ${chosen.name}` : ""}
-            {activeVersion ? ` (real v${activeVersion})` : ""}
-          </Button>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Salvar não liga um robô desligado. Uma estratégia aplicada pode ser usada por um robô já
-            ligado na próxima avaliação. Se houver bloqueio ou posição aberta, os ajustes ficam como
-            rascunho e não alteram as regras reais.
-          </p>
-        </Panel>
+            {errors.length > 0 && (
+              <ul className="mt-3 space-y-1 text-sm text-destructive">
+                {errors.map((e) => (
+                  <li key={e}>{e}</li>
+                ))}
+              </ul>
+            )}
+            <AlertDialog open={askTrade} onOpenChange={setAskTrade}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Estratégia salva! Abrir o robô?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    A estratégia de {token.symbol} está salva. Abra a sala do robô para conferir os
+                    valores, o saldo disponível e o gráfico, e iniciar quando estiver pronto. Salvar
+                    a estratégia não inicia operações automaticamente.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Agora não</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => navigate({ to: "/grade" })}>
+                    Abrir robô e gráfico
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <StopLossDecision
+              open={askStop}
+              onOpenChange={setAskStop}
+              value={c.stopLossPct}
+              onChange={(n) => set("stopLossPct", n)}
+              onConfirm={() => {
+                setAskStop(false);
+                void save();
+              }}
+              busy={saving}
+              buyTax={tax.buy}
+              sellTax={tax.sell}
+              mode={c.stopLossMode ?? "preco"}
+            />
+            <Button
+              className="mt-4 h-auto min-h-10 w-full whitespace-normal break-words"
+              onClick={requestSave}
+              disabled={saving || savedSnapshot == null || errors.length > 0}
+            >
+              {saving ? "Salvando…" : draftRevision > 0 ? "Aplicar rascunho" : "Salvar estratégia"}
+              {chosen ? ` · ${chosen.name}` : ""}
+              {activeVersion ? ` (real v${activeVersion})` : ""}
+            </Button>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Salvar não liga um robô desligado. Uma estratégia aplicada pode ser usada por um robô
+              já ligado na próxima avaliação. Se houver bloqueio ou posição aberta, os ajustes ficam
+              como rascunho e não alteram as regras reais.
+            </p>
+          </Panel>
         </UxDetailDialog>
       </div>
     </div>
