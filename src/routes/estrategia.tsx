@@ -550,6 +550,16 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
   const [askTrade, setAskTrade] = useState(false);
   const [detailOpen, setDetailOpen] = useState<"values" | "setup" | "entry" | "exit" | "protect" | "gas" | "timing" | "preview" | "alerts" | null>(null);
   const navigate = useNavigate();
+  const editorFooter = (
+    <>
+      <Button type="button" variant="outline" onClick={() => setDetailOpen(null)}>
+        Voltar ao resumo
+      </Button>
+      <Button type="button" onClick={() => setDetailOpen("preview")}>
+        Revisar e salvar
+      </Button>
+    </>
+  );
 
   if (c.chartRule)
     return (
@@ -639,7 +649,7 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
             token={token.address}
           />
         </UxDetailDialog>
-        <UxDetailDialog open={detailOpen === "values"} onOpenChange={(open) => setDetailOpen(open ? "values" : null)} title="Editar valores" icon={Coins} description="Quanto o robô pode usar em cada compra. Salvar a estratégia não inicia operações.">
+        <UxDetailDialog open={detailOpen === "values"} onOpenChange={(open) = footer={editorFooter}> setDetailOpen(open ? "values" : null)} title="Editar valores" icon={Coins} description="Quanto o robô pode usar em cada compra. Salvar a estratégia não inicia operações.">
           <section id="strategy-values" className="scroll-mt-24">
           <Panel title="Valores das operações do robô">
             <p className="mb-3 text-sm text-muted-foreground">
@@ -716,7 +726,7 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
             </p>
           </div>
         )}
-        <UxDetailDialog open={detailOpen === "setup"} onOpenChange={(open) => setDetailOpen(open ? "setup" : null)} title="Carteira e estratégia" icon={SlidersHorizontal} description="Confirme a carteira, o token, as taxas e o modelo antes de salvar.">
+        <UxDetailDialog open={detailOpen === "setup"} onOpenChange={(open) = footer={editorFooter}> setDetailOpen(open ? "setup" : null)} title="Carteira e estratégia" icon={SlidersHorizontal} description="Confirme a carteira, o token, as taxas e o modelo antes de salvar.">
         <Panel title="Passo 1 · Carteira pessoal para operações manuais">
           <p className="mb-2 text-xs text-muted-foreground">
             Esta é a carteira usada ao operar manualmente. O robô automático usa uma carteira
@@ -1014,7 +1024,7 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
         </UxDetailDialog>
 
         {mode && (
-          <UxDetailDialog open={detailOpen === "protect"} onOpenChange={(open) => setDetailOpen(open ? "protect" : null)} title="Editar proteções" icon={Shield}>
+          <UxDetailDialog open={detailOpen === "protect"} onOpenChange={(open) = footer={editorFooter}> setDetailOpen(open ? "protect" : null)} title="Editar proteções" icon={Shield}>
           <Panel title="Proteções · limite de perda da posição">
             <div id="strategy-protection" className="scroll-mt-24" />
             <Label htmlFor="stop-mode">Regra do stop</Label>
@@ -1074,7 +1084,7 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
           </UxDetailDialog>
         )}
 
-        <UxDetailDialog open={detailOpen === "gas"} onOpenChange={(open) => setDetailOpen(open ? "gas" : null)} title="Reserva para taxas da rede" icon={Coins}>
+        <UxDetailDialog open={detailOpen === "gas"} onOpenChange={(open) = footer={editorFooter}> setDetailOpen(open ? "gas" : null)} title="Reserva para taxas da rede" icon={Coins}>
         <section id="strategy-gas" className="scroll-mt-28">
           <Panel title="Reserva para taxas da rede">
             <p className="mb-3 text-sm text-muted-foreground">
@@ -1104,7 +1114,7 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
 
         {mode === "manual" && (
           <>
-            <UxDetailDialog open={detailOpen === "entry"} onOpenChange={(open) => setDetailOpen(open ? "entry" : null)} title="Editar entrada" icon={ArrowDownToLine}>
+            <UxDetailDialog open={detailOpen === "entry"} onOpenChange={(open) = footer={editorFooter}> setDetailOpen(open ? "entry" : null)} title="Editar entrada" icon={ArrowDownToLine}>
             <div id="strategy-entry" className="scroll-mt-24" />
             <Panel title="Entrada · quando comprar">
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1317,7 +1327,7 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
               </p>
             </Panel>
             </UxDetailDialog>
-            <UxDetailDialog open={detailOpen === "exit"} onOpenChange={(open) => setDetailOpen(open ? "exit" : null)} title="Editar saída" icon={ArrowUpFromLine}>
+            <UxDetailDialog open={detailOpen === "exit"} onOpenChange={(open) = footer={editorFooter}> setDetailOpen(open ? "exit" : null)} title="Editar saída" icon={ArrowUpFromLine}>
             <div id="strategy-exit" className="scroll-mt-24" />
             <Panel
               title="Saída · metas de venda e stop móvel"
