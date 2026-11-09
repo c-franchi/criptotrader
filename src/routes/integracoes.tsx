@@ -72,8 +72,18 @@ function Integrations() {
         <div className="ux-summary-card text-sm">
           <p className="font-semibold">Resumo das integrações</p>
           <div className="ux-summary-list mt-2">
-            <div><span>Verificadas</span><strong className="text-success">{(health.data ?? []).filter((i) => i.ok === true).length}</strong></div>
-            <div><span>Precisam de atenção</span><strong className="text-warning">{(health.data ?? []).filter((i) => i.ok === false).length}</strong></div>
+            <div>
+              <span>Verificadas</span>
+              <strong className="text-success">
+                {(health.data ?? []).filter((i) => i.ok === true).length}
+              </strong>
+            </div>
+            <div>
+              <span>Precisam de atenção</span>
+              <strong className="text-warning">
+                {(health.data ?? []).filter((i) => i.ok === false).length}
+              </strong>
+            </div>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -82,7 +92,13 @@ function Integrations() {
               <UxActionTile
                 label={i.name}
                 icon={Activity}
-                description={i.ok === true ? "Verificado" : i.ok === false ? "Precisa de atenção" : "Ainda sem atividade"}
+                description={
+                  i.ok === true
+                    ? "Verificado"
+                    : i.ok === false
+                      ? "Precisa de atenção"
+                      : "Ainda sem atividade"
+                }
                 onClick={() => setSelected(i.name)}
               />
               <UxDetailDialog
@@ -93,7 +109,11 @@ function Integrations() {
               >
                 <p className="text-sm text-muted-foreground">{i.text}</p>
                 <p className={i.ok ? "text-sm text-success" : "text-sm text-warning"}>
-                  {i.ok === true ? "Verificado" : i.ok === false ? "Precisa de atenção" : "Não comprovado"}
+                  {i.ok === true
+                    ? "Verificado"
+                    : i.ok === false
+                      ? "Precisa de atenção"
+                      : "Não comprovado"}
                 </p>
               </UxDetailDialog>
             </div>
