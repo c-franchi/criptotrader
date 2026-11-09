@@ -144,7 +144,12 @@ function Metrics() {
                 onClick={() => setAdvancedOpen(true)}
               />
             </div>
-            <UxDetailDialog open={advancedOpen} onOpenChange={setAdvancedOpen} title={`Detalhes de ${token.symbol} · ${hours}h`} icon={Activity}>
+            <UxDetailDialog
+                open={advancedOpen}
+                onOpenChange={setAdvancedOpen}
+                title={`Detalhes de ${token.symbol} · ${hours}h`}
+                icon={Activity}
+              >
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <p className="text-muted-foreground">Abertura</p>
