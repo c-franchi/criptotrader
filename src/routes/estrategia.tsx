@@ -36,7 +36,8 @@ import { recommendPreset } from "@/lib/recommend";
 import { useCandles } from "@/hooks/useCandles";
 import { TokenAlerts } from "@/components/TokenAlerts";
 import { HelpTip } from "@/components/HelpTip";
-import { Check } from "lucide-react";
+import { Check, Coins, ArrowDownToLine, ArrowUpFromLine, Shield, Clock3, SlidersHorizontal, ClipboardCheck, BellRing } from "lucide-react";
+import { UxActionTile, UxDetailDialog } from "@/components/UxDetailDialog";
 import { cn } from "@/lib/utils";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { SavedWalletPicker } from "@/components/SavedWalletPicker";
@@ -547,6 +548,7 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
     }
   };
   const [askTrade, setAskTrade] = useState(false);
+  const [detailOpen, setDetailOpen] = useState<"values" | "setup" | "entry" | "exit" | "protect" | "gas" | "timing" | "preview" | "alerts" | null>(null);
   const navigate = useNavigate();
 
   if (c.chartRule)
@@ -609,39 +611,36 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
             </Button>
           </div>
         )}
-        <ExecutionTimingPanel
-          key={`timing:${walletScope}:${token.address}`}
-          walletScope={walletScope}
-          token={token.address}
-        />
-        <nav
-          onClick={(e) => {
-            const a = (e.target as HTMLElement).closest("a");
-            if (!a) return;
-            const target = document.getElementById(a.hash.slice(1));
-            const details = target?.closest("details");
-            if (details) details.open = true;
-          }}
-          aria-label="Seções da estratégia"
-          className="flex flex-wrap gap-3 rounded-md border border-border p-3 text-sm"
-        >
-          <a href="#strategy-values" className="text-primary underline">
-            Valores das operações
-          </a>
-          <a href="#strategy-entry" className="text-primary underline">
-            Entrada
-          </a>
-          <a href="#strategy-exit" className="text-primary underline">
-            Saída
-          </a>
-          <a href="#strategy-protection" className="text-primary underline">
-            Proteções
-          </a>
-          <a href="#strategy-summary" className="text-primary underline">
-            Resumo e salvar
-          </a>
-        </nav>
-        <section id="strategy-values" className="scroll-mt-24">
+        <div className="ux-summary-card">
+          <h2 className="mb-2 text-base font-bold">Resumo do robô · {token.symbol}</h2>
+          <div className="ux-summary-list text-sm">
+            <div><span className="text-muted-foreground">Valor por compra</span><strong>{c.buyAmount.toLocaleString("pt-BR", { maximumFractionDigits: 8 })} {c.sizingMode === "fixo" ? "BNB" : "%"}</strong></div>
+            <div><span className="text-muted-foreground">Máx. compras</span><strong>{c.maxEntries}</strong></div>
+            <div><span className="text-muted-foreground">Entrada</span><strong>{mode === "manual" ? "Personalizada" : chosen?.name ?? "Não definida"}</strong></div>
+            <div><span className="text-muted-foreground">Saída</span><strong>{c.takeProfits.length} meta(s)</strong></div>
+            <div><span className="text-muted-foreground">Stop loss</span><strong>{c.stopLossPct > 0 ? `${c.stopLossPct}%` : "Desativado"}</strong></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Editar configuração do robô">
+          <UxActionTile label="Editar valores" icon={Coins} onClick={() => setDetailOpen("values")} />
+          <UxActionTile label="Editar entrada" icon={ArrowDownToLine} onClick={() => setDetailOpen(mode === "manual" ? "entry" : "setup")} />
+          <UxActionTile label="Editar saída" icon={ArrowUpFromLine} onClick={() => setDetailOpen(mode === "manual" ? "exit" : "setup")} />
+          <UxActionTile label="Editar proteções" icon={Shield} onClick={() => setDetailOpen("protect")} />
+          <UxActionTile label="Tempo e verificações" icon={Clock3} onClick={() => setDetailOpen("timing")} />
+          <UxActionTile label="Carteira e estratégia" icon={SlidersHorizontal} onClick={() => setDetailOpen("setup")} />
+          <UxActionTile label="Taxas de rede" icon={Coins} onClick={() => setDetailOpen("gas")} />
+          <UxActionTile label="Avisos do token" icon={BellRing} onClick={() => setDetailOpen("alerts")} />
+          <UxActionTile label="Resumo e salvar" icon={ClipboardCheck} onClick={() => setDetailOpen("preview")} />
+        </div>
+        <UxDetailDialog open={detailOpen === "timing"} onOpenChange={(open) => setDetailOpen(open ? "timing" : null)} title="Tempo e verificações" icon={Clock3}>
+          <ExecutionTimingPanel
+            key={`timing:${walletScope}:${token.address}`}
+            walletScope={walletScope}
+            token={token.address}
+          />
+        </UxDetailDialog>
+        <UxDetailDialog open={detailOpen === "values"} onOpenChange={(open) => setDetailOpen(open ? "values" : null)} title="Editar valores" icon={Coins} description="Quanto o robô pode usar em cada compra. Salvar a estratégia não inicia operações.">
+          <section id="strategy-values" className="scroll-mt-24">
           <Panel title="Valores das operações do robô">
             <p className="mb-3 text-sm text-muted-foreground">
               Estes são os valores que serão salvos e usados pelo robô automático de {token.symbol}
@@ -704,7 +703,8 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
               e abra o robô para iniciar.
             </p>
           </Panel>
-        </section>
+          </section>
+        </UxDetailDialog>
         {botRunning && (
           <div className="rounded-md border border-primary/50 bg-primary/10 p-3 text-sm">
             <p className="font-semibold">
@@ -716,6 +716,7 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
             </p>
           </div>
         )}
+        <UxDetailDialog open={detailOpen === "setup"} onOpenChange={(open) => setDetailOpen(open ? "setup" : null)} title="Carteira e estratégia" icon={SlidersHorizontal} description="Confirme a carteira, o token, as taxas e o modelo antes de salvar.">
         <Panel title="Passo 1 · Carteira pessoal para operações manuais">
           <p className="mb-2 text-xs text-muted-foreground">
             Esta é a carteira usada ao operar manualmente. O robô automático usa uma carteira
@@ -1010,9 +1011,11 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
             <p className="mt-2 text-xs text-muted-foreground">Nenhuma estratégia garante lucro.</p>
           </Panel>
         </fieldset>
+        </UxDetailDialog>
 
         {mode && (
-          <Panel title="Proteções · limite de perda da posição" collapsible>
+          <UxDetailDialog open={detailOpen === "protect"} onOpenChange={(open) => setDetailOpen(open ? "protect" : null)} title="Editar proteções" icon={Shield}>
+          <Panel title="Proteções · limite de perda da posição">
             <div id="strategy-protection" className="scroll-mt-24" />
             <Label htmlFor="stop-mode">Regra do stop</Label>
             <select
@@ -1068,8 +1071,10 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
               </>
             )}
           </Panel>
+          </UxDetailDialog>
         )}
 
+        <UxDetailDialog open={detailOpen === "gas"} onOpenChange={(open) => setDetailOpen(open ? "gas" : null)} title="Reserva para taxas da rede" icon={Coins}>
         <section id="strategy-gas" className="scroll-mt-28">
           <Panel title="Reserva para taxas da rede">
             <p className="mb-3 text-sm text-muted-foreground">
@@ -1095,11 +1100,13 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
             </p>
           </Panel>
         </section>
+        </UxDetailDialog>
 
         {mode === "manual" && (
           <>
+            <UxDetailDialog open={detailOpen === "entry"} onOpenChange={(open) => setDetailOpen(open ? "entry" : null)} title="Editar entrada" icon={ArrowDownToLine}>
             <div id="strategy-entry" className="scroll-mt-24" />
-            <Panel title="Entrada · quando comprar" collapsible>
+            <Panel title="Entrada · quando comprar">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <div className="flex items-center gap-1">
@@ -1309,10 +1316,11 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
                 token; gás, DEX e execução ainda precisam ser considerados.
               </p>
             </Panel>
+            </UxDetailDialog>
+            <UxDetailDialog open={detailOpen === "exit"} onOpenChange={(open) => setDetailOpen(open ? "exit" : null)} title="Editar saída" icon={ArrowUpFromLine}>
             <div id="strategy-exit" className="scroll-mt-24" />
             <Panel
               title="Saída · metas de venda e stop móvel"
-              collapsible
               right={
                 <Button
                   size="sm"
@@ -1426,7 +1434,10 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
                 )}
               </div>
             </Panel>
-            <TokenAlerts token={token} tax={tax} />
+            </UxDetailDialog>
+            <UxDetailDialog open={detailOpen === "alerts"} onOpenChange={(open) => setDetailOpen(open ? "alerts" : null)} title="Avisos do token" icon={BellRing}>
+              <TokenAlerts token={token} tax={tax} />
+            </UxDetailDialog>
           </>
         )}
       </div>
@@ -1503,6 +1514,7 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
           )}
         </div>
         {!embedded && <ResetStrategiesButton key={walletScope} walletScope={walletScope} />}
+        <UxDetailDialog open={detailOpen === "preview"} onOpenChange={(open) => setDetailOpen(open ? "preview" : null)} title="Resumo da estratégia" icon={ClipboardCheck}>
         <Panel title="Prévia em linguagem simples">
           {chosen && (
             <p className="mb-3 flex flex-wrap items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 p-2 text-sm font-semibold text-primary">
