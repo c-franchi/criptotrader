@@ -48,7 +48,8 @@ export function BotTokenIntake({
   const [saved, setSaved] = useState<InitialSellDraft | null>(null);
   const draftKey = initialSellDraftKey(userId, walletScope, walletAddress, token);
   const selected = holdings.find((h) => h.address.toLowerCase() === token.toLowerCase());
-  const balance = selected && !selected.unavailable && selected.amount !== "" ? selected.amount : null;
+  const balance =
+    selected && !selected.unavailable && selected.amount !== "" ? selected.amount : null;
   const quantity = balance != null ? initialSellQuantity(balance, sharePct) : null;
   const hasPosition = botPositionTokens > 0;
   const onChainPositive = holdings.filter(
@@ -99,7 +100,9 @@ export function BotTokenIntake({
     try {
       localStorage.setItem(draftKey, JSON.stringify(valid.data));
       setSaved(valid.data);
-      setNotice("Pré-configuração guardada neste aparelho. Nenhum robô foi ativado e nenhuma ordem foi enviada.");
+      setNotice(
+        "Pré-configuração guardada neste aparelho. Nenhum robô foi ativado e nenhuma ordem foi enviada.",
+      );
     } catch {
       setNotice("O armazenamento local não está disponível. Nenhuma operação foi enviada.");
     }
@@ -131,12 +134,15 @@ export function BotTokenIntake({
               {onChainPositive.map((h) => (
                 <li key={h.address} className="flex flex-wrap items-center justify-between gap-2">
                   <span className="min-w-0">
-                    <strong>{h.symbol}</strong> · <span className="font-mono tabular-nums">{formatFundAmount(h.amount, 12)}</span>
+                    <strong>{h.symbol}</strong> ·{" "}
+                    <span className="font-mono tabular-nums">{formatFundAmount(h.amount, 12)}</span>
                   </span>
                   <Button
                     type="button"
                     size="sm"
-                    variant={h.address.toLowerCase() === token.toLowerCase() ? "secondary" : "outline"}
+                    variant={
+                      h.address.toLowerCase() === token.toLowerCase() ? "secondary" : "outline"
+                    }
                     onClick={() => onSelectToken(h.address)}
                   >
                     {h.address.toLowerCase() === token.toLowerCase()
@@ -153,8 +159,8 @@ export function BotTokenIntake({
           )}
           <p className="mt-3 text-xs text-muted-foreground">
             A rede BSC não fornece uma lista completa de todos os tokens por endereço nessa
-            consulta. Se um token não aparecer, cadastre seu contrato e atualize os saldos.
-            Saldos que falharam na consulta não são considerados zero.
+            consulta. Se um token não aparecer, cadastre seu contrato e atualize os saldos. Saldos
+            que falharam na consulta não são considerados zero.
           </p>
         </div>
         <div className="space-y-3 rounded-xl border border-border p-3">
@@ -166,24 +172,25 @@ export function BotTokenIntake({
             </p>
           ) : Number(balance) <= 0 ? (
             <p role="status" className="text-muted-foreground">
-              Saldo de {symbol}: 0. Você poderá preparar a venda após confirmar o recebimento
-              dos tokens nesta carteira.
+              Saldo de {symbol}: 0. Você poderá preparar a venda após confirmar o recebimento dos
+              tokens nesta carteira.
             </p>
           ) : (
             <>
               <p className="tabular-nums">
-                <strong>Saldo on-chain de {symbol}:</strong> {formatFundAmount(balance, 12)} {symbol}
+                <strong>Saldo on-chain de {symbol}:</strong> {formatFundAmount(balance, 12)}{" "}
+                {symbol}
               </p>
               {hasPosition && (
                 <p role="alert" className="text-warning">
-                  Já existe uma posição do robô registrada para este token. O saldo blockchain
-                  pode incluir essa posição. Não é seguro atribuir o total à nova venda.
+                  Já existe uma posição do robô registrada para este token. O saldo blockchain pode
+                  incluir essa posição. Não é seguro atribuir o total à nova venda.
                 </p>
               )}
               {botArmed && (
                 <p role="alert" className="text-warning">
-                  O robô atual está ligado. Esta pré-configuração não altera nem substitui
-                  suas regras e não pode iniciar uma nova venda.
+                  O robô atual está ligado. Esta pré-configuração não altera nem substitui suas
+                  regras e não pode iniciar uma nova venda.
                 </p>
               )}
               <fieldset className="space-y-2">
@@ -192,19 +199,28 @@ export function BotTokenIntake({
                   <input
                     type="radio"
                     checked={mode === "sell_only"}
-                    onChange={() => { setMode("sell_only"); setNotice(""); }}
+                    onChange={() => {
+                      setMode("sell_only");
+                      setNotice("");
+                    }}
                   />
-                  <span><strong>Somente vender</strong> — uma venda inicial; depois encerrar a atividade.</span>
+                  <span>
+                    <strong>Somente vender</strong> — uma venda inicial; depois encerrar a
+                    atividade.
+                  </span>
                 </label>
                 <label className="flex items-start gap-2">
                   <input
                     type="radio"
                     checked={mode === "sell_then_review"}
-                    onChange={() => { setMode("sell_then_review"); setNotice(""); }}
+                    onChange={() => {
+                      setMode("sell_then_review");
+                      setNotice("");
+                    }}
                   />
                   <span>
-                    <strong>Vender primeiro e continuar</strong> — depois de confirmar a venda e
-                    o BNB realmente recebido, revisar e liberar uma estratégia de compras/vendas.
+                    <strong>Vender primeiro e continuar</strong> — depois de confirmar a venda e o
+                    BNB realmente recebido, revisar e liberar uma estratégia de compras/vendas.
                   </span>
                 </label>
               </fieldset>
@@ -215,9 +231,16 @@ export function BotTokenIntake({
                     className="w-full rounded-md border border-input bg-background p-2"
                     aria-label="Percentual do saldo para venda"
                     value={sharePct}
-                    onChange={(e) => { setSharePct(Number(e.target.value)); setNotice(""); }}
+                    onChange={(e) => {
+                      setSharePct(Number(e.target.value));
+                      setNotice("");
+                    }}
                   >
-                    {[25, 50, 75, 100].map((v) => <option key={v} value={v}>{v}%</option>)}
+                    {[25, 50, 75, 100].map((v) => (
+                      <option key={v} value={v}>
+                        {v}%
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label className="space-y-1">
@@ -228,31 +251,46 @@ export function BotTokenIntake({
                     placeholder="0.00000001"
                     aria-label="Preço mínimo BNB por token"
                     value={minPrice}
-                    onChange={(e) => { setMinPrice(e.target.value); setNotice(""); }}
+                    onChange={(e) => {
+                      setMinPrice(e.target.value);
+                      setNotice("");
+                    }}
                   />
                 </label>
               </div>
               <p className="text-xs text-muted-foreground">
-                Quantidade planejada: <strong>{quantity ?? "—"} {symbol}</strong>. A quantidade
-                efetivamente recebida pelo swap pode variar por taxas, liquidez e execução.
-                Sem preço de compra comprovado, lucro/prejuízo fica <strong>indeterminado</strong>.
+                Quantidade planejada:{" "}
+                <strong>
+                  {quantity ?? "—"} {symbol}
+                </strong>
+                . A quantidade efetivamente recebida pelo swap pode variar por taxas, liquidez e
+                execução. Sem preço de compra comprovado, lucro/prejuízo fica{" "}
+                <strong>indeterminado</strong>.
               </p>
               {saved && !currentDraftValid && (
                 <p role="alert" className="text-warning">
-                  O saldo mudou desde a pré-configuração ou deixou de estar disponível.
-                  Refaça a conferência antes de usar este plano.
+                  O saldo mudou desde a pré-configuração ou deixou de estar disponível. Refaça a
+                  conferência antes de usar este plano.
                 </p>
               )}
               {saved && currentDraftValid && (
                 <p role="status" className="text-muted-foreground">
-                  Existe uma pré-configuração local para este token e carteira. Ela ainda não
-                  possui execução automática habilitada.
+                  Existe uma pré-configuração local para este token e carteira. Ela ainda não possui
+                  execução automática habilitada.
                 </p>
               )}
-              <Button type="button" disabled={!valid.success || botArmed || hasPosition} onClick={save}>
+              <Button
+                type="button"
+                disabled={!valid.success || botArmed || hasPosition}
+                onClick={save}
+              >
                 Guardar plano de venda (sem ativar)
               </Button>
-              {notice && <p role="status" className="text-muted-foreground">{notice}</p>}
+              {notice && (
+                <p role="status" className="text-muted-foreground">
+                  {notice}
+                </p>
+              )}
               {(botArmed || hasPosition) && (
                 <p className="text-xs text-warning">
                   A preparação fica bloqueada enquanto o bot estiver ativo ou com posição
@@ -260,9 +298,9 @@ export function BotTokenIntake({
                 </p>
               )}
               <p className="text-xs text-muted-foreground">
-                Esta é uma pré-configuração salva somente no aparelho. O executor atual não
-                vende tokens transferidos manualmente. A automação exigirá validação de saldo,
-                reserva de gás, taxas, posição, transações pendentes e conciliação antes de ser
+                Esta é uma pré-configuração salva somente no aparelho. O executor atual não vende
+                tokens transferidos manualmente. A automação exigirá validação de saldo, reserva de
+                gás, taxas, posição, transações pendentes e conciliação antes de ser
                 disponibilizada. Nenhum botão desta seção envia swaps.
               </p>
             </>
