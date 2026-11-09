@@ -664,21 +664,21 @@ function Robo() {
         {walletLoadedScope === walletScope && w?.address && (
           <BotTokenIntakeBoundary>
             <BotTokenIntake
-            key={selectionKey}
-            userId={user?.id ?? ""}
-            walletScope={walletScope}
-            walletName={walletName}
-            walletAddress={w.address}
-            bnb={w.bnb}
-            holdings={w.tokens}
-            token={token}
-            symbol={sym}
-            botArmed={armed}
-            botPositionTokens={st.costBnb > 0 ? Math.max(st.tokens, 1) : st.tokens}
-            onSelectToken={(address) => chooseToken(address)}
-            onRefresh={() => {
-              void load();
-            }}
+              key={selectionKey}
+              userId={user?.id ?? ""}
+              walletScope={walletScope}
+              walletName={walletName}
+              walletAddress={w.address}
+              bnb={w.bnb}
+              holdings={w.tokens}
+              token={token}
+              symbol={sym}
+              botArmed={armed}
+              botPositionTokens={st.costBnb > 0 ? Math.max(st.tokens, 1) : st.tokens}
+              onSelectToken={(address) => chooseToken(address)}
+              onRefresh={() => {
+                void load();
+              }}
             />
           </BotTokenIntakeBoundary>
         )}
