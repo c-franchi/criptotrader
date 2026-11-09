@@ -47,7 +47,7 @@ import { formatEther, formatUnits } from "viem";
 import { HelpTip } from "@/components/HelpTip";
 import { RobotVision } from "@/components/RobotVision";
 import { FundBotDialog } from "@/components/FundBotDialog";
-import { BotTokenIntake } from "@/components/BotTokenIntake";
+import { BotTokenIntake, BotTokenIntakeBoundary } from "@/components/BotTokenIntake";
 import { requiredBotBnb } from "@/lib/botFunding";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { Button } from "@/components/ui/button";
@@ -662,7 +662,8 @@ function Robo() {
         </div>
 
         {walletLoadedScope === walletScope && w?.address && (
-          <BotTokenIntake
+          <BotTokenIntakeBoundary>
+            <BotTokenIntake
             key={selectionKey}
             userId={user?.id ?? ""}
             walletScope={walletScope}
@@ -678,7 +679,8 @@ function Robo() {
             onRefresh={() => {
               void load();
             }}
-          />
+            />
+          </BotTokenIntakeBoundary>
         )}
 
         {target.problema && (
