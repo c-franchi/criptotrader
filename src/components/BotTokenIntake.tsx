@@ -27,7 +27,12 @@ export class BotTokenIntakeBoundary extends Component<
       return (
         <section role="alert" className="rounded-lg border border-warning/40 p-4 text-sm">
           <p>O painel de tokens não pôde ser exibido. O restante do robô permanece disponível.</p>
-          <Button type="button" variant="outline" className="mt-3" onClick={() => this.setState({ failed: false })}>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3"
+            onClick={() => this.setState({ failed: false })}
+          >
             Tentar carregar tokens novamente
           </Button>
         </section>
