@@ -664,9 +664,14 @@ function Robo() {
             <div>
               <h2 className="text-base font-bold">{walletName}</h2>
               <p className="text-sm text-muted-foreground">Token {sym} · {cfg?.manualAuto ? "Manual automático" : mode === "grade" ? "Grade de preços" : "Minha estratégia"}</p>
-              <span className={armed ? "text-sm font-semibold text-success" : "text-sm font-semibold text-warning"}>
-                {armed ? "● Ligado" : "○ Pausado"}
+              <span className={armed && !execution?.locked ? "text-sm font-semibold text-success" : "text-sm font-semibold text-warning"}>
+                {execution?.locked ? "● Operação aguardando confirmação" : armed ? "● Ligado" : "○ Pausado"}
               </span>
+              {bot?.last_error && (
+                <p role="status" className="mt-1 text-xs text-warning">
+                  Aviso do robô: {userMessage(bot.last_error)}
+                </p>
+              )}
             </div>
           </div>
           <div className="ux-summary-list mt-3 text-sm">
