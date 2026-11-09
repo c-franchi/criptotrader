@@ -13,6 +13,8 @@ import { enablePush } from "@/lib/push";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { UxActionTile, UxDetailDialog } from "@/components/UxDetailDialog";
+import { BellRing, SlidersHorizontal, ListChecks } from "lucide-react";
 
 export const Route = createFileRoute("/alertas")({
   head: () => ({
@@ -68,6 +70,7 @@ function Alerts() {
   const [warn, setWarn] = useState("2");
   const [pushOn, setPushOn] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
+  const [activeDialog, setActiveDialog] = useState<"device" | "configure" | "all" | null>(null);
 
   useEffect(() => {
     if (price && !base) setBase(String(price));
@@ -168,7 +171,20 @@ function Alerts() {
   return (
     <div className="space-y-4">
       <PageHeading title="Avisos de preço" description="Acompanhe suas metas pelo celular." />
-      <Panel title="1. Ativar avisos neste celular">
+      <div className="ux-summary-card text-sm">
+        <p className="font-semibold">Avisos no celular</p>
+        <p className="mt-2 text-muted-foreground">
+          {hasDevice && pushOn ? "Notificações habilitadas neste aparelho" : "Notificações ainda não confirmadas"}
+          {" · "}{alerts.data?.length ?? 0} aviso(s) cadastrado(s).
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <UxActionTile label="Ativar neste celular" icon={BellRing} onClick={() => setActiveDialog("device")} />
+        <UxActionTile label="Configurar avisos" icon={SlidersHorizontal} onClick={() => setActiveDialog("configure")} />
+        <UxActionTile label="Ver todos os avisos" icon={ListChecks} onClick={() => setActiveDialog("all")} />
+      </div>
+      <UxDetailDialog open={activeDialog === "device"} onOpenChange={(open) => setActiveDialog(open ? "device" : null)} title="Ativar avisos no celular" icon={BellRing}>
+      <Panel title="Ativar avisos neste celular">
         {hasDevice && pushOn ? (
           <p className="rounded-md border border-primary bg-primary/10 p-3 text-sm font-medium text-primary">
             ✓ Avisos ativados neste celular
@@ -185,8 +201,10 @@ function Alerts() {
           </div>
         )}
       </Panel>
+      </UxDetailDialog>
 
-      <Panel title="2. Configure os avisos em cada token">
+      <UxDetailDialog open={activeDialog === "configure"} onOpenChange={(open) => setActiveDialog(open ? "configure" : null)} title="Configurar avisos" icon={SlidersHorizontal}>
+      <Panel title="Configure os avisos em cada token">
         <p className="text-sm text-muted-foreground">
           Cada token tem sua própria taxa e seu jeito de comprar e vender. Por isso os pontos de
           aviso ficam na Estratégia do token: escolha o token lá e role até “Avisos no celular”.
@@ -195,7 +213,9 @@ function Alerts() {
           <Link to="/estrategia">Configurar avisos do {token.symbol}</Link>
         </Button>
       </Panel>
+      </UxDetailDialog>
 
+      <UxDetailDialog open={activeDialog === "all"} onOpenChange={(open) => setActiveDialog(open ? "all" : null)} title="Todos os seus avisos" icon={ListChecks}>
       <Panel title="Todos os seus avisos">
         {!alerts.data?.length ? (
           <p className="text-sm text-muted-foreground">Nenhum aviso criado ainda.</p>
@@ -255,6 +275,7 @@ function Alerts() {
           </ul>
         )}
       </Panel>
+      </UxDetailDialog>
     </div>
   );
 }
