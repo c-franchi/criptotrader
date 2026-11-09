@@ -3,7 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { getIntegrationHealth } from "@/lib/health.functions";
 import { Button } from "@/components/ui/button";
 import { createFileRoute } from "@tanstack/react-router";
-import { AppShell, Panel } from "@/components/AppShell";
+import { AppShell } from "@/components/AppShell";
+import { UxActionTile, UxDetailDialog } from "@/components/UxDetailDialog";
+import { Activity } from "lucide-react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/integracoes")({
@@ -27,6 +30,7 @@ export const Route = createFileRoute("/integracoes")({
 });
 
 function Integrations() {
+  const [selected, setSelected] = useState<string | null>(null);
   const { user, loading } = useAuth();
   const health = useQuery({
     queryKey: ["integration-health", user?.id],
@@ -65,27 +69,56 @@ function Integrations() {
             : `Verificado às ${new Date(health.dataUpdatedAt).toLocaleTimeString("pt-BR")}`}
       </p>
       <div className="space-y-3">
-        {(health.data ?? []).map((i) => (
-          <Panel
-            key={i.name}
-            title={i.name}
-            right={
-              <span
-                className={
+        <div className="ux-summary-card text-sm">
+          <p className="font-semibold">Resumo das integrações</p>
+          <div className="ux-summary-list mt-2">
+            <div>
+              <span>Verificadas</span>
+              <strong className="text-success">
+                {(health.data ?? []).filter((i) => i.ok === true).length}
+              </strong>
+            </div>
+            <div>
+              <span>Precisam de atenção</span>
+              <strong className="text-warning">
+                {(health.data ?? []).filter((i) => i.ok === false).length}
+              </strong>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {(health.data ?? []).map((i) => (
+            <div key={i.name}>
+              <UxActionTile
+                label={i.name}
+                icon={Activity}
+                description={
                   i.ok === true
-                    ? "text-xs text-success"
+                    ? "Verificado"
                     : i.ok === false
-                      ? "text-xs text-warning"
-                      : "text-xs text-muted-foreground"
+                      ? "Precisa de atenção"
+                      : "Ainda sem atividade"
                 }
+                onClick={() => setSelected(i.name)}
+              />
+              <UxDetailDialog
+                title={i.name}
+                icon={Activity}
+                open={selected === i.name}
+                onOpenChange={(open) => setSelected(open ? i.name : null)}
               >
-                {i.ok === true ? "verificado" : i.ok === false ? "atenção" : "sem atividade"}
-              </span>
-            }
-          >
-            <p className="text-sm text-muted-foreground">{i.text}</p>
-          </Panel>
-        ))}
+                <p className="text-sm text-muted-foreground">{i.text}</p>
+                <p className={i.ok ? "text-sm text-success" : "text-sm text-warning"}>
+                  {i.ok === true
+                    ? "Verificado"
+                    : i.ok === false
+                      ? "Precisa de atenção"
+                      : "Não comprovado"}
+                </p>
+              </UxDetailDialog>
+            </div>
+          ))}
+        </div>
       </div>
       <p className="mt-4 text-xs text-muted-foreground">
         Nenhum segredo é exibido. Nunca informe seed phrase ou chave privada.

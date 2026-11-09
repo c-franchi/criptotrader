@@ -39,7 +39,17 @@ import {
   runGridNow,
 } from "@/lib/bot.functions";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
-import { ChevronDown } from "lucide-react";
+import {
+  ChevronDown,
+  Bot,
+  Wallet,
+  Coins,
+  Settings2,
+  History,
+  SlidersHorizontal,
+  ChartNoAxesCombined,
+} from "lucide-react";
+import { UxActionTile, UxDetailDialog } from "@/components/UxDetailDialog";
 import { WalletCapitalPanel } from "@/components/WalletCapitalPanel";
 import { RemoveBotButton } from "@/components/RemoveBotButton";
 import { ResetStrategiesButton } from "@/components/ResetStrategiesButton";
@@ -231,9 +241,14 @@ function Robo() {
     target.aba === "regras" ? "rules" : "bots",
   );
   const [rulesVisited, setRulesVisited] = useState(target.aba === "regras");
+  const [workspaceVisible, setWorkspaceVisible] = useState(target.aba === "regras");
+  const [toolOpen, setToolOpen] = useState<"tokens" | "manual" | "advanced" | "controls" | null>(
+    null,
+  );
   const openRules = () => {
     setRulesVisited(true);
     setWorkspaceTab("rules");
+    setWorkspaceVisible(true);
     requestAnimationFrame(() => {
       document.getElementById("robot-advanced-rules")?.scrollIntoView({
         behavior: "smooth",
@@ -250,6 +265,7 @@ function Robo() {
     ) {
       setRulesVisited(true);
       setWorkspaceTab("rules");
+      setWorkspaceVisible(true);
       requestAnimationFrame(() => {
         document.getElementById("robot-advanced-rules")?.scrollIntoView({
           behavior: "smooth",
@@ -261,6 +277,7 @@ function Robo() {
   const [setupOpen, setSetupOpen] = useState(false);
   const [setupProblem, setSetupProblem] = useState<ReadinessAction | undefined>();
   const showExecutionProblem = useCallback(() => {
+    setToolOpen("controls");
     setSetupOpen(false);
     setSetupProblem(undefined);
     setTimeout(() => {
@@ -532,8 +549,10 @@ function Robo() {
     )
       return;
     targetApplied.current = key;
-    if (target.problema === "history") setWorkspaceTab("orders");
-    else if (target.problema === "execution") showExecutionProblem();
+    if (target.problema === "history") {
+      setWorkspaceTab("orders");
+      setWorkspaceVisible(true);
+    } else if (target.problema === "execution") showExecutionProblem();
     else if (target.problema) {
       document
         .getElementById("robot-current-problem")
@@ -653,6 +672,64 @@ function Robo() {
             </Button>
           </div>
         </div>
+        <div className="ux-summary-card">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-primary/10 p-3 text-primary">
+              <Bot className="size-6" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold">{walletName}</h2>
+              <p className="text-sm text-muted-foreground">
+                Token {sym} ·{" "}
+                {cfg?.manualAuto
+                  ? "Manual automático"
+                  : mode === "grade"
+                    ? "Grade de preços"
+                    : "Minha estratégia"}
+              </p>
+              <span
+                className={
+                  armed && !execution?.locked
+                    ? "text-sm font-semibold text-success"
+                    : "text-sm font-semibold text-warning"
+                }
+              >
+                {execution?.locked
+                  ? "● Operação aguardando confirmação"
+                  : armed
+                    ? "● Ligado"
+                    : "○ Pausado"}
+              </span>
+              {bot?.last_error && (
+                <p role="status" className="mt-1 text-xs text-warning">
+                  Aviso do robô: {userMessage(bot.last_error)}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="ux-summary-list mt-3 text-sm">
+            <div>
+              <span className="text-muted-foreground">Valor por compra</span>
+              <strong>{cfg?.buyAmount ?? "—"} BNB</strong>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Máx. compras</span>
+              <strong>{cfg?.maxEntries ?? "—"}</strong>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Posição registrada</span>
+              <strong>
+                {st.tokens > 0
+                  ? `${st.tokens.toLocaleString("pt-BR")} ${sym}`
+                  : "Sem posição registrada"}
+              </strong>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Proteções</span>
+              <strong>{cfg?.stopLossPct ? `Stop ${cfg.stopLossPct}%` : "Conferir regras"}</strong>
+            </div>
+          </div>
+        </div>
         <div>
           <p className="mb-2 text-xs text-muted-foreground">Moeda / BNB</p>
           <div data-token-picker className="flex flex-wrap gap-2">
@@ -661,26 +738,80 @@ function Robo() {
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Ações do robô">
+          <UxActionTile label="Regras do robô" icon={SlidersHorizontal} onClick={openRules} />
+          <UxActionTile
+            label="Manual automático"
+            icon={Settings2}
+            onClick={() => setToolOpen("manual")}
+          />
+          <UxActionTile
+            label="Tokens e venda inicial"
+            icon={Coins}
+            onClick={() => setToolOpen("tokens")}
+          />
+          <UxActionTile
+            label="Meus robôs"
+            icon={Bot}
+            onClick={() => {
+              setWorkspaceTab("bots");
+              setWorkspaceVisible(true);
+            }}
+          />
+          <UxActionTile
+            label="Ativos e saldo"
+            icon={Wallet}
+            onClick={() => {
+              setWorkspaceTab("assets");
+              setWorkspaceVisible(true);
+            }}
+          />
+          <UxActionTile
+            label="Histórico"
+            icon={History}
+            onClick={() => {
+              setWorkspaceTab("orders");
+              setWorkspaceVisible(true);
+            }}
+          />
+          <UxActionTile
+            label="Estado e controles"
+            icon={Settings2}
+            onClick={() => setToolOpen("controls")}
+          />
+          <UxActionTile
+            label="Outras ferramentas"
+            icon={ChartNoAxesCombined}
+            onClick={() => setToolOpen("advanced")}
+          />
+        </div>
         {walletLoadedScope === walletScope && w?.address && (
-          <BotTokenIntakeBoundary>
-            <BotTokenIntake
-              key={selectionKey}
-              userId={user?.id ?? ""}
-              walletScope={walletScope}
-              walletName={walletName}
-              walletAddress={w.address}
-              bnb={w.bnb}
-              holdings={w.tokens}
-              token={token}
-              symbol={sym}
-              botArmed={armed}
-              botPositionTokens={st.costBnb > 0 ? Math.max(st.tokens, 1) : st.tokens}
-              onSelectToken={(address) => chooseToken(address)}
-              onRefresh={() => {
-                void load();
-              }}
-            />
-          </BotTokenIntakeBoundary>
+          <UxDetailDialog
+            open={toolOpen === "tokens"}
+            onOpenChange={(open) => setToolOpen(open ? "tokens" : null)}
+            title={`Tokens e venda inicial · ${sym}`}
+            icon={Coins}
+          >
+            <BotTokenIntakeBoundary>
+              <BotTokenIntake
+                key={selectionKey}
+                userId={user?.id ?? ""}
+                walletScope={walletScope}
+                walletName={walletName}
+                walletAddress={w.address}
+                bnb={w.bnb}
+                holdings={w.tokens}
+                token={token}
+                symbol={sym}
+                botArmed={armed}
+                botPositionTokens={st.costBnb > 0 ? Math.max(st.tokens, 1) : st.tokens}
+                onSelectToken={(address) => chooseToken(address)}
+                onRefresh={() => {
+                  void load();
+                }}
+              />
+            </BotTokenIntakeBoundary>
+          </UxDetailDialog>
         )}
 
         {target.problema && (
@@ -723,24 +854,31 @@ function Robo() {
             </Button>
           </section>
         )}
-        <section
-          className="my-4 space-y-2 rounded-2xl border-2 border-primary bg-primary/5 p-4"
-          aria-label="Configuração simples do robô"
+        <UxDetailDialog
+          open={toolOpen === "manual"}
+          onOpenChange={(open) => setToolOpen(open ? "manual" : null)}
+          title={`Manual automático · ${sym}`}
+          icon={Settings2}
         >
-          <h2 className="text-lg font-bold">Manual automático</h2>
-          <p className="text-sm">
-            Você define o valor, a entrada, a saída e o stop opcional. Configure aqui ou encontre
-            este modelo em Criar robô.
-          </p>
-          <ManualAutoSetup
-            key={`manual:${selectionKey}`}
-            userId={user?.id ?? ""}
-            walletScope={walletScope}
-            token={token}
-            symbol={sym}
-            onDone={load}
-          />
-        </section>
+          <section
+            className="my-4 space-y-2 rounded-2xl border border-primary/30 bg-primary/5 p-4"
+            aria-label="Configuração simples do robô"
+          >
+            <h2 className="text-lg font-bold">Manual automático</h2>
+            <p className="text-sm">
+              Você define o valor, a entrada, a saída e o stop opcional. Configure aqui ou encontre
+              este modelo em Criar robô.
+            </p>
+            <ManualAutoSetup
+              key={`manual:${selectionKey}`}
+              userId={user?.id ?? ""}
+              walletScope={walletScope}
+              token={token}
+              symbol={sym}
+              onDone={load}
+            />
+          </section>
+        </UxDetailDialog>
         <GuidedBotSetup
           sourceAddress={sourceAddress}
           key={`setup:${selectionKey}`}
@@ -812,10 +950,12 @@ function Robo() {
             <TokenActivity token={token} symbol={sym} decimals={selected.decimals} />
           </Panel>
           <div className="space-y-4">
-            <details className="border-b border-border py-3">
-              <summary className="cursor-pointer text-sm font-medium">
-                Estado e controles do robô
-              </summary>
+            <UxDetailDialog
+              open={toolOpen === "controls"}
+              onOpenChange={(open) => setToolOpen(open ? "controls" : null)}
+              title="Estado e controles do robô"
+              icon={Settings2}
+            >
               <Panel title={`Robô · ${sym} · ${walletName}`}>
                 <p role="status" className="text-lg font-semibold">
                   {!execution
@@ -984,7 +1124,7 @@ function Robo() {
                   </div>
                 </details>
               </Panel>
-            </details>
+            </UxDetailDialog>
             {!armed && bot && (
               <BotReadiness
                 userId={user?.id ?? ""}
@@ -1006,387 +1146,402 @@ function Robo() {
             />
           </div>
         </div>
-        <div className="trade-tabs" role="tablist" aria-label="Dados dos robôs">
-          {(
-            [
-              ["bots", `Meus bots (${allBots.length})`],
-              ["assets", "Ativos e saldo"],
-              ["orders", `Histórico (${orders.length})`],
-              ["rules", "Regras deste robô"],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              role="tab"
-              aria-selected={workspaceTab === id}
-              onClick={() => setWorkspaceTab(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <section hidden={workspaceTab !== "bots"} role="tabpanel" aria-label="Meus bots">
-          <Panel
-            title={`Meus robôs (${allBots.filter((b) => b.armed).length} ligado${allBots.filter((b) => b.armed).length === 1 ? "" : "s"})`}
-          >
-            <p className="mb-2 text-xs text-muted-foreground">
-              Você pode ter <strong className="text-foreground">um robô para cada token</strong>, em
-              cada carteira. Eles continuam ativos ao trocar a visualização. Toque em um robô para
-              abrir a carteira e o token correspondentes.
-            </p>
-            {allBots.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                Nenhum robô criado ainda. Escolha um token abaixo e siga os passos.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {allBots.map((b) => {
-                  const tk = tokens.find((t) => t.address.toLowerCase() === b.token.toLowerCase());
-                  const active =
-                    b.wallet_scope === walletScope && b.token.toLowerCase() === token.toLowerCase();
-                  const scopeName =
-                    b.wallet_scope === LEGACY_WALLET_SCOPE
-                      ? "Robô original"
-                      : scopeWallets.find((w) => w.id === b.wallet_scope)?.label ||
-                        "Outra carteira";
-                  return (
-                    <li key={b.id}>
-                      <button
-                        onClick={() => {
-                          if (selectWallet(b.wallet_scope))
-                            chooseToken(tk?.address ?? b.token, b.wallet_scope);
-                        }}
-                        className={`w-full rounded-md border p-3 text-left text-xs ${active ? "border-primary bg-primary/10" : b.armed ? "border-success/50 bg-success/5" : "border-border"}`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold">
-                            🤖 {tk?.symbol ?? `${b.token.slice(0, 6)}…`}
-                            {active && (
-                              <span className="ml-2 text-[10px] text-primary">● vendo agora</span>
-                            )}
-                          </span>
-                          <span
-                            className={
-                              b.armed ? "font-medium text-success" : "text-muted-foreground"
-                            }
-                          >
-                            {b.armed
-                              ? b.last_error
-                                ? "● Requer atenção"
-                                : "● Ligado"
-                              : "○ Pausado"}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-muted-foreground">
-                          {scopeName} ·{" "}
-                          {active && cfg?.manualAuto
-                            ? "Manual automático"
-                            : b.mode === "grade"
-                              ? "Grade de preços"
-                              : "Minha estratégia"}
-                          {b.last_run_at
-                            ? ` · conferiu às ${new Date(b.last_run_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
-                            : ""}
-                        </p>
-                      </button>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            if (!selectWallet(b.wallet_scope)) return;
-                            chooseToken(tk?.address ?? b.token, b.wallet_scope, "regras");
-                            if (b.wallet_scope === walletScope) openRules();
-                          }}
-                        >
-                          Regras de {tk?.symbol ?? "robô"}
-                        </Button>
-                        <RemoveBotButton
-                          botId={b.id}
-                          walletScope={b.wallet_scope}
-                          symbol={tk?.symbol ?? b.token.slice(0, 8)}
-                          armed={b.armed}
-                          onDone={() => void load()}
-                        />
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </Panel>
-        </section>
-        <section
-          id="robot-advanced-rules"
-          className="scroll-mt-24"
-          hidden={workspaceTab !== "rules"}
-          role="tabpanel"
-          aria-label={`Regras avançadas do robô de ${sym}`}
+        <UxDetailDialog
+          open={workspaceVisible && workspaceTab === "bots"}
+          onOpenChange={(open) => setWorkspaceVisible(open)}
+          title="Meus robôs"
+          icon={Bot}
         >
-          <Panel title={`Regras · ${sym} · ${walletName}`}>
-            <p className="mb-3 text-sm text-muted-foreground">
-              As regras ficam vinculadas a esta carteira e moeda. Salvar não inicia operações. Para
-              alterar outro robô, selecione-o na aba Meus bots.
-            </p>
-            {!walletReady ||
-            (target.aba === "regras" &&
-              ((target.carteira && target.carteira !== walletScope) ||
-                (target.token && target.token.toLowerCase() !== token.toLowerCase()))) ||
-            cfg === undefined ? (
-              <p role="status" className="text-sm">
-                Conferindo a carteira, a moeda e as regras do robô selecionado…
+          <section role="tabpanel" aria-label="Meus bots">
+            <Panel
+              title={`Meus robôs (${allBots.filter((b) => b.armed).length} ligado${allBots.filter((b) => b.armed).length === 1 ? "" : "s"})`}
+            >
+              <p className="mb-2 text-xs text-muted-foreground">
+                Você pode ter <strong className="text-foreground">um robô para cada token</strong>,
+                em cada carteira. Eles continuam ativos ao trocar a visualização. Toque em um robô
+                para abrir a carteira e o token correspondentes.
               </p>
-            ) : mode === "grade" ? (
-              <p role="status" className="rounded-md bg-secondary p-3 text-sm">
-                Este robô usa Grade de preços. Ajuste sua faixa, degraus e limites na Configuração
-                do robô acima. Para utilizar as regras de compra e venda desta aba, primeiro escolha
-                o modo Minha estratégia com o robô pausado.
-              </p>
-            ) : (
-              rulesVisited && (
-                <Suspense fallback={<p className="text-sm">Carregando as regras deste robô…</p>}>
-                  <AdvancedBotRules key={selectionKey} embedded />
-                </Suspense>
-              )
-            )}
-          </Panel>
-        </section>
-        <section hidden={workspaceTab !== "assets"} role="tabpanel" aria-label="Ativos e saldo">
-          <BotWithdrawalPanel
-            key={walletScope}
-            walletScope={walletScope}
-            walletName={walletName}
-            sourceAddress={w?.address ?? null}
-            onDone={load}
-          />
-          <WalletCapitalPanel
-            key={selectionKey}
-            walletScope={walletScope}
-            previewId={!armed ? bot?.id : undefined}
-            locked={execution?.locked}
-            tokens={tokens}
-          />
-
-          <div className="grid items-start gap-4 lg:grid-cols-2">
-            <Panel title={`Posição e operações · ${sym}`}>
-              <div className="space-y-2 text-sm">
-                {mode === "estrategia" ? (
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <Info
-                      label="Compras abertas"
-                      value={`${st.entries} de ${cfg?.maxEntries ?? "—"}`}
-                    />
-                    <Info
-                      label="Preço médio de compra"
-                      value={st.avgPriceUsd > 0 ? formatUsd(st.avgPriceUsd) : "sem posição"}
-                      usd={st.avgPriceUsd > 0 ? st.avgPriceUsd : undefined}
-                    />
-                    <Info
-                      label={`${sym} comprados`}
-                      value={
-                        st.tokens > 0
-                          ? st.tokens.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
-                          : "0"
-                      }
-                    />
-                    <Info
-                      label="BNB investido"
-                      bnb={st.costBnb}
-                      value={st.costBnb.toLocaleString("pt-BR", { maximumFractionDigits: 6 })}
-                    />
-                    <Info
-                      label="Operações hoje"
-                      value={`${st.tradesToday} de ${cfg?.maxTradesPerDay ?? "—"}`}
-                    />
-                    <Info
-                      label="Último preço visto"
-                      value={bot?.last_price ? formatUsd(bot.last_price) : "—"}
-                      usd={bot?.last_price ? Number(bot.last_price) : undefined}
-                    />
-                  </div>
-                ) : (
-                  <p className="text-xs">
-                    Faixa atual: {bot?.last_level ?? "—"} de {bot?.levels ?? "—"}
-                  </p>
-                )}
-                <details className="text-xs">
-                  <summary className="cursor-pointer">Execução manual avançada</summary>{" "}
-                  <Button
-                    variant="secondary"
-                    disabled={busy || !bot || !armed || execution?.locked}
-                    onClick={() =>
-                      confirm(
-                        "Executar uma avaliação agora? Se houver um sinal válido, o robô poderá enviar uma operação real.",
-                      ) &&
-                      act(() => runNow({ data: { token, walletScope } }), "Avaliação executada")
-                    }
-                  >
-                    Avaliar e operar agora
-                  </Button>
-                </details>
-              </div>
-            </Panel>
-          </div>
-        </section>
-        <section hidden={workspaceTab !== "orders"} role="tabpanel" aria-label="Histórico do robô">
-          <BotPerformancePanel
-            walletScope={walletScope}
-            token={token}
-            onUpdated={() => void load()}
-            autoReconcile={false}
-          />
-          <BotWithdrawalHistory
-            key={walletScope}
-            walletScope={walletScope}
-            enabled={workspaceTab === "orders"}
-          />
-          <div>
-            <Panel title={`Operações do robô (${orders.length})`}>
-              {orders.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhuma operação ainda.</p>
+              {allBots.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Nenhum robô criado ainda. Escolha um token abaixo e siga os passos.
+                </p>
               ) : (
-                orders.map((o) => (
-                  <div
-                    key={o.id}
-                    className="mb-3 min-w-0 rounded-xl border border-border p-3 text-sm"
-                  >
-                    <div className="flex flex-wrap justify-between gap-2">
-                      <span
-                        className={`rounded border px-1 font-semibold uppercase ${o.side === "compra" ? "border-success/50 text-success" : "border-destructive/50 text-destructive"}`}
-                      >
-                        {o.side}{" "}
-                        {
-                          tokens.find((t) => t.address.toLowerCase() === o.token.toLowerCase())
-                            ?.symbol
-                        }
-                      </span>
-                      <span className="font-mono">{o.status}</span>
-                      <span className="text-muted-foreground">
-                        {new Date(o.created_at).toLocaleString("pt-BR")}
-                      </span>
-                    </div>
-                    {o.status === "confirmada" && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="mt-2 w-full"
-                        aria-pressed={chartFocus?.id === o.id}
-                        onClick={() => locateOrder(o.id)}
-                      >
-                        Ver {o.side} no gráfico ↗
-                      </Button>
-                    )}
-                    <div className="my-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <p className="min-w-0">
-                        <span className="block text-xs text-muted-foreground">
-                          {o.side === "compra"
-                            ? "BNB aplicado na compra"
-                            : `Quantidade vendida de ${sym}`}
-                        </span>
-                        <b
-                          className="block break-words tabular-nums [overflow-wrap:anywhere]"
-                          title={`${rawAmount(o.amount_in, o.side === "compra" ? 18 : selected.decimals)} ${o.side === "compra" ? "BNB" : sym}`}
+                <ul className="space-y-2">
+                  {allBots.map((b) => {
+                    const tk = tokens.find(
+                      (t) => t.address.toLowerCase() === b.token.toLowerCase(),
+                    );
+                    const active =
+                      b.wallet_scope === walletScope &&
+                      b.token.toLowerCase() === token.toLowerCase();
+                    const scopeName =
+                      b.wallet_scope === LEGACY_WALLET_SCOPE
+                        ? "Robô original"
+                        : scopeWallets.find((w) => w.id === b.wallet_scope)?.label ||
+                          "Outra carteira";
+                    return (
+                      <li key={b.id}>
+                        <button
+                          onClick={() => {
+                            if (selectWallet(b.wallet_scope))
+                              chooseToken(tk?.address ?? b.token, b.wallet_scope);
+                          }}
+                          className={`w-full rounded-md border p-3 text-left text-xs ${active ? "border-primary bg-primary/10" : b.armed ? "border-success/50 bg-success/5" : "border-border"}`}
                         >
-                          {compactRawAmount(
-                            o.amount_in,
-                            o.side === "compra" ? 18 : selected.decimals,
-                            12,
-                          )}{" "}
-                          {o.side === "compra" ? "BNB" : sym}
-                        </b>
-                      </p>
-                      {o.side === "compra" && (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-semibold">
+                              🤖 {tk?.symbol ?? `${b.token.slice(0, 6)}…`}
+                              {active && (
+                                <span className="ml-2 text-[10px] text-primary">● vendo agora</span>
+                              )}
+                            </span>
+                            <span
+                              className={
+                                b.armed ? "font-medium text-success" : "text-muted-foreground"
+                              }
+                            >
+                              {b.armed
+                                ? b.last_error
+                                  ? "● Requer atenção"
+                                  : "● Ligado"
+                                : "○ Pausado"}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-muted-foreground">
+                            {scopeName} ·{" "}
+                            {active && cfg?.manualAuto
+                              ? "Manual automático"
+                              : b.mode === "grade"
+                                ? "Grade de preços"
+                                : "Minha estratégia"}
+                            {b.last_run_at
+                              ? ` · conferiu às ${new Date(b.last_run_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+                              : ""}
+                          </p>
+                        </button>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (!selectWallet(b.wallet_scope)) return;
+                              chooseToken(tk?.address ?? b.token, b.wallet_scope, "regras");
+                              if (b.wallet_scope === walletScope) openRules();
+                            }}
+                          >
+                            Regras de {tk?.symbol ?? "robô"}
+                          </Button>
+                          <RemoveBotButton
+                            botId={b.id}
+                            walletScope={b.wallet_scope}
+                            symbol={tk?.symbol ?? b.token.slice(0, 8)}
+                            armed={b.armed}
+                            onDone={() => void load()}
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Panel>
+          </section>
+        </UxDetailDialog>
+        <UxDetailDialog
+          open={workspaceVisible && workspaceTab === "rules"}
+          onOpenChange={(open) => setWorkspaceVisible(open)}
+          title={`Regras do robô · ${sym}`}
+          icon={SlidersHorizontal}
+        >
+          <section
+            id="robot-advanced-rules"
+            className="scroll-mt-24"
+            role="tabpanel"
+            aria-label={`Regras avançadas do robô de ${sym}`}
+          >
+            <Panel title={`Regras · ${sym} · ${walletName}`}>
+              <p className="mb-3 text-sm text-muted-foreground">
+                As regras ficam vinculadas a esta carteira e moeda. Salvar não inicia operações.
+                Para alterar outro robô, selecione-o na aba Meus bots.
+              </p>
+              {!walletReady ||
+              (target.aba === "regras" &&
+                ((target.carteira && target.carteira !== walletScope) ||
+                  (target.token && target.token.toLowerCase() !== token.toLowerCase()))) ||
+              cfg === undefined ? (
+                <p role="status" className="text-sm">
+                  Conferindo a carteira, a moeda e as regras do robô selecionado…
+                </p>
+              ) : mode === "grade" ? (
+                <p role="status" className="rounded-md bg-secondary p-3 text-sm">
+                  Este robô usa Grade de preços. Ajuste sua faixa, degraus e limites na Configuração
+                  do robô acima. Para utilizar as regras de compra e venda desta aba, primeiro
+                  escolha o modo Minha estratégia com o robô pausado.
+                </p>
+              ) : (
+                rulesVisited && (
+                  <Suspense fallback={<p className="text-sm">Carregando as regras deste robô…</p>}>
+                    <AdvancedBotRules key={selectionKey} embedded />
+                  </Suspense>
+                )
+              )}
+            </Panel>
+          </section>
+        </UxDetailDialog>
+        <UxDetailDialog
+          open={workspaceVisible && workspaceTab === "assets"}
+          onOpenChange={(open) => setWorkspaceVisible(open)}
+          title={`Ativos e saldo · ${walletName}`}
+          icon={Wallet}
+        >
+          <section role="tabpanel" aria-label="Ativos e saldo">
+            <BotWithdrawalPanel
+              key={walletScope}
+              walletScope={walletScope}
+              walletName={walletName}
+              sourceAddress={w?.address ?? null}
+              onDone={load}
+            />
+            <WalletCapitalPanel
+              key={selectionKey}
+              walletScope={walletScope}
+              previewId={!armed ? bot?.id : undefined}
+              locked={execution?.locked}
+              tokens={tokens}
+            />
+
+            <div className="grid items-start gap-4 lg:grid-cols-2">
+              <Panel title={`Posição e operações · ${sym}`}>
+                <div className="space-y-2 text-sm">
+                  {mode === "estrategia" ? (
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <Info
+                        label="Compras abertas"
+                        value={`${st.entries} de ${cfg?.maxEntries ?? "—"}`}
+                      />
+                      <Info
+                        label="Preço médio de compra"
+                        value={st.avgPriceUsd > 0 ? formatUsd(st.avgPriceUsd) : "sem posição"}
+                        usd={st.avgPriceUsd > 0 ? st.avgPriceUsd : undefined}
+                      />
+                      <Info
+                        label={`${sym} comprados`}
+                        value={
+                          st.tokens > 0
+                            ? st.tokens.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
+                            : "0"
+                        }
+                      />
+                      <Info
+                        label="BNB investido"
+                        bnb={st.costBnb}
+                        value={st.costBnb.toLocaleString("pt-BR", { maximumFractionDigits: 6 })}
+                      />
+                      <Info
+                        label="Operações hoje"
+                        value={`${st.tradesToday} de ${cfg?.maxTradesPerDay ?? "—"}`}
+                      />
+                      <Info
+                        label="Último preço visto"
+                        value={bot?.last_price ? formatUsd(bot.last_price) : "—"}
+                        usd={bot?.last_price ? Number(bot.last_price) : undefined}
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-xs">
+                      Faixa atual: {bot?.last_level ?? "—"} de {bot?.levels ?? "—"}
+                    </p>
+                  )}
+                  <details className="text-xs">
+                    <summary className="cursor-pointer">Execução manual avançada</summary>{" "}
+                    <Button
+                      variant="secondary"
+                      disabled={busy || !bot || !armed || execution?.locked}
+                      onClick={() =>
+                        confirm(
+                          "Executar uma avaliação agora? Se houver um sinal válido, o robô poderá enviar uma operação real.",
+                        ) &&
+                        act(() => runNow({ data: { token, walletScope } }), "Avaliação executada")
+                      }
+                    >
+                      Avaliar e operar agora
+                    </Button>
+                  </details>
+                </div>
+              </Panel>
+            </div>
+          </section>
+        </UxDetailDialog>
+        <UxDetailDialog
+          open={workspaceVisible && workspaceTab === "orders"}
+          onOpenChange={(open) => setWorkspaceVisible(open)}
+          title={`Histórico do robô · ${sym}`}
+          icon={History}
+        >
+          <section role="tabpanel" aria-label="Histórico do robô">
+            <BotPerformancePanel
+              walletScope={walletScope}
+              token={token}
+              onUpdated={() => void load()}
+              autoReconcile={false}
+            />
+            <BotWithdrawalHistory
+              key={walletScope}
+              walletScope={walletScope}
+              enabled={workspaceTab === "orders"}
+            />
+            <div>
+              <Panel title={`Operações do robô (${orders.length})`}>
+                {orders.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhuma operação ainda.</p>
+                ) : (
+                  orders.map((o) => (
+                    <div
+                      key={o.id}
+                      className="mb-3 min-w-0 rounded-xl border border-border p-3 text-sm"
+                    >
+                      <div className="flex flex-wrap justify-between gap-2">
+                        <span
+                          className={`rounded border px-1 font-semibold uppercase ${o.side === "compra" ? "border-success/50 text-success" : "border-destructive/50 text-destructive"}`}
+                        >
+                          {o.side}{" "}
+                          {
+                            tokens.find((t) => t.address.toLowerCase() === o.token.toLowerCase())
+                              ?.symbol
+                          }
+                        </span>
+                        <span className="font-mono">{o.status}</span>
+                        <span className="text-muted-foreground">
+                          {new Date(o.created_at).toLocaleString("pt-BR")}
+                        </span>
+                      </div>
+                      {o.status === "confirmada" && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="mt-2 w-full"
+                          aria-pressed={chartFocus?.id === o.id}
+                          onClick={() => locateOrder(o.id)}
+                        >
+                          Ver {o.side} no gráfico ↗
+                        </Button>
+                      )}
+                      <div className="my-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <p className="min-w-0">
                           <span className="block text-xs text-muted-foreground">
-                            Tokens recebidos
+                            {o.side === "compra"
+                              ? "BNB aplicado na compra"
+                              : `Quantidade vendida de ${sym}`}
                           </span>
                           <b
                             className="block break-words tabular-nums [overflow-wrap:anywhere]"
-                            title={
-                              o.actual_token_delta == null
-                                ? undefined
-                                : rawAmount(o.actual_token_delta, selected.decimals)
-                            }
+                            title={`${rawAmount(o.amount_in, o.side === "compra" ? 18 : selected.decimals)} ${o.side === "compra" ? "BNB" : sym}`}
                           >
-                            {o.actual_token_delta == null
-                              ? "Não apurada"
-                              : `${compactRawAmount(o.actual_token_delta, selected.decimals, 8)} ${sym}`}
+                            {compactRawAmount(
+                              o.amount_in,
+                              o.side === "compra" ? 18 : selected.decimals,
+                              12,
+                            )}{" "}
+                            {o.side === "compra" ? "BNB" : sym}
                           </b>
                         </p>
-                      )}
-                      <p className="min-w-0">
-                        <span className="block text-xs text-muted-foreground">Gás registrado</span>
-                        <b className="block break-words tabular-nums [overflow-wrap:anywhere]">
-                          {o.gas_bnb == null ? "Não apurado" : `${o.gas_bnb} BNB`}
-                        </b>
-                      </p>
-                      {o.side === "venda" && (
+                        {o.side === "compra" && (
+                          <p className="min-w-0">
+                            <span className="block text-xs text-muted-foreground">
+                              Tokens recebidos
+                            </span>
+                            <b
+                              className="block break-words tabular-nums [overflow-wrap:anywhere]"
+                              title={
+                                o.actual_token_delta == null
+                                  ? undefined
+                                  : rawAmount(o.actual_token_delta, selected.decimals)
+                              }
+                            >
+                              {o.actual_token_delta == null
+                                ? "Não apurada"
+                                : `${compactRawAmount(o.actual_token_delta, selected.decimals, 8)} ${sym}`}
+                            </b>
+                          </p>
+                        )}
                         <p className="min-w-0">
                           <span className="block text-xs text-muted-foreground">
-                            BNB realmente recebido na venda
+                            Gás registrado
                           </span>
-                          <b
-                            className={
-                              o.actual_bnb_received == null
-                                ? "block font-semibold text-warning"
-                                : "block break-words font-semibold tabular-nums [overflow-wrap:anywhere]"
-                            }
-                          >
-                            {o.actual_bnb_received == null
-                              ? "Pendente — lucro ainda desconhecido"
-                              : `${o.actual_bnb_received} BNB`}
+                          <b className="block break-words tabular-nums [overflow-wrap:anywhere]">
+                            {o.gas_bnb == null ? "Não apurado" : `${o.gas_bnb} BNB`}
                           </b>
                         </p>
+                        {o.side === "venda" && (
+                          <p className="min-w-0">
+                            <span className="block text-xs text-muted-foreground">
+                              BNB realmente recebido na venda
+                            </span>
+                            <b
+                              className={
+                                o.actual_bnb_received == null
+                                  ? "block font-semibold text-warning"
+                                  : "block break-words font-semibold tabular-nums [overflow-wrap:anywhere]"
+                              }
+                            >
+                              {o.actual_bnb_received == null
+                                ? "Pendente — lucro ainda desconhecido"
+                                : `${o.actual_bnb_received} BNB`}
+                            </b>
+                          </p>
+                        )}
+                        <p className="min-w-0">
+                          <span className="block text-xs text-muted-foreground">
+                            Apuração financeira
+                          </span>
+                          <b className="break-words">
+                            {o.side === "venda" && o.actual_bnb_received == null
+                              ? "Venda confirmada; resultado líquido pendente"
+                              : o.accounting_status === "confirmado"
+                                ? "Valores efetivos confirmados"
+                                : "Conferir contabilidade"}
+                          </b>
+                        </p>
+                      </div>
+                      {o.side === "venda" &&
+                        o.status === "confirmada" &&
+                        o.actual_bnb_received == null &&
+                        o.tx_hash && (
+                          <ReconcileSaleButton hash={o.tx_hash} onUpdated={() => void load()} />
+                        )}
+                      {o.tx_hash && (
+                        <a
+                          className="break-all font-mono text-primary underline"
+                          href={`https://bscscan.com/tx/${o.tx_hash}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Ver na BscScan
+                        </a>
                       )}
-                      <p className="min-w-0">
-                        <span className="block text-xs text-muted-foreground">
-                          Apuração financeira
-                        </span>
-                        <b className="break-words">
-                          {o.side === "venda" && o.actual_bnb_received == null
-                            ? "Venda confirmada; resultado líquido pendente"
-                            : o.accounting_status === "confirmado"
-                              ? "Valores efetivos confirmados"
-                              : "Conferir contabilidade"}
-                        </b>
-                      </p>
+                      {o.error && <p className="text-destructive">{userMessage(o.error)}</p>}
                     </div>
-                    {o.side === "venda" &&
-                      o.status === "confirmada" &&
-                      o.actual_bnb_received == null &&
-                      o.tx_hash && (
-                        <ReconcileSaleButton hash={o.tx_hash} onUpdated={() => void load()} />
-                      )}
-                    {o.tx_hash && (
-                      <a
-                        className="break-all font-mono text-primary underline"
-                        href={`https://bscscan.com/tx/${o.tx_hash}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Ver na BscScan
-                      </a>
-                    )}
-                    {o.error && <p className="text-destructive">{userMessage(o.error)}</p>}
-                  </div>
-                ))
-              )}
-            </Panel>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={orders.length < orderLimit}
-            onClick={() => setOrderLimit((n) => n + 20)}
-          >
-            Carregar mais operações
-          </Button>
-        </section>
-        <details className="rounded-lg border border-border p-3">
-          <summary className="cursor-pointer text-sm font-semibold">
-            Avançado · regras antigas, operação manual e histórico de segurança
-          </summary>
+                  ))
+                )}
+              </Panel>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={orders.length < orderLimit}
+              onClick={() => setOrderLimit((n) => n + 20)}
+            >
+              Carregar mais operações
+            </Button>
+          </section>
+        </UxDetailDialog>
+        <UxDetailDialog
+          open={toolOpen === "advanced"}
+          onOpenChange={(open) => setToolOpen(open ? "advanced" : null)}
+          title="Outras ferramentas"
+          icon={ChartNoAxesCombined}
+        >
           <div className="mt-4 space-y-4">
             <Panel collapsible title="Como funciona a carteira do robô (leia antes)">
               <div className="grid gap-3 text-sm sm:grid-cols-3">
@@ -1687,7 +1842,7 @@ function Robo() {
               </div>
             </Panel>
           </div>
-        </details>
+        </UxDetailDialog>
       </div>
     </div>
   );

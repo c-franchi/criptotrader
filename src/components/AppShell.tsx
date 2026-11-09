@@ -27,6 +27,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/NotificationBell";
+import { UxDetailDialog } from "@/components/UxDetailDialog";
 
 const nav = [
   { to: "/", label: "Painel", desc: "Preço, liquidez e transferências", icon: LayoutDashboard },
@@ -67,6 +68,7 @@ const nav = [
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const [open, setOpen] = useState(false);
+  const [walletOpen, setWalletOpen] = useState(false);
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const handleNavClick = (event: React.MouseEvent, to: string) => {
@@ -141,7 +143,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
       <nav
         aria-label="Atalhos no celular"
-        className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg lg:hidden"
       >
         {nav
           .filter((n) => ["/", "/grade", "/operar", "/carteiras"].includes(n.to))
@@ -149,8 +151,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link
               key={n.to}
               to={n.to}
-              className="flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 text-center text-[10px] text-muted-foreground"
-              activeProps={{ className: "text-primary" }}
+              className="flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-center text-[10px] text-muted-foreground transition-colors"
+              activeProps={{ className: "text-primary bg-primary/10 font-semibold" }}
               activeOptions={{ exact: true }}
             >
               <n.icon className="h-5 w-5" />
@@ -164,7 +166,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           ))}
       </nav>
-      <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur-lg">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-3 py-2.5 sm:px-4">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
@@ -259,6 +261,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           )}
           <div className="ml-auto flex shrink-0 items-center">
+            {user && (
+              <Button
+                size="icon"
+                variant="ghost"
+                title="Trocar carteira"
+                aria-label="Trocar carteira"
+                onClick={() => setWalletOpen(true)}
+              >
+                <Wallet className="size-5" />
+              </Button>
+            )}
             <PreferencesDialog />
             <ThemeToggle />
             <AppUpdateNotice />
@@ -276,9 +289,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         data-app-content
         className="exchange-workspace mx-auto w-full min-w-0 max-w-[1600px] px-3 py-4 sm:px-4 sm:py-6"
       >
-        {pathname !== "/" && pathname !== "/carteiras" && <WalletSelector />}
         {children}
       </main>
+      <UxDetailDialog
+        open={walletOpen}
+        onOpenChange={setWalletOpen}
+        title="Selecionar carteira"
+        icon={Wallet}
+        description="Escolha a carteira que deseja consultar. Não inicia operações."
+      >
+        <WalletSelector />
+      </UxDetailDialog>
       <AppTour open={tour.open} onOpenChange={tour.setOpen} />
     </div>
   );
@@ -310,7 +331,7 @@ export function Panel({
           );
         }}
         data-panel
-        className="group min-w-0 max-w-full scroll-mt-16 rounded-lg border border-border bg-card p-3 sm:p-4"
+        className="group min-w-0 max-w-full scroll-mt-16 rounded-2xl border border-border bg-card p-3 sm:p-4"
       >
         <summary
           onClick={(e) => {
@@ -332,7 +353,7 @@ export function Panel({
   return (
     <section
       data-panel
-      className="min-w-0 max-w-full rounded-lg border border-border bg-card p-3 sm:p-4"
+      className="min-w-0 max-w-full rounded-2xl border border-border bg-card p-3 sm:p-4"
     >
       <div className="mb-3 flex min-w-0 flex-wrap items-start justify-between gap-2">
         <h2 className="min-w-0 flex-1 whitespace-normal break-words text-xs font-semibold uppercase tracking-widest text-muted-foreground">

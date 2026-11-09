@@ -11,6 +11,8 @@ import { useCandles } from "@/hooks/useCandles";
 import { windowStats } from "@/lib/marketStats";
 import { Button } from "@/components/ui/button";
 import { CandleChart } from "@/components/CandleChart";
+import { UxActionTile, UxDetailDialog } from "@/components/UxDetailDialog";
+import { Activity } from "lucide-react";
 
 export const Route = createFileRoute("/metricas")({
   head: () => ({
@@ -48,6 +50,7 @@ const usd = formatUsd;
 function Metrics() {
   const { token, tokens, selectToken } = useSelectedToken();
   const [hours, setHours] = useState(24);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [clock, setClock] = useState(0);
   useEffect(() => {
     setClock(Date.now());
@@ -133,23 +136,39 @@ function Metrics() {
                 <p className="text-muted-foreground">Preço atual</p>
                 <p className="font-semibold">{usd(stats.close)}</p>
               </div>
-              <div>
-                <p className="text-muted-foreground">Abertura</p>
-                <p>{usd(stats.open)}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Máxima</p>
-                <p>{usd(stats.high)}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Mínima</p>
-                <p>{usd(stats.low)}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Velas de 5 min</p>
-                <p>{win.length}</p>
-              </div>
             </div>
+            <div className="mt-3">
+              <UxActionTile
+                label="Detalhes do período"
+                icon={Activity}
+                onClick={() => setAdvancedOpen(true)}
+              />
+            </div>
+            <UxDetailDialog
+              open={advancedOpen}
+              onOpenChange={setAdvancedOpen}
+              title={`Detalhes de ${token.symbol} · ${hours}h`}
+              icon={Activity}
+            >
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Abertura</p>
+                  <p>{usd(stats.open)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Máxima</p>
+                  <p>{usd(stats.high)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Mínima</p>
+                  <p>{usd(stats.low)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Velas de 5 min</p>
+                  <p>{win.length}</p>
+                </div>
+              </div>
+            </UxDetailDialog>
           </Panel>
 
           <CandleChart
