@@ -58,6 +58,8 @@ import { AddTokenDialog } from "@/components/AddTokenDialog";
 import { useSelectedToken } from "@/hooks/useSelectedToken";
 import { slippageLevel } from "@/lib/safety";
 import { ContractRisk } from "@/components/ContractRisk";
+import { UxActionTile, UxDetailDialog } from "@/components/UxDetailDialog";
+import { ShieldCheck, History, ChartNoAxesCombined } from "lucide-react";
 
 export const Route = createFileRoute("/operar")({
   validateSearch: manualSearch,
@@ -193,7 +195,8 @@ function Operar() {
   }, [requestedToken, GTE, selectInspectedToken]);
 
   const [tradeOpen, setTradeOpen] = useState(true);
-  const [marketTab, setMarketTab] = useState<"orders" | "assets">("orders");
+  const [marketTab, setMarketTab] = useState<"orders" | "assets" | null>(null);
+  const [showSafety, setShowSafety] = useState(false);
   const marketRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
@@ -1046,10 +1049,7 @@ function Operar() {
         )}
       </div>
 
-      <details className="border-t border-border py-4">
-        <summary className="cursor-pointer text-sm font-medium">
-          Carteira, taxas e segurança
-        </summary>
+      <UxDetailDialog open={showSafety} onOpenChange={setShowSafety} title="Carteira, taxas e segurança" icon={ShieldCheck}>
         <ContractRisk address={GTE} />
         {bal && (
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
@@ -1199,27 +1199,14 @@ function Operar() {
             </p>
           )}
         </div>
-      </details>
-      <div className="trade-tabs" role="tablist" aria-label="Dados da operação manual">
-        <button
-          role="tab"
-          aria-selected={marketTab === "orders"}
-          onClick={() => setMarketTab("orders")}
-        >
-          Histórico ({orders.length})
-        </button>
-        <button
-          role="tab"
-          aria-selected={marketTab === "assets"}
-          onClick={() => setMarketTab("assets")}
-        >
-          Ativos e resultado
-        </button>
-        <Link className="self-center text-sm text-muted-foreground" to="/grade">
-          Robôs →
-        </Link>
+      </UxDetailDialog>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Detalhes da operação manual">
+        <UxActionTile label="Carteira e segurança" icon={ShieldCheck} onClick={() => setShowSafety(true)} />
+        <UxActionTile label={`Histórico (${orders.length})`} icon={History} onClick={() => setMarketTab("orders")} />
+        <UxActionTile label="Ativos e resultado" icon={ChartNoAxesCombined} onClick={() => setMarketTab("assets")} />
       </div>
-      <section hidden={marketTab !== "assets"} role="tabpanel" aria-label="Ativos e resultado">
+      <UxDetailDialog open={marketTab === "assets"} onOpenChange={(open) => setMarketTab(open ? "assets" : null)} title={`Ativos e resultado · ${sym}`} icon={ChartNoAxesCombined}>
+      <section role="tabpanel" aria-label="Ativos e resultado">
         <Panel title={`Seus resultados com ${sym}`}>
           {pnl.buys + pnl.sells === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -1323,7 +1310,9 @@ function Operar() {
           )}
         </Panel>
       </section>
-      <section hidden={marketTab !== "orders"} role="tabpanel" aria-label="Histórico">
+      </UxDetailDialog>
+      <UxDetailDialog open={marketTab === "orders"} onOpenChange={(open) => setMarketTab(open ? "orders" : null)} title={`Histórico de operações (${orders.length})`} icon={History}>
+      <section role="tabpanel" aria-label="Histórico">
         <Panel title={`Histórico de operações (${orders.length})`}>
           <div className="mb-3 flex flex-wrap gap-2 text-xs">
             <div>
@@ -1465,6 +1454,7 @@ function Operar() {
       >
         Carregar mais operações
       </Button>
+      </UxDetailDialog>
     </div>
   );
 }
