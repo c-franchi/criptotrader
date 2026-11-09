@@ -277,6 +277,7 @@ function Robo() {
   const [setupOpen, setSetupOpen] = useState(false);
   const [setupProblem, setSetupProblem] = useState<ReadinessAction | undefined>();
   const showExecutionProblem = useCallback(() => {
+    setToolOpen("controls");
     setSetupOpen(false);
     setSetupProblem(undefined);
     setTimeout(() => {
@@ -548,7 +549,10 @@ function Robo() {
     )
       return;
     targetApplied.current = key;
-    if (target.problema === "history") setWorkspaceTab("orders");
+    if (target.problema === "history") {
+      setWorkspaceTab("orders");
+      setWorkspaceVisible(true);
+    }
     else if (target.problema === "execution") showExecutionProblem();
     else if (target.problema) {
       document
