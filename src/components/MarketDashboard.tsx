@@ -7,9 +7,12 @@ import { TokenChart } from "./TokenChart";
 import { FiatValue } from "@/hooks/useCurrency";
 import { Button } from "./ui/button";
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, ExternalLink } from "lucide-react";
+import { ArrowUpRight, ExternalLink, Activity } from "lucide-react";
+import { useState } from "react";
+import { UxActionTile, UxDetailDialog } from "./UxDetailDialog";
 
 export function MarketDashboard() {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const { token, tokens, selectToken } = useSelectedToken();
   const market = useQuery({
     queryKey: ["market", token.address],
@@ -34,6 +37,8 @@ export function MarketDashboard() {
             {change == null ? "Variação em 24h indisponível" : `${change >= 0 ? "+" : ""}${change.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% · 24h`}
           </p>
         </div>
+        <UxActionTile label="Detalhes do mercado" description="Liquidez, volume e dados da pool" icon={Activity} onClick={() => setDetailsOpen(true)} />
+        <UxDetailDialog open={detailsOpen} onOpenChange={setDetailsOpen} title={`Detalhes do mercado · ${token.symbol}`} icon={Activity}>
         <dl className="divide-y divide-border text-sm">
           {[["Liquidez do pool", pool?.liquidityUsd], ["Volume em 24h", pool?.volume24h]].map(([label, value]) => (
             <div key={String(label)} className="flex flex-wrap items-start justify-between gap-2 py-3">
@@ -49,6 +54,7 @@ export function MarketDashboard() {
         <a href={`https://bscscan.com/token/${token.address}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-primary" title={token.address}>
           <ExternalLink className="size-4 shrink-0" /><span>Contrato · {token.address.slice(0, 6)}…{token.address.slice(-4)}</span>
         </a>
+        </UxDetailDialog>
         <Button variant="outline" asChild className="w-full"><Link to="/operar" search={{ token: token.address }}>Operar {token.symbol}<ArrowUpRight className="size-4" /></Link></Button>
       </aside>
       <div className="dashboard-chart min-w-0">
