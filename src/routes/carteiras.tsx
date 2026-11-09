@@ -15,6 +15,8 @@ import { getBotWallet } from "@/lib/bot.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { UxActionTile, UxDetailDialog } from "@/components/UxDetailDialog";
+import { UserRound, Wallet, WalletCards, PlusCircle } from "lucide-react";
 
 export const Route = createFileRoute("/carteiras")({
   head: () => ({
@@ -51,6 +53,7 @@ function Wallets() {
   const [address, setAddress] = useState("");
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState<"profile" | "robot" | "add" | "saved" | null>(null);
 
   const submit = async () => {
     setBusy(true);
@@ -66,23 +69,25 @@ function Wallets() {
     <div className="mx-auto max-w-2xl space-y-4">
       <PageHeading title="Carteiras" description="Endereços, saldos e ativos em um só lugar." />
       <FundsOverview />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Ferramentas das carteiras">
+        <UxActionTile label="Adicionar carteira" icon={PlusCircle} onClick={() => setDetailsOpen("add")} />
+        <UxActionTile label={`Carteiras salvas (${wallets.length})`} icon={WalletCards} onClick={() => setDetailsOpen("saved")} />
+        <UxActionTile label="Carteiras dos robôs" icon={Wallet} onClick={() => setDetailsOpen("robot")} />
+        <UxActionTile label="Meu perfil" icon={UserRound} onClick={() => setDetailsOpen("profile")} />
+      </div>
+      <UxDetailDialog open={detailsOpen === "profile"} onOpenChange={(open) => setDetailsOpen(open ? "profile" : null)} title="Meu perfil" icon={UserRound}>
       <Panel title="Perfil">
         <p className="text-sm">
           Conta: <strong>{user?.email}</strong>
         </p>
       </Panel>
-
-      <details className="rounded-2xl border border-border p-4">
-        <summary className="cursor-pointer text-sm font-semibold">
-          Gerenciar carteiras dos robôs
-        </summary>
-        <div className="mt-4">
-          <WalletSelector />
-          <BotWallet />
-        </div>
-      </details>
-
+      </UxDetailDialog>
+      <UxDetailDialog open={detailsOpen === "robot"} onOpenChange={(open) => setDetailsOpen(open ? "robot" : null)} title="Carteiras dos robôs" icon={Wallet}>
+        <WalletSelector />
+        <BotWallet />
+      </UxDetailDialog>
       <div id="adicionar-carteira" className="scroll-mt-24" />
+      <UxDetailDialog open={detailsOpen === "add"} onOpenChange={(open) => setDetailsOpen(open ? "add" : null)} title="Adicionar carteira" icon={PlusCircle}>
       <Panel title="Adicionar carteira">
         <div className="space-y-3">
           <div>
@@ -111,7 +116,8 @@ function Wallets() {
           </p>
         </div>
       </Panel>
-
+      </UxDetailDialog>
+      <UxDetailDialog open={detailsOpen === "saved"} onOpenChange={(open) => setDetailsOpen(open ? "saved" : null)} title={`Carteiras salvas (${wallets.length})`} icon={WalletCards}>
       <Panel title={`Carteiras salvas (${wallets.length})`}>
         {wallets.length === 0 && (
           <p className="text-sm text-muted-foreground">Nenhuma carteira salva ainda.</p>
@@ -165,6 +171,7 @@ function Wallets() {
           ))}
         </ul>
       </Panel>
+      </UxDetailDialog>
     </div>
   );
 }
