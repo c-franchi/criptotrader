@@ -873,7 +873,7 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
             <Panel title={embedded ? "Passo 2 · Token deste robô" : "Passo 2 · Escolha o token"}>
               {embedded ? (
                 <p className="rounded-md bg-secondary p-3 text-sm">
-                <b>{token.symbol}</b> · As regras desta aba pertencem somente ao token e à carteira
+                  <b>{token.symbol}</b> · As regras desta aba pertencem somente ao token e à
                   carteira selecionados em Meus robôs. Volte à lista para configurar outro robô.
                 </p>
               ) : (
