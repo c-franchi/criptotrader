@@ -552,8 +552,7 @@ function Robo() {
     if (target.problema === "history") {
       setWorkspaceTab("orders");
       setWorkspaceVisible(true);
-    }
-    else if (target.problema === "execution") showExecutionProblem();
+    } else if (target.problema === "execution") showExecutionProblem();
     else if (target.problema) {
       document
         .getElementById("robot-current-problem")
