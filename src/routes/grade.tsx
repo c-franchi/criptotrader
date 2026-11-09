@@ -673,7 +673,7 @@ function Robo() {
             token={token}
             symbol={sym}
             botArmed={armed}
-            botPositionTokens={st.tokens}
+            botPositionTokens={st.costBnb > 0 ? Math.max(st.tokens, 1) : st.tokens}
             onSelectToken={(address) => chooseToken(address)}
             onRefresh={() => {
               void load();
