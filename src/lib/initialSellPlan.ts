@@ -1,6 +1,10 @@
 import Decimal from "decimal.js";
 import { z } from "zod";
 
+// ERC-20 balances can have 18 fractional digits plus many whole digits.
+// Decimal.js defaults to 20 significant digits; that silently rounds a 50% plan.
+const ExactAmount = Decimal.clone({ precision: 60, rounding: Decimal.ROUND_DOWN });
+
 /** This is a non-executable planning draft. The trading executor ignores it. */
 export const initialSellDraftSchema = z.object({
   version: z.literal(1),
@@ -41,7 +45,7 @@ export function initialSellDraftKey(userId: string, walletScope: string, walletA
 export function initialSellQuantity(balance: string, sharePct: number): string | null {
   if (!Number.isInteger(sharePct) || sharePct < 1 || sharePct > 100) return null;
   try {
-    const amount = new Decimal(balance);
+    const amount = new ExactAmount(balance);
     if (!amount.isFinite() || amount.lte(0)) return null;
     return amount.mul(sharePct).div(100).toFixed();
   } catch {
