@@ -1,26 +1,35 @@
 # Correção da seleção e do mercado
+
 ## Modais e rodapé dos bots (09/11/2026)
+
 - [x] Corrigir deslocamento causado pelo reset de translate removido na compilação; 11 testes passaram e abertura/rolagem/fechamento de modais reais públicos e longos/aninhados isolados conferidos em cinco tamanhos, sem erros runtime.
 - [x] Mover a parada global para o rodapé exclusivo da aba Robô, mantendo ação e robôs intactos; conferência autenticada do rodapé indisponível porque a conta solicitante não possui sessão acessível.
+
 ## Finalização controlada PR #55 (07/11/2026)
+
 - [x] Revisar PR #55 e reutilizar seus quatro arquivos; 48 testes específicos passaram, lint dos arquivos envolvidos OK, SQL não aplicado em produção. Merge depende do check global de lint preexistente (1035 erros).
 - [x] Conferir as sete vendas GTE read-only: sete receipts com sucesso; nenhum trace nativo disponível, RPC -32000/missing historical state; nenhum valor financeiro gravado.
 - [x] Ensaiar patch/repetição/RLS, claims realmente paralelos e leases de 20min/5min em PostgreSQL descartável; testes de falha/recuperação dos dois workers passam. Frequência HTTP real continua não testada; novos agendadores desligados.
 - [x] Verificar páginas públicas, gráficos e recursos PWA no computador/celular, sem overflow ou erros runtime; banco mantém 8 robôs desarmados, 3 carteiras completas, 6 estratégias, 23 ordens, 0 locks/submissões pendentes.
 - [ ] Verificar exibição autenticada de carteiras/robôs/histórico: mint da conta solicitante falhou; titular precisa entrar na prévia (sem fornecer credenciais no chat).
 - [ ] Implantar/publicar somente após exportação atual baixada/restaurável, recuperação independente do segredo, RPC histórico e autorização; nenhum desses gates foi comprovado nesta etapa.
+
 ## Reconciliação financeira segura (07/11/2026)
+
 - [x] Construir ensaio PostgreSQL isolado com esquema 0021 e histórico 0014; catálogo completo 44/44 objetos corresponde à produção.
 - [x] Implementar reconciliação transacional idempotente com hashes e timestamps reais; divergência e execução ativa abortam; locks explícitos protegem concorrência (teste paralelo ainda não realizado).
 - [x] Ensaiar 0022/0023 separadamente e testar escrita, RLS, triggers e backfill sem blockchain; 20 testes Vitest passaram, build automático OK.
 - [ ] Comprovar exportação atual recuperável e preservação independente do segredo (depende do proprietário).
 - [ ] Aplicar em produção somente com gates aprovados e mecanismo privilegiado suportado (ferramentas disponíveis não escrevem o ledger); publicar e validar três ciclos dos novos agendadores após esse desbloqueio.
+
 ## Painel inspirado nos modelos (25/10/2026)
+
 - [x] Organizar dados do token à esquerda e gráfico compacto à direita no computador; empilhar no celular e preservar fundos existentes.
 - [x] Conferir mercado real, seleção e ampliação no computador/celular; 37 testes passaram, sem erros de execução ou rolagem horizontal; verificações básicas de segurança concluídas, sem análise profunda.
 - [ ] Conferir fundos na conta autenticada: entrada automática da conta solicitante indisponível; requer login na prévia. Testes das carteiras passaram; dados e robôs não foram alterados.
 
 ## Melhorias pontuais e auditoria (16/10/2026)
+
 - [x] Gráfico compartilhado OHLCV, períodos visuais persistentes, SMA e marcadores identificados como reconstruídos; auditoria consultada atualiza timestamps pelo receipt.
 - [x] Auditoria read-only de receipts/eventos/gás e observações append-only das decisões; históricos e posições não reescritos.
 - [x] Motor candidato exclusivamente simulado: recuperação, rearme, orçamento, custos, saídas e regimes confirmados; sem presets novos.
@@ -62,6 +71,7 @@
 - [ ] Histórico de longo prazo e USD/BNB histórico: fonte atual continua limitada; não apresentar a aproximação como resultado comprovado.
 
 ## Recuperação real e diagnóstico do executor (22/10/2026)
+
 - [x] Implementar recuperação no caminho real de assinatura, com habilitação e parâmetros explícitos na estratégia.
 - [x] Usar velas completas e contínuas; impedir entrada tardia, recompra com posição aberta e repetição no mesmo fundo confirmado.
 - [x] Classificar faixa lateral ampla no novo modo, preservando regras de ciclos antigos.
@@ -69,3 +79,8 @@
 - [x] Retornar bloqueios, falhas e adiamentos no cron em vez de sucesso incondicional.
 - [ ] Conciliar trava legada identificada em 21/10 às 14:30 UTC: diário atual sem hash associado. Não foi excluída automaticamente.
 - [ ] Titular revisar parâmetros, salvar recuperação real e validar uma operação autorizada após conciliação.
+
+## Seleção de porcentagem no orçamento (09/11/2026)
+
+- [x] Destacar 25%, 50%, 75% e Máximo/100% com estado pressionado, cor, marca de seleção e resumo explícito. Valor digitado fora dos atalhos aparece como personalizado; o percentual acompanha saldo e moeda sem salvar ou iniciar a operação.
+- [x] Validação local: 512 testes unitários e 45 testes Chromium em cinco tamanhos, incluindo seleção nos temas claro/escuro e acessibilidade automática. Build e TypeScript aprovados; lint sem erros (12 avisos anteriores). Relatórios gerados do Playwright ficam fora do lint de código-fonte.

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import Decimal from "decimal.js";
+import { BudgetPercentageSelector } from "../../src/components/BudgetPercentageSelector";
 import { createRoot } from "react-dom/client";
 import { Bot, Coins, Settings2, Wallet } from "lucide-react";
 import { UxActionTile, UxDetailDialog } from "../../src/components/UxDetailDialog";
@@ -6,7 +8,13 @@ import { WalletPicker } from "../../src/components/WalletPicker";
 import { Button } from "../../src/components/ui/button";
 import "../../src/styles.css";
 
-const tools = ["Ativos e saldo", "Meus robôs", "Estado e controles", "Outras ferramentas"];
+const tools = [
+  "Ativos e saldo",
+  "Meus robôs",
+  "Estado e controles",
+  "Outras ferramentas",
+  "Escolher porcentagem",
+];
 const wallets = [
   {
     id: "a",
@@ -25,6 +33,7 @@ const wallets = [
 export function Preview() {
   const [tool, setTool] = useState<string | null>(null);
   const [wallet, setWallet] = useState("a");
+  const [amount, setAmount] = useState("0.05");
   return (
     <div className="exchange-shell">
       <header className="border-b border-border">
@@ -67,7 +76,26 @@ export function Preview() {
           icon={Coins}
           description="Teste dos componentes reais usados no aplicativo."
         >
-          {tool === "Outras ferramentas" ? (
+          {tool === "Escolher porcentagem" ? (
+            <>
+              <label htmlFor="preview-budget">Valor para a atividade</label>
+              <input
+                id="preview-budget"
+                type="number"
+                step="any"
+                className="w-full rounded-xl bg-secondary p-3"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+              />
+              <BudgetPercentageSelector
+                available="0.1"
+                value={amount}
+                onSelect={(pct) =>
+                  setAmount(new Decimal("0.1").mul(pct).div(100).toFixed(18, Decimal.ROUND_DOWN))
+                }
+              />
+            </>
+          ) : tool === "Outras ferramentas" ? (
             <WalletPicker options={wallets} value={wallet} onChange={setWallet} manage={false} />
           ) : (
             <>

@@ -110,3 +110,43 @@ test("modais passam na análise automática de acessibilidade", async ({ page })
     .analyze();
   expect(results.violations).toEqual([]);
 });
+
+for (const theme of ["dark", "light"]) {
+  test(`percentual escolhido fica destacado no tema ${theme}`, async ({ page }, testInfo) => {
+    await page.evaluate((value) => {
+      document.documentElement.dataset["theme"] = value;
+    }, theme);
+    await page.getByRole("button", { name: "Escolher porcentagem", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Escolher porcentagem", exact: true });
+    await inViewport(page, dialog);
+    await expect(dialog.getByText("50% selecionado")).toBeVisible();
+    for (const name of ["25%", "50%", "75%", "Máximo 100%"]) {
+      const button = dialog.getByRole("button", { name, exact: true });
+      await button.click();
+      await expect(button).toHaveAttribute("aria-pressed", "true");
+      await inViewport(page, button);
+      const percentage = name === "Máximo 100%" ? "100%" : name;
+      await expect(dialog.getByText(`${percentage} selecionado`)).toBeVisible();
+      const selectedColor = await button.evaluate((node) => getComputedStyle(node).backgroundColor);
+      const unselected = dialog.getByRole("button", {
+        name: name === "25%" ? "50%" : "25%",
+        exact: true,
+      });
+      expect(selectedColor).not.toBe(
+        await unselected.evaluate((node) => getComputedStyle(node).backgroundColor),
+      );
+    }
+    await dialog.getByRole("button", { name: "25%", exact: true }).click();
+    await page.screenshot({
+      path: testInfo.outputPath(`percentual-${theme}.png`),
+      animations: "disabled",
+    });
+    expect(
+      (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze())
+        .violations,
+    ).toEqual([]);
+    await dialog.getByLabel("Valor para a atividade").fill("0.037");
+    await expect(dialog.getByText("Valor personalizado")).toBeVisible();
+    await expect(dialog.getByRole("button", { pressed: true })).toHaveCount(0);
+  });
+}

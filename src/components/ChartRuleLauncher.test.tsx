@@ -433,3 +433,38 @@ it("lets a reviewed PAUSED strategy save with stale display quote and local bala
   expect(io.save).toHaveBeenCalledTimes(1);
   expect(io.start).not.toHaveBeenCalled();
 });
+
+it("identifies the actual budget percentage and clears presets for a custom amount without saving", async () => {
+  show();
+  await waitFor(() =>
+    expect(screen.getByRole("spinbutton", { name: "Valor para a atividade" })).toHaveValue(15000),
+  );
+  expect(screen.getByRole("button", { name: /Máximo/ })).toHaveAttribute("aria-pressed", "true");
+  fireEvent.click(screen.getByRole("button", { name: "25%" }));
+  expect(screen.getByText("25% selecionado")).toBeVisible();
+  expect(screen.getByRole("button", { name: "25%" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("spinbutton", { name: "Valor para a atividade" })).toHaveValue(3750);
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Valor para a atividade" }), {
+    target: { value: "1000" },
+  });
+  expect(screen.getByText("Valor personalizado")).toBeVisible();
+  for (const name of ["25%", "50%", "75%", /Máximo/])
+    expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
+  expect(io.save).not.toHaveBeenCalled();
+  expect(io.start).not.toHaveBeenCalled();
+  expect(io.create).not.toHaveBeenCalled();
+});
+
+it("keeps the selected fraction when changing display currency", async () => {
+  show();
+  await waitFor(() =>
+    expect(screen.getByRole("spinbutton", { name: "Valor para a atividade" })).toHaveValue(15000),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "50%" }));
+  fireEvent.change(screen.getByRole("combobox", { name: "Moeda dos valores" }), {
+    target: { value: "USD" },
+  });
+  expect(screen.getByText("50% selecionado")).toBeVisible();
+  expect(screen.getByRole("spinbutton", { name: "Valor para a atividade" })).toHaveValue(1500);
+  expect(screen.getByRole("button", { name: "50%" })).toHaveAttribute("aria-pressed", "true");
+});
