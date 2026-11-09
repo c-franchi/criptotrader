@@ -29,7 +29,9 @@ export function UxActionTile({
       <Icon aria-hidden="true" className="size-5 shrink-0 text-primary" />
       <span className="min-w-0 flex-1 text-left">
         <span className="block font-semibold leading-snug">{label}</span>
-        {description && <span className="mt-1 block text-xs text-muted-foreground">{description}</span>}
+        {description && (
+          <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
+        )}
       </span>
       <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
     </button>
