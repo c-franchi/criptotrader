@@ -633,13 +633,13 @@
   max-height: min(65dvh, 44rem);
   padding: 0.15rem 0.1rem 0.5rem;
 }
-[data-ux-dialog-body] [data-panel] {
+[data-ux-dialog-body] > [data-panel] {
   padding: 0;
   border: 0;
   box-shadow: none;
   background: transparent;
 }
-[data-ux-dialog-body] [data-panel] h2 {
+[data-ux-dialog-body] > [data-panel] > div:first-child h2 {
   display: none;
 }
 [data-ux-detail-dialog] :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
