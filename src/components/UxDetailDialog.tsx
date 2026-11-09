@@ -43,7 +43,7 @@ export function UxDetailDialog({
   description,
   icon: Icon,
   children,
-  closeLabel = "Concluído",
+  closeLabel = "Fechar",
   footer,
 }: {
   open: boolean;
