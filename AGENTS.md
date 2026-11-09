@@ -10,6 +10,8 @@
 <!-- LOVABLE:END -->
 
 ## Rules
+- Shared DialogContent positioning uses one CSS transform reset for mobile sheets; avoid individual translate properties and transform animations because CSS optimization can drop the mobile reset.
+- Render the global emergency stop in the bot page footer only; keep its execution handler unchanged when adjusting presentation.
 - Dashboard market presentation is composed separately from FundsOverview; shared charts measure their actual container width for SVG coordinates so desktop width never inflates chart height or misaligns interactions.
 - Shared OHLC charts aggregate five-minute pool history in candleSeries.ts; legacy SMA remains explicitly identified while live recovery signals require contiguous complete closes.
 - All bot signing paths acquire the persistent wallet-wide execution mutex; unresolved submissions retain it until reconciliation to prevent duplicate orders and withdrawals racing swaps.

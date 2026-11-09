@@ -1,4 +1,7 @@
 # Correção da seleção e do mercado
+## Modais e rodapé dos bots (09/11/2026)
+- [x] Corrigir deslocamento causado pelo reset de translate removido na compilação; 11 testes passaram e abertura/rolagem/fechamento de modais reais públicos e longos/aninhados isolados conferidos em cinco tamanhos, sem erros runtime.
+- [x] Mover a parada global para o rodapé exclusivo da aba Robô, mantendo ação e robôs intactos; conferência autenticada do rodapé indisponível porque a conta solicitante não possui sessão acessível.
 ## Finalização controlada PR #55 (07/11/2026)
 - [x] Revisar PR #55 e reutilizar seus quatro arquivos; 48 testes específicos passaram, lint dos arquivos envolvidos OK, SQL não aplicado em produção. Merge depende do check global de lint preexistente (1035 erros).
 - [x] Conferir as sete vendas GTE read-only: sete receipts com sucesso; nenhum trace nativo disponível, RPC -32000/missing historical state; nenhum valor financeiro gravado.

@@ -423,7 +423,7 @@
   color: var(--muted-foreground);
 }
 .app-tour {
-  /* Radix already centers with Tailwind translate utilities: never add transform here. */
+  /* Shared DialogContent owns positioning on desktop and mobile. */
   width: min(32rem, calc(100vw - 1.5rem));
   max-height: calc(100dvh - 1.5rem);
   max-height: calc(100dvh - 1.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
@@ -677,7 +677,7 @@
 [data-ux-app-dialog] {
   left: 50%;
   top: 50%;
-  translate: -50% -50%;
+  transform: translate(-50%, -50%);
   max-height: calc(100dvh - 2rem);
   min-width: 0;
   overflow-y: auto;
@@ -712,7 +712,6 @@
     right: max(0.5rem, env(safe-area-inset-right));
     top: auto;
     bottom: max(0.5rem, env(safe-area-inset-bottom));
-    translate: 0 0;
     transform: none;
     width: auto;
     max-width: none;
