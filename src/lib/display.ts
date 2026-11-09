@@ -19,3 +19,9 @@ export function formatDistancePct(value: number) {
   if (value > 0 && value < 0.001) return "< 0,001%";
   return `${value.toLocaleString("pt-BR", { maximumFractionDigits: 3 })}%`;
 }
+
+/** Quote precision is for display only; never round an execution price through this helper. */
+export function formatQuote(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "—";
+  return value.toLocaleString("pt-BR", { maximumSignificantDigits: 10, maximumFractionDigits: 18 });
+}

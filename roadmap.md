@@ -84,3 +84,10 @@
 
 - [x] Destacar 25%, 50%, 75% e Máximo/100% com estado pressionado, cor, marca de seleção e resumo explícito. Valor digitado fora dos atalhos aparece como personalizado; o percentual acompanha saldo e moeda sem salvar ou iniciar a operação.
 - [x] Validação local: 512 testes unitários e 45 testes Chromium em cinco tamanhos, incluindo seleção nos temas claro/escuro e acessibilidade automática. Build e TypeScript aprovados; lint sem erros (12 avisos anteriores). Relatórios gerados do Playwright ficam fora do lint de código-fonte.
+
+## Atividade gráfica: clareza e substituição (09/11/2026)
+
+- [x] Simplificar cotação, diferenciar preço da moeda e investimento, preservar precisão e abrir cada etapa no topo do modal.
+- [x] Implementar confirmação de substituição, salvamento pausado, snapshot da posição anterior e proteção contra transação pendente/estado alterado; validar em Postgres isolado.
+- [x] Validação local: 530 testes unitários/SQL, 55 testes de navegador, build e TypeScript aprovados; lint sem erros (12 avisos anteriores).
+- [ ] Instalar somente `ops/replace-chart-plan.sql` no banco correto para ativar a substituição; acesso Lovable indisponível e Supabase sem permissão nesta sessão. Instruções em `ops/chart-plan-replacement-release.md`.
