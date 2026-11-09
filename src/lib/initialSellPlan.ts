@@ -13,7 +13,17 @@ export const initialSellDraftSchema = z.object({
   minPriceBnb: z
     .string()
     .regex(/^(?:0|[1-9]\d*)(?:\.\d{1,18})?$/, "Informe o preço em BNB por token.")
-    .refine((p) => new Decimal(p).greaterThan(0), "O preço precisa ser maior que zero."),
+    .refine((p) => {
+      // Zod v3 runs refinements even when a regex check fails. A blank
+      // initial input is normal in the robot form and must never throw:
+      // Decimal("") would crash the entire /grade route during render.
+      try {
+        const amount = new Decimal(p);
+        return amount.isFinite() && amount.greaterThan(0);
+      } catch {
+        return false;
+      }
+    }, "O preço precisa ser maior que zero."),
   balanceSnapshot: z.string().refine((p) => {
     try {
       return new Decimal(p).isFinite() && new Decimal(p).greaterThan(0);

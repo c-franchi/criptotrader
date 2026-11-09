@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Component, useEffect, useState, type ReactNode } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Panel } from "./AppShell";
@@ -10,6 +10,36 @@ import {
   type InitialSellDraft,
 } from "@/lib/initialSellPlan";
 import { formatFundAmount } from "@/lib/fundsOverview";
+
+/** An invalid holding or rendering fault must not take down the entire trading page. */
+export class BotTokenIntakeBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  override render() {
+    if (this.state.failed)
+      return (
+        <section role="alert" className="rounded-lg border border-warning/40 p-4 text-sm">
+          <p>O painel de tokens não pôde ser exibido. O restante do robô permanece disponível.</p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3"
+            onClick={() => this.setState({ failed: false })}
+          >
+            Tentar carregar tokens novamente
+          </Button>
+        </section>
+      );
+    return this.props.children;
+  }
+}
 
 type Holding = { address: string; symbol: string; amount: string; unavailable?: boolean };
 type StartMode = InitialSellDraft["mode"];
