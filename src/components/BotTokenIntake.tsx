@@ -116,8 +116,8 @@ export function BotTokenIntake({
           Transferir tokens para a carteira não os registra automaticamente como compras do robô.
         </p>
         <p className="text-xs text-warning">
-          Antes de transferir GTE para o endereço abaixo, confirme que existe backup recuperável
-          da carteira automática e uma cópia segura da chave de criptografia do executor.
+          Antes de transferir GTE para o endereço abaixo, confirme que existe backup recuperável da
+          carteira automática e uma cópia segura da chave de criptografia do executor.
         </p>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="font-mono text-xs break-all" title={walletAddress}>
