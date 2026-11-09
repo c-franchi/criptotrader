@@ -39,7 +39,8 @@ import {
   runGridNow,
 } from "@/lib/bot.functions";
 import { AddTokenDialog } from "@/components/AddTokenDialog";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Bot, Wallet, Coins, Settings2, History, SlidersHorizontal, ChartNoAxesCombined } from "lucide-react";
+import { UxActionTile, UxDetailDialog } from "@/components/UxDetailDialog";
 import { WalletCapitalPanel } from "@/components/WalletCapitalPanel";
 import { RemoveBotButton } from "@/components/RemoveBotButton";
 import { ResetStrategiesButton } from "@/components/ResetStrategiesButton";
@@ -231,9 +232,12 @@ function Robo() {
     target.aba === "regras" ? "rules" : "bots",
   );
   const [rulesVisited, setRulesVisited] = useState(target.aba === "regras");
+  const [workspaceVisible, setWorkspaceVisible] = useState(target.aba === "regras");
+  const [toolOpen, setToolOpen] = useState<"tokens" | "manual" | null>(null);
   const openRules = () => {
     setRulesVisited(true);
     setWorkspaceTab("rules");
+    setWorkspaceVisible(true);
     requestAnimationFrame(() => {
       document.getElementById("robot-advanced-rules")?.scrollIntoView({
         behavior: "smooth",
@@ -250,6 +254,7 @@ function Robo() {
     ) {
       setRulesVisited(true);
       setWorkspaceTab("rules");
+      setWorkspaceVisible(true);
       requestAnimationFrame(() => {
         document.getElementById("robot-advanced-rules")?.scrollIntoView({
           behavior: "smooth",
@@ -653,6 +658,24 @@ function Robo() {
             </Button>
           </div>
         </div>
+        <div className="ux-summary-card">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-primary/10 p-3 text-primary"><Bot className="size-6" /></div>
+            <div>
+              <h2 className="text-base font-bold">{walletName}</h2>
+              <p className="text-sm text-muted-foreground">Token {sym} · {cfg?.manualAuto ? "Manual automático" : mode === "grade" ? "Grade de preços" : "Minha estratégia"}</p>
+              <span className={armed ? "text-sm font-semibold text-success" : "text-sm font-semibold text-warning"}>
+                {armed ? "● Ligado" : "○ Pausado"}
+              </span>
+            </div>
+          </div>
+          <div className="ux-summary-list mt-3 text-sm">
+            <div><span className="text-muted-foreground">Valor por compra</span><strong>{cfg?.buyAmount ?? "—"} BNB</strong></div>
+            <div><span className="text-muted-foreground">Máx. compras</span><strong>{cfg?.maxEntries ?? "—"}</strong></div>
+            <div><span className="text-muted-foreground">Posição registrada</span><strong>{st.tokens > 0 ? `${st.tokens.toLocaleString("pt-BR")} ${sym}` : "Sem posição registrada"}</strong></div>
+            <div><span className="text-muted-foreground">Proteções</span><strong>{cfg?.stopLossPct ? `Stop ${cfg.stopLossPct}%` : "Conferir regras"}</strong></div>
+          </div>
+        </div>
         <div>
           <p className="mb-2 text-xs text-muted-foreground">Moeda / BNB</p>
           <div data-token-picker className="flex flex-wrap gap-2">
@@ -661,7 +684,16 @@ function Robo() {
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Ações do robô">
+          <UxActionTile label="Regras do robô" icon={SlidersHorizontal} onClick={openRules} />
+          <UxActionTile label="Manual automático" icon={Settings2} onClick={() => setToolOpen("manual")} />
+          <UxActionTile label="Tokens e venda inicial" icon={Coins} onClick={() => setToolOpen("tokens")} />
+          <UxActionTile label="Meus robôs" icon={Bot} onClick={() => { setWorkspaceTab("bots"); setWorkspaceVisible(true); }} />
+          <UxActionTile label="Ativos e saldo" icon={Wallet} onClick={() => { setWorkspaceTab("assets"); setWorkspaceVisible(true); }} />
+          <UxActionTile label="Histórico" icon={History} onClick={() => { setWorkspaceTab("orders"); setWorkspaceVisible(true); }} />
+        </div>
         {walletLoadedScope === walletScope && w?.address && (
+          <UxDetailDialog open={toolOpen === "tokens"} onOpenChange={(open) => setToolOpen(open ? "tokens" : null)} title={`Tokens e venda inicial · ${sym}`} icon={Coins}>
           <BotTokenIntakeBoundary>
             <BotTokenIntake
               key={selectionKey}
@@ -681,6 +713,7 @@ function Robo() {
               }}
             />
           </BotTokenIntakeBoundary>
+          </UxDetailDialog>
         )}
 
         {target.problema && (
@@ -723,8 +756,9 @@ function Robo() {
             </Button>
           </section>
         )}
+        <UxDetailDialog open={toolOpen === "manual"} onOpenChange={(open) => setToolOpen(open ? "manual" : null)} title={`Manual automático · ${sym}`} icon={Settings2}>
         <section
-          className="my-4 space-y-2 rounded-2xl border-2 border-primary bg-primary/5 p-4"
+          className="my-4 space-y-2 rounded-2xl border border-primary/30 bg-primary/5 p-4"
           aria-label="Configuração simples do robô"
         >
           <h2 className="text-lg font-bold">Manual automático</h2>
@@ -741,6 +775,7 @@ function Robo() {
             onDone={load}
           />
         </section>
+        </UxDetailDialog>
         <GuidedBotSetup
           sourceAddress={sourceAddress}
           key={`setup:${selectionKey}`}
@@ -1006,26 +1041,8 @@ function Robo() {
             />
           </div>
         </div>
-        <div className="trade-tabs" role="tablist" aria-label="Dados dos robôs">
-          {(
-            [
-              ["bots", `Meus bots (${allBots.length})`],
-              ["assets", "Ativos e saldo"],
-              ["orders", `Histórico (${orders.length})`],
-              ["rules", "Regras deste robô"],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              role="tab"
-              aria-selected={workspaceTab === id}
-              onClick={() => setWorkspaceTab(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <section hidden={workspaceTab !== "bots"} role="tabpanel" aria-label="Meus bots">
+        <UxDetailDialog open={workspaceVisible && workspaceTab === "bots"} onOpenChange={(open) => setWorkspaceVisible(open)} title="Meus robôs" icon={Bot}>
+        <section role="tabpanel" aria-label="Meus bots">
           <Panel
             title={`Meus robôs (${allBots.filter((b) => b.armed).length} ligado${allBots.filter((b) => b.armed).length === 1 ? "" : "s"})`}
           >
@@ -1117,10 +1134,11 @@ function Robo() {
             )}
           </Panel>
         </section>
+        </UxDetailDialog>
+        <UxDetailDialog open={workspaceVisible && workspaceTab === "rules"} onOpenChange={(open) => setWorkspaceVisible(open)} title={`Regras do robô · ${sym}`} icon={SlidersHorizontal}>
         <section
           id="robot-advanced-rules"
           className="scroll-mt-24"
-          hidden={workspaceTab !== "rules"}
           role="tabpanel"
           aria-label={`Regras avançadas do robô de ${sym}`}
         >
@@ -1152,7 +1170,9 @@ function Robo() {
             )}
           </Panel>
         </section>
-        <section hidden={workspaceTab !== "assets"} role="tabpanel" aria-label="Ativos e saldo">
+        </UxDetailDialog>
+        <UxDetailDialog open={workspaceVisible && workspaceTab === "assets"} onOpenChange={(open) => setWorkspaceVisible(open)} title={`Ativos e saldo · ${walletName}`} icon={Wallet}>
+        <section role="tabpanel" aria-label="Ativos e saldo">
           <BotWithdrawalPanel
             key={walletScope}
             walletScope={walletScope}
@@ -1229,7 +1249,9 @@ function Robo() {
             </Panel>
           </div>
         </section>
-        <section hidden={workspaceTab !== "orders"} role="tabpanel" aria-label="Histórico do robô">
+        </UxDetailDialog>
+        <UxDetailDialog open={workspaceVisible && workspaceTab === "orders"} onOpenChange={(open) => setWorkspaceVisible(open)} title={`Histórico do robô · ${sym}`} icon={History}>
+        <section role="tabpanel" aria-label="Histórico do robô">
           <BotPerformancePanel
             walletScope={walletScope}
             token={token}
@@ -1383,6 +1405,7 @@ function Robo() {
             Carregar mais operações
           </Button>
         </section>
+        </UxDetailDialog>
         <details className="rounded-lg border border-border p-3">
           <summary className="cursor-pointer text-sm font-semibold">
             Avançado · regras antigas, operação manual e histórico de segurança
