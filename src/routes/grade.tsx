@@ -233,7 +233,7 @@ function Robo() {
   );
   const [rulesVisited, setRulesVisited] = useState(target.aba === "regras");
   const [workspaceVisible, setWorkspaceVisible] = useState(target.aba === "regras");
-  const [toolOpen, setToolOpen] = useState<"tokens" | "manual" | null>(null);
+  const [toolOpen, setToolOpen] = useState<"tokens" | "manual" | "advanced" | "controls" | null>(null);
   const openRules = () => {
     setRulesVisited(true);
     setWorkspaceTab("rules");
@@ -691,6 +691,8 @@ function Robo() {
           <UxActionTile label="Meus robôs" icon={Bot} onClick={() => { setWorkspaceTab("bots"); setWorkspaceVisible(true); }} />
           <UxActionTile label="Ativos e saldo" icon={Wallet} onClick={() => { setWorkspaceTab("assets"); setWorkspaceVisible(true); }} />
           <UxActionTile label="Histórico" icon={History} onClick={() => { setWorkspaceTab("orders"); setWorkspaceVisible(true); }} />
+          <UxActionTile label="Estado e controles" icon={Settings2} onClick={() => setToolOpen("controls")} />
+          <UxActionTile label="Outras ferramentas" icon={ChartNoAxesCombined} onClick={() => setToolOpen("advanced")} />
         </div>
         {walletLoadedScope === walletScope && w?.address && (
           <UxDetailDialog open={toolOpen === "tokens"} onOpenChange={(open) => setToolOpen(open ? "tokens" : null)} title={`Tokens e venda inicial · ${sym}`} icon={Coins}>
@@ -847,10 +849,8 @@ function Robo() {
             <TokenActivity token={token} symbol={sym} decimals={selected.decimals} />
           </Panel>
           <div className="space-y-4">
-            <details className="border-b border-border py-3">
-              <summary className="cursor-pointer text-sm font-medium">
-                Estado e controles do robô
-              </summary>
+<UxDetailDialog open={toolOpen === "controls"} onOpenChange={(open) => setToolOpen(open ? "controls" : null)} title="Estado e controles do robô" icon={Settings2}>
+
               <Panel title={`Robô · ${sym} · ${walletName}`}>
                 <p role="status" className="text-lg font-semibold">
                   {!execution
@@ -1019,7 +1019,7 @@ function Robo() {
                   </div>
                 </details>
               </Panel>
-            </details>
+        </UxDetailDialog>
             {!armed && bot && (
               <BotReadiness
                 userId={user?.id ?? ""}
@@ -1406,10 +1406,8 @@ function Robo() {
           </Button>
         </section>
         </UxDetailDialog>
-        <details className="rounded-lg border border-border p-3">
-          <summary className="cursor-pointer text-sm font-semibold">
-            Avançado · regras antigas, operação manual e histórico de segurança
-          </summary>
+<UxDetailDialog open={toolOpen === "advanced"} onOpenChange={(open) => setToolOpen(open ? "advanced" : null)} title="Outras ferramentas" icon={ChartNoAxesCombined}>
+
           <div className="mt-4 space-y-4">
             <Panel collapsible title="Como funciona a carteira do robô (leia antes)">
               <div className="grid gap-3 text-sm sm:grid-cols-3">
@@ -1710,7 +1708,7 @@ function Robo() {
               </div>
             </Panel>
           </div>
-        </details>
+        </UxDetailDialog>
       </div>
     </div>
   );
