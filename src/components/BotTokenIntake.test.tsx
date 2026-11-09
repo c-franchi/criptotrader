@@ -40,8 +40,8 @@ it("opens the robot with an empty sale price without crashing its route", () => 
   );
   expect(screen.getByRole("region", { name: /Ativos e venda inicial/ })).toBeTruthy();
   expect(screen.getByText(/Saldo on-chain de GTE/)).toBeTruthy();
-  expect(screen.getByRole<HTMLInputElement>("textbox", { name: /Preço mínimo BNB por token/ }).value).toBe("");
-  expect(screen.getByRole<HTMLButtonElement>("button", { name: /Guardar plano de venda/ }).disabled).toBe(true);
+  expect((screen.getByRole("textbox", { name: /Preço mínimo BNB por token/ }) as HTMLInputElement).value).toBe("");
+  expect((screen.getByRole("button", { name: /Guardar plano de venda/ }) as HTMLButtonElement).disabled).toBe(true);
   expect(screen.queryByText(/painel de tokens não pôde ser exibido/)).toBeNull();
 });
 
