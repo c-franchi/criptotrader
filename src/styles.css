@@ -690,3 +690,36 @@
 @media (prefers-reduced-motion: reduce) {
   .ux-action-tile { transition: none; }
 }
+
+/* Existing Dialog-based wizards also adopt the approved mobile bottom-sheet style.
+   AlertDialogs (real money confirmations) and the navigation Sheet keep their own layout. */
+[data-ux-app-dialog] {
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 20px 65px -22px oklch(0 0 0 / 0.8);
+}
+@media (max-width: 639px) {
+  [data-ux-app-dialog]:not([data-ux-detail-dialog]) {
+    top: auto;
+    bottom: calc(0.4rem + env(safe-area-inset-bottom));
+    left: 0.4rem;
+    transform: none;
+    width: calc(100vw - 0.8rem);
+    max-width: none;
+    max-height: calc(92dvh - env(safe-area-inset-bottom));
+    overflow-y: auto;
+    border-radius: 1.4rem 1.4rem 1rem 1rem;
+    padding: 1rem;
+  }
+  [data-ux-app-dialog]:not([data-ux-detail-dialog])::before {
+    content: "";
+    width: 2.1rem;
+    min-height: 0.27rem;
+    border-radius: 999px;
+    background: var(--muted-foreground);
+    opacity: 0.55;
+    margin: 0 auto;
+  }
+}
