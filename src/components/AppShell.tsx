@@ -283,7 +283,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </div>
         </div>
-        {user && <EmergencyStop key={user.id} />}
       </header>
       <main
         data-app-content
@@ -291,6 +290,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         {children}
       </main>
+      {user && pathname === "/grade" && (
+        <footer aria-label="Parada de todos os bots">
+          <EmergencyStop key={user.id} />
+        </footer>
+      )}
       <UxDetailDialog
         open={walletOpen}
         onOpenChange={setWalletOpen}
