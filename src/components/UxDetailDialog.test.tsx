@@ -9,7 +9,12 @@ function Preview() {
   return (
     <>
       <p>Status do robô: Pausado</p>
-      <UxActionTile label="Editar valores" description="Configuração financeira" icon={Coins} onClick={() => setOpen(true)} />
+      <UxActionTile
+        label="Editar valores"
+        description="Configuração financeira"
+        icon={Coins}
+        onClick={() => setOpen(true)}
+      />
       <UxDetailDialog open={open} onOpenChange={setOpen} title="Editar valores" icon={Coins}>
         <label htmlFor="limit">Valor por compra (BNB)</label>
         <input id="limit" defaultValue="0.005" />
