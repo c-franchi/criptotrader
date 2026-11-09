@@ -34,7 +34,7 @@ export default defineConfig({
     { name: "desktop", use: { viewport: { width: 1280, height: 900 } } },
   ],
   webServer: {
-    command: "bun run test:ui:serve",
+    command: "npm run test:ui:serve",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: !process.env["CI"],
     timeout: 60_000,

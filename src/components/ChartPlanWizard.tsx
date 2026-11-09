@@ -42,6 +42,7 @@ import type { StrategyConfig } from "@/lib/strategy";
 import { CandleChart, type ChartLevel } from "./CandleChart";
 import { FundBotDialog } from "./FundBotDialog";
 import { Button } from "./ui/button";
+import { BudgetPercentageSelector } from "./BudgetPercentageSelector";
 import { Input } from "./ui/input";
 
 type Props = {
@@ -864,24 +865,16 @@ export function ChartPlanWizard({
               }}
             />
           </label>
-          <div className="grid grid-cols-4 gap-2">
-            {[25, 50, 75, 100].map((pct) => (
-              <Button
-                key={pct}
-                variant="outline"
-                disabled={available == null || busy}
-                onClick={() => {
-                  changed();
-                  setSnapshot(null);
-                  setBudget(
-                    new Decimal(available!).mul(pct).div(100).toFixed(18, Decimal.ROUND_DOWN),
-                  );
-                }}
-              >
-                {pct === 100 ? "Máximo" : `${pct}%`}
-              </Button>
-            ))}
-          </div>
+          <BudgetPercentageSelector
+            available={available}
+            value={chosen}
+            disabled={busy}
+            onSelect={(pct) => {
+              changed();
+              setSnapshot(null);
+              setBudget(new Decimal(available!).mul(pct).div(100).toFixed(18, Decimal.ROUND_DOWN));
+            }}
+          />
           <div className="grid grid-cols-2 gap-3">
             <label className="text-sm">
               Quantas entradas?
