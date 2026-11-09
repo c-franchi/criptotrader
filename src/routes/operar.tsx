@@ -1049,7 +1049,12 @@ function Operar() {
         )}
       </div>
 
-      <UxDetailDialog open={showSafety} onOpenChange={setShowSafety} title="Carteira, taxas e segurança" icon={ShieldCheck}>
+      <UxDetailDialog
+        open={showSafety}
+        onOpenChange={setShowSafety}
+        title="Carteira, taxas e segurança"
+        icon={ShieldCheck}
+      >
         <ContractRisk address={GTE} />
         {bal && (
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
@@ -1200,260 +1205,285 @@ function Operar() {
           )}
         </div>
       </UxDetailDialog>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Detalhes da operação manual">
-        <UxActionTile label="Carteira e segurança" icon={ShieldCheck} onClick={() => setShowSafety(true)} />
-        <UxActionTile label={`Histórico (${orders.length})`} icon={History} onClick={() => setMarketTab("orders")} />
-        <UxActionTile label="Ativos e resultado" icon={ChartNoAxesCombined} onClick={() => setMarketTab("assets")} />
+      <div
+        className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+        aria-label="Detalhes da operação manual"
+      >
+        <UxActionTile
+          label="Carteira e segurança"
+          icon={ShieldCheck}
+          onClick={() => setShowSafety(true)}
+        />
+        <UxActionTile
+          label={`Histórico (${orders.length})`}
+          icon={History}
+          onClick={() => setMarketTab("orders")}
+        />
+        <UxActionTile
+          label="Ativos e resultado"
+          icon={ChartNoAxesCombined}
+          onClick={() => setMarketTab("assets")}
+        />
       </div>
       <UxDetailDialog open={marketTab === "assets"} onOpenChange={(open) => setMarketTab(open ? "assets" : null)} title={`Ativos e resultado · ${sym}`} icon={ChartNoAxesCombined}>
-      <section role="tabpanel" aria-label="Ativos e resultado">
-        <Panel title={`Seus resultados com ${sym}`}>
-          {pnl.buys + pnl.sells === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Nenhuma troca confirmada de {sym} ainda. Depois da primeira compra ou venda, o
-              resultado aparece aqui.
-            </p>
-          ) : (
-            <div className="space-y-3 text-sm">
-              <div
-                className={cn(
-                  "rounded border p-3",
-                  status === "pos"
-                    ? "border-success/50 bg-success/10"
-                    : status === "neg"
-                      ? "border-destructive/50 bg-destructive/10"
-                      : "border-border",
-                )}
-              >
-                <p className="text-xs text-muted-foreground">
-                  Situação geral (vendido + valor atual do que sobrou − gasto)
-                </p>
-                <p
+        <section role="tabpanel" aria-label="Ativos e resultado">
+          <Panel title={`Seus resultados com ${sym}`}>
+            {pnl.buys + pnl.sells === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhuma troca confirmada de {sym} ainda. Depois da primeira compra ou venda, o
+                resultado aparece aqui.
+              </p>
+            ) : (
+              <div className="space-y-3 text-sm">
+                <div
                   className={cn(
-                    "text-2xl font-bold",
-                    status === "pos" ? "text-success" : status === "neg" ? "text-destructive" : "",
+                    "rounded border p-3",
+                    status === "pos"
+                      ? "border-success/50 bg-success/10"
+                      : status === "neg"
+                        ? "border-destructive/50 bg-destructive/10"
+                        : "border-border",
                   )}
                 >
-                  {total == null
-                    ? "—"
-                    : `${total >= 0 ? "+" : ""}${total.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB`}
-                  {total != null && pnl.bnbSpent > 0 ? (
-                    <span className="ml-2 text-base">
-                      ({((total / pnl.bnbSpent) * 100).toFixed(1)}%)
-                    </span>
-                  ) : null}
-                </p>
-                <p className="text-xs text-warning">
-                  {hasEstimatedFills
-                    ? "Amostra do histórico exibido: inclui estimativas, sem representar todo o resultado da carteira."
-                    : "Confira taxas e a auditoria das transações."}
-                </p>
-                <p>
-                  {status === "pos"
-                    ? "Estimativa positiva."
-                    : status === "neg"
-                      ? "Estimativa negativa."
-                      : total == null
-                        ? "Sem preço atual para calcular."
-                        : "Empatado."}
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <p>
-                  Compras: <b>{pnl.buys}</b> · gasto {n6(pnl.bnbSpent)} BNB
-                </p>
-                <p>
-                  Vendas: <b>{pnl.sells}</b> · recebido {n6(pnl.bnbReceived)} BNB
-                </p>
-                <p>
-                  Resultado estimado das operações exibidas:{" "}
-                  <b className={pnl.realized >= 0 ? "text-success" : "text-destructive"}>
-                    {pnl.realized >= 0 ? "+" : ""}
-                    {n6(pnl.realized)} BNB
-                  </b>
-                </p>
-                <p>
-                  Ainda com você (destas compras):{" "}
-                  <b>
-                    {n2(pnl.position)} {sym}
-                  </b>
-                  {pnl.avgCost ? <> · preço médio {pnl.avgCost.toPrecision(4)} BNB</> : null}
-                </p>
-              </div>
-              {pnl.lastSell && (
-                <p className="rounded border border-border p-2 text-xs">
-                  <b>Última venda:</b> {n2(pnl.lastSell.tokens)} {sym} → {n6(pnl.lastSell.bnb)} BNB
-                  (1 BNB = {n2(pnl.lastSell.tokens / pnl.lastSell.bnb)} {sym}).
-                  {spot ? (
-                    <>
-                      {" "}
-                      Agora 1 BNB compra ~{n2(spot)} {sym}:{" "}
-                      <b
-                        className={
-                          spot >= pnl.lastSell.tokens / pnl.lastSell.bnb
-                            ? "text-success"
-                            : "text-destructive"
-                        }
-                      >
-                        {spot >= pnl.lastSell.tokens / pnl.lastSell.bnb ? "mais" : "menos"} tokens
-                      </b>{" "}
-                      do que você vendeu.
-                    </>
-                  ) : null}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Valores em BNB pela cotação de cada troca (com taxa do token), sem o gás. Tokens que
-                já estavam na carteira antes não entram no lucro.
-              </p>
-            </div>
-          )}
-        </Panel>
-      </section>
-      </UxDetailDialog>
-      <UxDetailDialog open={marketTab === "orders"} onOpenChange={(open) => setMarketTab(open ? "orders" : null)} title={`Histórico de operações (${orders.length})`} icon={History}>
-      <section role="tabpanel" aria-label="Histórico">
-        <Panel title={`Histórico de operações (${orders.length})`}>
-          <div className="mb-3 flex flex-wrap gap-2 text-xs">
-            <div>
-              Ativo{" "}
-              <TokenPicker
-                label="Filtrar token no histórico"
-                tokens={[{ address: "all", symbol: "Todos os tokens" }, ...tokens]}
-                value={historyToken}
-                onChange={setHistoryToken}
-                showName={false}
-              />
-            </div>
-            <label>
-              Situação{" "}
-              <select
-                aria-label="Filtrar histórico por situação"
-                className="rounded border border-border bg-background p-2"
-                value={historyStatus}
-                onChange={(e) => setHistoryStatus(e.target.value)}
-              >
-                <option value="all">Todas</option>
-                {Array.from(new Set(orders.map((o) => o.status))).map((x) => (
-                  <option key={x} value={x}>
-                    {x}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Operação{" "}
-              <select
-                aria-label="Filtrar histórico por operação"
-                className="rounded border border-border bg-background p-2"
-                value={historySide}
-                onChange={(e) => setHistorySide(e.target.value)}
-              >
-                <option value="all">Todas</option>
-                <option value="compra">Compra</option>
-                <option value="venda">Venda</option>
-              </select>
-            </label>
-            <label>
-              Período{" "}
-              <select
-                aria-label="Filtrar histórico por período"
-                className="rounded border border-border bg-background p-2"
-                value={historyDays}
-                onChange={(e) => setHistoryDays(e.target.value)}
-              >
-                <option value="all">Todo o histórico carregado</option>
-                <option value="1">24 horas</option>
-                <option value="7">7 dias</option>
-                <option value="30">30 dias</option>
-              </select>
-            </label>
-          </div>
-          <p className="mb-2 text-xs text-muted-foreground">
-            {historyOrders.length} resultados nas {orders.length} operações carregadas. Use
-            “Carregar mais” para pesquisar registros anteriores.
-          </p>
-          {historyOrders.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma ordem.</p>
-          ) : (
-            <div className="space-y-2">
-              {historyOrders.map((o) => (
-                <div key={o.id} className="rounded border border-border p-2 text-xs">
-                  <div className="flex flex-wrap justify-between gap-2">
-                    <span className={o.side === "compra" ? "text-success" : "text-destructive"}>
-                      {o.side}
-                    </span>
-                    <span className="font-mono">{o.status}</span>
-                    <span className="text-muted-foreground">
-                      {new Date(o.created_at).toLocaleString("pt-BR")}
-                    </span>
-                  </div>
-                  {o.tx_hash && (
-                    <a
-                      className="break-all font-mono text-primary underline"
-                      href={`https://bscscan.com/tx/${o.tx_hash}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {o.tx_hash}
-                    </a>
-                  )}
-                  <details className="mt-2 rounded border border-border p-2">
-                    <summary className="cursor-pointer">
-                      Detalhes ·{" "}
-                      {o.accounting_status === "confirmado"
-                        ? "Valores confirmados"
-                        : "Valores estimados ou ainda não conciliados"}
-                    </summary>
-                    <p className="mt-2 break-all">
-                      Ativo:{" "}
-                      {tokens.find((t) => t.address.toLowerCase() === o.token?.toLowerCase())
-                        ?.symbol ??
-                        o.token ??
-                        "Não identificado"}
-                    </p>
-                    <p>
-                      Gás: {o.gas_bnb == null ? "Não disponível" : `${formatPrice(o.gas_bnb)} BNB`}
-                    </p>
-                    <p>
-                      BNB recebido:{" "}
-                      {o.actual_bnb_received == null
-                        ? "Não confirmado pelo recibo/trace"
-                        : formatPrice(o.actual_bnb_received)}
-                    </p>
-                    <p>
-                      Taxas do token e da DEX: não registradas separadamente neste histórico; não
-                      representam o gás acima.
-                    </p>
-                    <p>Slippage configurado: {o.slippage_pct}%</p>
-                    <p className="break-all">
-                      Variação de tokens no recibo (unidades mínimas):{" "}
-                      {o.actual_token_delta ?? "Não disponível"}
-                    </p>
-                    <p>
-                      Resultado líquido: consulte o resumo do ativo acima; ordens isoladas não
-                      representam um ciclo completo.
-                    </p>
-                  </details>
-                  {o.error && <p className="text-destructive">{userMessage(o.error)}</p>}
+                  <p className="text-xs text-muted-foreground">
+                    Situação geral (vendido + valor atual do que sobrou − gasto)
+                  </p>
+                  <p
+                    className={cn(
+                      "text-2xl font-bold",
+                      status === "pos"
+                        ? "text-success"
+                        : status === "neg"
+                          ? "text-destructive"
+                          : "",
+                    )}
+                  >
+                    {total == null
+                      ? "—"
+                      : `${total >= 0 ? "+" : ""}${total.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB`}
+                    {total != null && pnl.bnbSpent > 0 ? (
+                      <span className="ml-2 text-base">
+                        ({((total / pnl.bnbSpent) * 100).toFixed(1)}%)
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="text-xs text-warning">
+                    {hasEstimatedFills
+                      ? "Amostra do histórico exibido: inclui estimativas, sem representar todo o resultado da carteira."
+                      : "Confira taxas e a auditoria das transações."}
+                  </p>
+                  <p>
+                    {status === "pos"
+                      ? "Estimativa positiva."
+                      : status === "neg"
+                        ? "Estimativa negativa."
+                        : total == null
+                          ? "Sem preço atual para calcular."
+                          : "Empatado."}
+                  </p>
                 </div>
-              ))}
-            </div>
-          )}
-          <p className="mt-2 text-xs text-muted-foreground">
-            Transações já enviadas podem continuar mesmo se você sair. Aprovações existentes
-            precisam ser revogadas separadamente (ex.: revoke.cash).
-          </p>
-        </Panel>
-      </section>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={orders.length < orderLimit}
-        onClick={() => setOrderLimit((n) => n + 50)}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <p>
+                    Compras: <b>{pnl.buys}</b> · gasto {n6(pnl.bnbSpent)} BNB
+                  </p>
+                  <p>
+                    Vendas: <b>{pnl.sells}</b> · recebido {n6(pnl.bnbReceived)} BNB
+                  </p>
+                  <p>
+                    Resultado estimado das operações exibidas:{" "}
+                    <b className={pnl.realized >= 0 ? "text-success" : "text-destructive"}>
+                      {pnl.realized >= 0 ? "+" : ""}
+                      {n6(pnl.realized)} BNB
+                    </b>
+                  </p>
+                  <p>
+                    Ainda com você (destas compras):{" "}
+                    <b>
+                      {n2(pnl.position)} {sym}
+                    </b>
+                    {pnl.avgCost ? <> · preço médio {pnl.avgCost.toPrecision(4)} BNB</> : null}
+                  </p>
+                </div>
+                {pnl.lastSell && (
+                  <p className="rounded border border-border p-2 text-xs">
+                    <b>Última venda:</b> {n2(pnl.lastSell.tokens)} {sym} → {n6(pnl.lastSell.bnb)}{" "}
+                    BNB (1 BNB = {n2(pnl.lastSell.tokens / pnl.lastSell.bnb)} {sym}).
+                    {spot ? (
+                      <>
+                        {" "}
+                        Agora 1 BNB compra ~{n2(spot)} {sym}:{" "}
+                        <b
+                          className={
+                            spot >= pnl.lastSell.tokens / pnl.lastSell.bnb
+                              ? "text-success"
+                              : "text-destructive"
+                          }
+                        >
+                          {spot >= pnl.lastSell.tokens / pnl.lastSell.bnb ? "mais" : "menos"} tokens
+                        </b>{" "}
+                        do que você vendeu.
+                      </>
+                    ) : null}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Valores em BNB pela cotação de cada troca (com taxa do token), sem o gás. Tokens
+                  que já estavam na carteira antes não entram no lucro.
+                </p>
+              </div>
+            )}
+          </Panel>
+        </section>
+      </UxDetailDialog>
+      <UxDetailDialog
+        open={marketTab === "orders"}
+        onOpenChange={(open) => setMarketTab(open ? "orders" : null)}
+        title={`Histórico de operações (${orders.length})`}
+        icon={History}
       >
-        Carregar mais operações
-      </Button>
+        <section role="tabpanel" aria-label="Histórico">
+          <Panel title={`Histórico de operações (${orders.length})`}>
+            <div className="mb-3 flex flex-wrap gap-2 text-xs">
+              <div>
+                Ativo{" "}
+                <TokenPicker
+                  label="Filtrar token no histórico"
+                  tokens={[{ address: "all", symbol: "Todos os tokens" }, ...tokens]}
+                  value={historyToken}
+                  onChange={setHistoryToken}
+                  showName={false}
+                />
+              </div>
+              <label>
+                Situação{" "}
+                <select
+                  aria-label="Filtrar histórico por situação"
+                  className="rounded border border-border bg-background p-2"
+                  value={historyStatus}
+                  onChange={(e) => setHistoryStatus(e.target.value)}
+                >
+                  <option value="all">Todas</option>
+                  {Array.from(new Set(orders.map((o) => o.status))).map((x) => (
+                    <option key={x} value={x}>
+                      {x}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Operação{" "}
+                <select
+                  aria-label="Filtrar histórico por operação"
+                  className="rounded border border-border bg-background p-2"
+                  value={historySide}
+                  onChange={(e) => setHistorySide(e.target.value)}
+                >
+                  <option value="all">Todas</option>
+                  <option value="compra">Compra</option>
+                  <option value="venda">Venda</option>
+                </select>
+              </label>
+              <label>
+                Período{" "}
+                <select
+                  aria-label="Filtrar histórico por período"
+                  className="rounded border border-border bg-background p-2"
+                  value={historyDays}
+                  onChange={(e) => setHistoryDays(e.target.value)}
+                >
+                  <option value="all">Todo o histórico carregado</option>
+                  <option value="1">24 horas</option>
+                  <option value="7">7 dias</option>
+                  <option value="30">30 dias</option>
+                </select>
+              </label>
+            </div>
+            <p className="mb-2 text-xs text-muted-foreground">
+              {historyOrders.length} resultados nas {orders.length} operações carregadas. Use
+              “Carregar mais” para pesquisar registros anteriores.
+            </p>
+            {historyOrders.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma ordem.</p>
+            ) : (
+              <div className="space-y-2">
+                {historyOrders.map((o) => (
+                  <div key={o.id} className="rounded border border-border p-2 text-xs">
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <span className={o.side === "compra" ? "text-success" : "text-destructive"}>
+                        {o.side}
+                      </span>
+                      <span className="font-mono">{o.status}</span>
+                      <span className="text-muted-foreground">
+                        {new Date(o.created_at).toLocaleString("pt-BR")}
+                      </span>
+                    </div>
+                    {o.tx_hash && (
+                      <a
+                        className="break-all font-mono text-primary underline"
+                        href={`https://bscscan.com/tx/${o.tx_hash}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {o.tx_hash}
+                      </a>
+                    )}
+                    <details className="mt-2 rounded border border-border p-2">
+                      <summary className="cursor-pointer">
+                        Detalhes ·{" "}
+                        {o.accounting_status === "confirmado"
+                          ? "Valores confirmados"
+                          : "Valores estimados ou ainda não conciliados"}
+                      </summary>
+                      <p className="mt-2 break-all">
+                        Ativo:{" "}
+                        {tokens.find((t) => t.address.toLowerCase() === o.token?.toLowerCase())
+                          ?.symbol ??
+                          o.token ??
+                          "Não identificado"}
+                      </p>
+                      <p>
+                        Gás:{" "}
+                        {o.gas_bnb == null ? "Não disponível" : `${formatPrice(o.gas_bnb)} BNB`}
+                      </p>
+                      <p>
+                        BNB recebido:{" "}
+                        {o.actual_bnb_received == null
+                          ? "Não confirmado pelo recibo/trace"
+                          : formatPrice(o.actual_bnb_received)}
+                      </p>
+                      <p>
+                        Taxas do token e da DEX: não registradas separadamente neste histórico; não
+                        representam o gás acima.
+                      </p>
+                      <p>Slippage configurado: {o.slippage_pct}%</p>
+                      <p className="break-all">
+                        Variação de tokens no recibo (unidades mínimas):{" "}
+                        {o.actual_token_delta ?? "Não disponível"}
+                      </p>
+                      <p>
+                        Resultado líquido: consulte o resumo do ativo acima; ordens isoladas não
+                        representam um ciclo completo.
+                      </p>
+                    </details>
+                    {o.error && <p className="text-destructive">{userMessage(o.error)}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="mt-2 text-xs text-muted-foreground">
+              Transações já enviadas podem continuar mesmo se você sair. Aprovações existentes
+              precisam ser revogadas separadamente (ex.: revoke.cash).
+            </p>
+          </Panel>
+        </section>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={orders.length < orderLimit}
+          onClick={() => setOrderLimit((n) => n + 50)}
+        >
+          Carregar mais operações
+        </Button>
       </UxDetailDialog>
     </div>
   );
