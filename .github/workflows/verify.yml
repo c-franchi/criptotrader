@@ -16,7 +16,27 @@ jobs:
           bun-version: 1.3.3
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
-      - run: bun run test
+      - run: bun run test:offline
       - run: bun run build
       # Run lint last so preexisting formatting errors do not hide test/build results.
       - run: bun run lint
+
+  mobile-dialogs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.3
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run test:ui
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-dialogs-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

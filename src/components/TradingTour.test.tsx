@@ -23,7 +23,7 @@ it("closing a manual tutorial does not request an operation and reopening starts
   render(<TradingTour kind="manual" onComplete={complete} />);
   fireEvent.click(screen.getByRole("button", { name: "Como usar" }));
   fireEvent.click(screen.getByRole("button", { name: "Seguinte" }));
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Fechar modal" }));
   expect(complete).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Como usar" }));
   expect(screen.getByText("Escolha a moeda")).toBeTruthy();

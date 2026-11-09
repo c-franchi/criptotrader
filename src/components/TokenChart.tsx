@@ -103,30 +103,32 @@ function PriceChart({
   };
   return (
     <section aria-label={`Gráfico de ${symbol}`} className="border-b border-border bg-card py-5">
-      {showHeading && <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 break-all text-xl font-bold">{symbol}</p>
-        <div className="min-w-0 text-right">
-          <p className="break-words font-mono text-xl font-bold">
-            {price != null ? usd(price) : "—"}
-          </p>
-          <FiatValue usd={price} hideUsdDuplicate />
-          <p
-            className={cn(
-              "text-sm font-medium",
-              change == null ? "text-muted-foreground" : up ? "text-success" : "text-destructive",
-            )}
-          >
-            {change != null
-              ? `${up ? "+" : ""}${change.toFixed(2)}% · ${period}`
-              : "Variação indisponível"}
-          </p>
-          {live == null && last && (
-            <p className="text-xs text-warning">
-              Último preço do histórico · {time(last[0] * 1000)}
+      {showHeading && (
+        <div className="flex items-start justify-between gap-3">
+          <p className="min-w-0 break-all text-xl font-bold">{symbol}</p>
+          <div className="min-w-0 text-right">
+            <p className="break-words font-mono text-xl font-bold">
+              {price != null ? usd(price) : "—"}
             </p>
-          )}
+            <FiatValue usd={price} hideUsdDuplicate />
+            <p
+              className={cn(
+                "text-sm font-medium",
+                change == null ? "text-muted-foreground" : up ? "text-success" : "text-destructive",
+              )}
+            >
+              {change != null
+                ? `${up ? "+" : ""}${change.toFixed(2)}% · ${period}`
+                : "Variação indisponível"}
+            </p>
+            {live == null && last && (
+              <p className="text-xs text-warning">
+                Último preço do histórico · {time(last[0] * 1000)}
+              </p>
+            )}
+          </div>
         </div>
-      </div>}
+      )}
       <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
         <span>
           {market.data
@@ -157,12 +159,16 @@ function PriceChart({
                 ? "Histórico sincronizado"
                 : "Aguardando dados"}
         </span>
-        {showHeading && last && <span>Última vela: {time(last[0] * 1000)} · abertura da vela de 5m</span>}
+        {showHeading && last && (
+          <span>Última vela: {time(last[0] * 1000)} · abertura da vela de 5m</span>
+        )}
         {last && <span>Fonte: {chartSource}</span>}
       </div>
-      {showHeading && <p className="text-[11px] text-muted-foreground">
-        Preço: consulta a cada 15s · Histórico: a cada 60s
-      </p>}
+      {showHeading && (
+        <p className="text-[11px] text-muted-foreground">
+          Preço: consulta a cada 15s · Histórico: a cada 60s
+        </p>
+      )}
       {!all.length && (
         <div
           role="status"
@@ -214,20 +220,24 @@ function PriceChart({
           />
         )}
       </div>
-      {showHeading && <><p className="mt-3 text-xs text-muted-foreground">Variação da cotação</p>
-      <div className="mt-1 flex flex-wrap gap-1">
-        {PERIODS.map((p) => (
-          <Button
-            key={p.id}
-            size="sm"
-            variant={period === p.id ? "secondary" : "ghost"}
-            aria-pressed={period === p.id}
-            onClick={() => setPeriod(p.id)}
-          >
-            {p.id}
-          </Button>
-        ))}
-      </div></>}
+      {showHeading && (
+        <>
+          <p className="mt-3 text-xs text-muted-foreground">Variação da cotação</p>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {PERIODS.map((p) => (
+              <Button
+                key={p.id}
+                size="sm"
+                variant={period === p.id ? "secondary" : "ghost"}
+                aria-pressed={period === p.id}
+                onClick={() => setPeriod(p.id)}
+              >
+                {p.id}
+              </Button>
+            ))}
+          </div>
+        </>
+      )}
       {candleLagging && last && (
         <p role="status" className="mt-2 text-xs text-muted-foreground">
           Última vela confirmada: {time(last[0] * 1000)}. O histórico é preservado sem preencher

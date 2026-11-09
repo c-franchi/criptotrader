@@ -167,7 +167,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
       </nav>
       <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur-lg">
-        <div className="mx-auto flex max-w-6xl items-center gap-2 px-3 py-2.5 sm:px-4">
+        <div className="ux-app-toolbar mx-auto flex max-w-6xl items-center gap-2 px-3 py-2.5 sm:px-4">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button size="icon" variant="ghost" aria-label="Abrir menu">
@@ -260,7 +260,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               / {current.label}
             </span>
           )}
-          <div className="ml-auto flex shrink-0 items-center">
+          <div className="ux-app-toolbar-actions ml-auto flex shrink-0 items-center">
             {user && (
               <Button
                 size="icon"

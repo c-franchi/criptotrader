@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
@@ -57,15 +57,31 @@ export function UxDetailDialog({
   closeLabel?: string;
   footer?: ReactNode;
 }) {
+  const returnFocus = useRef<HTMLElement | null>(null);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-ux-detail-dialog className="ux-detail-dialog">
+      <DialogContent
+        data-ux-detail-dialog
+        className="ux-detail-dialog"
+        onOpenAutoFocus={() => {
+          returnFocus.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          if (returnFocus.current?.isConnected) {
+            event.preventDefault();
+            returnFocus.current.focus();
+          }
+        }}
+      >
         <DialogHeader className="ux-dialog-heading text-left">
-          <DialogTitle className="flex items-center gap-2 pr-6 text-lg">
+          <DialogTitle className="flex items-center gap-2 pr-10 text-lg">
             {Icon && <Icon aria-hidden="true" className="size-5 shrink-0 text-primary" />}
             {title}
           </DialogTitle>
-          {description && <DialogDescription>{description}</DialogDescription>}
+          <DialogDescription className={description ? "pr-10" : "sr-only"}>
+            {description ?? "Consulte os detalhes e use Fechar para voltar à tela anterior."}
+          </DialogDescription>
         </DialogHeader>
         <div data-ux-dialog-body className="ux-detail-body min-w-0 space-y-4">
           {children}
