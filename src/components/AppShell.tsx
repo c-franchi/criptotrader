@@ -262,7 +262,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
           <div className="ml-auto flex shrink-0 items-center">
             {user && (
-              <Button size="icon" variant="ghost" title="Trocar carteira" aria-label="Trocar carteira" onClick={() => setWalletOpen(true)}>
+              <Button
+                size="icon"
+                variant="ghost"
+                title="Trocar carteira"
+                aria-label="Trocar carteira"
+                onClick={() => setWalletOpen(true)}
+              >
                 <Wallet className="size-5" />
               </Button>
             )}
@@ -285,7 +291,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         {children}
       </main>
-      <UxDetailDialog open={walletOpen} onOpenChange={setWalletOpen} title="Selecionar carteira" icon={Wallet} description="Escolha a carteira que deseja consultar. Não inicia operações.">
+      <UxDetailDialog
+        open={walletOpen}
+        onOpenChange={setWalletOpen}
+        title="Selecionar carteira"
+        icon={Wallet}
+        description="Escolha a carteira que deseja consultar. Não inicia operações."
+      >
         <WalletSelector />
       </UxDetailDialog>
       <AppTour open={tour.open} onOpenChange={tour.setOpen} />
