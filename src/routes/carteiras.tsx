@@ -53,7 +53,9 @@ function Wallets() {
   const [address, setAddress] = useState("");
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState<"profile" | "robot" | "add" | "saved" | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState<"profile" | "robot" | "add" | "saved" | null>(
+    null,
+  );
 
   const submit = async () => {
     setBusy(true);
@@ -70,107 +72,143 @@ function Wallets() {
       <PageHeading title="Carteiras" description="Endereços, saldos e ativos em um só lugar." />
       <FundsOverview />
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Ferramentas das carteiras">
-        <UxActionTile label="Adicionar carteira" icon={PlusCircle} onClick={() => setDetailsOpen("add")} />
-        <UxActionTile label={`Carteiras salvas (${wallets.length})`} icon={WalletCards} onClick={() => setDetailsOpen("saved")} />
-        <UxActionTile label="Carteiras dos robôs" icon={Wallet} onClick={() => setDetailsOpen("robot")} />
-        <UxActionTile label="Meu perfil" icon={UserRound} onClick={() => setDetailsOpen("profile")} />
+        <UxActionTile
+          label="Adicionar carteira"
+          icon={PlusCircle}
+          onClick={() => setDetailsOpen("add")}
+        />
+        <UxActionTile
+          label={`Carteiras salvas (${wallets.length})`}
+          icon={WalletCards}
+          onClick={() => setDetailsOpen("saved")}
+        />
+        <UxActionTile
+          label="Carteiras dos robôs"
+          icon={Wallet}
+          onClick={() => setDetailsOpen("robot")}
+        />
+        <UxActionTile
+          label="Meu perfil"
+          icon={UserRound}
+          onClick={() => setDetailsOpen("profile")}
+        />
       </div>
-      <UxDetailDialog open={detailsOpen === "profile"} onOpenChange={(open) => setDetailsOpen(open ? "profile" : null)} title="Meu perfil" icon={UserRound}>
-      <Panel title="Perfil">
-        <p className="text-sm">
-          Conta: <strong>{user?.email}</strong>
-        </p>
-      </Panel>
+      <UxDetailDialog
+        open={detailsOpen === "profile"}
+        onOpenChange={(open) => setDetailsOpen(open ? "profile" : null)}
+        title="Meu perfil"
+        icon={UserRound}
+      >
+        <Panel title="Perfil">
+          <p className="text-sm">
+            Conta: <strong>{user?.email}</strong>
+          </p>
+        </Panel>
       </UxDetailDialog>
-      <UxDetailDialog open={detailsOpen === "robot"} onOpenChange={(open) => setDetailsOpen(open ? "robot" : null)} title="Carteiras dos robôs" icon={Wallet}>
+      <UxDetailDialog
+        open={detailsOpen === "robot"}
+        onOpenChange={(open) => setDetailsOpen(open ? "robot" : null)}
+        title="Carteiras dos robôs"
+        icon={Wallet}
+      >
         <WalletSelector />
         <BotWallet />
       </UxDetailDialog>
       <div id="adicionar-carteira" className="scroll-mt-24" />
-      <UxDetailDialog open={detailsOpen === "add"} onOpenChange={(open) => setDetailsOpen(open ? "add" : null)} title="Adicionar carteira" icon={PlusCircle}>
-      <Panel title="Adicionar carteira">
-        <div className="space-y-3">
-          <div>
-            <Label>Nome (opcional)</Label>
-            <Input
-              placeholder="Ex.: Principal, Trust Wallet…"
-              value={label}
-              maxLength={40}
-              onChange={(e) => setLabel(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label>Endereço</Label>
-            <Input
-              placeholder="0x…"
-              value={address}
-              onChange={(e) => setAddress(e.target.value.trim())}
-            />
-          </div>
-          <Button className="w-full sm:w-auto" onClick={submit} disabled={busy}>
-            Salvar carteira
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Salve só o endereço público. Nunca digite aqui sua frase de recuperação ou chave
-            privada.
-          </p>
-        </div>
-      </Panel>
-      </UxDetailDialog>
-      <UxDetailDialog open={detailsOpen === "saved"} onOpenChange={(open) => setDetailsOpen(open ? "saved" : null)} title={`Carteiras salvas (${wallets.length})`} icon={WalletCards}>
-      <Panel title={`Carteiras salvas (${wallets.length})`}>
-        {wallets.length === 0 && (
-          <p className="text-sm text-muted-foreground">Nenhuma carteira salva ainda.</p>
-        )}
-        <ul className="space-y-3">
-          {wallets.map((w) => (
-            <li key={w.id} className="rounded border border-border p-3">
+      <UxDetailDialog
+        open={detailsOpen === "add"}
+        onOpenChange={(open) => setDetailsOpen(open ? "add" : null)}
+        title="Adicionar carteira"
+        icon={PlusCircle}
+      >
+        <Panel title="Adicionar carteira">
+          <div className="space-y-3">
+            <div>
+              <Label>Nome (opcional)</Label>
               <Input
-                className="mb-2"
-                defaultValue={w.label}
-                placeholder="Sem nome"
+                placeholder="Ex.: Principal, Trust Wallet…"
+                value={label}
                 maxLength={40}
-                onBlur={(e) => e.target.value !== w.label && rename(w.id, e.target.value)}
+                onChange={(e) => setLabel(e.target.value)}
               />
-              <p className="break-all font-mono text-xs text-muted-foreground">{w.address}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Button size="sm" asChild>
-                  <Link to="/grade" onClick={() => selectWallet(w.id)}>
-                    Abrir robôs desta carteira
-                  </Link>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    void navigator.clipboard?.writeText(w.address);
-                    toast.success("Endereço copiado");
-                  }}
-                >
-                  Copiar
-                </Button>
-                <Button size="sm" variant="ghost" asChild>
-                  <a
-                    href={`https://bscscan.com/address/${w.address}`}
-                    target="_blank"
-                    rel="noreferrer"
+            </div>
+            <div>
+              <Label>Endereço</Label>
+              <Input
+                placeholder="0x…"
+                value={address}
+                onChange={(e) => setAddress(e.target.value.trim())}
+              />
+            </div>
+            <Button className="w-full sm:w-auto" onClick={submit} disabled={busy}>
+              Salvar carteira
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Salve só o endereço público. Nunca digite aqui sua frase de recuperação ou chave
+              privada.
+            </p>
+          </div>
+        </Panel>
+      </UxDetailDialog>
+      <UxDetailDialog
+        open={detailsOpen === "saved"}
+        onOpenChange={(open) => setDetailsOpen(open ? "saved" : null)}
+        title={`Carteiras salvas (${wallets.length})`}
+        icon={WalletCards}
+      >
+        <Panel title={`Carteiras salvas (${wallets.length})`}>
+          {wallets.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhuma carteira salva ainda.</p>
+          )}
+          <ul className="space-y-3">
+            {wallets.map((w) => (
+              <li key={w.id} className="rounded border border-border p-3">
+                <Input
+                  className="mb-2"
+                  defaultValue={w.label}
+                  placeholder="Sem nome"
+                  maxLength={40}
+                  onBlur={(e) => e.target.value !== w.label && rename(w.id, e.target.value)}
+                />
+                <p className="break-all font-mono text-xs text-muted-foreground">{w.address}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button size="sm" asChild>
+                    <Link to="/grade" onClick={() => selectWallet(w.id)}>
+                      Abrir robôs desta carteira
+                    </Link>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(w.address);
+                      toast.success("Endereço copiado");
+                    }}
                   >
-                    BscScan
-                  </a>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="ml-auto text-destructive"
-                  onClick={() => remove(w.id).catch((e) => toast.error((e as Error).message))}
-                >
-                  Remover
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </Panel>
+                    Copiar
+                  </Button>
+                  <Button size="sm" variant="ghost" asChild>
+                    <a
+                      href={`https://bscscan.com/address/${w.address}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      BscScan
+                    </a>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="ml-auto text-destructive"
+                    onClick={() => remove(w.id).catch((e) => toast.error((e as Error).message))}
+                  >
+                    Remover
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Panel>
       </UxDetailDialog>
     </div>
   );
