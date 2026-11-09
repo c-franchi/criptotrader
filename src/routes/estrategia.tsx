@@ -697,9 +697,9 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
             </div>
             <p className="mt-3 text-sm">
               Depois de definir os valores e as regras, toque em{" "}
-              <a href="#strategy-summary" className="text-primary underline">
+              <button type="button" className="font-semibold text-primary underline" onClick={() => setDetailOpen("preview")}>
                 Salvar estratégia
-              </a>{" "}
+              </button>{" "}
               e abra o robô para iniciar.
             </p>
           </Panel>
@@ -1583,6 +1583,7 @@ export function StrategyForm({ embedded = false }: { embedded?: boolean } = {}) 
             rascunho e não alteram as regras reais.
           </p>
         </Panel>
+        </UxDetailDialog>
       </div>
     </div>
   );
