@@ -63,7 +63,12 @@ export function MarketDashboard() {
           icon={Activity}
           onClick={() => setDetailsOpen(true)}
         />
-        <UxDetailDialog open={detailsOpen} onOpenChange={setDetailsOpen} title={`Detalhes do mercado · ${token.symbol}`} icon={Activity}>
+        <UxDetailDialog
+          open={detailsOpen}
+          onOpenChange={setDetailsOpen}
+          title={`Detalhes do mercado · ${token.symbol}`}
+          icon={Activity}
+        >
           <dl className="divide-y divide-border text-sm">
             {[
               ["Liquidez do pool", pool?.liquidityUsd],
@@ -102,7 +107,10 @@ export function MarketDashboard() {
             className="flex items-center gap-2 text-sm text-primary"
             title={token.address}
           >
-          <ExternalLink className="size-4 shrink-0" /><span>Contrato · {token.address.slice(0, 6)}…{token.address.slice(-4)}</span>
+            <ExternalLink className="size-4 shrink-0" />
+            <span>
+              Contrato · {token.address.slice(0, 6)}…{token.address.slice(-4)}
+            </span>
           </a>
         </UxDetailDialog>
         <Button variant="outline" asChild className="w-full">
