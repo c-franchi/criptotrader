@@ -2,10 +2,10 @@
 
 ## Integração da substituição de atividades (09/11/2026)
 
-- [ ] Conferir erro RPC, assinatura, tabelas, permissões e histórico antes da instalação aditiva.
-- [ ] Melhorar causas/ações de erro sem escrita alternativa e testar atomicidade, retenção e acesso em banco isolado.
-- [ ] Aplicar exclusivamente a função de substituição; conferir disponibilidade por metadados sem executar substituição real.
-- [ ] Validar confirmação em 360/390 px, lint, testes e compilação automática; não publicar.
+- [x] Conferir erro HTTP 404/PGRST202 e ausência da função; validar configure_guided_bot, tabelas, gatilhos, privilégios e 25 registros históricos já aplicados.
+- [x] Melhorar causas/ações de erro sem escrita alternativa e testar atomicidade, retenção e acesso isoladamente; 50 testes específicos aprovados.
+- [x] Aplicar exclusivamente 0025 com o script aditivo; assinatura SECURITY INVOKER de 11 parâmetros e metadados PostgREST confirmados, sem substituição real.
+- [x] Validar confirmação em 360/390 px e tela curta com Playwright Python; foco, cancelamento e aceite aprovados. Compilação automática OK e lint dos arquivos alterados aprovado. Suíte completa e lint global apresentam falhas anteriores documentadas no relatório; TypeScript separado não executado. Sem publicação.
 
 ## Modais e rodapé dos bots (09/11/2026)
 
@@ -97,4 +97,4 @@
 - [x] Simplificar cotação, diferenciar preço da moeda e investimento, preservar precisão e abrir cada etapa no topo do modal.
 - [x] Implementar confirmação de substituição, salvamento pausado, snapshot da posição anterior e proteção contra transação pendente/estado alterado; validar em Postgres isolado.
 - [x] Validação local: 530 testes unitários/SQL, 55 testes de navegador, build e TypeScript aprovados; lint sem erros (12 avisos anteriores).
-- [ ] Instalar somente `ops/replace-chart-plan.sql` no banco correto para ativar a substituição; acesso Lovable indisponível e Supabase sem permissão nesta sessão. Instruções em `ops/chart-plan-replacement-release.md`.
+- [x] Instalar somente `ops/replace-chart-plan.sql` no banco correto; função aplicada como 0025 e disponibilidade confirmada por PostgreSQL e PostgREST, sem executar substituição real. Evidências em `ops/chart-plan-replacement-release.md`.
