@@ -175,7 +175,10 @@ export function ChartPlanWizard({
     settings.data?.bot?.strat_state as { retainedPosition?: { count?: number } } | null
   )?.retainedPosition;
   const botArmed = !!settings.data?.bot?.armed;
-  const hasOpenPosition = Number(state?.tokens ?? 0) > 0 || Number(state?.costBnb ?? 0) > 0 || Number(state?.tokensRaw ?? 0) > 0;
+  const hasOpenPosition =
+    Number(state?.tokens ?? 0) > 0 ||
+    Number(state?.costBnb ?? 0) > 0 ||
+    Number(state?.tokensRaw ?? 0) > 0;
   const locked = botArmed || hasOpenPosition;
   const knownTax = hasVerifiedTax(token, cfg);
   const tax = useQuery({
