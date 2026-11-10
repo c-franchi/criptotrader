@@ -248,7 +248,7 @@ it("uses only the explicit, fenced replacement RPC and never falls back when it 
     error: { message: "Operação pendente: aguarde a confirmação antes de substituir" },
   });
   await expect(saveChartPlan({ data: { ...data, replacement } })).rejects.toThrow(
-    "Operação pendente",
+    "Aguarde a conciliação",
   );
   expect(io.rpc).toHaveBeenCalledTimes(1);
 });

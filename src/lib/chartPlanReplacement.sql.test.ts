@@ -73,6 +73,7 @@ async function rejectedCall(args: Parameters<typeof replace>[0] = {}) {
     error = caught;
   }
   await db.exec("ROLLBACK TO SAVEPOINT attempted_replacement");
+  await db.exec("RESET ROLE");
   expect(error).toBeTruthy();
   const { rows } = await db.query<{ strat_state: { tokens: number }; armed: boolean }>(
     "SELECT strat_state,armed FROM grid_bots WHERE id=$1",
