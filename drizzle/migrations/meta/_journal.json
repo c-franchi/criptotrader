@@ -176,6 +176,13 @@
       "when": 1794030454712,
       "tag": "0024_reload_schema_after_accounting",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794276041808,
+      "tag": "0025_install_replace_chart_plan",
+      "breakpoints": true
     }
   ]
 }
