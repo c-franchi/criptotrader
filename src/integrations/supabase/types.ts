@@ -915,6 +915,22 @@ export type Database = {
         Args: { p_bot: string; p_scope: string; p_user: string }
         Returns: undefined
       }
+      replace_chart_plan: {
+        Args: {
+          p_bot: string
+          p_config: Json
+          p_confirmation: string
+          p_draft_revision: number
+          p_grid: Json
+          p_scope: string
+          p_state: Json
+          p_token: string
+          p_updated_at: string
+          p_user: string
+          p_version: number
+        }
+        Returns: string
+      }
       reset_strategy_configuration: {
         Args: { p_scope?: string; p_user: string }
         Returns: Json

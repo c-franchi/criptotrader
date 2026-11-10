@@ -199,19 +199,8 @@ export const saveChartPlan = createServerFn({ method: "POST" })
       } as never,
     );
     if (error && data.replacement) {
-      if (error.code === "PGRST202")
-        throw new Error(
-          "A substituição está temporariamente indisponível. A atividade anterior e seu rascunho foram preservados.",
-        );
-      const known =
-        /Operação pendente|estado mudou|não encontrada|configuração mudou|rascunho mudou/i.test(
-          error.message,
-        );
-      throw new Error(
-        known
-          ? error.message
-          : "Não foi possível substituir a atividade. Atualize o estado e tente novamente. A posição e o histórico anteriores foram preservados.",
-      );
+      const { chartPlanReplacementError } = await import("./chartPlanReplacementError");
+      throw new Error(chartPlanReplacementError(error));
     }
     if (error)
       throw new Error(

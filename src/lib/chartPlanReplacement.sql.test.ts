@@ -37,6 +37,7 @@ async function replace(
     version?: number;
     revision?: number;
     confirmation?: string;
+    token?: string;
   } = {},
 ) {
   return db.query(
@@ -44,7 +45,7 @@ async function replace(
     [
       overrides.owner ?? owner,
       overrides.scope ?? scope,
-      token,
+      overrides.token ?? token,
       JSON.stringify(config),
       overrides.version ?? 7,
       overrides.revision ?? 0,
@@ -72,6 +73,7 @@ async function rejectedCall(args: Parameters<typeof replace>[0] = {}) {
     error = caught;
   }
   await db.exec("ROLLBACK TO SAVEPOINT attempted_replacement");
+  await db.exec("RESET ROLE");
   expect(error).toBeTruthy();
   const { rows } = await db.query<{ strat_state: { tokens: number }; armed: boolean }>(
     "SELECT strat_state,armed FROM grid_bots WHERE id=$1",
@@ -187,6 +189,43 @@ it("works for a removed bot with a retained position", async () => {
     ).rows[0],
   ).toEqual({ armed: false, archived_at: null });
 });
+it("replaces a paused bot without touching historical orders or its retained evidence", async () => {
+  await db.query("UPDATE grid_bots SET armed=false WHERE id=$1", [bot]);
+  await db.query("INSERT INTO orders VALUES($1,$2,'confirmada')", [owner, scope]);
+  await db.query("INSERT INTO audit_log VALUES($1,'previous_receipt','{\"hash\":\"previous\"}')", [
+    owner,
+  ]);
+  await replace();
+  expect((await db.query("SELECT status FROM orders")).rows).toEqual([{ status: "confirmada" }]);
+  expect(
+    (await db.query("SELECT details FROM audit_log WHERE action='previous_receipt'")).rows,
+  ).toEqual([{ details: { hash: "previous" } }]);
+  const result = await db.query<{
+    armed: boolean;
+    strat_state: { tokens: number; retainedPosition: { tokensAtReplacement: number } };
+  }>("SELECT armed,strat_state FROM grid_bots");
+  expect(result.rows[0]?.armed).toBe(false);
+  expect(result.rows[0]?.strat_state.tokens).toBe(0);
+  expect(result.rows[0]?.strat_state.retainedPosition.tokensAtReplacement).toBe(12);
+});
+it("rejects a different token even with a valid owner and wallet", async () => {
+  expect(await rejectedCall({ token: "0x2222222222222222222222222222222222222222" })).toContain(
+    "não encontrada",
+  );
+});
+it("rolls back the complete old bot, strategy, draft and audit after a late failure", async () => {
+  await db.query("INSERT INTO strategy_drafts VALUES($1,$2,$3,0)", [owner, scope, token]);
+  await db.exec(
+    `CREATE FUNCTION reject_final_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='guided_bot_saved' THEN RAISE EXCEPTION 'isolated late failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER late_failure BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION reject_final_audit();`,
+  );
+  const before = await db.query("SELECT to_jsonb(b) AS bot FROM grid_bots b");
+  await rejectedCall();
+  expect((await db.query("SELECT to_jsonb(b) AS bot FROM grid_bots b")).rows).toEqual(before.rows);
+  expect((await db.query("SELECT version,config FROM strategies")).rows).toEqual([
+    { version: 7, config: {} },
+  ]);
+  expect((await db.query("SELECT revision FROM strategy_drafts")).rows).toEqual([{ revision: 0 }]);
+});
 it.each(["mutex", "submission", "legacy-order"])(
   "refuses replacement during %s without changing the old state",
   async (kind) => {
@@ -223,6 +262,9 @@ it("does not expose the replacement RPC to ordinary users", async () => {
       [role],
     );
     expect(result.rows[0]?.allowed).toBe(false);
+    await db.exec(`SET LOCAL ROLE ${role}`);
+    expect(await rejectedCall()).toContain("permission denied");
+    await db.exec("RESET ROLE");
   }
 });
 

@@ -17,7 +17,7 @@
 
 O script aditivo `ops/replace-chart-plan.sql` cria apenas a função privilegiada `public.replace_chart_plan`. Não executa a substituição de nenhum bot e não modifica linhas existentes durante a instalação. Ele utiliza a função já existente `configure_guided_bot` e mantém os gatilhos atuais.
 
-O acesso direto ao banco do CryptoBot não estava disponível nesta sessão: as ferramentas do Lovable retornaram erro interno, e o conector Supabase recusou permissão para o projeto `tfmhxgcgezegceaphaoe`. Nenhuma função foi instalada em produção por esta revisão. Não usar projetos Quarteto ou Palame para esta alteração.
+A instalação foi concluída no banco do projeto CryptoBot nesta correção. O erro confirmado antes da instalação foi HTTP 404 / `PGRST202`; o catálogo PostgreSQL e os metadados PostgREST não continham a função. A função `configure_guided_bot` existente, as tabelas, os gatilhos e os privilégios de `service_role` foram conferidos antes da aplicação.
 
 No projeto correto do Lovable, solicitar:
 
@@ -37,7 +37,7 @@ where n.nspname='public' and p.proname='replace_chart_plan';
 
 Esperado: uma assinatura com 11 parâmetros, `security_definer=false`, `anon_execute=false`, `authenticated_execute=false`, `service_execute=true`. Sem a função, o servidor devolve indisponibilidade e preserva a atividade/rascunho; não tenta uma gravação alternativa.
 
-Os ajustes de texto e rolagem não dependem dessa instalação. A opção de substituição só estará operacional depois dessa etapa no banco.
+Aplicado: `drizzle/migrations/0025_install_replace_chart_plan.sql`, com o conteúdo de `ops/replace-chart-plan.sql` preservado, exceto `BEGIN`/`COMMIT` externos administrados pela ferramenta. Nenhuma migração histórica foi reaplicada. O script inclui a atualização do cache PostgREST. Após a instalação, PostgreSQL confirmou uma assinatura de 11 parâmetros, SECURITY INVOKER e execução exclusivamente para `service_role` entre os papéis da aplicação; os metadados HTTP confirmaram os mesmos 11 nomes e tipos enviados pelo servidor. Nenhuma substituição real foi executada para verificar isso.
 
 ## Validação
 
@@ -46,4 +46,10 @@ Os ajustes de texto e rolagem não dependem dessa instalação. A opção de sub
 - O teste de navegador usa o hook real de navegação para conferir que avançar pelo rodapé termina no topo. A confirmação real de substituição é exercitada com dados fictícios e sem conexão financeira.
 - As verificações não equivalem a substituir uma posição real em produção. Essa decisão fica para o usuário na confirmação da aplicação, após a instalação da função.
 
-Resultados locais desta revisão: **530 testes unitários/SQL e 55 testes Chromium aprovados**, além de TypeScript e build. Lint sem erros, com os 12 avisos preexistentes. O teste SQL inclui a recusa por mudança de posição sem alteração do timestamp. A instalação da função em produção continua pendente de acesso.
+Resultados desta correção:
+
+- 50 testes específicos aprovados, incluindo 16 testes PostgreSQL/PGlite e 15 testes da ferramenta gráfica com servidor simulado. Cobrem ativo/pausado/removido, retenção da posição e histórico, limites diários, usuário/carteira/token, estado concorrente, mutex, submissões, cancelamento, novo plano pausado e rollback de falha tardia inclusive rascunho/estratégia/auditoria.
+- Confirmação real exercitada com Playwright Python e dados fictícios em 360×800, 390×844 e 390×420: cancelamento sem salvamento, aceite obrigatório, rolagem, foco contido/restaurado e salvamento fictício pausado; sem erros de página. O runner JS não encontrou sua versão do Chromium, por isso foi usado o navegador pré-instalado do Python.
+- Compilação automática: `build OK`. Lint dos arquivos modificados: aprovado. Lint global: 909 erros de formatação em arquivos gerados de integração e 12 avisos anteriores; esses arquivos protegidos não foram alterados manualmente. TypeScript não foi executado separadamente; a compilação automática não substitui esse resultado.
+- Suíte completa: 538/541 testes passaram; três falhas fora deste fluxo (histórico e câmbio). Reexecução desses dois arquivos: câmbio passou, duas falhas de histórico persistiram. Não foram feitas mudanças fora do escopo.
+- Em produção foram confirmados somente instalação, compatibilidade e disponibilidade por metadados. Não houve substituição, pausa, remoção, início, operação financeira nem publicação. O fluxo autenticado real com salvamento permanece deliberadamente não exercitado, conforme a proibição de substituição real para teste.
