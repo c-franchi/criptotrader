@@ -170,12 +170,12 @@ export function ChartPlanWizard({
   });
   const cfg = settings.data?.strategy?.config as Partial<StrategyConfig> | undefined;
   const state = settings.data?.bot?.strat_state as
-    { tokens?: number; costBnb?: number } | null | undefined;
+    { tokens?: number; costBnb?: number; tokensRaw?: string } | null | undefined;
   const retained = (
     settings.data?.bot?.strat_state as { retainedPosition?: { count?: number } } | null
   )?.retainedPosition;
   const botArmed = !!settings.data?.bot?.armed;
-  const hasOpenPosition = Number(state?.tokens ?? 0) > 0 || Number(state?.costBnb ?? 0) > 0;
+  const hasOpenPosition = Number(state?.tokens ?? 0) > 0 || Number(state?.costBnb ?? 0) > 0 || Number(state?.tokensRaw ?? 0) > 0;
   const locked = botArmed || hasOpenPosition;
   const knownTax = hasVerifiedTax(token, cfg);
   const tax = useQuery({

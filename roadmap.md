@@ -1,5 +1,12 @@
 # Correção da seleção e do mercado
 
+## Integração da substituição de atividades (09/11/2026)
+
+- [ ] Conferir erro RPC, assinatura, tabelas, permissões e histórico antes da instalação aditiva.
+- [ ] Melhorar causas/ações de erro sem escrita alternativa e testar atomicidade, retenção e acesso em banco isolado.
+- [ ] Aplicar exclusivamente a função de substituição; conferir disponibilidade por metadados sem executar substituição real.
+- [ ] Validar confirmação em 360/390 px, lint, testes e compilação automática; não publicar.
+
 ## Modais e rodapé dos bots (09/11/2026)
 
 - [x] Corrigir deslocamento causado pelo reset de translate removido na compilação; 11 testes passaram e abertura/rolagem/fechamento de modais reais públicos e longos/aninhados isolados conferidos em cinco tamanhos, sem erros runtime.
