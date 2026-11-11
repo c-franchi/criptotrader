@@ -183,6 +183,13 @@
       "when": 1794276041808,
       "tag": "0025_install_replace_chart_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794431756365,
+      "tag": "0026_manual_sale_limits",
+      "breakpoints": true
     }
   ]
 }

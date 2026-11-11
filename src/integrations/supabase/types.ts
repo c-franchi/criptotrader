@@ -239,6 +239,30 @@ export type Database = {
         }
         Relationships: []
       }
+      manual_sale_limits: {
+        Row: {
+          max_price_impact_pct: number
+          max_slippage_pct: number
+          token: string
+          user_id: string
+          wallet_scope: string
+        }
+        Insert: {
+          max_price_impact_pct: number
+          max_slippage_pct: number
+          token: string
+          user_id: string
+          wallet_scope: string
+        }
+        Update: {
+          max_price_impact_pct?: number
+          max_slippage_pct?: number
+          token?: string
+          user_id?: string
+          wallet_scope?: string
+        }
+        Relationships: []
+      }
       market_candle_bars: {
         Row: {
           candle: Json
