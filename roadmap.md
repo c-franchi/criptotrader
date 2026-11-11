@@ -1,5 +1,11 @@
 # Correção da seleção e do mercado
 
+## Substituição e venda manual (11/11/2026)
+
+- [ ] Verificar função, assinatura, cache e versão publicada sem substituir atividades reais.
+- [ ] Corrigir quantidade decimal exata, limites explícitos por carteira/token, persistência e validação no servidor sem alterar estratégias dos robôs.
+- [ ] Testar substituição isolada, quantidades, limites, invalidação e telas móveis; documentar evidências e pendências sem publicar.
+
 ## Integração da substituição de atividades (09/11/2026)
 
 - [x] Conferir erro HTTP 404/PGRST202 e ausência da função; validar configure_guided_bot, tabelas, gatilhos, privilégios e 25 registros históricos já aplicados.
