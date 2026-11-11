@@ -237,7 +237,7 @@ it("uses only the explicit, fenced replacement RPC and never falls back when it 
       p_bot: replacement.botId,
       p_updated_at: replacement.updatedAt,
       p_confirmation: replacement.confirmation,
-      p_state: null,
+      p_state: {},
       p_version: 7,
       p_draft_revision: 2,
     }),

@@ -230,7 +230,7 @@ function Operar() {
   const amountRef = useRef<HTMLInputElement>(null);
   const selectSide = (next: "compra" | "venda") => {
     setSide(next);
-    setQuote(null);
+    invalidateQuote();
     setTradeOpen(true);
     requestAnimationFrame(() => {
       formRef.current?.scrollIntoView({
@@ -327,6 +327,7 @@ function Operar() {
   }, [loadOrders, loadMarket, GTE, walletScope, entrada, user?.id]);
 
   useEffect(() => {
+    quoteEpoch.current += 1;
     setQuote(null);
   }, [identity]);
 
@@ -358,12 +359,12 @@ function Operar() {
       const provider = await connectWallet(expected ?? undefined);
       provider.on("accountsChanged", (a: string[]) => {
         setAccount(a[0] ?? null);
-        setQuote(null);
+        invalidateQuote();
         toast.warning("Conta alterada na carteira");
       });
       provider.on("chainChanged", (c: string) => {
         setChainId(Number(c));
-        setQuote(null);
+        invalidateQuote();
       });
       provider.on("disconnect", () => {
         setAccount(null);
@@ -813,7 +814,8 @@ function Operar() {
               void navigate({ search: { token: address } });
               setGTE(address);
               setTokenIssue("");
-              setQuote(null);
+              invalidateQuote();
+              setExactSellAmount(null);
               setPair(undefined);
               setReserves(null);
               setSellAmt("");
@@ -840,7 +842,7 @@ function Operar() {
                   disabled={!!busy}
                   onClick={() => {
                     setTradeOpen(true);
-                    setQuote(null);
+                    invalidateQuote();
                     requestAnimationFrame(() =>
                       marketRef.current?.scrollIntoView({ block: "start" }),
                     );
@@ -885,7 +887,7 @@ function Operar() {
                   disabled={!!busy}
                   onClick={() => {
                     setSide("compra");
-                    setQuote(null);
+                    invalidateQuote();
                   }}
                 >
                   Comprar
@@ -895,7 +897,7 @@ function Operar() {
                   disabled={!!busy}
                   onClick={() => {
                     setSide("venda");
-                    setQuote(null);
+                    invalidateQuote();
                   }}
                 >
                   Vender

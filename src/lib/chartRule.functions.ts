@@ -179,7 +179,7 @@ export const saveChartPlan = createServerFn({ method: "POST" })
     const { strategySchema } = await import("./strategyValidation");
     strategySchema.parse(config);
     const { data: id, error } = await admin.rpc(
-      (data.replacement ? "replace_chart_plan" : "configure_guided_bot") as never,
+      data.replacement ? "replace_chart_plan" : "configure_guided_bot",
       {
         p_user: context.userId,
         p_scope: data.walletScope,
@@ -193,10 +193,10 @@ export const saveChartPlan = createServerFn({ method: "POST" })
               p_bot: data.replacement.botId,
               p_updated_at: data.replacement.updatedAt,
               p_confirmation: data.replacement.confirmation,
-              p_state: data.replacement.state,
+              p_state: data.replacement.state ?? {},
             }
           : {}),
-      } as never,
+      },
     );
     if (error && data.replacement) {
       // Provider codes only; never log the draft, position or wallet secrets.
