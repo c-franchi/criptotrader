@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { ManualSaleAmountInput } from "../../src/components/ManualSaleAmountInput";
 import { ManualSaleLimitsDialog } from "../../src/components/ManualSaleLimitsDialog";
-import { compactTokenAmount, percentageAmount, tokenAmount, enforceManualImpact, type ManualLimits } from "../../src/lib/manualSale";
+import {
+  compactTokenAmount,
+  percentageAmount,
+  tokenAmount,
+  enforceManualImpact,
+  type ManualLimits,
+} from "../../src/lib/manualSale";
 import Decimal from "decimal.js";
 import { useWizardStepScroll } from "../../src/hooks/useWizardStepScroll";
 import { ReplaceChartPlanDialog } from "../../src/components/ReplaceChartPlanDialog";
@@ -81,16 +87,73 @@ function ManualSalePreview() {
   const [open, setOpen] = useState(false);
   const [quote, setQuote] = useState(false);
   const [error, setError] = useState("");
-  return <>
-    <ManualSaleAmountInput symbol="GTE" value={value} inputRef={null} disabled={false} onChange={(v) => { setValue(v); setExact(null); setQuote(false); setError(""); }} />
-    <div className="mt-3 grid grid-cols-4 gap-2">{[25,50,75,100].map((p) => <Button key={p} onClick={() => { const n = percentageAmount(balance,p); setExact(n); setValue(compactTokenAmount(n,18)); setQuote(false); setError(""); }}>{p===100?"Máx":`${p}%`}</Button>)}</div>
-    {exact !== null && <p className="break-all" data-testid="exact-sale-amount">{exact.toString()}</p>}
-    <Button className="mt-3 w-full" variant="outline" onClick={() => setOpen(true)}>Ajustar limites da venda</Button>
-    <ManualSaleLimitsDialog open={open} onOpenChange={setOpen} limits={limits} onSave={async (next) => {setLimits(next);setQuote(false);setError("");}} />
-    <Button className="mt-3 w-full" onClick={() => {try {tokenAmount(exact === null ? value : "1",18,balance);enforceManualImpact(1.08,limits);setQuote(true);setError("");} catch(e) {setError(e instanceof Error ? e.message : "erro");}}}>Cotar venda de GTE</Button>
-    {error && <p role="alert">{error}</p>}
-    {quote && <p role="status">Recebimento estimado: 0,001 BNB · ≈ R$ 3,50 (teste fictício)</p>}
-  </>;
+  return (
+    <>
+      <ManualSaleAmountInput
+        symbol="GTE"
+        value={value}
+        inputRef={null}
+        disabled={false}
+        onChange={(v) => {
+          setValue(v);
+          setExact(null);
+          setQuote(false);
+          setError("");
+        }}
+      />
+      <div className="mt-3 grid grid-cols-4 gap-2">
+        {[25, 50, 75, 100].map((p) => (
+          <Button
+            key={p}
+            onClick={() => {
+              const n = percentageAmount(balance, p);
+              setExact(n);
+              setValue(compactTokenAmount(n, 18));
+              setQuote(false);
+              setError("");
+            }}
+          >
+            {p === 100 ? "Máx" : `${p}%`}
+          </Button>
+        ))}
+      </div>
+      {exact !== null && (
+        <p className="break-all" data-testid="exact-sale-amount">
+          {exact.toString()}
+        </p>
+      )}
+      <Button className="mt-3 w-full" variant="outline" onClick={() => setOpen(true)}>
+        Ajustar limites da venda
+      </Button>
+      <ManualSaleLimitsDialog
+        open={open}
+        onOpenChange={setOpen}
+        limits={limits}
+        onSave={async (next) => {
+          setLimits(next);
+          setQuote(false);
+          setError("");
+        }}
+      />
+      <Button
+        className="mt-3 w-full"
+        onClick={() => {
+          try {
+            tokenAmount(exact === null ? value : "1", 18, balance);
+            enforceManualImpact(1.08, limits);
+            setQuote(true);
+            setError("");
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "erro");
+          }
+        }}
+      >
+        Cotar venda de GTE
+      </Button>
+      {error && <p role="alert">{error}</p>}
+      {quote && <p role="status">Recebimento estimado: 0,001 BNB · ≈ R$ 3,50 (teste fictício)</p>}
+    </>
+  );
 }
 export function Preview() {
   const [tool, setTool] = useState<string | null>(null);
@@ -138,7 +201,9 @@ export function Preview() {
           icon={Coins}
           description="Teste dos componentes reais usados no aplicativo."
         >
-          {tool === "Venda manual" ? <ManualSalePreview /> : tool === "Etapas da atividade" ? (
+          {tool === "Venda manual" ? (
+            <ManualSalePreview />
+          ) : tool === "Etapas da atividade" ? (
             <WizardStepPreview />
           ) : tool === "Substituir atividade" ? (
             <ReplacementPreview />
