@@ -199,6 +199,8 @@ export const saveChartPlan = createServerFn({ method: "POST" })
       } as never,
     );
     if (error && data.replacement) {
+      // Provider codes only; never log the draft, position or wallet secrets.
+      console.error("chart_plan_replacement_rejected", { code: error.code });
       const { chartPlanReplacementError } = await import("./chartPlanReplacementError");
       throw new Error(chartPlanReplacementError(error));
     }

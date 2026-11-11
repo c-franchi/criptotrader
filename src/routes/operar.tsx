@@ -1,6 +1,7 @@
 import { userMessage } from "@/lib/userMessage";
 import { useServerFn } from "@tanstack/react-start";
 import { ManualSaleLimitsDialog } from "@/components/ManualSaleLimitsDialog";
+import { ManualSaleAmountInput } from "@/components/ManualSaleAmountInput";
 import { compactTokenAmount, tokenAmount, percentageAmount, enforceManualImpact, type ManualLimits } from "@/lib/manualSale";
 import { getManualSaleLimits, saveManualSaleLimits, validateManualSale } from "@/lib/manualSale.functions";
 import { verifyWalletSession } from "@/lib/walletSession";
@@ -522,6 +523,7 @@ function Operar() {
   const execute = async () => {
     if (!quote || !wallet || !account || !user || busy || !ready || quote.identity !== identity)
       return;
+    const executionEpoch = quoteEpoch.current;
     if (
       orders.some(
         (o) =>
@@ -546,6 +548,7 @@ function Operar() {
         await validateSale({ data: { walletScope, token: GTE, amount: quote.amountIn.toString(), limits: saleLimits } });
       } catch (e) { invalidateQuote(); setQuoteError(userMessage(e)); return; }
     }
+    if (quoteEpoch.current !== executionEpoch || identityRef.current !== quote.identity) return;
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
     const path = quote.side === "compra" ? ([WBNB, GTE] as const) : ([GTE, WBNB] as const);
     const { data: order, error } = await supabase
@@ -859,9 +862,8 @@ function Operar() {
                   </>
                 )}
               </p>
-              <Label htmlFor="manual-trade-amount" className="mt-3 block">
-                {side === "compra" ? "Quanto BNB usar" : `Quantidade a vender (${sym})`}
-              </Label>
+              {side === "venda" ? <ManualSaleAmountInput symbol={sym} value={sellAmt} disabled={!!busy} inputRef={amountRef} onChange={(value) => { setSellAmt(value); setExactSellAmount(null); invalidateQuote(); }} /> : <>
+              <Label htmlFor="manual-trade-amount" className="mt-3 block">Quanto BNB usar</Label>
               <Input
                 ref={amountRef}
                 id="manual-trade-amount"
@@ -871,13 +873,14 @@ function Operar() {
                 className="mt-1 text-lg"
                 type="text"
                 step="any"
-                value={side === "compra" ? buyAmt : sellAmt}
+                value={buyAmt}
                 onChange={(e) => {
                   (side === "compra" ? setBuyAmt : setSellAmt)(e.target.value);
                   if (side === "venda") setExactSellAmount(null);
                   invalidateQuote();
                 }}
               />
+              </>}
               {side === "venda" && exactSellAmount !== null && <p className="mt-1 break-all text-xs text-muted-foreground">Quantidade exata selecionada: {formatUnits(exactSellAmount, selected.decimals).replace(".", ",")} {sym}</p>}
               <p className="mt-1 text-xs text-muted-foreground">
                 Disponível:{" "}
