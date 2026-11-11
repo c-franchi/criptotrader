@@ -229,6 +229,19 @@ it("uses only the explicit, fenced replacement RPC and never falls back when it 
     state: null,
   };
   await saveChartPlan({ data: { ...data, replacement } });
+  expect(Object.keys(io.rpc.mock.calls[0]?.[1] ?? {}).sort()).toEqual([
+    "p_bot",
+    "p_config",
+    "p_confirmation",
+    "p_draft_revision",
+    "p_grid",
+    "p_scope",
+    "p_state",
+    "p_token",
+    "p_updated_at",
+    "p_user",
+    "p_version",
+  ]);
   expect(io.rpc).toHaveBeenCalledWith(
     "replace_chart_plan",
     expect.objectContaining({
@@ -237,7 +250,7 @@ it("uses only the explicit, fenced replacement RPC and never falls back when it 
       p_bot: replacement.botId,
       p_updated_at: replacement.updatedAt,
       p_confirmation: replacement.confirmation,
-      p_state: null,
+      p_state: {},
       p_version: 7,
       p_draft_revision: 2,
     }),

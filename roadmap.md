@@ -1,5 +1,12 @@
 # Correção da seleção e do mercado
 
+## Substituição e venda manual (11/11/2026)
+
+- [x] Confirmar função de 11 parâmetros e cache HTTP 200 no banco conectado, SECURITY INVOKER e privilégios exclusivos de service_role. SQL existente não reaplicado; mensagem antiga não reproduzida e logs publicados sem ocorrências na última hora.
+- [x] Corrigir quantidade decimal exata, limites explícitos por carteira/token, persistência independente e validação no servidor. Aplicada somente 0026, sem linhas, alterações financeiras ou estratégias.
+- [x] Testes específicos: 69 aprovados; TypeScript e lint dos arquivos alterados aprovados; compilação automática OK. Navegador isolado em 360/390 px, alturas normais e 420 px, sem erros. Relatório em ops/manual-sale-replacement-validation-20261111.md.
+- [ ] Conferir os dois fluxos na conta do titular: sessão indisponível (nenhuma conta corresponde ao solicitante); nenhuma substituição real foi executada e não houve publicação.
+
 ## Integração da substituição de atividades (09/11/2026)
 
 - [x] Conferir erro HTTP 404/PGRST202 e ausência da função; validar configure_guided_bot, tabelas, gatilhos, privilégios e 25 registros históricos já aplicados.

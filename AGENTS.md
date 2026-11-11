@@ -10,6 +10,8 @@
 <!-- LOVABLE:END -->
 
 ## Rules
+- Manual-sale limits are persisted separately per user/wallet/token and validated through the same pure rules on the server; editing them must never change robot strategies or silently widen limits.
+- Manual token quantities use exact integer units with a separate compact display value; async quotes are fenced by a revision so edits invalidate in-flight results.
 - Shared DialogContent positioning uses one CSS transform reset for mobile sheets; avoid individual translate properties and transform animations because CSS optimization can drop the mobile reset.
 - Render the global emergency stop in the bot page footer only; keep its execution handler unchanged when adjusting presentation.
 - Dashboard market presentation is composed separately from FundsOverview; shared charts measure their actual container width for SVG coordinates so desktop width never inflates chart height or misaligns interactions.
