@@ -940,8 +940,7 @@ function Operar() {
                     step="any"
                     value={buyAmt}
                     onChange={(e) => {
-                      (side === "compra" ? setBuyAmt : setSellAmt)(e.target.value);
-                      if (side === "venda") setExactSellAmount(null);
+                      setBuyAmt(e.target.value);
                       invalidateQuote();
                     }}
                   />

@@ -69,11 +69,11 @@ it("refuses a foreign wallet before saving", async () => {
   expect(io.upsert).not.toHaveBeenCalled();
 });
 it("rejects out-of-range edits before persistence", async () => {
-  await expect(
+  expect(() =>
     saveManualSaleLimits({
       data: { walletScope, token, limits: { ...limits, maxPriceImpactPct: 21 } },
     }),
-  ).rejects.toThrow();
+  ).toThrow();
   expect(io.upsert).not.toHaveBeenCalled();
 });
 it("validates against actual saved limits and one fresh block", async () => {
