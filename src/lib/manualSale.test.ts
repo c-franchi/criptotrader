@@ -1,8 +1,16 @@
 import { expect, it } from "vitest";
-import { compactTokenAmount, enforceManualImpact, percentageAmount, readManualLimits, tokenAmount } from "./manualSale";
+import {
+  compactTokenAmount,
+  enforceManualImpact,
+  percentageAmount,
+  readManualLimits,
+  tokenAmount,
+} from "./manualSale";
 
 it("parses a Brazilian decimal without losing one token unit", () => {
-  expect(tokenAmount("123456789012345678,123456789012345678", 18)).toBe(123456789012345678123456789012345678n);
+  expect(tokenAmount("123456789012345678,123456789012345678", 18)).toBe(
+    123456789012345678123456789012345678n,
+  );
   expect(tokenAmount("0,000000000000000001", 18)).toBe(1n);
 });
 it("rejects nonpositive amounts and amounts exceeding balance", () => {
@@ -16,7 +24,7 @@ it("rejects unsupported decimals instead of rounding into a different quantity",
 });
 it.each([25, 50, 75, 100])("selects exact %s percent and never exceeds balance", (pct) => {
   const balance = 123456789012345678901234567n;
-  expect(percentageAmount(balance, pct)).toBe(balance * BigInt(pct) / 100n);
+  expect(percentageAmount(balance, pct)).toBe((balance * BigInt(pct)) / 100n);
 });
 it("shortens display without losing the underlying maximum quantity", () => {
   const raw = 123456789123456789123456789n;
@@ -25,7 +33,13 @@ it("shortens display without losing the underlying maximum quantity", () => {
   expect(compactTokenAmount(1n, 18)).toBe("0,000000000000000001");
 });
 it("treats missing limits as undefined, never as zero or defaults", () => {
-  for (const value of [undefined, null, {}, { maxPriceImpactPct: null, maxSlippagePct: 1 }, { maxSlippagePct: 1 }])
+  for (const value of [
+    undefined,
+    null,
+    {},
+    { maxPriceImpactPct: null, maxSlippagePct: 1 },
+    { maxSlippagePct: 1 },
+  ])
     expect(readManualLimits(value)).toBeNull();
   expect(() => enforceManualImpact(1.08, null)).toThrow("Defina");
 });

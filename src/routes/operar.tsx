@@ -2,8 +2,18 @@ import { userMessage } from "@/lib/userMessage";
 import { useServerFn } from "@tanstack/react-start";
 import { ManualSaleLimitsDialog } from "@/components/ManualSaleLimitsDialog";
 import { ManualSaleAmountInput } from "@/components/ManualSaleAmountInput";
-import { compactTokenAmount, tokenAmount, percentageAmount, enforceManualImpact, type ManualLimits } from "@/lib/manualSale";
-import { getManualSaleLimits, saveManualSaleLimits, validateManualSale } from "@/lib/manualSale.functions";
+import {
+  compactTokenAmount,
+  tokenAmount,
+  percentageAmount,
+  enforceManualImpact,
+  type ManualLimits,
+} from "@/lib/manualSale";
+import {
+  getManualSaleLimits,
+  saveManualSaleLimits,
+  validateManualSale,
+} from "@/lib/manualSale.functions";
 import { verifyWalletSession } from "@/lib/walletSession";
 import { useManualBalances } from "@/hooks/useManualBalances";
 import { useWalletFunds } from "@/hooks/useWalletFunds";
@@ -178,7 +188,11 @@ function Operar() {
   const readLimits = useServerFn(getManualSaleLimits);
   const saveLimits = useServerFn(saveManualSaleLimits);
   const validateSale = useServerFn(validateManualSale);
-  const invalidateQuote = () => { quoteEpoch.current += 1; setQuote(null); setQuoteError(""); };
+  const invalidateQuote = () => {
+    quoteEpoch.current += 1;
+    setQuote(null);
+    setQuoteError("");
+  };
   const [quote, setQuote] = useState<Quote | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [side, setSide] = useState<"compra" | "venda">("compra");
@@ -319,11 +333,23 @@ function Operar() {
   useEffect(() => {
     let active = true;
     quoteEpoch.current += 1;
-    setQuote(null); setQuoteError(""); setSaleLimits(null); setSellAmt(""); setExactSellAmount(null); setLimitsOpen(false);
-    if (user) void readLimits({ data: { walletScope, token: GTE } })
-      .then((r) => { if (active) setSaleLimits(r.limits); })
-      .catch((e) => { if (active) setQuoteError(userMessage(e)); });
-    return () => { active = false; };
+    setQuote(null);
+    setQuoteError("");
+    setSaleLimits(null);
+    setSellAmt("");
+    setExactSellAmount(null);
+    setLimitsOpen(false);
+    if (user)
+      void readLimits({ data: { walletScope, token: GTE } })
+        .then((r) => {
+          if (active) setSaleLimits(r.limits);
+        })
+        .catch((e) => {
+          if (active) setQuoteError(userMessage(e));
+        });
+    return () => {
+      active = false;
+    };
   }, [user, walletScope, GTE, readLimits]);
 
   const connect = async () => {
@@ -367,7 +393,7 @@ function Operar() {
     try {
       return side === "compra"
         ? parseEther(buyAmt || "0")
-        : exactSellAmount ?? tokenAmount(sellAmt || "0", selected.decimals);
+        : (exactSellAmount ?? tokenAmount(sellAmt || "0", selected.decimals));
     } catch {
       return 0n;
     }
@@ -376,7 +402,10 @@ function Operar() {
   const applyPct = (p: number) => {
     const v = percentageAmount(maxIn, p);
     if (side === "compra") setBuyAmt(v > 0n ? formatEther(v) : "");
-    else { setExactSellAmount(v); setSellAmt(v > 0n ? compactTokenAmount(v, selected.decimals) : ""); }
+    else {
+      setExactSellAmount(v);
+      setSellAmt(v > 0n ? compactTokenAmount(v, selected.decimals) : "");
+    }
     invalidateQuote();
   };
   const blocks = manualWalletBlocks({
@@ -403,7 +432,7 @@ function Operar() {
       const amountIn =
         side === "compra"
           ? parseEther(buyAmt || "0")
-          : exactSellAmount ?? tokenAmount(sellAmt, selected.decimals, bal.gte);
+          : (exactSellAmount ?? tokenAmount(sellAmt, selected.decimals, bal.gte));
       if (amountIn <= 0n) throw new Error("Informe um valor maior que zero");
       if (side === "compra" && amountIn + gasReserve > bal.bnb)
         throw new Error("Saldo de BNB insuficiente considerando a reserva para gas");
@@ -420,7 +449,12 @@ function Operar() {
       if (out === undefined) throw new Error("Cotação indisponível.");
       let impact = priceImpactPct(amountIn, side === "compra" ? reserves.bnb : reserves.gte);
       const limits = side === "venda" ? enforceManualImpact(impact, saleLimits) : cfg;
-      if (side === "venda") impact = (await validateSale({ data: { walletScope, token: GTE, amount: amountIn.toString(), limits } })).impact;
+      if (side === "venda")
+        impact = (
+          await validateSale({
+            data: { walletScope, token: GTE, amount: amountIn.toString(), limits },
+          })
+        ).impact;
       if (side === "compra" && impact > cfg.maxPriceImpactPct)
         throw new Error(
           `Impacto de preço ${impact.toFixed(2)}% acima do limite de ${cfg.maxPriceImpactPct}%`,
@@ -474,7 +508,16 @@ function Operar() {
   const withTax = (q: Quote, real: bigint): Quote => {
     const base = q.gross ?? q.out;
     const tax = base > 0n ? Math.max(0, Number(((base - real) * 10000n) / base) / 100) : 0;
-    return { ...q, out: real, min: minOut(real, q.side === "venda" ? (saleLimits?.maxSlippagePct ?? 0) : cfg.maxSlippagePct), tax, estimated: false };
+    return {
+      ...q,
+      out: real,
+      min: minOut(
+        real,
+        q.side === "venda" ? (saleLimits?.maxSlippagePct ?? 0) : cfg.maxSlippagePct,
+      ),
+      tax,
+      estimated: false,
+    };
   };
 
   /** Binary-searches the largest minimum output the router accepts right now = what the swap really pays. */
@@ -545,8 +588,14 @@ function Operar() {
     if (quote.side === "venda") {
       try {
         if (!saleLimits) throw new Error("Defina os limites e cote novamente.");
-        await validateSale({ data: { walletScope, token: GTE, amount: quote.amountIn.toString(), limits: saleLimits } });
-      } catch (e) { invalidateQuote(); setQuoteError(userMessage(e)); return; }
+        await validateSale({
+          data: { walletScope, token: GTE, amount: quote.amountIn.toString(), limits: saleLimits },
+        });
+      } catch (e) {
+        invalidateQuote();
+        setQuoteError(userMessage(e));
+        return;
+      }
     }
     if (quoteEpoch.current !== executionEpoch || identityRef.current !== quote.identity) return;
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
@@ -563,7 +612,8 @@ function Operar() {
         amount_in: quote.amountIn.toString(),
         amount_out_min: quote.min.toString(),
         quoted_out: quote.out.toString(),
-        slippage_pct: quote.side === "venda" ? (saleLimits?.maxSlippagePct ?? 0) : cfg.maxSlippagePct,
+        slippage_pct:
+          quote.side === "venda" ? (saleLimits?.maxSlippagePct ?? 0) : cfg.maxSlippagePct,
         deadline: Number(deadline),
       })
       .select()
@@ -862,26 +912,47 @@ function Operar() {
                   </>
                 )}
               </p>
-              {side === "venda" ? <ManualSaleAmountInput symbol={sym} value={sellAmt} disabled={!!busy} inputRef={amountRef} onChange={(value) => { setSellAmt(value); setExactSellAmount(null); invalidateQuote(); }} /> : <>
-              <Label htmlFor="manual-trade-amount" className="mt-3 block">Quanto BNB usar</Label>
-              <Input
-                ref={amountRef}
-                id="manual-trade-amount"
-                inputMode="decimal"
-                min="0"
-                disabled={!!busy}
-                className="mt-1 text-lg"
-                type="text"
-                step="any"
-                value={buyAmt}
-                onChange={(e) => {
-                  (side === "compra" ? setBuyAmt : setSellAmt)(e.target.value);
-                  if (side === "venda") setExactSellAmount(null);
-                  invalidateQuote();
-                }}
-              />
-              </>}
-              {side === "venda" && exactSellAmount !== null && <p className="mt-1 break-all text-xs text-muted-foreground">Quantidade exata selecionada: {formatUnits(exactSellAmount, selected.decimals).replace(".", ",")} {sym}</p>}
+              {side === "venda" ? (
+                <ManualSaleAmountInput
+                  symbol={sym}
+                  value={sellAmt}
+                  disabled={!!busy}
+                  inputRef={amountRef}
+                  onChange={(value) => {
+                    setSellAmt(value);
+                    setExactSellAmount(null);
+                    invalidateQuote();
+                  }}
+                />
+              ) : (
+                <>
+                  <Label htmlFor="manual-trade-amount" className="mt-3 block">
+                    Quanto BNB usar
+                  </Label>
+                  <Input
+                    ref={amountRef}
+                    id="manual-trade-amount"
+                    inputMode="decimal"
+                    min="0"
+                    disabled={!!busy}
+                    className="mt-1 text-lg"
+                    type="text"
+                    step="any"
+                    value={buyAmt}
+                    onChange={(e) => {
+                      (side === "compra" ? setBuyAmt : setSellAmt)(e.target.value);
+                      if (side === "venda") setExactSellAmount(null);
+                      invalidateQuote();
+                    }}
+                  />
+                </>
+              )}
+              {side === "venda" && exactSellAmount !== null && (
+                <p className="mt-1 break-all text-xs text-muted-foreground">
+                  Quantidade exata selecionada:{" "}
+                  {formatUnits(exactSellAmount, selected.decimals).replace(".", ",")} {sym}
+                </p>
+              )}
               <p className="mt-1 text-xs text-muted-foreground">
                 Disponível:{" "}
                 {bal
@@ -918,16 +989,57 @@ function Operar() {
                   </Button>
                 ))}
               </div>
-              <p role="status" className="mt-2 text-sm">Selecionado: {pctNow.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% do disponível</p>
-              {side === "venda" && <>
-                <p className="mt-3 text-sm text-muted-foreground">Impacto máximo: {saleLimits ? `${saleLimits.maxPriceImpactPct.toLocaleString("pt-BR")}%` : "não definido"} · Slippage: {saleLimits ? `${saleLimits.maxSlippagePct.toLocaleString("pt-BR")}%` : "não definido"}</p>
-                <Button className="mt-2 w-full" variant="outline" disabled={!!busy} onClick={() => setLimitsOpen(true)}>Ajustar limites da venda</Button>
-                <ManualSaleLimitsDialog open={limitsOpen} onOpenChange={setLimitsOpen} limits={saleLimits} onSave={async (limits) => {
-                  const saved = await saveLimits({ data: { walletScope, token: GTE, limits } });
-                  setSaleLimits(saved); invalidateQuote();
-                }} />
-              </>}
-              {quoteError && <div role="alert" className="mt-3 space-y-2 text-sm text-destructive"><p>{quoteError}</p><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => amountRef.current?.focus()}>Editar quantidade</Button>{side === "venda" && <Button variant="outline" onClick={() => setLimitsOpen(true)}>Revisar limites</Button>}</div></div>}
+              <p role="status" className="mt-2 text-sm">
+                Selecionado: {pctNow.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% do
+                disponível
+              </p>
+              {side === "venda" && (
+                <>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Impacto máximo:{" "}
+                    {saleLimits
+                      ? `${saleLimits.maxPriceImpactPct.toLocaleString("pt-BR")}%`
+                      : "não definido"}{" "}
+                    · Slippage:{" "}
+                    {saleLimits
+                      ? `${saleLimits.maxSlippagePct.toLocaleString("pt-BR")}%`
+                      : "não definido"}
+                  </p>
+                  <Button
+                    className="mt-2 w-full"
+                    variant="outline"
+                    disabled={!!busy}
+                    onClick={() => setLimitsOpen(true)}
+                  >
+                    Ajustar limites da venda
+                  </Button>
+                  <ManualSaleLimitsDialog
+                    open={limitsOpen}
+                    onOpenChange={setLimitsOpen}
+                    limits={saleLimits}
+                    onSave={async (limits) => {
+                      const saved = await saveLimits({ data: { walletScope, token: GTE, limits } });
+                      setSaleLimits(saved);
+                      invalidateQuote();
+                    }}
+                  />
+                </>
+              )}
+              {quoteError && (
+                <div role="alert" className="mt-3 space-y-2 text-sm text-destructive">
+                  <p>{quoteError}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={() => amountRef.current?.focus()}>
+                      Editar quantidade
+                    </Button>
+                    {side === "venda" && (
+                      <Button variant="outline" onClick={() => setLimitsOpen(true)}>
+                        Revisar limites
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
               <Button
                 className={cn(
                   "mt-4 w-full rounded-full",
@@ -945,7 +1057,9 @@ function Operar() {
             {quote && (
               <Panel title="Revisar antes de assinar">
                 <p className="text-sm">
-                  {quote.side === "venda" ? `Recebimento estimado: ${fmtBnb(quote.out)} BNB` : "Equivalente estimado da operação:"}
+                  {quote.side === "venda"
+                    ? `Recebimento estimado: ${fmtBnb(quote.out)} BNB`
+                    : "Equivalente estimado da operação:"}
                   <FiatValue
                     bnb={formatEther(quote.side === "compra" ? quote.amountIn : quote.out)}
                   />
