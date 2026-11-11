@@ -400,6 +400,7 @@ function Operar() {
     }
   })();
   const pctNow = maxIn > 0n ? Math.min(100, Number((curIn * 10000n) / maxIn) / 100) : 0;
+  const currentSlippage = side === "venda" ? (saleLimits?.maxSlippagePct ?? 0) : cfg.maxSlippagePct;
   const applyPct = (p: number) => {
     const v = percentageAmount(maxIn, p);
     if (side === "compra") setBuyAmt(v > 0n ? formatEther(v) : "");
@@ -1155,23 +1156,23 @@ function Operar() {
                       );
                     })()}
                   <li>
-                    Mínimo aceito (slippage {cfg.maxSlippagePct}%):{" "}
+                    Mínimo aceito (slippage {currentSlippage}%):{" "}
                     {quote.side === "compra"
                       ? `${fmtGte(quote.min)} ${sym}`
                       : `${fmtBnb(quote.min)} BNB`}
                   </li>
-                  {slippageLevel(cfg.maxSlippagePct) !== "ok" && (
+                  {slippageLevel(currentSlippage) !== "ok" && (
                     <li
                       className={cn(
                         "rounded-md border p-2 font-medium",
-                        slippageLevel(cfg.maxSlippagePct) === "critico"
+                        slippageLevel(currentSlippage) === "critico"
                           ? "border-destructive/50 bg-destructive/10 text-destructive"
                           : "border-warning/50 bg-warning/10 text-warning",
                       )}
                     >
-                      {slippageLevel(cfg.maxSlippagePct) === "critico"
-                        ? `Perigo: slippage de ${cfg.maxSlippagePct}% é muito alto. Robôs de mineradores podem "espremer" sua ordem (ataque sanduíche) e você receber bem menos. Reduza na estratégia, se a taxa do token permitir.`
-                        : `Cautela: slippage de ${cfg.maxSlippagePct}% acima de 5%. Você pode receber menos que o previsto.`}
+                      {slippageLevel(currentSlippage) === "critico"
+                        ? `Perigo: slippage de ${currentSlippage}% é muito alto. Robôs de mineradores podem "espremer" sua ordem (ataque sanduíche) e você receber bem menos. Revise os limites antes de assinar.`
+                        : `Cautela: slippage de ${currentSlippage}% acima de 5%. Você pode receber menos que o previsto.`}
                     </li>
                   )}
                   <li>Impacto de preço estimado: {quote.impact.toFixed(2)}%</li>
