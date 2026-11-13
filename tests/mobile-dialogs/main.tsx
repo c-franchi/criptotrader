@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useCandles } from "../../src/hooks/useCandles";
+import { CandleChart } from "../../src/components/CandleChart";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -40,6 +43,7 @@ const tools = [
   "Venda manual",
   "Conta e rede",
   "Histórico atrasado",
+  "Recuperar velas",
   "Próxima entrada",
 ];
 const wallets = [
@@ -241,6 +245,28 @@ function NextEntryPreview() {
     </>
   );
 }
+const recoveryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function RecoveryChart() {
+  const candles = useCandles(
+    "0x61eb789d75a95caa3ff50ed7e47b96c132fec082",
+    "0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c",
+  );
+  return (
+    <>
+      <p>Servidor simulado atrasado; fonte pública interceptada pelo teste.</p>
+      <p data-testid="latest-chart-close">
+        Último fechamento: {candles.data?.at(-1)?.[4] ?? "aguardando"}
+      </p>
+      <CandleChart
+        compact
+        candles={candles.data ?? []}
+        now={Date.now()}
+        history={candles.history}
+        source={candles.source}
+      />
+    </>
+  );
+}
 export function Preview() {
   const [tool, setTool] = useState<string | null>(null);
   const [wallet, setWallet] = useState("a");
@@ -287,7 +313,11 @@ export function Preview() {
           icon={Coins}
           description="Teste dos componentes reais usados no aplicativo."
         >
-          {tool === "Conta e rede" ? (
+          {tool === "Recuperar velas" ? (
+            <QueryClientProvider client={recoveryClient}>
+              <RecoveryChart />
+            </QueryClientProvider>
+          ) : tool === "Conta e rede" ? (
             <WalletNoticePreview />
           ) : tool === "Histórico atrasado" ? (
             <OldHistoryPreview />

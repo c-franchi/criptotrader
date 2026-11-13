@@ -4,7 +4,12 @@ import { getChartFeed, getCandleHistoryPage } from "@/lib/history.functions";
 import type { ChartFeed } from "@/lib/chartFeed.server";
 import type { Candle } from "@/lib/marketStats";
 import { candleRanges, mergeCandles, missingHistory, type TimeRange } from "@/lib/historyPaging";
-type CachedFeed = ChartFeed & { refreshFailed?: boolean };
+import { readBrowserCandles } from "@/lib/browserCandles";
+import {
+  recentChartFeed,
+  recoverChartFeed,
+  type RecoveredChartFeed as CachedFeed,
+} from "@/lib/recoverChartFeed";
 const keyOf = (pool: string, token: string) =>
   `candles:${pool.toLowerCase()}:${token.toLowerCase()}`;
 function readLocal(pool: string, token: string): ChartFeed | undefined {
@@ -54,15 +59,23 @@ export function useCandles(pool: string | undefined, token: string) {
     queryFn: async () => {
       if (!pool) throw Error("Pool indisponível");
       try {
-        const latest = await getChartFeed({ data: { pool, token } });
         const saved = client.getQueryData<CachedFeed>(key) ?? readLocal(pool, token);
+        const latest = await recoverChartFeed(
+          () => getChartFeed({ data: { pool, token }, signal: AbortSignal.timeout(8000) }),
+          async () => {
+            if (typeof window === "undefined")
+              throw new Error("Recuperação direta disponível no navegador");
+            return { source: "gecko", candles: await readBrowserCandles(pool, token) };
+          },
+          saved,
+        );
         if (!latest.candles.length) throw new Error("Fonte não retornou velas recentes");
         // Never splice OHLCV from a different provider's price methodology.
         const candles =
           saved?.source === latest.source
             ? mergeCandles(saved.candles, latest.candles)
             : latest.candles;
-        const feed: CachedFeed = { ...latest, candles, refreshFailed: false };
+        const feed: CachedFeed = { ...latest, candles };
         if (candles.length) saveLocal(pool, token, feed);
         return feed;
       } catch (e) {
@@ -73,7 +86,7 @@ export function useCandles(pool: string | undefined, token: string) {
     },
     placeholderData: () =>
       pool && typeof window !== "undefined" ? readLocal(pool, token) : undefined,
-    staleTime: 60000,
+    staleTime: (state) => (recentChartFeed(state.state.data) ? 60000 : 0),
     gcTime: 30 * 60000,
     refetchInterval: 60000,
     retry: 2,

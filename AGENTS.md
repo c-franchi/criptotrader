@@ -50,3 +50,5 @@
 - Funding compares the live connected personal source account and BSC chain before sending; show mismatches persistently without treating the automatic recipient as the signing account. Account/network events invalidate the displayed amount.
 - After confirming a chart point, reveal and focus the next chart pick inside the modal. Confirmed bot starts close the wizard and open the exact wallet/token; a post-success refresh failure must never offer a duplicate start.
 - Expired process history cannot mask newer durable candles during provider failure. Keep OHLC freshness independent of live spot markers and never fabricate bars to match a current quote.
+
+- Chart UI may recover true GeckoTerminal 5m OHLCV directly in the browser when the app server is stale/slow. Use only fixed public HTTPS endpoints and the same pool/token, omit credentials, coalesce/cache reads and respect 429. Never route this display recovery into signing, execution or synthetic candles.
