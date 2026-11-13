@@ -276,6 +276,12 @@ function Robo() {
   }, [target.aba, target.carteira, target.token, token, walletReady, walletScope]);
   const [setupOpen, setSetupOpen] = useState(false);
   const [setupProblem, setSetupProblem] = useState<ReadinessAction | undefined>();
+  const showStartedChartBot = () => {
+    setToolOpen(null);
+    setSetupOpen(false);
+    setWorkspaceVisible(false);
+    setWorkspaceTab("bots");
+  };
   const showExecutionProblem = useCallback(() => {
     setToolOpen("controls");
     setSetupOpen(false);
@@ -652,6 +658,7 @@ function Robo() {
                 token={token}
                 symbol={sym}
                 onSaved={load}
+                onStarted={showStartedChartBot}
                 label="Editar regra gráfica"
               />
             ) : (
@@ -946,7 +953,12 @@ function Robo() {
                 serverAnalysis={analysisError ? null : analysis}
               />
             </div>
-            <ChartRuleLauncher token={token} symbol={sym} onSaved={load} />
+            <ChartRuleLauncher
+              token={token}
+              symbol={sym}
+              onSaved={load}
+              onStarted={showStartedChartBot}
+            />
             <TokenActivity token={token} symbol={sym} decimals={selected.decimals} />
           </Panel>
           <div className="space-y-4">
@@ -1050,6 +1062,7 @@ function Robo() {
                       token={token}
                       symbol={sym}
                       onSaved={load}
+                      onStarted={showStartedChartBot}
                       label="Editar pontos e conferir saldo"
                     />
                   ) : (

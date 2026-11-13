@@ -537,3 +537,23 @@ it("shows the latest verified candle immediately even when the feed is hours beh
   expect(svg.querySelector("g > title")?.textContent).toBeTruthy();
   expect(before).toBeTruthy();
 });
+
+it("identifies an old feed independently from a current price marker and only requests a read-only refresh", () => {
+  const refreshRecent = vi.fn();
+  const original = structuredClone(candles);
+  render(
+    <CandleChart
+      minimal
+      candles={candles}
+      now={Date.now()}
+      liveQuote={{ price: 68, at: Date.now() }}
+      history={{ loadRange: vi.fn(), loading: false, empty: false, error: null, refreshRecent }}
+    />,
+  );
+  expect(screen.getByText("Histórico desatualizado")).toBeVisible();
+  expect(screen.getByText(/Última vela de 5m:/)).toBeVisible();
+  expect(screen.getByText(/A cotação laranja é consultada separadamente/)).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Atualizar histórico" }));
+  expect(refreshRecent).toHaveBeenCalledOnce();
+  expect(candles).toEqual(original);
+});

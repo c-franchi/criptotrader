@@ -91,6 +91,7 @@ function PriceChart({
     !!market.data?.error ||
     (!!market.data?.fetchedAt && now - Date.parse(market.data.fetchedAt) > 120_000) ||
     candles.isError ||
+    candles.refreshFailed ||
     (!!last && now - (last[0] + 300) * 1000 > 600000);
   const candleLagging = !!last && now - last[0] * 1000 > 20 * 60_000;
   const chartSource =
@@ -204,6 +205,7 @@ function PriceChart({
       <div className="mt-3">
         {all.length > 0 && (
           <CandleChart
+            key={`${address}:${pool}`}
             compact
             preferenceKey="cryptobot:panel-chart-view"
             history={candles.history}
@@ -240,8 +242,9 @@ function PriceChart({
       )}
       {candleLagging && last && (
         <p role="status" className="mt-2 text-xs text-muted-foreground">
-          Última vela confirmada: {time(last[0] * 1000)}. O histórico é preservado sem preencher
-          intervalos com preços fictícios; a cotação atual é consultada separadamente.
+          Última vela confirmada: {new Date(last[0] * 1000).toLocaleString("pt-BR")}. O histórico é
+          preservado sem preencher intervalos com preços fictícios; a cotação atual é consultada
+          separadamente.
         </p>
       )}
       {all.length > 0 && !covered && (

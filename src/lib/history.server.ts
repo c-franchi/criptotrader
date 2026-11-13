@@ -149,12 +149,13 @@ export async function readCandles(
         failures.set(requestKey, Math.max(Date.now() + 20_000, geckoBlockedUntil));
       }
     }
-    if (saved?.candles.length) return saved.candles;
+    // A different collector/server may have saved newer bars while this process
+    // was rate-limited. Expired memory must not hide the durable recent feed.
     const [stored, archived] = await Promise.all([
       savedCandles(p, t),
       getArchivedCandles(p, t, undefined, 400),
     ]);
-    const preserved = mergeCandles(archived, stored ?? []);
+    const preserved = mergeCandles(saved?.candles ?? [], mergeCandles(archived, stored ?? []));
     if (preserved.length) {
       cache.set(key, { candles: preserved, expires: Date.now() + 15_000 });
       return preserved;

@@ -9,6 +9,7 @@ import { chartIndicators } from "@/lib/chartIndicators";
 import { latestCandleViewport } from "@/lib/chartViewport";
 import { cn } from "@/lib/utils";
 import { Maximize2, Minus, Plus, RotateCcw, X } from "lucide-react";
+import { ChartHistoryStatus } from "./ChartHistoryStatus";
 
 export type ChartLevel = {
   id?: string;
@@ -26,6 +27,9 @@ export type ChartTrade = {
   details: string[];
 };
 export type ChartHistory = {
+  refreshRecent?: (() => void) | undefined;
+  refreshingRecent?: boolean | undefined;
+  refreshFailed?: boolean | undefined;
   loadRange: (start: number, end: number, force?: boolean) => void | Promise<void>;
   loading: boolean;
   error: string | null;
@@ -543,7 +547,8 @@ function ChartBody({
       ref={chartContainerRef}
       className={cn(
         "min-w-0 space-y-3",
-        minimal && "[&>div]:hidden [&>p:not([data-history-status])]:hidden [&>details]:hidden",
+        minimal &&
+          "[&>div:not([data-history-status])]:hidden [&>p:not([data-history-status])]:hidden [&>details]:hidden",
       )}
     >
       {(!compact || controls) && (
@@ -890,6 +895,13 @@ function ChartBody({
           </Button>
         </div>
       )}
+      <ChartHistoryStatus
+        candles={candles}
+        now={now}
+        refreshError={history?.refreshFailed}
+        refreshing={history?.refreshingRecent}
+        onRefresh={history?.refreshRecent}
+      />
       {history?.loading && (
         <p data-history-status role="status" className="text-xs text-muted-foreground">
           Carregando velas do trecho… Você pode continuar arrastando.

@@ -1,4 +1,14 @@
 import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+} from "../../src/components/ui/alert-dialog";
+import { useChartPickFocus } from "../../src/hooks/useChartPickFocus";
+import { WalletConnectionNotice } from "../../src/components/WalletConnectionNotice";
+import { ChartHistoryStatus } from "../../src/components/ChartHistoryStatus";
 import { ManualSaleAmountInput } from "../../src/components/ManualSaleAmountInput";
 import { ManualSaleLimitsDialog } from "../../src/components/ManualSaleLimitsDialog";
 import {
@@ -28,6 +38,9 @@ const tools = [
   "Etapas da atividade",
   "Substituir atividade",
   "Venda manual",
+  "Conta e rede",
+  "Histórico atrasado",
+  "Próxima entrada",
 ];
 const wallets = [
   {
@@ -155,6 +168,79 @@ function ManualSalePreview() {
     </>
   );
 }
+function WalletNoticePreview() {
+  const [account, setAccount] = useState("0x1111111111111111111111111111111111111111");
+  return (
+    <WalletConnectionNotice
+      session={{ account, chain: 56 }}
+      expected="0x3333333333333333333333333333333333333333"
+      checking={false}
+      error=""
+      disabled={false}
+      onReconnect={() => setAccount("0x3333333333333333333333333333333333333333")}
+    />
+  );
+}
+function OldHistoryPreview() {
+  const [reads, setReads] = useState(0);
+  return (
+    <>
+      <ChartHistoryStatus
+        candles={[[1700000100, 100, 101, 99, 100, 10]]}
+        now={1800000000000}
+        onRefresh={() => setReads((n) => n + 1)}
+      />
+      <p>Consultas fictícias: {reads}</p>
+    </>
+  );
+}
+function NextEntryPreview() {
+  const [pick, setPick] = useState(1);
+  const [confirm, setConfirm] = useState(false);
+  const root = useChartPickFocus(`entry:${pick}`, confirm);
+  return (
+    <>
+      <div
+        ref={root}
+        tabIndex={-1}
+        role="region"
+        aria-label="Gráfico para escolher o preço"
+        className="outline-none"
+      >
+        <p>Entrada {pick}: toque no gráfico</p>
+        <div className="h-64 rounded-xl border p-3">Área do gráfico · cenário fictício</div>
+      </div>
+      <div className="h-[900px]">Entrada 1 preservada · conteúdo extenso para testar o modal</div>
+      <Button className="whitespace-normal" onClick={() => setConfirm(true)}>
+        Marque a entrada 2 no gráfico
+      </Button>
+      <AlertDialog open={confirm} onOpenChange={setConfirm}>
+        <AlertDialogContent
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            root.current?.scrollIntoView({ block: "start", behavior: "instant" });
+            root.current?.focus({ preventScroll: true });
+          }}
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar ponto fictício?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Somente interface de teste, sem salvar atividade.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Button
+            onClick={() => {
+              setPick(2);
+              setConfirm(false);
+            }}
+          >
+            Confirmar ponto fictício
+          </Button>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
 export function Preview() {
   const [tool, setTool] = useState<string | null>(null);
   const [wallet, setWallet] = useState("a");
@@ -201,7 +287,13 @@ export function Preview() {
           icon={Coins}
           description="Teste dos componentes reais usados no aplicativo."
         >
-          {tool === "Venda manual" ? (
+          {tool === "Conta e rede" ? (
+            <WalletNoticePreview />
+          ) : tool === "Histórico atrasado" ? (
+            <OldHistoryPreview />
+          ) : tool === "Próxima entrada" ? (
+            <NextEntryPreview />
+          ) : tool === "Venda manual" ? (
             <ManualSalePreview />
           ) : tool === "Etapas da atividade" ? (
             <WizardStepPreview />

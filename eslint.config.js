@@ -37,4 +37,13 @@ export default tseslint.config(
     },
   },
   eslintPluginPrettier,
+  {
+    // Lovable regenerates these files with its own formatter. Keep semantic
+    // lint/type checks; do not make CI depend on rewriting generated output.
+    files: [
+      "src/integrations/supabase/types.ts",
+      "src/integrations/supabase/previewAuthStorage.ts",
+    ],
+    rules: { "prettier/prettier": "off" },
+  },
 );

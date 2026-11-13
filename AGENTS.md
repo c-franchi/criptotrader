@@ -46,3 +46,7 @@
 - Migration reconciliation tooling stays offline in ops, rejects non-disposable database targets, and requires exact catalog and ledger matching before adding genuine journal hashes/timestamps; this prevents replay and keeps privileged repair out of the app.
 - Manual-sale queue preparation remains offline SQL with a disposable-database rehearsal; reviewing or copying the patch must never apply it on application startup.
 - Chart-plan replacement uses only the atomic service-role RPC with state/version/draft fences and archived position evidence; never fall back to separate writes, because failed replacements must preserve the old activity and draft.
+
+- Funding compares the live connected personal source account and BSC chain before sending; show mismatches persistently without treating the automatic recipient as the signing account. Account/network events invalidate the displayed amount.
+- After confirming a chart point, reveal and focus the next chart pick inside the modal. Confirmed bot starts close the wizard and open the exact wallet/token; a post-success refresh failure must never offer a duplicate start.
+- Expired process history cannot mask newer durable candles during provider failure. Keep OHLC freshness independent of live spot markers and never fabricate bars to match a current quote.

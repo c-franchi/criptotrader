@@ -11,7 +11,8 @@ import { useEffect, useRef, useState } from "react";
 import { useWizardStepScroll } from "@/hooks/useWizardStepScroll";
 import { ReplaceChartPlanDialog } from "./ReplaceChartPlanDialog";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useChartPickFocus } from "@/hooks/useChartPickFocus";
 import Decimal from "decimal.js";
 import { useCurrency } from "@/hooks/currencyContext";
 import { useChartPool } from "@/hooks/useChartPool";
@@ -56,6 +57,7 @@ type Props = {
   sourceAddress: string | null;
   onSaved?: (() => void | Promise<void>) | undefined;
   onClose: () => void;
+  onStarted?: (() => void) | undefined;
 };
 type Costs = {
   buyTaxPct: number;
@@ -79,7 +81,10 @@ export function ChartPlanWizard({
   sourceAddress,
   onSaved,
   onClose,
+  onStarted,
 }: Props) {
+  const navigate = useNavigate();
+  const startPending = useRef(false);
   const display = useCurrency();
   const [currency, setCurrency] = useState<Currency>(display.currency);
   const [step, setStep] = useState(0),
@@ -97,9 +102,8 @@ export function ChartPlanWizard({
     kind: "entry" | "exit" | "stop";
     index: number;
     native: number;
-    label: string;
   } | null>(null);
-  const [pointNotice, setPointNotice] = useState("");
+  const [pointNotice, setPointNotice] = useState<{ name: string; native: number } | null>(null);
   const [target, setTarget] = useState("3");
   const [partialAck, setPartialAck] = useState(false);
   const [stopChoice, setStopChoice] = useState<"price" | "none" | "">("");
@@ -120,6 +124,10 @@ export function ChartPlanWizard({
     [draftNotice, setDraftNotice] = useState("");
   const [replaceOpen, setReplaceOpen] = useState(false);
   const wizardRoot = useWizardStepScroll(step, saved);
+  const chartFocus = useChartPickFocus(
+    !saved && (step === 1 || step === 2) && pick ? `${step}:${pick.kind}:${pick.index}` : null,
+    !!candidate,
+  );
   const [editingGas, setEditingGas] = useState(false);
   const [gasNotice, setGasNotice] = useState("");
   const [startAck, setStartAck] = useState(false),
@@ -413,7 +421,7 @@ export function ChartPlanWizard({
         })?.breakEvenBnb
       : null;
   const changed = () => {
-    setPointNotice("");
+    setPointNotice(null);
     setAck(false);
     setPartialAck(false);
     setSaved(false);
@@ -662,10 +670,16 @@ export function ChartPlanWizard({
   const requestPoint = (kind: "entry" | "exit" | "stop", index: number, priceUsd: number) => {
     if (!fresh || bnbUsd == null || !(priceUsd > 0)) return;
     const native = priceUsd / bnbUsd;
-    setCandidate({ kind, index, native, label: priceText(native) });
+    setCandidate({ kind, index, native });
   };
   const renderChart = () => (
-    <>
+    <div
+      ref={chartFocus}
+      tabIndex={-1}
+      role="region"
+      aria-label="Gráfico para escolher o preço"
+      className="space-y-3 scroll-mt-4 outline-none"
+    >
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sm font-semibold">
           {pick
@@ -684,6 +698,7 @@ export function ChartPlanWizard({
         </p>
       )}
       <CandleChart
+        key={`${token}:${chartPool}`}
         compact
         initialAllLevels
         candles={candles.data ?? []}
@@ -720,7 +735,7 @@ export function ChartPlanWizard({
         . Ao escolher um ponto, confirme a cotação de {symbol}. O valor investido aparece separado
         do preço da moeda.
       </p>
-    </>
+    </div>
   );
   return (
     <div
@@ -745,7 +760,16 @@ export function ChartPlanWizard({
           if (!v) setCandidate(null);
         }}
       >
-        <AlertDialogContent className="max-w-md">
+        <AlertDialogContent
+          className="max-w-md"
+          onCloseAutoFocus={(event) => {
+            if (pick) {
+              event.preventDefault();
+              chartFocus.current?.scrollIntoView?.({ block: "start", behavior: "instant" });
+              chartFocus.current?.focus({ preventScroll: true });
+            }
+          }}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>
               Confirmar{" "}
@@ -771,7 +795,9 @@ export function ChartPlanWizard({
                   : "de proteção"}{" "}
               do {symbol}
             </p>
-            <p className="break-words text-2xl font-bold">{candidate?.label}</p>
+            <p className="break-words text-2xl font-bold">
+              {candidate ? priceText(candidate.native) : ""}
+            </p>
             <p className="text-xs text-muted-foreground">
               Esta é a cotação da moeda, não o total investido.
             </p>
@@ -793,7 +819,7 @@ export function ChartPlanWizard({
                     : candidate.kind === "exit"
                       ? `Saída ${candidate.index + 1}`
                       : "Stop";
-                setPointNotice(`${name} confirmada: ${candidate.label}`);
+                setPointNotice({ name, native: candidate.native });
                 const count = candidate.kind === "entry" ? entryCount : exitCount;
                 setPick(
                   candidate.kind !== "stop" && candidate.index + 1 < count
@@ -1226,7 +1252,8 @@ export function ChartPlanWizard({
               role="status"
               className="rounded-xl border border-success/40 bg-success/10 p-3 font-semibold"
             >
-              {pointNotice}
+              {pointNotice.name} confirmada. Cotação equivalente atual:{" "}
+              {priceText(pointNotice.native)}
             </p>
           )}
           <ol className="grid gap-2 sm:grid-cols-2">
@@ -1240,11 +1267,17 @@ export function ChartPlanWizard({
                     variant={pick?.kind === "entry" && pick.index === i ? "default" : "outline"}
                     size="sm"
                     className="h-auto min-h-11 max-w-full whitespace-normal px-3 py-2 text-sm"
-                    onClick={() => setPick({ kind: "entry", index: i })}
+                    onClick={() => {
+                      setPick({ kind: "entry", index: i });
+                      chartFocus.current?.scrollIntoView?.({ block: "start", behavior: "instant" });
+                      chartFocus.current?.focus({ preventScroll: true });
+                    }}
                   >
                     {pick?.kind === "entry" && pick.index === i
-                      ? `Selecionando entrada ${i + 1}…`
-                      : `Alterar entrada ${i + 1} no gráfico`}
+                      ? `Marque a entrada ${i + 1} no gráfico`
+                      : p > 0
+                        ? `Alterar entrada ${i + 1} no gráfico`
+                        : `Marcar entrada ${i + 1} no gráfico`}
                   </Button>
                 </div>
                 <label className="mt-2 block">
@@ -1308,7 +1341,8 @@ export function ChartPlanWizard({
               role="status"
               className="rounded-xl border border-success/40 bg-success/10 p-3 font-semibold"
             >
-              {pointNotice}
+              {pointNotice.name} confirmada. Cotação equivalente atual:{" "}
+              {priceText(pointNotice.native)}
             </p>
           )}
           <ol className="grid gap-2 sm:grid-cols-2">
@@ -1907,14 +1941,36 @@ export function ChartPlanWizard({
           <Button
             disabled={busy || started || !startAck || !ready.data?.ready || ready.isFetching}
             onClick={async () => {
+              if (startPending.current) return;
+              startPending.current = true;
               setBusy(true);
+              setError("");
               try {
                 await startGuidedBot({
                   data: { walletScope, token, confirmation: "INICIAR ROBÔ" },
                 });
                 if (mounted.current) {
                   setStarted(true);
-                  await onSaved?.();
+                  try {
+                    await onSaved?.();
+                  } catch {
+                    // Starting already succeeded. A refresh failure must not offer another start.
+                  }
+                  if (mounted.current) {
+                    try {
+                      await navigate({
+                        to: "/grade",
+                        search: { token, carteira: walletScope },
+                        resetScroll: true,
+                      });
+                      (onStarted ?? onClose)();
+                      requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "instant" }));
+                    } catch {
+                      setError(
+                        "Robô iniciado. Não foi possível abrir o acompanhamento; use Abrir robô. Não inicie novamente.",
+                      );
+                    }
+                  }
                 }
               } catch (e) {
                 if (mounted.current) {
@@ -1922,6 +1978,7 @@ export function ChartPlanWizard({
                   void ready.refetch();
                 }
               } finally {
+                startPending.current = false;
                 if (mounted.current) setBusy(false);
               }
             }}
