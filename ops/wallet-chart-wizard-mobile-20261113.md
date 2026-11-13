@@ -27,3 +27,7 @@ Base: `02534e3` (atualização de venda manual feita no Lovable). Trabalho no c�
 ## Limites e publicação
 
 Os testes de interface usam componentes/hook reais em uma tela isolada; os serviços são simulados. Não equivalem à validação autenticada no dispositivo Trust Wallet do titular nem à comprovação da atualidade da fonte de velas em produção. Não foi usado o chat do Lovable e não houve publicação. Depois da sincronização do GitHub, a prévia e a versão publicada devem ser conferidas separadamente; falhas/rate limit da fonte continuam identificadas, sem prometer velas que ela não forneceu.
+
+## Ambiente de integração contínua
+
+A primeira execução da PR falhou antes dos testes de navegador: `ubuntu-latest` passou a Ubuntu 26.04, não suportado pelo Playwright 1.56.1 já fixado no projeto. Os dois jobs foram fixados em `ubuntu-24.04`, mantendo a versão e os testes existentes. Nenhuma dependência da aplicação foi atualizada.
