@@ -1,9 +1,14 @@
 import type { ReactNode } from "react";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useCandles } from "./useCandles";
-const mocks = vi.hoisted(() => ({ latest: vi.fn(), older: vi.fn() }));
+const mocks = vi.hoisted(() => ({ latest: vi.fn(), older: vi.fn(), direct: vi.fn() }));
+vi.mock("@/lib/browserCandles", () => ({ readBrowserCandles: mocks.direct }));
+beforeEach(() => {
+  vi.spyOn(Date, "now").mockReturnValue(4000000);
+  mocks.direct.mockRejectedValue(new Error("Direct source offline"));
+});
 vi.mock("@/lib/history.functions", () => ({
   getChartFeed: mocks.latest,
   getCandleHistoryPage: mocks.older,
@@ -12,6 +17,7 @@ afterEach(() => {
   cleanup();
   localStorage.clear();
   vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 function setup() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -111,8 +117,24 @@ it("does not show the previous token's candles while the next token is loading",
   );
   view.rerender({ token: "token-b" });
   expect(view.result.current.data).toBeUndefined();
+  await waitFor(() => expect(finish).toBeTypeOf("function"));
   await act(async () => {
     finish({ source: "gecko", candles: [[3900, 5, 6, 4, 5, 1]] });
   });
   await waitFor(() => expect(view.result.current.data?.[0]?.[4]).toBe(5));
+});
+
+it("automatically replaces a stale server snapshot in the chart and device cache with fresh direct candles", async () => {
+  mocks.latest.mockResolvedValue({ source: "gecko", candles: [[300, 74, 75, 73, 74, 1]] });
+  mocks.direct.mockResolvedValue([[3900, 68, 69, 67, 68, 1]]);
+  const view = renderHook(() => useCandles("pool-live-recovery", "token-live-recovery"), {
+    wrapper: setup(),
+  });
+  await waitFor(() => expect(view.result.current.data?.at(-1)?.[4]).toBe(68));
+  expect(view.result.current.history.refreshFailed).toBe(false);
+  expect(
+    JSON.parse(localStorage.getItem("candles:pool-live-recovery:token-live-recovery")!).candles.at(
+      -1,
+    )[4],
+  ).toBe(68);
 });

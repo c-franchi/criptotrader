@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { readFileSync } from "node:fs";
 
 async function inViewport(page: Page, locator: Locator) {
   const box = await locator.boundingBox();
@@ -213,4 +214,42 @@ test("próxima entrada revela o gráfico e recebe foco dentro do modal", async (
   const chart = page.getByRole("region", { name: "Gráfico para escolher o preço" });
   await expect(chart).toBeFocused();
   await expect(page.getByText("Entrada 2: toque no gráfico")).toBeInViewport();
+});
+
+test("velas recentes substituem automaticamente o snapshot antigo do servidor", async ({
+  page,
+  context,
+}, testInfo) => {
+  await page.clock.install({ time: new Date("2026-11-13T14:12:00Z") });
+  const response = JSON.parse(
+    readFileSync(
+      new URL("../../src/test/fixtures/btcb-ohlcv-20261113.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  await context.route("**/isolated-chart-server", (route) =>
+    route.fulfill({
+      json: { source: "gecko", candles: [[1794431700, 74000, 75000, 73000, 74000, 1]] },
+    }),
+  );
+  let directRequests = 0;
+  await context.route("https://api.geckoterminal.com/**", (route) => {
+    directRequests++;
+    const url = new URL(route.request().url());
+    expect(url.searchParams.get("token")).toBe("0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c");
+    return route.fulfill({ json: response, headers: { "access-control-allow-origin": "*" } });
+  });
+  await page.getByRole("button", { name: "Recuperar velas", exact: true }).click();
+  await expect(page.getByTestId("latest-chart-close")).toContainText(
+    String(response.data.attributes.ohlcv_list[0]![4]),
+  );
+  await expect(page.getByText("Histórico desatualizado", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("img", { name: "Velas OHLCV, escala de preços e médias SMA do robô" }),
+  ).toBeVisible();
+  expect(directRequests).toBe(1);
+  await page.screenshot({
+    path: testInfo.outputPath("velas-recuperadas.png"),
+    animations: "disabled",
+  });
 });

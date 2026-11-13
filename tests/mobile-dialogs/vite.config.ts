@@ -8,6 +8,12 @@ export default defineConfig({
   envDir: fileURLToPath(new URL(".", import.meta.url)),
   envPrefix: "ISOLATED_UI_TEST_",
   plugins: [react(), tailwind()],
-  resolve: { alias: { "@": fileURLToPath(new URL("../../src", import.meta.url)) } },
+  resolve: {
+    alias: {
+      "@/lib/fx.functions": fileURLToPath(new URL("./fx-stub.ts", import.meta.url)),
+      "@/lib/history.functions": fileURLToPath(new URL("./history-stub.ts", import.meta.url)),
+      "@": fileURLToPath(new URL("../../src", import.meta.url)),
+    },
+  },
   server: { host: "127.0.0.1", port: 4173, strictPort: true },
 });
