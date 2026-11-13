@@ -4,6 +4,7 @@ import { getChartFeed, getCandleHistoryPage } from "@/lib/history.functions";
 import type { ChartFeed } from "@/lib/chartFeed.server";
 import type { Candle } from "@/lib/marketStats";
 import { candleRanges, mergeCandles, missingHistory, type TimeRange } from "@/lib/historyPaging";
+type CachedFeed = ChartFeed & { refreshFailed?: boolean };
 const keyOf = (pool: string, token: string) =>
   `candles:${pool.toLowerCase()}:${token.toLowerCase()}`;
 function readLocal(pool: string, token: string): ChartFeed | undefined {
@@ -54,18 +55,19 @@ export function useCandles(pool: string | undefined, token: string) {
       if (!pool) throw Error("Pool indisponível");
       try {
         const latest = await getChartFeed({ data: { pool, token } });
-        const saved = client.getQueryData<ChartFeed>(key) ?? readLocal(pool, token);
+        const saved = client.getQueryData<CachedFeed>(key) ?? readLocal(pool, token);
+        if (!latest.candles.length) throw new Error("Fonte não retornou velas recentes");
         // Never splice OHLCV from a different provider's price methodology.
         const candles =
           saved?.source === latest.source
             ? mergeCandles(saved.candles, latest.candles)
             : latest.candles;
-        const feed: ChartFeed = { ...latest, candles };
+        const feed: CachedFeed = { ...latest, candles, refreshFailed: false };
         if (candles.length) saveLocal(pool, token, feed);
         return feed;
       } catch (e) {
         const saved = client.getQueryData<ChartFeed>(key) ?? readLocal(pool, token);
-        if (saved?.candles.length) return saved;
+        if (saved?.candles.length) return { ...saved, refreshFailed: true } as CachedFeed;
         throw e;
       }
     },
@@ -118,7 +120,7 @@ export function useCandles(pool: string | undefined, token: string) {
         client.setQueryData<ChartFeed>(queryKey, (previous) => {
           if (previous?.source === "dexpaprika") return previous;
           const merged = mergeCandles(page, previous?.candles ?? current);
-          const next: ChartFeed = { source: "gecko", candles: merged };
+          const next: CachedFeed = { ...previous, source: "gecko", candles: merged };
           saveLocal(pool, token, next);
           return next;
         });
@@ -146,7 +148,13 @@ export function useCandles(pool: string | undefined, token: string) {
     ...query,
     data: query.data?.candles,
     source: query.data?.source ?? null,
+    refreshFailed: (query.data as CachedFeed | undefined)?.refreshFailed ?? false,
     history: {
+      refreshRecent: () => {
+        void query.refetch();
+      },
+      refreshingRecent: query.isFetching,
+      refreshFailed: (query.data as CachedFeed | undefined)?.refreshFailed ?? query.isError,
       loadRange,
       loading: state.loading || (!query.data && query.isFetching),
       error: query.data?.source === "dexpaprika" ? null : state.error,

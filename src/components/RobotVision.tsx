@@ -437,7 +437,7 @@ export function RobotVision(props: {
         </div>
       )}
       <CandleChart
-        key={`${token}:${cfg?.candleInterval}`}
+        key={`${token}:${chartPool}:${cfg?.candleInterval}`}
         compact
         focusRequest={props.focusRequest ?? null}
         fitTradeIds={

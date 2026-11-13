@@ -177,3 +177,40 @@ test("substituição exige aceite e permite cancelar sem salvar", async ({ page 
   await confirm.click();
   await expect(page.getByText("Nova atividade salva pausada · teste")).toBeVisible();
 });
+
+test("avisa a conta incorreta e permite conferir os endereços antes de reconectar", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "Conta e rede", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Conta e rede", exact: true });
+  await expect(dialog.getByRole("alert")).toContainText("Você está conectado a outra carteira");
+  await dialog.getByText("Ver endereços completos").click();
+  await expect(
+    dialog.getByText("Origem necessária: 0x3333333333333333333333333333333333333333"),
+  ).toBeVisible();
+  expect(await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+  await dialog.getByRole("button", { name: "Reconectar carteira" }).click();
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+});
+
+test("explica histórico atrasado e atualiza sem fabricar velas", async ({ page }) => {
+  await page.getByRole("button", { name: "Histórico atrasado", exact: true }).click();
+  await expect(page.getByText("Histórico desatualizado")).toBeVisible();
+  await expect(page.getByText(/Última vela de 5m:/)).toBeVisible();
+  const update = page.getByRole("button", { name: "Atualizar histórico", exact: true });
+  await update.scrollIntoViewIfNeeded();
+  await inViewport(page, update);
+  await update.click();
+  await expect(page.getByText("Consultas fictícias: 1")).toBeVisible();
+});
+
+test("próxima entrada revela o gráfico e recebe foco dentro do modal", async ({ page }) => {
+  await page.getByRole("button", { name: "Próxima entrada", exact: true }).click();
+  const next = page.getByRole("button", { name: "Marque a entrada 2 no gráfico" });
+  await next.scrollIntoViewIfNeeded();
+  await next.click();
+  await page.getByRole("button", { name: "Confirmar ponto fictício", exact: true }).click();
+  const chart = page.getByRole("region", { name: "Gráfico para escolher o preço" });
+  await expect(chart).toBeFocused();
+  await expect(page.getByText("Entrada 2: toque no gráfico")).toBeInViewport();
+});

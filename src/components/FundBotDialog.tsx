@@ -1,5 +1,6 @@
 import { userMessage } from "@/lib/userMessage";
-import { verifyWalletSession } from "@/lib/walletSession";
+import { readWalletSession, verifyWalletSession, walletSessionIssue } from "@/lib/walletSession";
+import { WalletConnectionNotice } from "./WalletConnectionNotice";
 import { fundingTransfer } from "@/lib/fundingTransfer";
 import { TokenPicker } from "@/components/TokenPicker";
 import { useEffect, useRef, useState } from "react";
@@ -60,6 +61,11 @@ export function FundBotDialog({
   const { tokens } = useSelectedToken();
   const [open, setOpen] = useState(false);
   const [account, setAccount] = useState<string | null>(null);
+  const [chain, setChain] = useState<number | null>(null);
+  const [sessionChecking, setSessionChecking] = useState(false);
+  const [sessionError, setSessionError] = useState("");
+  const sessionRevision = useRef(0);
+  const sendPending = useRef(false);
   const [asset, setAsset] = useState<string>("BNB"); // "BNB" or token address
   const [bnbBal, setBnbBal] = useState<number | null>(null);
   const [tokBal, setTokBal] = useState<number | null>(null);
@@ -73,7 +79,13 @@ export function FundBotDialog({
   const [brlPerBnb, setBrlPerBnb] = useState<number | null>(null);
   const providerRef = useRef<Req | null>(null);
   const stopListening = useRef<(() => void) | null>(null);
-  useEffect(() => () => stopListening.current?.(), []);
+  useEffect(
+    () => () => {
+      sessionRevision.current++;
+      stopListening.current?.();
+    },
+    [],
+  );
   const tok = asset === "BNB" ? null : (tokens.find((t) => t.address === asset) ?? null);
   const isBnb = asset === "BNB";
 
@@ -106,17 +118,44 @@ export function FundBotDialog({
     };
   }, [account, asset]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const refreshSession = async (provider: Req) => {
+    const revision = ++sessionRevision.current;
+    setSessionChecking(true);
+    setBnbBal(null);
+    setTokBal(null);
+    setAmount("");
+    try {
+      const session = await readWalletSession(provider);
+      if (revision !== sessionRevision.current) return;
+      setAccount(session.account);
+      setChain(session.chain);
+      setSessionError(walletSessionIssue(session, sourceAddress) ?? "");
+      if (session.account && !walletSessionIssue(session, sourceAddress)) {
+        const balance = await pub().getBalance({ address: session.account as `0x${string}` });
+        if (revision === sessionRevision.current) setBnbBal(Number(formatEther(balance)));
+      }
+    } catch (e) {
+      if (revision === sessionRevision.current) {
+        setAccount(null);
+        setChain(null);
+        setSessionError(
+          userMessage(e) || "Não foi possível conferir conta e rede. Reconecte a carteira.",
+        );
+      }
+    } finally {
+      if (revision === sessionRevision.current) setSessionChecking(false);
+    }
+  };
   const connect = async () => {
     setBusy("Conectando…");
+    setSessionError("");
     try {
-      const provider = await connectWallet(sourceAddress ?? undefined);
+      // Retain the actual connected account for an actionable mismatch notice.
+      // The expected source still gates Send and is checked live before signing.
+      const provider = await connectWallet();
       providerRef.current = provider as unknown as Req;
       const invalidate = () => {
-        setAccount(null);
-        setBnbBal(null);
-        setTokBal(null);
-        setAmount("");
-        toast.warning("A conta ou rede mudou. Reconecte a carteira dos ativos antes de enviar.");
+        void refreshSession(provider as unknown as Req);
       };
       stopListening.current?.();
       provider.on?.("accountsChanged", invalidate);
@@ -125,26 +164,40 @@ export function FundBotDialog({
         provider.removeListener?.("accountsChanged", invalidate);
         provider.removeListener?.("chainChanged", invalidate);
       };
-      const a = provider.accounts[0] ?? null;
-      setAccount(a);
-      if (a)
-        setBnbBal(Number(formatEther(await pub().getBalance({ address: a as `0x${string}` }))));
+      await refreshSession(provider as unknown as Req);
     } catch (e) {
-      toast.error(userMessage(e) || "Conexão cancelada");
+      setSessionError(userMessage(e) || "Conexão cancelada");
     } finally {
       setBusy(null);
     }
   };
 
   const disconnect = async () => {
+    sessionRevision.current++;
     stopListening.current?.();
     await resetWallet();
     providerRef.current = null;
+    setChain(null);
+    setSessionChecking(false);
+    setSessionError("");
     setAccount(null);
     setBnbBal(null);
     setTokBal(null);
     setAmount("");
     toast.success("Carteira desconectada do CryptoBot");
+  };
+
+  const reconnect = async () => {
+    if (sendPending.current) return;
+    setBusy("Reconectando…");
+    try {
+      await disconnect();
+      await connect();
+    } catch (e) {
+      setSessionError(userMessage(e));
+    } finally {
+      setBusy(null);
+    }
   };
 
   const floor6 = (v: number) => Math.floor(v * 1e9) / 1e9;
@@ -154,7 +207,14 @@ export function FundBotDialog({
   useEffect(() => {
     setFeeBnb(null);
     setFeeError(false);
-    if (!open || !account || (!isBnb && !(n > 0))) return;
+    if (
+      !open ||
+      !account ||
+      sessionChecking ||
+      walletSessionIssue({ account, chain }, sourceAddress) ||
+      (!isBnb && !(n > 0))
+    )
+      return;
     let alive = true;
     const timer = setTimeout(async () => {
       try {
@@ -188,7 +248,19 @@ export function FundBotDialog({
       alive = false;
       clearTimeout(timer);
     };
-  }, [open, account, asset, botAddress, isBnb, n, quoteRevision, tok]);
+  }, [
+    open,
+    account,
+    asset,
+    botAddress,
+    isBnb,
+    n,
+    quoteRevision,
+    tok,
+    chain,
+    sourceAddress,
+    sessionChecking,
+  ]);
   const max = isBnb
     ? bnbBal != null && feeBnb != null
       ? floor6(Math.max(bnbBal - feeBnb, 0))
@@ -200,6 +272,9 @@ export function FundBotDialog({
   const miss = isBnb && need && botBnb != null ? missingBnb(need.total, botBnb, n) : 0;
   // Funding can be partial; only the wallet's balance and estimated transfer fee gate sending.
   const valid =
+    !sessionChecking &&
+    !sessionError &&
+    !walletSessionIssue({ account, chain }, sourceAddress) &&
     n > 0 &&
     n <= max &&
     gasOk &&
@@ -224,9 +299,10 @@ export function FundBotDialog({
 
   const send = async () => {
     const provider = providerRef.current;
-    if (!account || !valid || !provider) return;
+    if (!account || !valid || !provider || sendPending.current) return;
     if (account.toLowerCase() === botAddress.toLowerCase())
       return void toast.error("Essa já é a carteira do robô");
+    sendPending.current = true;
     setBusy("Confirme no app da sua carteira…");
     try {
       const p = pub();
@@ -288,8 +364,12 @@ export function FundBotDialog({
         toast.error(
           "A carteira não reconheceu o pedido. Conecte de novo (passo 1) e tente outra vez — nada foi enviado.",
         );
-      } else toast.error((userMessage(e) || "Transferência cancelada").split("\n")[0]!);
+      } else {
+        setSessionError((userMessage(e) || "Transferência cancelada").split("\n")[0]!);
+        toast.error((userMessage(e) || "Transferência cancelada").split("\n")[0]!);
+      }
     } finally {
+      sendPending.current = false;
       setBusy(null);
     }
   };
@@ -330,7 +410,13 @@ export function FundBotDialog({
                     ? `${bnbBal.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} BNB`
                     : "—"}
                 </p>
-                <Button className="mt-2" size="sm" variant="outline" onClick={disconnect}>
+                <Button
+                  className="mt-2"
+                  size="sm"
+                  variant="outline"
+                  disabled={!!busy}
+                  onClick={disconnect}
+                >
                   Desconectar carteira
                 </Button>
               </>
@@ -339,6 +425,14 @@ export function FundBotDialog({
                 {busy ?? "Conectar carteira"}
               </Button>
             )}
+            <WalletConnectionNotice
+              session={{ account, chain }}
+              expected={sourceAddress}
+              checking={sessionChecking}
+              error={sessionError}
+              disabled={!!busy || sessionChecking}
+              onReconnect={() => void reconnect()}
+            />
           </li>
           <li
             className={`rounded-md border p-3 ${account ? "border-primary/40" : "border-border opacity-60"}`}
@@ -598,7 +692,7 @@ export function FundBotDialog({
             {hash && account && (
               <p className="mt-2 text-xs text-muted-foreground">
                 Terminou? Você pode{" "}
-                <button className="text-primary underline" onClick={disconnect}>
+                <button className="text-primary underline" disabled={!!busy} onClick={disconnect}>
                   desconectar sua carteira
                 </button>{" "}
                 agora.

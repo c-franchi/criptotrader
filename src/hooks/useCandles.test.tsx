@@ -75,3 +75,44 @@ it("switches provider series without merging token VWAP bars with pool bars", as
   await act(async () => view.result.current.history.loadRange(300000, 600000));
   expect(mocks.older).not.toHaveBeenCalled();
 });
+
+it("marks a failed latest refresh even while preserving real candles, then clears it after recovery", async () => {
+  const bars = [[3600, 100, 101, 99, 100, 10]];
+  mocks.latest.mockResolvedValue({ source: "gecko", candles: bars });
+  const view = renderHook(() => useCandles("pool-refresh", "token-refresh"), { wrapper: setup() });
+  await waitFor(() => expect(view.result.current.data).toEqual(bars));
+  mocks.latest.mockRejectedValueOnce(Error("source offline"));
+  await act(async () => {
+    await view.result.current.refetch();
+  });
+  expect(view.result.current.data).toEqual(bars);
+  await waitFor(() => expect(view.result.current.history.refreshFailed).toBe(true));
+  mocks.latest.mockResolvedValueOnce({ source: "gecko", candles: [[3900, 101, 102, 100, 101, 1]] });
+  await act(async () => {
+    await view.result.current.refetch();
+  });
+  await waitFor(() => expect(view.result.current.history.refreshFailed).toBe(false));
+  expect(view.result.current.data?.map((c) => c[0])).toEqual([3600, 3900]);
+});
+
+it("does not show the previous token's candles while the next token is loading", async () => {
+  mocks.latest.mockResolvedValueOnce({ source: "gecko", candles: [[3600, 100, 101, 99, 100, 10]] });
+  const view = renderHook(({ token }) => useCandles("pool-switch", token), {
+    initialProps: { token: "token-a" },
+    wrapper: setup(),
+  });
+  await waitFor(() => expect(view.result.current.data).toHaveLength(1));
+  let finish!: (v: unknown) => void;
+  mocks.latest.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  view.rerender({ token: "token-b" });
+  expect(view.result.current.data).toBeUndefined();
+  await act(async () => {
+    finish({ source: "gecko", candles: [[3900, 5, 6, 4, 5, 1]] });
+  });
+  await waitFor(() => expect(view.result.current.data?.[0]?.[4]).toBe(5));
+});

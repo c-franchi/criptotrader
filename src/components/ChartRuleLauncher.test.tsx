@@ -9,6 +9,7 @@ const io = vi.hoisted(() => ({
   save: vi.fn(),
   limit: vi.fn(),
   start: vi.fn(),
+  navigate: vi.fn(),
   wallet: vi.fn(),
   create: vi.fn(),
   ready: vi.fn(),
@@ -39,6 +40,7 @@ vi.mock("@/hooks/useChartPool", () => ({ useChartPool: () => "pair" }));
 vi.mock("@/hooks/useCandles", () => ({ useCandles: () => ({ data: [] }) }));
 vi.mock("./FundBotDialog", () => ({ FundBotDialog: () => <button>Adicionar BNB</button> }));
 vi.mock("@tanstack/react-router", () => ({
+  useNavigate: () => io.navigate,
   Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
 }));
 vi.mock("./CandleChart", () => ({
@@ -100,6 +102,7 @@ beforeEach(() => {
   io.ready.mockResolvedValue({ ready: true, errors: [] });
   io.save.mockResolvedValue({ id: "bot", version: 3 });
   io.start.mockResolvedValue({});
+  io.navigate.mockResolvedValue(undefined);
   io.capital.mockImplementation(async () => ({
     free: "0.03",
     address: "0xrobot",
@@ -114,7 +117,7 @@ afterEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
 });
-function show(address = token) {
+function show(address = token, onClose = vi.fn(), onSaved?: () => Promise<void>) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0, refetchOnWindowFocus: false } },
   });
@@ -128,7 +131,8 @@ function show(address = token) {
         walletScope="scope-a"
         walletName="Carteira A"
         sourceAddress="0xsource"
-        onClose={vi.fn()}
+        onClose={onClose}
+        onSaved={onSaved}
       />
     </QueryClientProvider>,
   );
@@ -499,4 +503,81 @@ it("labels the chosen quote clearly without presenting it as an invested total",
   expect(screen.getByText("Preço de compra do TEST")).toBeVisible();
   expect(screen.getByText("Esta é a cotação da moeda, não o total investido.")).toBeVisible();
   expect(screen.queryByText(/por TEST/)).toBeNull();
+});
+
+it("automatically prompts the next entry instead of showing a loading message", async () => {
+  show();
+  await waitFor(() =>
+    expect(screen.getByRole("combobox", { name: "Quantidade de entradas" })).toBeEnabled(),
+  );
+  fireEvent.change(screen.getByRole("combobox", { name: "Quantidade de entradas" }), {
+    target: { value: "2" },
+  });
+  await enter();
+  fireEvent.click(screen.getByRole("button", { name: "Ponto de entrada no gráfico" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar ponto escolhido" }));
+  expect(screen.getByRole("button", { name: "Marque a entrada 2 no gráfico" })).toBeVisible();
+  expect(screen.getByText("Entrada 2: toque no gráfico")).toBeVisible();
+  expect(screen.queryByText(/Selecionando entrada/)).toBeNull();
+  expect(screen.getByRole("spinbutton", { name: "Preço da entrada 1" })).toHaveValue(450);
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Preço da entrada 2" }), {
+    target: { value: "400" },
+  });
+  expect(screen.getByRole("spinbutton", { name: "Preço da entrada 2" })).toHaveValue(400);
+  expect(io.save).not.toHaveBeenCalled();
+  expect(io.start).not.toHaveBeenCalled();
+});
+
+async function saveForStart() {
+  await enter();
+  fireEvent.click(screen.getByRole("button", { name: "Ponto de entrada no gráfico" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar ponto escolhido" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continuar para saídas" }));
+  fireEvent.click(screen.getByRole("radio", { name: /Manter os tokens/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Revisar atividade" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /Revisei carteira, valor/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Salvar atividade/ }));
+  await screen.findByText("Atividade salva · robô pausado");
+  fireEvent.click(screen.getByRole("checkbox", { name: /Autorizo iniciar/ }));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Iniciar este robô" })).toBeEnabled(),
+  );
+}
+it("opens the correct robot and closes the wizard only after a confirmed start", async () => {
+  const onClose = vi.fn();
+  show(token, onClose);
+  await saveForStart();
+  fireEvent.click(screen.getByRole("button", { name: "Iniciar este robô" }));
+  await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+  expect(io.navigate).toHaveBeenCalledWith({
+    to: "/grade",
+    search: { token, carteira: "scope-a" },
+    resetScroll: true,
+  });
+  expect(io.start).toHaveBeenCalledTimes(1);
+});
+it("keeps a failed start in the wizard and never navigates as if it succeeded", async () => {
+  io.start.mockRejectedValue(new Error("Falha de rede"));
+  const onClose = vi.fn();
+  show(token, onClose);
+  await saveForStart();
+  fireEvent.click(screen.getByRole("button", { name: "Iniciar este robô" }));
+  await waitFor(() => expect(io.start).toHaveBeenCalledOnce());
+  expect(io.navigate).not.toHaveBeenCalled();
+  expect(onClose).not.toHaveBeenCalled();
+});
+it("does not offer a second start when only the post-success refresh or navigation fails", async () => {
+  const onSaved = vi
+    .fn()
+    .mockResolvedValueOnce(undefined)
+    .mockRejectedValueOnce(new Error("Refresh failed"));
+  io.navigate.mockRejectedValue(new Error("Navigation failed"));
+  const onClose = vi.fn();
+  show(token, onClose, onSaved);
+  await saveForStart();
+  fireEvent.click(screen.getByRole("button", { name: "Iniciar este robô" }));
+  await screen.findByText(/Não foi possível abrir o acompanhamento/);
+  expect(screen.getByRole("button", { name: "Iniciar este robô" })).toBeDisabled();
+  expect(io.start).toHaveBeenCalledOnce();
+  expect(onClose).not.toHaveBeenCalled();
 });

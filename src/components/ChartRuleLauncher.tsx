@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { ChartPlanWizard } from "./ChartPlanWizard";
@@ -10,6 +10,7 @@ type Props = {
   token: string;
   symbol: string;
   onSaved?: (() => void | Promise<void>) | undefined;
+  onStarted?: (() => void) | undefined;
   label?: string;
 };
 export function ChartRuleLauncher(props: Props) {
@@ -37,18 +38,27 @@ function Launcher(
   },
 ) {
   const [open, setOpen] = useState(false);
+  const startedNavigation = useRef(false);
   return (
     <>
       <Button
         variant="outline"
         className="my-2"
         disabled={!props.userId || !props.ready}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          startedNavigation.current = false;
+          setOpen(true);
+        }}
       >
         {props.label ?? "Criar regra pelo gráfico"}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="exchange-workspace max-h-[94dvh] w-[calc(100vw-1rem)] max-w-6xl overflow-y-auto p-4 sm:p-6">
+        <DialogContent
+          className="exchange-workspace max-h-[94dvh] w-[calc(100vw-1rem)] max-w-6xl overflow-y-auto p-4 sm:p-6"
+          onCloseAutoFocus={(event) => {
+            if (startedNavigation.current) event.preventDefault();
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Criar regra pelo gráfico · {props.symbol}</DialogTitle>
             <DialogDescription>
@@ -56,7 +66,17 @@ function Launcher(
               pausado.
             </DialogDescription>
           </DialogHeader>
-          {open && <ChartPlanWizard {...props} onClose={() => setOpen(false)} />}
+          {open && (
+            <ChartPlanWizard
+              {...props}
+              onClose={() => setOpen(false)}
+              onStarted={() => {
+                startedNavigation.current = true;
+                setOpen(false);
+                props.onStarted?.();
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </>
