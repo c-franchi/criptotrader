@@ -7,7 +7,16 @@ import { assertWalletScope } from "./walletScope.server";
 export const getWalletCapital = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ walletScope: walletScopeSchema, previewId: z.string().uuid().optional() }).parse(d),
+    z
+      .object({
+        walletScope: walletScopeSchema,
+        previewId: z.string().uuid().optional(),
+        editToken: z
+          .string()
+          .regex(/^0x[0-9a-fA-F]{40}$/)
+          .optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ context, data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -33,5 +42,11 @@ export const getWalletCapital = createServerFn({ method: "GET" })
       balance,
       data.previewId,
     );
-    return { ...capital, address: wallet.address, at: new Date().toISOString() };
+    const { chartEditAvailable } = await import("./walletCapital");
+    return {
+      ...capital,
+      editAvailable: data.editToken ? chartEditAvailable(capital, data.editToken) : capital.free,
+      address: wallet.address,
+      at: new Date().toISOString(),
+    };
   });

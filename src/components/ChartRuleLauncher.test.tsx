@@ -139,7 +139,9 @@ function show(address = token, onClose = vi.fn(), onSaved?: () => Promise<void>)
 }
 
 async function enter() {
-  const button = screen.getByRole("button", { name: "Dividir valor e marcar entradas" });
+  const button = screen.getByRole("button", {
+    name: /Dividir valor e marcar entradas|Revisar valor e entradas/,
+  });
   await waitFor(() => expect(button).toBeEnabled());
   fireEvent.click(button);
   await screen.findByRole("region", { name: "Marcar entradas" });
@@ -207,7 +209,11 @@ it("changes display currency without changing the selected canonical budget", as
 it("does not convert unavailable funds or unknown token taxes into zero", async () => {
   show(`0x${"8".repeat(40)}`);
   await screen.findByText(/Falta confirmar as taxas/);
-  expect(screen.getByRole("button", { name: "Dividir valor e marcar entradas" })).toBeDisabled();
+  expect(
+    screen.getByRole("button", {
+      name: /Dividir valor e marcar entradas|Revisar valor e entradas/,
+    }),
+  ).toBeDisabled();
   expect(io.save).not.toHaveBeenCalled();
 });
 it("disables point selection when the native quote is stale", async () => {
@@ -639,4 +645,209 @@ it("never silently converts a legacy saved activity and offers an explicit revie
   fireEvent.click(button);
   expect(screen.getByText(/Pontos fixos em US\$ no gráfico/)).toBeVisible();
   expect(io.save).not.toHaveBeenCalled();
+});
+
+it("edits the saved allocation, entries, exits and stop rather than leftover funds or an old creation draft", async () => {
+  const rule = {
+    id: "saved-rule",
+    unit: "BNB",
+    version: 2,
+    projectionVersion: 2,
+    priceAnchor: { unit: "USD", bnbUsd: 100000 },
+    entryBnb: 0.0009,
+    exitBnb: 0.0013,
+    stopBnb: 0.0006,
+    gasBuyBnb: 0.000001,
+    gasSellBnb: 0.000004,
+    entries: [
+      { priceBnb: 0.0009, amountBnb: "0.000023" },
+      { priceBnb: 0.0007, amountBnb: "0.000023" },
+    ],
+    exits: [{ priceBnb: 0.0013, sharePct: 100 }],
+  };
+  io.settings.mockResolvedValue({
+    strategy: { version: 8, config: { ...EMPTY_CONFIG, guidedModel: "chart", chartRule: rule } },
+    draft: null,
+    bot: { id: "existing", armed: false, strat_state: {} },
+  });
+  io.capital.mockImplementation(async () => ({
+    free: "0.00001",
+    editAvailable: "0.00006",
+    address: "0xrobot",
+    at: new Date().toISOString(),
+  }));
+  const oldKey = `cryptobot:chart-plan:v2:user-a:scope-a:${token.toLowerCase()}`;
+  const oldDraft = JSON.stringify({
+    version: 8,
+    revision: 0,
+    budget: "0.00001",
+    entryCount: 1,
+    exitCount: 1,
+    entries: [0.0001],
+  });
+  localStorage.setItem(oldKey, oldDraft);
+  show();
+  await waitFor(() =>
+    expect(screen.getByRole("spinbutton", { name: "Valor para a atividade" })).toHaveValue(26),
+  );
+  expect(screen.getByText(/Editando atividade salva/)).toBeVisible();
+  expect(io.capital).toHaveBeenCalledWith({ data: { walletScope: "scope-a", editToken: token } });
+  await enter();
+  expect(screen.getByRole("spinbutton", { name: "Preço da entrada 1" })).toHaveValue(450);
+  expect(screen.getByRole("spinbutton", { name: "Preço da entrada 2" })).toHaveValue(350);
+  fireEvent.click(screen.getByRole("button", { name: "Continuar para saídas" }));
+  expect(screen.getByRole("spinbutton", { name: "Preço da saída 1" })).toHaveValue(650);
+  expect(screen.getByRole("radio", { name: /Sim, usar um limite/ })).toBeChecked();
+  fireEvent.click(screen.getByRole("button", { name: "Revisar atividade" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /Revisei carteira, valor/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Salvar atividade/ }));
+  await screen.findByText("Atividade salva · robô pausado");
+  const payload = io.save.mock.calls.at(-1)![0].data;
+  expect(Number(payload.settings.budgetBnb)).toBeCloseTo(0.000052, 18);
+  expect(payload.settings.entryPrices).toEqual([0.0009, 0.0007]);
+  expect(payload.settings.exitPrices).toEqual([0.0013]);
+  expect(payload.settings.stopBnb).toBe(0.0006);
+  expect(payload.settings.stopChoice).toBe("price");
+  expect(payload.version).toBe(8);
+  expect(localStorage.getItem(oldKey)).toBe(oldDraft);
+  expect(io.start).not.toHaveBeenCalled();
+});
+
+it("freezes suggested exit prices until the user explicitly requests a new suggestion", async () => {
+  show();
+  fireEvent.change(screen.getByRole("combobox", { name: "Moeda dos valores" }), {
+    target: { value: "USD" },
+  });
+  await enter();
+  fireEvent.click(screen.getByRole("button", { name: "Ponto de entrada no gráfico" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar ponto escolhido" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continuar para saídas" }));
+  const input = screen.getByRole("spinbutton", { name: "Preço da saída 1" });
+  const before = (input as HTMLInputElement).value;
+  io.market.mockResolvedValue({
+    fetchedAt: new Date().toISOString(),
+    error: null,
+    pools: [{ supported: true, pairAddress: "pair", priceUsd: "80", priceNative: "0.0016" }],
+  });
+  await clients.at(-1)!.invalidateQueries({ queryKey: ["trading-market", token] });
+  expect((input as HTMLInputElement).value).toBe(before);
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Meta líquida inicial" }), {
+    target: { value: "20" },
+  });
+  expect((input as HTMLInputElement).value).toBe(before);
+  fireEvent.click(screen.getByRole("button", { name: "Aplicar sugestão às saídas" }));
+  expect((input as HTMLInputElement).value).not.toBe(before);
+  expect(io.save).not.toHaveBeenCalled();
+  expect(io.start).not.toHaveBeenCalled();
+});
+
+it("opens the saved activity first and restores its separate edit draft only on request", async () => {
+  io.settings.mockResolvedValue({
+    strategy: {
+      version: 8,
+      config: {
+        ...EMPTY_CONFIG,
+        chartRule: {
+          id: "saved",
+          version: 2,
+          priceAnchor: { unit: "USD", bnbUsd: 100000 },
+          entryBnb: 0.0009,
+          exitBnb: 0.0013,
+          stopBnb: null,
+          entries: [{ priceBnb: 0.0009, amountBnb: "0.00005" }],
+          exits: [{ priceBnb: 0.0013, sharePct: 100 }],
+          gasBuyBnb: 0.000001,
+          gasSellBnb: 0.000001,
+        },
+      },
+    },
+    draft: null,
+    bot: { id: "existing", armed: true, strat_state: {} },
+  });
+  const key = `cryptobot:chart-plan:edit:v1:user-a:scope-a:${token.toLowerCase()}`;
+  const draft = JSON.stringify({
+    version: 8,
+    revision: 0,
+    budget: "0.00004",
+    entryCount: 1,
+    exitCount: 1,
+    entries: [0.0008],
+    exits: [0.0012],
+    stopChoice: "none",
+    stop: 0,
+    priceAnchor: { unit: "USD", bnbUsd: 100000 },
+  });
+  localStorage.setItem(key, draft);
+  show();
+  await waitFor(() =>
+    expect(screen.getByRole("spinbutton", { name: "Valor para a atividade" })).toHaveValue(26),
+  );
+  expect(localStorage.getItem(key)).toBe(draft);
+  fireEvent.click(screen.getByRole("button", { name: "Recuperar edição não salva deste robô" }));
+  await waitFor(() =>
+    expect(screen.getByRole("spinbutton", { name: "Valor para a atividade" })).toHaveValue(20),
+  );
+  expect(io.save).not.toHaveBeenCalled();
+  expect(io.start).not.toHaveBeenCalled();
+});
+
+it("labels the existing rule as editing and opens it without creating or starting another robot", async () => {
+  io.settings.mockResolvedValue({
+    strategy: {
+      version: 8,
+      config: {
+        ...EMPTY_CONFIG,
+        chartRule: {
+          id: "saved",
+          entryBnb: 0.001,
+          exitBnb: 0.0013,
+          stopBnb: null,
+          gasBuyBnb: 0.000001,
+          gasSellBnb: 0.000001,
+        },
+      },
+    },
+    draft: null,
+    bot: { id: "existing", armed: true },
+  });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  clients.push(client);
+  render(
+    <QueryClientProvider client={client}>
+      <ChartRuleLauncher token={token} symbol="BTCB" />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(await screen.findByRole("button", { name: "Editar atividade e preços" }));
+  expect(await screen.findByRole("heading", { name: "Editar atividade · BTCB" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Revisar valor e entradas" })).toBeVisible();
+  expect(io.create).not.toHaveBeenCalled();
+  expect(io.save).not.toHaveBeenCalled();
+  expect(io.start).not.toHaveBeenCalled();
+});
+
+it("does not apply an old form using a newer strategy version fetched in the background", async () => {
+  show();
+  await enter();
+  fireEvent.click(screen.getByRole("button", { name: "Ponto de entrada no gráfico" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar ponto escolhido" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continuar para saídas" }));
+  fireEvent.click(screen.getByRole("radio", { name: /Manter os tokens/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Revisar atividade" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /Revisei carteira, valor/ }));
+  io.settings.mockResolvedValue({
+    strategy: { version: 3, config: EMPTY_CONFIG },
+    draft: null,
+    bot: null,
+  });
+  await clients
+    .at(-1)!
+    .invalidateQueries({ queryKey: ["chart-plan-settings", "user-a", "scope-a", token] });
+  expect(await screen.findByText(/A atividade foi alterada em outra janela/)).toBeVisible();
+  expect(screen.getByRole("button", { name: /Salvar atividade/ })).toBeDisabled();
+  const draft = JSON.parse(
+    localStorage.getItem(`cryptobot:chart-plan:v2:user-a:scope-a:${token.toLowerCase()}`)!,
+  );
+  expect(draft.version).toBe(2);
+  expect(io.save).not.toHaveBeenCalled();
+  expect(io.start).not.toHaveBeenCalled();
 });
