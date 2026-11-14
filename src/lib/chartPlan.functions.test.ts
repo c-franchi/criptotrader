@@ -33,6 +33,7 @@ const scope = "11111111-1111-4111-8111-111111111111",
 const settings: ChartPlanInput = {
   partialEntriesAccepted: false,
   budgetBnb: "0.02",
+  priceAnchor: { unit: "USD", bnbUsd: 700 },
   entryPrices: [0.0008, 0.001],
   exitPrices: [0.0015, 0.0013],
   stopChoice: "none",
@@ -330,7 +331,39 @@ it("rejects an older client silently dropping the USD anchor before financial or
     };
     return q;
   });
-  await expect(saveChartPlan({ data })).rejects.toThrow("Reabra o editor atualizado");
+  await expect(
+    saveChartPlan({ data: { ...data, settings: { ...settings, priceAnchor: undefined } } }),
+  ).rejects.toThrow("Reabra o editor atualizado");
   expect(io.rpc).not.toHaveBeenCalled();
   expect(io.balance).not.toHaveBeenCalled();
+});
+
+it("reuses the edited token's existing liquid reservation through the same atomic paused save", async () => {
+  io.capital.mockResolvedValue({
+    free: "0.001",
+    balance: "0.03",
+    gas: "0.001",
+    reserved: "0.028",
+    invested: "5",
+    rows: [
+      { token: token.toUpperCase(), reserved: "0.02", gas: "0.0005" },
+      { token: "other", reserved: "0.008", gas: "0.0005" },
+    ],
+  });
+  await saveChartPlan({ data });
+  expect(io.rpc).toHaveBeenCalledTimes(1);
+  expect(io.rpc).toHaveBeenCalledWith(
+    "configure_guided_bot",
+    expect.objectContaining({
+      p_user: "owner",
+      p_scope: scope,
+      p_token: token,
+      p_version: 7,
+      p_draft_revision: 2,
+    }),
+  );
+  await expect(
+    saveChartPlan({ data: { ...data, settings: { ...settings, budgetBnb: "0.023" } } }),
+  ).rejects.toThrow("supera o saldo livre");
+  expect(io.rpc).toHaveBeenCalledTimes(1);
 });

@@ -116,6 +116,12 @@ export const saveChartPlan = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     if (incompatibleBotToken(data.token)) throw new Error(INCOMPATIBLE_BNB);
+    // An old cached client must not create another moving BNB-only activity.
+    // Read compatibility remains intact; converting an old rule requires review.
+    if (!data.settings.priceAnchor)
+      throw new Error(
+        "Defina preços fixos para esta atividade. Reabra o editor atualizado e confirme os pontos desejados.",
+      );
     const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
     await assertWalletScope(admin, context.userId, data.walletScope);
     const [strategy, wallet] = await Promise.all([
@@ -153,7 +159,8 @@ export const saveChartPlan = createServerFn({ method: "POST" })
     );
     const { readWalletCapital } = await import("./walletCapital.server");
     const capital = await readWalletCapital(admin, context.userId, data.walletScope, balance);
-    if (parseEther(data.settings.budgetBnb) > parseEther(capital.free))
+    const { chartEditAvailable } = await import("./walletCapital");
+    if (parseEther(data.settings.budgetBnb) > parseEther(chartEditAvailable(capital, data.token)))
       throw new Error(
         "O valor escolhido supera o saldo livre atual. Atualize o disponível; outros robôs podem ter reservado parte dele.",
       );

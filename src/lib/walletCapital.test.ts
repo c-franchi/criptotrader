@@ -98,3 +98,22 @@ it("protects strategy and grid reservations using wei precision for tiny balance
   const c = walletCapital("0.000000005", [a, grid]);
   expect(c).toMatchObject({ reserved: "0.000000003", free: "0.000000002" });
 });
+
+it("lets an edit reuse only its own unspent capital and gas, never invested token cost", async () => {
+  const { chartEditAvailable } = await import("./walletCapital");
+  const own = bot("Own", 0.04),
+    other = bot("other", 0.02);
+  own.strat_state = { costBnb: 0.01 };
+  const c = walletCapital("0.1", [own, other]);
+  expect(c.free).toBe("0.048");
+  expect(chartEditAvailable(c, "own")).toBe("0.079");
+  expect(chartEditAvailable(c, "missing")).toBe(c.free);
+  expect(c.invested).toBe("0.01");
+});
+it("does not over-credit the current reservation when total reservations exceed liquid BNB", async () => {
+  const { chartEditAvailable } = await import("./walletCapital");
+  const c = walletCapital("0.03", [bot("a", 0.04), bot("b", 0.02)]);
+  expect(c.free).toBe("0");
+  expect(chartEditAvailable(c, "a")).toBe("0.009");
+  expect(chartEditAvailable(c, "b")).toBe("0");
+});

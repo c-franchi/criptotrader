@@ -1,4 +1,7 @@
 import { useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getGuidedBotSettings } from "@/lib/guidedBot.functions";
+import type { StrategyConfig } from "@/lib/strategy";
 import { useAuth } from "@/hooks/useAuth";
 import { useSelectedWallet } from "@/hooks/useSelectedWallet";
 import { ChartPlanWizard } from "./ChartPlanWizard";
@@ -38,6 +41,15 @@ function Launcher(
   },
 ) {
   const [open, setOpen] = useState(false);
+  const settings = useQuery({
+    queryKey: ["chart-plan-settings", props.userId, props.walletScope, props.token],
+    queryFn: () =>
+      getGuidedBotSettings({ data: { walletScope: props.walletScope, token: props.token } }),
+    enabled: !!props.userId && props.ready,
+    retry: false,
+  });
+  const editing = !!(settings.data?.strategy?.config as Partial<StrategyConfig> | undefined)
+    ?.chartRule;
   const startedNavigation = useRef(false);
   return (
     <>
@@ -50,7 +62,7 @@ function Launcher(
           setOpen(true);
         }}
       >
-        {props.label ?? "Criar regra pelo gráfico"}
+        {props.label ?? (editing ? "Editar atividade e preços" : "Criar regra pelo gráfico")}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
@@ -60,10 +72,15 @@ function Launcher(
           }}
         >
           <DialogHeader>
-            <DialogTitle>Criar regra pelo gráfico · {props.symbol}</DialogTitle>
+            <DialogTitle>
+              {editing ? "Editar atividade" : "Criar regra pelo gráfico"} · {props.symbol}
+            </DialogTitle>
             <DialogDescription>
-              {props.walletName} · marque preços para uma operação futura. Salvar mantém o robô
-              pausado.
+              {props.walletName} ·{" "}
+              {editing
+                ? "revise os preços e o valor da atividade salva."
+                : "marque preços para uma operação futura."}{" "}
+              Salvar mantém o robô pausado.
             </DialogDescription>
           </DialogHeader>
           {open && (

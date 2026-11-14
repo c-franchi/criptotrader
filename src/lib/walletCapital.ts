@@ -23,6 +23,32 @@ const wei = (value: unknown) => parseEther(positive(value).toFixed(18, Decimal.R
 const max0 = (n: bigint) => (n > 0n ? n : 0n);
 const min = (a: bigint, b: bigint) => (a < b ? a : b);
 
+/** Liquid capital reusable while reviewing this token's activity. Never credits
+ * position cost or another robot's reservation, including when over-reserved. */
+export function chartEditAvailable(
+  capital: {
+    free: string;
+    balance?: string;
+    gas?: string;
+    reserved?: string;
+    rows?: { token: string; reserved: string; gas: string }[];
+  },
+  token: string,
+) {
+  const own = capital.rows?.find((r) => r.token.toLowerCase() === token.toLowerCase());
+  if (!own || capital.balance == null || capital.gas == null || capital.reserved == null)
+    return capital.free;
+  return formatEther(
+    max0(
+      wei(capital.balance) -
+        wei(capital.gas) -
+        wei(capital.reserved) +
+        wei(own.gas) +
+        wei(own.reserved),
+    ),
+  );
+}
+
 export function strategyBuyAmount(cfg: StrategyConfig, available: string, reserved: string) {
   const free = wei(available);
   if (cfg.sizingMode === "fixo") return wei(cfg.buyAmount);

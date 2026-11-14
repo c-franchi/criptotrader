@@ -135,8 +135,11 @@ export function ChartPlanWizard({
     [started, setStarted] = useState(false);
   const initialized = useRef(false),
     mounted = useRef(true);
-  const draftKey = `cryptobot:chart-plan:v2:${userId}:${walletScope}:${token.toLowerCase()}`;
+  const loadedBase = useRef<{ version: number; revision: number } | null>(null);
   const [draftReady, setDraftReady] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [hasEditDraft, setHasEditDraft] = useState(false);
+  const [restoreEditDraft, setRestoreEditDraft] = useState(false);
   useEffect(() => {
     mounted.current = true;
     const timer = setInterval(() => setNow(Date.now()), 2000);
@@ -151,8 +154,8 @@ export function ChartPlanWizard({
     retry: false,
   });
   const capital = useQuery({
-    queryKey: ["chart-plan-capital", userId, walletScope],
-    queryFn: () => getWalletCapital({ data: { walletScope } }),
+    queryKey: ["chart-plan-capital", userId, walletScope, token],
+    queryFn: () => getWalletCapital({ data: { walletScope, editToken: token } }),
     refetchInterval: 10000,
     retry: false,
   });
@@ -178,6 +181,9 @@ export function ChartPlanWizard({
     retry: false,
   });
   const cfg = settings.data?.strategy?.config as Partial<StrategyConfig> | undefined;
+  // Creation drafts and edits must never overwrite one another. Existing
+  // activities always open from the saved rules; edit drafts stay recoverable.
+  const draftKey = `cryptobot:chart-plan:${cfg?.chartRule ? "edit:v1" : "v2"}:${userId}:${walletScope}:${token.toLowerCase()}`;
   const state = settings.data?.bot?.strat_state as
     { tokens?: number; costBnb?: number; tokensRaw?: string } | null | undefined;
   const retained = (
@@ -298,7 +304,7 @@ export function ChartPlanWizard({
   };
   const capitalFresh =
     !!capital.data && !capital.isError && now - Date.parse(capital.data.at) < 30000;
-  const available = capitalFresh ? capital.data!.free : null;
+  const available = capitalFresh ? (capital.data!.editAvailable ?? capital.data!.free) : null;
   const chosen = budget ?? available ?? "";
   const allocation = costsValid
     ? dividePlanBudget(chosen, entryCount, exitCount, costs!.gasBuyBnb, costs!.gasSellBnb)
@@ -331,12 +337,18 @@ export function ChartPlanWizard({
   useEffect(() => {
     if (!settings.data || initialized.current) return;
     initialized.current = true;
+    loadedBase.current = {
+      version: settings.data.strategy?.version ?? 0,
+      revision: settings.data.draft?.revision ?? 0,
+    };
     const c = settings.data.strategy?.config as Partial<StrategyConfig> | undefined;
     setMargin(String(c?.maxSlippagePct ?? 1));
     setMaxGas(String(c?.maxGasGwei ?? 5));
     setMinLiquidity(String(c?.minLiquidityUsd ?? 5000));
     const rule = c?.chartRule;
     if (rule) {
+      // Editing starts from the actual saved activity, never the leftover balance
+      // or a stale local creation draft. Loading is read-only.
       setPriceAnchor(rule.priceAnchor ?? null);
       const es = rule.entries?.map((e) => e.priceBnb) ?? [rule.entryBnb];
       const xs = rule.exits?.map((e) => e.priceBnb) ?? [rule.exitBnb];
@@ -344,6 +356,11 @@ export function ChartPlanWizard({
       setEntryCount(es.length);
       setExitCount(xs.length);
       setManualExits(xs);
+      setStopChoice(rule.stopBnb == null ? "none" : "price");
+      setStop(rule.stopBnb ?? 0);
+      setGasBuyOverride(String(rule.gasBuyBnb));
+      setGasSellOverride(String(rule.gasSellBnb));
+      setPartialAck(false);
       const orders =
         rule.entries?.reduce((sum, e) => sum.plus(e.amountBnb), new Decimal(0)) ??
         new Decimal(c?.buyAmount ?? 0);
@@ -357,6 +374,14 @@ export function ChartPlanWizard({
     try {
       const d = JSON.parse(localStorage.getItem(draftKey) ?? "null");
       if (
+        rule &&
+        d?.version === settings.data.strategy?.version &&
+        d?.revision === (settings.data.draft?.revision ?? 0) &&
+        !restoreEditDraft
+      )
+        setHasEditDraft(true);
+      if (
+        (!rule || restoreEditDraft) &&
         d?.version === (settings.data.strategy?.version ?? 0) &&
         d?.revision === (settings.data.draft?.revision ?? 0) &&
         typeof d.budget === "string" &&
@@ -370,6 +395,10 @@ export function ChartPlanWizard({
         d.entries.length === d.entryCount &&
         d.entries.every((v: unknown) => typeof v === "number" && Number.isFinite(v) && v >= 0)
       ) {
+        if (rule) {
+          setDirty(true);
+          setHasEditDraft(false);
+        }
         setBudget(d.budget);
         setEntryCount(d.entryCount);
         setExitCount(d.exitCount);
@@ -399,9 +428,10 @@ export function ChartPlanWizard({
       /* Optional scoped draft. Never restore authorizations or confirmations. */
     }
     setDraftReady(true);
-  }, [settings.data, draftKey]);
+  }, [settings.data, draftKey, restoreEditDraft]);
   useEffect(() => {
     if (!draftReady || saved || started || !settings.data || !chosen) return;
+    if (cfg?.chartRule && !dirty) return;
     try {
       localStorage.setItem(
         draftKey,
@@ -415,8 +445,8 @@ export function ChartPlanWizard({
           target,
           stopChoice,
           stop,
-          version: settings.data.strategy?.version ?? 0,
-          revision: settings.data.draft?.revision ?? 0,
+          version: loadedBase.current?.version ?? 0,
+          revision: loadedBase.current?.revision ?? 0,
         }),
       );
     } catch {
@@ -437,6 +467,8 @@ export function ChartPlanWizard({
     target,
     stopChoice,
     stop,
+    cfg?.chartRule,
+    dirty,
   ]);
   const markedEntries = entries.filter((p) => p > 0).sort((a, b) => b - a);
   const breakEven =
@@ -449,6 +481,7 @@ export function ChartPlanWizard({
         })?.breakEvenBnb
       : null;
   const changed = () => {
+    setDirty(true);
     setPointNotice(null);
     setAck(false);
     setPartialAck(false);
@@ -548,6 +581,15 @@ export function ChartPlanWizard({
   // Replacement requires its own confirmation and an atomic, version-fenced RPC.
   // Pending network submissions remain authoritative blockers in the database.
   const saveBlockers: string[] = [];
+  if (
+    loadedBase.current &&
+    settings.data &&
+    (loadedBase.current.version !== (settings.data.strategy?.version ?? 0) ||
+      loadedBase.current.revision !== (settings.data.draft?.revision ?? 0))
+  )
+    saveBlockers.push(
+      "A atividade foi alterada em outra janela. Feche e reabra o editor para conferir a versão atual; seu rascunho foi preservado.",
+    );
   if (settings.isError || !settings.data)
     saveBlockers.push("As configurações não estão disponíveis. Atualize os dados do robô.");
   if (!ack) saveBlockers.push("Marque a confirmação de revisão acima.");
@@ -601,6 +643,10 @@ export function ChartPlanWizard({
         return setError(
           "Escolha um valor que caiba no disponível e cubra a reserva estimada de gás.",
         );
+      if (cfg?.chartRule && !priceAnchor)
+        return setError(
+          "Confira os preços desejados e fixe-os neste rascunho antes de continuar. A regra antiga em BNB ainda não foi alterada.",
+        );
       if (!costsValid || !taxReady)
         return setError(
           "Aguarde a consulta automática de custos ou informe as taxas nos detalhes.",
@@ -614,6 +660,9 @@ export function ChartPlanWizard({
       if (!entries.every((p) => p > 0) || new Set(entries).size !== entryCount)
         return setError("Marque um preço diferente para cada entrada.");
       setEntries(sortedEntries);
+      // Suggested exits become fixed when first shown. Only an explicit
+      // suggestion request or point edit may change them afterwards.
+      if (!manualExits) setManualExits([...automatic]);
       setPick(null);
       setStep(2);
     } else if (step === 2) {
@@ -667,8 +716,8 @@ export function ChartPlanWizard({
           walletScope,
           token,
           settings: validInput.data,
-          version: settings.data.strategy?.version ?? 0,
-          draftRevision: settings.data.draft?.revision ?? 0,
+          version: loadedBase.current?.version ?? 0,
+          draftRevision: loadedBase.current?.revision ?? 0,
           ...(replace && previous
             ? {
                 replacement: {
@@ -973,7 +1022,33 @@ export function ChartPlanWizard({
       )}
       {!saved && step === 0 && (
         <section className="space-y-4" aria-label="Escolher valor e quantidade de entradas">
+          {cfg?.chartRule && hasEditDraft && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                initialized.current = false;
+                setDirty(false);
+                setRestoreEditDraft(true);
+                setDraftNotice(
+                  "Rascunho de edição recuperado. Confira os valores antes de aplicar à atividade.",
+                );
+              }}
+            >
+              Recuperar edição não salva deste robô
+            </Button>
+          )}
           <div className="rounded-2xl bg-secondary p-4">
+            {cfg?.chartRule && (
+              <p
+                className="mb-3 rounded-xl border border-primary/40 p-3 font-semibold"
+                role="status"
+              >
+                Editando atividade salva · valor configurado: {money(chosen)}. Entradas, saídas e
+                stop foram carregados desta atividade.
+              </p>
+            )}
             <p className="text-sm text-muted-foreground">Disponível para esta atividade</p>
             <p className="mt-1 text-3xl font-semibold">
               {capital.isPending
@@ -983,8 +1058,9 @@ export function ChartPlanWizard({
                   : money(available)}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              Somente BNB livre da carteira automática. Saldos em outros tokens e valores reservados
-              para outros robôs não são usados nesta divisão.
+              {cfg?.chartRule
+                ? "Inclui o BNB ainda reservado por este robô e o saldo livre. Valores já investidos em tokens e reservas de outros robôs não entram nesta conta."
+                : "Somente BNB livre da carteira automática. Saldos em outros tokens e valores reservados para outros robôs não são usados nesta divisão."}
             </p>
             <Button
               className="mt-2"
@@ -1388,7 +1464,7 @@ export function ChartPlanWizard({
               variant="outline"
               onClick={() => {
                 changed();
-                setManualExits(null);
+                setManualExits([...automatic]);
               }}
             >
               Aplicar sugestão às saídas
@@ -1397,7 +1473,7 @@ export function ChartPlanWizard({
           <p role="status" className="text-sm text-muted-foreground">
             {manualExits
               ? "Saídas definidas por você. Alterar a meta não muda esses preços; use Aplicar sugestão se desejar substituí-los."
-              : "Saídas sugeridas. Ao ajustar um preço, ele passa a ser manual e será mantido."}
+              : "Saídas sugeridas. Confirme os pontos para mantê-los fixos."}
           </p>
           {renderChart()}
           {pointNotice && (
@@ -1635,8 +1711,8 @@ export function ChartPlanWizard({
                         target,
                         stopChoice,
                         stop,
-                        version: settings.data?.strategy?.version ?? 0,
-                        revision: settings.data?.draft?.revision ?? 0,
+                        version: loadedBase.current?.version ?? 0,
+                        revision: loadedBase.current?.revision ?? 0,
                       }),
                     );
                     setDraftNotice("Rascunho guardado neste aparelho. Não cria nem liga um robô.");
@@ -1835,7 +1911,9 @@ export function ChartPlanWizard({
               onClick={next}
             >
               {step === 0
-                ? "Dividir valor e marcar entradas"
+                ? cfg?.chartRule
+                  ? "Revisar valor e entradas"
+                  : "Dividir valor e marcar entradas"
                 : step === 1
                   ? "Continuar para saídas"
                   : "Revisar atividade"}
