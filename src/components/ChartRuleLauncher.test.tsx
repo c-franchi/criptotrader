@@ -581,3 +581,62 @@ it("does not offer a second start when only the post-success refresh or navigati
   expect(io.start).toHaveBeenCalledOnce();
   expect(onClose).not.toHaveBeenCalled();
 });
+
+it("keeps the chosen USD entry fixed during a correlated BNB/asset fall and persists that anchor", async () => {
+  show();
+  fireEvent.change(screen.getByRole("combobox", { name: "Moeda dos valores" }), {
+    target: { value: "USD" },
+  });
+  await enter();
+  fireEvent.click(screen.getByRole("button", { name: "Ponto de entrada no gráfico" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar ponto escolhido" }));
+  expect(screen.getByRole("spinbutton", { name: "Preço da entrada 1" })).toHaveValue(90);
+  io.market.mockResolvedValue({
+    fetchedAt: new Date().toISOString(),
+    error: null,
+    pools: [{ supported: true, pairAddress: "pair", priceUsd: "80", priceNative: "0.0016" }],
+  });
+  await clients.at(-1)!.invalidateQueries({ queryKey: ["trading-market", token] });
+  expect(screen.getByRole("spinbutton", { name: "Preço da entrada 1" })).toHaveValue(90);
+  fireEvent.click(screen.getByRole("button", { name: "Continuar para saídas" }));
+  fireEvent.click(screen.getByRole("radio", { name: /Manter os tokens/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Revisar atividade" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /Revisei carteira, valor/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Salvar atividade/ }));
+  await screen.findByText("Atividade salva · robô pausado");
+  const saved = io.save.mock.calls.at(-1)![0].data.settings;
+  expect(saved.priceAnchor).toEqual({ unit: "USD", bnbUsd: 50000 });
+  expect(saved.entryPrices[0] * saved.priceAnchor.bnbUsd).toBeCloseTo(90);
+  expect(io.start).not.toHaveBeenCalled();
+});
+
+it("never silently converts a legacy saved activity and offers an explicit reviewed draft conversion", async () => {
+  io.settings.mockResolvedValue({
+    strategy: {
+      version: 8,
+      config: {
+        ...EMPTY_CONFIG,
+        guidedModel: "chart",
+        chartRule: {
+          id: "saved",
+          entryBnb: 0.001,
+          exitBnb: 0.0013,
+          stopBnb: null,
+          gasBuyBnb: 0.00001,
+          gasSellBnb: 0.00002,
+        },
+      },
+    },
+    draft: null,
+    bot: { armed: true },
+  });
+  show();
+  const button = await screen.findByRole("button", {
+    name: "Fixar os preços exibidos em US$ neste rascunho",
+  });
+  expect(io.save).not.toHaveBeenCalled();
+  expect(io.start).not.toHaveBeenCalled();
+  fireEvent.click(button);
+  expect(screen.getByText(/Pontos fixos em US\$ no gráfico/)).toBeVisible();
+  expect(io.save).not.toHaveBeenCalled();
+});

@@ -93,6 +93,7 @@ export function ChartPlanWizard({
   const [entryCount, setEntryCount] = useState(1),
     [exitCount, setExitCount] = useState(1);
   const [entries, setEntries] = useState<number[]>([0]);
+  const [priceAnchor, setPriceAnchor] = useState<{ unit: "USD"; bnbUsd: number } | null>(null);
   const [manualExits, setManualExits] = useState<number[] | null>(null);
   const [pick, setPick] = useState<{ kind: "entry" | "exit" | "stop"; index: number } | null>({
     kind: "entry",
@@ -261,6 +262,24 @@ export function ChartPlanWizard({
             : currency === "EUR" && rates?.usdEur
               ? bnbUsd * rates.usdEur
               : null;
+  const priceReference = priceAnchor?.bnbUsd ?? bnbUsd;
+  const priceFactor = priceAnchor && bnbUsd ? priceAnchor.bnbUsd / bnbUsd : 1;
+  const priceRate =
+    currency === "BNB"
+      ? priceFactor
+      : priceReference == null
+        ? null
+        : currency === "USD"
+          ? priceReference
+          : currency === "BRL" && rates?.usdBrl
+            ? priceReference * rates.usdBrl
+            : currency === "EUR" && rates?.usdEur
+              ? priceReference * rates.usdEur
+              : null;
+  const currentPrice = (p: number) => p * priceFactor;
+  const savedPriceAnchor = priceAnchor
+    ? { unit: "USD" as const, bnbUsd: bnbUsd ?? priceAnchor.bnbUsd }
+    : undefined;
   const money = (n: number | string) =>
     rate == null || !Number.isFinite(Number(n))
       ? "Conversão indisponível"
@@ -271,8 +290,8 @@ export function ChartPlanWizard({
           : formatFiat(Number(n) * rate, currency);
   const priceText = (n: number) => {
     if (!(n > 0)) return "Toque no gráfico para marcar";
-    if (rate == null) return "Cotação indisponível";
-    const quote = formatQuote(n * rate);
+    if (priceRate == null) return "Cotação indisponível";
+    const quote = formatQuote(n * priceRate);
     return currency === "BNB"
       ? `${quote} BNB`
       : `${currency === "BRL" ? "R$" : currency === "EUR" ? "€" : "US$"} ${quote}`;
@@ -288,10 +307,10 @@ export function ChartPlanWizard({
   const automatic =
     allocation && costsValid && entries.every((p) => p > 0)
       ? suggestPlanExits(
-          { ...costs!, entryPrices: sortedEntries, amounts: allocation.amounts },
+          { ...costs!, entryPrices: sortedEntries.map(currentPrice), amounts: allocation.amounts },
           exitCount,
           numeric(target),
-        )
+        ).map((p) => p / priceFactor)
       : [];
   const exits = manualExits ?? automatic;
   const shares = splitExitShares(exitCount);
@@ -299,8 +318,8 @@ export function ChartPlanWizard({
     allocation && costsValid && entries.every((p) => p > 0) && exits.length === exitCount
       ? {
           ...costs!,
-          entryPrices: sortedEntries,
-          exitPrices: [...exits].sort((a, b) => a - b),
+          entryPrices: sortedEntries.map(currentPrice),
+          exitPrices: [...exits].sort((a, b) => a - b).map(currentPrice),
           amounts: allocation.amounts,
         }
       : null;
@@ -318,6 +337,7 @@ export function ChartPlanWizard({
     setMinLiquidity(String(c?.minLiquidityUsd ?? 5000));
     const rule = c?.chartRule;
     if (rule) {
+      setPriceAnchor(rule.priceAnchor ?? null);
       const es = rule.entries?.map((e) => e.priceBnb) ?? [rule.entryBnb];
       const xs = rule.exits?.map((e) => e.priceBnb) ?? [rule.exitBnb];
       setEntries(es);
@@ -355,6 +375,12 @@ export function ChartPlanWizard({
         setExitCount(d.exitCount);
         setEntries(d.entries);
         if (
+          d.priceAnchor?.unit === "USD" &&
+          Number.isFinite(d.priceAnchor.bnbUsd) &&
+          d.priceAnchor.bnbUsd > 0
+        )
+          setPriceAnchor(d.priceAnchor);
+        if (
           Array.isArray(d.exits) &&
           d.exits.length === d.exitCount &&
           d.exits.every((v: unknown) => typeof v === "number" && Number.isFinite(v) && v > 0)
@@ -384,6 +410,7 @@ export function ChartPlanWizard({
           entryCount,
           exitCount,
           entries,
+          priceAnchor,
           exits: manualExits,
           target,
           stopChoice,
@@ -405,6 +432,7 @@ export function ChartPlanWizard({
     entryCount,
     exitCount,
     entries,
+    priceAnchor,
     manualExits,
     target,
     stopChoice,
@@ -415,9 +443,9 @@ export function ChartPlanWizard({
     allocation && costsValid && markedEntries.length
       ? planProjection({
           ...costs!,
-          entryPrices: markedEntries,
+          entryPrices: markedEntries.map(currentPrice),
           amounts: allocation.amounts.slice(0, markedEntries.length),
-          exitPrices: Array.from({ length: exitCount }, () => markedEntries[0]!),
+          exitPrices: Array.from({ length: exitCount }, () => currentPrice(markedEntries[0]!)),
         })?.breakEvenBnb
       : null;
   const changed = () => {
@@ -450,7 +478,7 @@ export function ChartPlanWizard({
                   {
                     id: `entry:${i}`,
                     draggable: step === 1,
-                    price: p * bnbUsd,
+                    price: p * (priceReference ?? bnbUsd),
                     label: `Entrada ${i + 1}`,
                     tone: "buy" as const,
                   },
@@ -464,7 +492,7 @@ export function ChartPlanWizard({
                       {
                         id: `exit:${i}`,
                         draggable: step === 2,
-                        price: p * bnbUsd,
+                        price: p * (priceReference ?? bnbUsd),
                         label: `Saída ${i + 1}`,
                         tone: "target" as const,
                       },
@@ -477,7 +505,7 @@ export function ChartPlanWizard({
                 {
                   id: "stop:0",
                   draggable: step === 2,
-                  price: stop * bnbUsd,
+                  price: stop * (priceReference ?? bnbUsd),
                   label: "Stop",
                   tone: "stop" as const,
                 },
@@ -486,7 +514,8 @@ export function ChartPlanWizard({
         ];
   const mark = (kind: "entry" | "exit" | "stop", index: number, priceUsd: number) => {
     if (!fresh || bnbUsd == null) return setError("Atualize a cotação antes de marcar os pontos.");
-    const p = priceUsd / bnbUsd;
+    const p = priceUsd / (priceReference ?? bnbUsd);
+    if (!priceAnchor) setPriceAnchor({ unit: "USD", bnbUsd });
     if (!(p > 0) || !Number.isFinite(p)) return;
     changed();
     if (kind === "entry") setEntries((old) => old.map((v, i) => (i === index ? p : v)));
@@ -494,14 +523,15 @@ export function ChartPlanWizard({
     else setStop(p);
   };
   const updatePrice = (kind: "entry" | "exit" | "stop", index: number, value: string) => {
-    if (rate != null) mark(kind, index, (numeric(value) / rate) * (bnbUsd ?? 0));
+    if (priceRate != null) mark(kind, index, (numeric(value) / priceRate) * (priceReference ?? 0));
   };
   const validInput = chartPlanInputSchema.safeParse({
     budgetBnb: chosen,
-    entryPrices: sortedEntries,
-    exitPrices: [...exits].sort((a, b) => a - b),
+    entryPrices: sortedEntries.map(currentPrice),
+    exitPrices: [...exits].sort((a, b) => a - b).map(currentPrice),
+    ...(savedPriceAnchor ? { priceAnchor: savedPriceAnchor } : {}),
     stopChoice,
-    stopBnb: stopChoice === "price" ? stop : null,
+    stopBnb: stopChoice === "price" ? currentPrice(stop) : null,
     buyTaxPct: costs?.buyTaxPct,
     sellTaxPct: costs?.sellTaxPct,
     taxesConfirmed: taxReady || snapshot != null,
@@ -513,8 +543,8 @@ export function ChartPlanWizard({
     acknowledge: ack,
     partialEntriesAccepted: partialAck,
   });
-  // Saving a PAUSED strategy only stores fixed BNB levels. A live quote is
-  // required to choose/drag points, not to persist reviewed, fixed prices.
+  // USD anchors preserve chosen chart prices; BNB equivalents are for accounting.
+  // Saving is still paused and never changes an active rule without its replacement confirmation.
   // Replacement requires its own confirmation and an atomic, version-fenced RPC.
   // Pending network submissions remain authoritative blockers in the database.
   const saveBlockers: string[] = [];
@@ -594,10 +624,11 @@ export function ChartPlanWizard({
           ? validInput.data
           : {
               budgetBnb: chosen,
-              entryPrices: sortedEntries,
-              exitPrices: exits,
+              entryPrices: sortedEntries.map(currentPrice),
+              exitPrices: exits.map(currentPrice),
+              ...(savedPriceAnchor ? { priceAnchor: savedPriceAnchor } : {}),
               stopChoice,
-              stopBnb: stopChoice === "price" ? stop : null,
+              stopBnb: stopChoice === "price" ? currentPrice(stop) : null,
               ...costs,
               taxesConfirmed: true,
               maxGasGwei: numeric(maxGas),
@@ -669,7 +700,8 @@ export function ChartPlanWizard({
   };
   const requestPoint = (kind: "entry" | "exit" | "stop", index: number, priceUsd: number) => {
     if (!fresh || bnbUsd == null || !(priceUsd > 0)) return;
-    const native = priceUsd / bnbUsd;
+    const native = priceUsd / (priceReference ?? bnbUsd);
+    if (!priceAnchor) setPriceAnchor({ unit: "USD", bnbUsd });
     setCandidate({ kind, index, native });
   };
   const renderChart = () => (
@@ -812,7 +844,11 @@ export function ChartPlanWizard({
               disabled={!fresh || busy}
               onClick={() => {
                 if (!candidate || !fresh || bnbUsd == null) return;
-                mark(candidate.kind, candidate.index, candidate.native * bnbUsd);
+                mark(
+                  candidate.kind,
+                  candidate.index,
+                  candidate.native * (priceReference ?? bnbUsd),
+                );
                 const name =
                   candidate.kind === "entry"
                     ? `Entrada ${candidate.index + 1}`
@@ -864,6 +900,34 @@ export function ChartPlanWizard({
           </select>
         </label>
       </div>
+      {!saved && cfg?.chartRule && !priceAnchor && (
+        <div className="rounded-xl border border-warning/40 p-3 text-sm space-y-2">
+          <p>
+            A regra atual é fixa em BNB/token, por isso os equivalentes em US$ mudam com o BNB. Os
+            preços originais em dólares não foram registrados. Confira ou digite os alvos desejados
+            antes de salvar.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!fresh || busy}
+            onClick={() => {
+              if (bnbUsd) {
+                changed();
+                setPriceAnchor({ unit: "USD", bnbUsd });
+              }
+            }}
+          >
+            Fixar os preços exibidos em US$ neste rascunho
+          </Button>
+        </div>
+      )}
+      {(priceAnchor || !cfg?.chartRule) && (
+        <p className="text-xs text-muted-foreground">
+          Pontos fixos em US$ no gráfico. Reais e euros são equivalentes de câmbio; o capital e o
+          gás continuam em BNB. SMA 9/21 são médias móveis, não pontos de compra.
+        </p>
+      )}
       {rate == null && (
         <p role="status" className="text-sm text-muted-foreground">
           Conversão indisponível nesta moeda. Atualize ou selecione US$ ou BNB.
@@ -1287,7 +1351,7 @@ export function ChartPlanWizard({
                     type="number"
                     min="0"
                     step="any"
-                    value={p > 0 && rate != null ? exact(p * rate) : ""}
+                    value={p > 0 && priceRate != null ? exact(p * priceRate) : ""}
                     onChange={(e) => updatePrice("entry", i, e.target.value)}
                   />
                 </label>
@@ -1367,7 +1431,7 @@ export function ChartPlanWizard({
                     type="number"
                     min="0"
                     step="any"
-                    value={rate != null ? exact(p * rate) : ""}
+                    value={priceRate != null ? exact(p * priceRate) : ""}
                     onChange={(e) => updatePrice("exit", i, e.target.value)}
                   />
                 </label>
@@ -1411,7 +1475,7 @@ export function ChartPlanWizard({
                     type="number"
                     min="0"
                     step="any"
-                    value={rate != null ? exact(stop * rate) : ""}
+                    value={priceRate != null ? exact(stop * priceRate) : ""}
                     onChange={(e) => updatePrice("stop", 0, e.target.value)}
                   />
                 </label>
@@ -1620,10 +1684,11 @@ export function ChartPlanWizard({
             custos.
           </p>
           <p>
-            Preço médio de compra: <b>{priceText(projection.averageBnb)}</b>
+            Preço médio de compra: <b>{priceText(projection.averageBnb / priceFactor)}</b>
           </p>
           <p>
-            Preço estimado para cobrir os custos: <b>{priceText(projection.breakEvenBnb)}</b>
+            Preço estimado para cobrir os custos:{" "}
+            <b>{priceText(projection.breakEvenBnb / priceFactor)}</b>
           </p>
           <p>
             Ganho bruto pelos preços escolhidos: <b>{money(projection.grossProfit)}</b>

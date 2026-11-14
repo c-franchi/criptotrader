@@ -34,6 +34,10 @@ export function chartExecutionBasis(
   freeBnb = "0",
 ) {
   const rule = cfg.chartRule;
+  if (rule?.priceAnchor)
+    throw new Error(
+      "Converta os preços fixos em US$ para BNB com a cotação atual antes de calcular os custos.",
+    );
   if (rule?.version !== 2 || rule.projectionVersion !== 2 || !rule.entries || !rule.exits)
     return null;
   const p = planProgress(rule, state);

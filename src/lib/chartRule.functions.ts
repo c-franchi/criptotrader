@@ -64,6 +64,10 @@ export const saveChartRule = createServerFn({ method: "POST" })
       .ilike("token", data.token)
       .maybeSingle();
     if (readError) throw new Error("Não foi possível conferir a estratégia existente.");
+    if ((saved?.config as Partial<StrategyConfig> | undefined)?.chartRule?.priceAnchor)
+      throw new Error(
+        "Esta atividade tem preços fixos em US$. Reabra o editor atualizado para preservar seus pontos.",
+      );
     const config = buildChartConfig(data.settings, crypto.randomUUID(), {
       ...EMPTY_CONFIG,
       ...((saved?.config as Partial<StrategyConfig>) ?? {}),
@@ -131,6 +135,13 @@ export const saveChartPlan = createServerFn({ method: "POST" })
     ]);
     if (strategy.error || wallet.error)
       throw new Error("Não foi possível conferir o saldo liberado desta carteira.");
+    if (
+      (strategy.data?.config as Partial<StrategyConfig> | undefined)?.chartRule?.priceAnchor &&
+      !data.settings.priceAnchor
+    )
+      throw new Error(
+        "Esta atividade tem preços fixos em US$. Reabra o editor atualizado para preservar seus pontos.",
+      );
     if (!wallet.data?.address)
       throw new Error(
         "Crie e abasteça a carteira automática antes de escolher o valor da atividade.",

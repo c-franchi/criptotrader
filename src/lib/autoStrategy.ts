@@ -1,3 +1,4 @@
+import { chartUsdPrices } from "./chartPriceAnchor";
 import { decideManualAuto } from "./manualAuto";
 import { formatUsd, formatDistancePct } from "./display";
 import { liveRecovery } from "./liveRecovery";
@@ -183,9 +184,10 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
 
   if (cfg.manualAuto) return decideManualAuto(cfg.manualAuto, s, p);
   const holding = s.tokens > 0 && s.avgPriceUsd > 0;
-  const chart = cfg.chartRule;
+  const chart = cfg.chartRule?.priceAnchor ? chartUsdPrices(cfg.chartRule, null)! : cfg.chartRule;
+  const chartSpot = cfg.chartRule?.priceAnchor ? p : m.priceBnb;
   if (chart) {
-    const native = m.priceBnb;
+    const native = chartSpot;
     if (!(native != null && Number.isFinite(native) && native > 0))
       return { action: "nenhuma", reason: "Regra gráfica: cotação atual em BNB indisponível." };
     if (chart.version === 2 && chart.entries && chart.exits) {
@@ -361,7 +363,7 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
         reason: "Todas as entradas planejadas foram realizadas; aguardando as saídas.",
       };
     const entry = chart.entries[index]!;
-    return m.priceBnb! <= entry.priceBnb
+    return chartSpot! <= entry.priceBnb
       ? {
           action: "compra",
           reason: `Entrada ${index + 1} de ${chart.entries.length} atingida na atividade gráfica.`,
@@ -374,7 +376,7 @@ export function decide(cfg: StrategyConfig, s: BotState, m: Market): Decision {
         };
   }
   if (chart)
-    return m.priceBnb! <= chart.entryBnb
+    return chartSpot! <= chart.entryBnb
       ? {
           action: "compra",
           reason: "Entrada marcada no gráfico atingida em BNB/token.",

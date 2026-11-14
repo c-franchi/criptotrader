@@ -6,6 +6,7 @@ export const chartRuleSchema = z
   .object({
     id: z.string().uuid(),
     unit: z.literal("BNB"),
+    priceAnchor: z.object({ unit: z.literal("USD"), bnbUsd: positive }).optional(),
     entryBnb: positive,
     exitBnb: positive,
     stopBnb: positive.nullable(),
@@ -36,6 +37,22 @@ export const chartRuleSchema = z
       .optional(),
   })
   .superRefine((r, ctx) => {
+    if (r.priceAnchor && r.version !== 2)
+      ctx.addIssue({
+        code: "custom",
+        message: "Preços fixos em US$ exigem atividade gráfica versão 2.",
+      });
+    if (
+      r.priceAnchor &&
+      [
+        r.entryBnb,
+        r.exitBnb,
+        ...(r.stopBnb == null ? [] : [r.stopBnb]),
+        ...(r.entries?.map((e) => e.priceBnb) ?? []),
+        ...(r.exits?.map((e) => e.priceBnb) ?? []),
+      ].some((p) => !Number.isFinite(p * r.priceAnchor!.bnbUsd) || !(p * r.priceAnchor!.bnbUsd > 0))
+    )
+      ctx.addIssue({ code: "custom", message: "Os preços fixos em US$ são inválidos." });
     if (r.version === 2) {
       if (!r.entries?.length || !r.exits?.length)
         ctx.addIssue({
