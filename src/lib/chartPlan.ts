@@ -14,6 +14,7 @@ export const chartPlanInputSchema = z
   .object({
     partialEntriesAccepted: z.boolean().default(false),
     budgetBnb: planMoney,
+    priceAnchor: z.object({ unit: z.literal("USD"), bnbUsd: price }).optional(),
     entryPrices: z.array(price).min(1).max(10),
     exitPrices: z.array(price).min(1).max(5),
     stopChoice: z.enum(["price", "none"]),
@@ -299,6 +300,7 @@ export function buildChartPlanConfig(
       version: 2,
       projectionVersion: 2,
       partialEntriesAccepted: d.partialEntriesAccepted,
+      ...(d.priceAnchor ? { priceAnchor: d.priceAnchor } : {}),
       entries: prices.map((p, i) => ({ priceBnb: p, amountBnb: allocation.amounts[i]! })),
       exits: exits.map((p, i) => ({ priceBnb: p, sharePct: shares[i]! })),
     }),

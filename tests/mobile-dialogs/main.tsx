@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { chartUsdPrices } from "../../src/lib/chartPriceAnchor";
+import type { ChartRule } from "../../src/lib/chartRule";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useCandles } from "../../src/hooks/useCandles";
 import { CandleChart } from "../../src/components/CandleChart";
@@ -45,6 +47,7 @@ const tools = [
   "Histórico atrasado",
   "Recuperar velas",
   "Próxima entrada",
+  "Preços fixos",
 ];
 const wallets = [
   {
@@ -267,6 +270,63 @@ function RecoveryChart() {
     </>
   );
 }
+function FixedTargetsPreview() {
+  const [fall, setFall] = useState(false);
+  const rate = fall ? 550 : 700;
+  const spot = fall ? 64000 : 70000;
+  const now = Date.now();
+  const rule: ChartRule = {
+    id: "11111111-1111-4111-8111-111111111111",
+    unit: "BNB",
+    priceAnchor: { unit: "USD", bnbUsd: 700 },
+    entryBnb: 68000 / 700,
+    exitBnb: 72000 / 700,
+    stopBnb: null,
+    dexFeePct: 0.25,
+    executionMarginPct: 1,
+    gasBuyBnb: 0.00001,
+    gasSellBnb: 0.00002,
+    version: 2,
+    entries: [
+      { priceBnb: 68000 / 700, amountBnb: "0.01" },
+      { priceBnb: 62000 / 700, amountBnb: "0.01" },
+    ],
+    exits: [{ priceBnb: 72000 / 700, sharePct: 100 }],
+  };
+  const prices = chartUsdPrices(rule, rate)!;
+  return (
+    <>
+      <p>
+        Dados fictícios. BNB/US$: {rate}; ativo/US$: {spot}
+      </p>
+      <p>
+        Entrada fixa 1: <output data-testid="entry-fixed-price">{prices.entryBnb}</output>
+      </p>
+      <Button className="whitespace-normal" onClick={() => setFall(true)}>
+        Simular queda do ativo e do BNB
+      </Button>
+      <CandleChart
+        compact
+        initialAllLevels
+        now={now}
+        candles={Array.from({ length: 36 }, (_, i) => [
+          Math.floor(now / 300000) * 300 - (35 - i) * 300,
+          spot + 100,
+          spot + 300,
+          spot - 300,
+          spot,
+          1,
+        ])}
+        liveQuote={{ price: spot, at: now }}
+        levels={prices.entries!.map((e, i) => ({
+          price: e.priceBnb,
+          label: `Entrada ${i + 1}`,
+          tone: "buy",
+        }))}
+      />
+    </>
+  );
+}
 export function Preview() {
   const [tool, setTool] = useState<string | null>(null);
   const [wallet, setWallet] = useState("a");
@@ -313,7 +373,9 @@ export function Preview() {
           icon={Coins}
           description="Teste dos componentes reais usados no aplicativo."
         >
-          {tool === "Recuperar velas" ? (
+          {tool === "Preços fixos" ? (
+            <FixedTargetsPreview />
+          ) : tool === "Recuperar velas" ? (
             <QueryClientProvider client={recoveryClient}>
               <RecoveryChart />
             </QueryClientProvider>

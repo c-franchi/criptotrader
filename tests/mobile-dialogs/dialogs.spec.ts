@@ -253,3 +253,17 @@ test("velas recentes substituem automaticamente o snapshot antigo do servidor", 
     animations: "disabled",
   });
 });
+
+test("alvos em dólares ficam fixos quando o ativo e BNB caem juntos", async ({
+  page,
+}, testInfo) => {
+  await page.getByRole("button", { name: "Preços fixos", exact: true }).click();
+  await expect(page.getByTestId("entry-fixed-price")).toHaveText("68000");
+  await page.getByRole("button", { name: "Simular queda do ativo e do BNB", exact: true }).click();
+  await expect(page.getByText("Dados fictícios. BNB/US$: 550; ativo/US$: 64000")).toBeVisible();
+  await expect(page.getByTestId("entry-fixed-price")).toHaveText("68000");
+  await expect(
+    page.getByRole("img", { name: "Velas OHLCV, escala de preços e médias SMA do robô" }),
+  ).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("pontos-fixos.png"), animations: "disabled" });
+});

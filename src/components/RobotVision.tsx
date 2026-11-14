@@ -1,3 +1,4 @@
+import { chartUsdPrices } from "@/lib/chartPriceAnchor";
 import { manualAutoEntry } from "@/lib/manualAuto";
 import { planProgress } from "@/lib/chartPlan";
 import { userMessage } from "@/lib/userMessage";
@@ -205,69 +206,69 @@ export function RobotVision(props: {
     Number(pool?.priceNative) > 0 && Number(pool?.priceUsd) > 0
       ? Number(pool?.priceUsd) / Number(pool?.priceNative)
       : null;
-  const chartLines: Line[] | null =
-    cfg?.chartRule && quoteUsd != null
-      ? cfg.chartRule.version === 2
-        ? (() => {
-            const rule = cfg.chartRule!;
-            const progress = planProgress(rule, state);
-            if (progress.finished) return [];
-            return [
-              ...(!progress.exiting
-                ? rule.entries!.flatMap((e, i) =>
-                    progress.buys.includes(i)
-                      ? []
-                      : [
-                          {
-                            price: e.priceBnb * quoteUsd,
-                            label: `Entrada ${i + 1}`,
-                            tone: "buy" as const,
-                          },
-                        ],
-                  )
-                : []),
-              ...rule.exits!.flatMap((e, i) =>
-                progress.sells.includes(i)
-                  ? []
-                  : [
-                      {
-                        price: e.priceBnb * quoteUsd,
-                        label: `Saída ${i + 1}`,
-                        tone: "sell" as const,
-                      },
-                    ],
-              ),
-              ...(rule.stopBnb != null
-                ? [{ price: rule.stopBnb * quoteUsd, label: "Stop gráfico", tone: "stop" as const }]
-                : []),
-            ];
-          })()
-        : [
-            ...(state.tokens <= 0 && state.chartRuleConsumedId !== cfg.chartRule.id
-              ? [
-                  {
-                    price: cfg.chartRule.entryBnb * quoteUsd,
-                    label: "Entrada gráfica · BNB fixo",
-                    tone: "buy" as const,
-                  },
-                ]
+  const displayedRule = cfg?.chartRule ? chartUsdPrices(cfg.chartRule, quoteUsd) : null;
+  const chartLines: Line[] | null = displayedRule
+    ? displayedRule.version === 2
+      ? (() => {
+          const rule = displayedRule;
+          const progress = planProgress(rule, state);
+          if (progress.finished) return [];
+          return [
+            ...(!progress.exiting
+              ? rule.entries!.flatMap((e, i) =>
+                  progress.buys.includes(i)
+                    ? []
+                    : [
+                        {
+                          price: e.priceBnb,
+                          label: `Entrada ${i + 1}`,
+                          tone: "buy" as const,
+                        },
+                      ],
+                )
               : []),
-            {
-              price: cfg.chartRule.exitBnb * quoteUsd,
-              label: "Saída gráfica · BNB fixo",
-              tone: "sell" as const,
-            },
-            ...(cfg.chartRule.stopBnb != null
-              ? [
-                  {
-                    price: cfg.chartRule.stopBnb * quoteUsd,
-                    label: "Stop gráfico · BNB fixo",
-                    tone: "stop" as const,
-                  },
-                ]
+            ...rule.exits!.flatMap((e, i) =>
+              progress.sells.includes(i)
+                ? []
+                : [
+                    {
+                      price: e.priceBnb,
+                      label: `Saída ${i + 1}`,
+                      tone: "sell" as const,
+                    },
+                  ],
+            ),
+            ...(rule.stopBnb != null
+              ? [{ price: rule.stopBnb, label: "Stop gráfico", tone: "stop" as const }]
               : []),
-          ]
-      : null;
+          ];
+        })()
+      : [
+          ...(state.tokens <= 0 && state.chartRuleConsumedId !== displayedRule.id
+            ? [
+                {
+                  price: displayedRule.entryBnb,
+                  label: "Entrada gráfica · BNB fixo",
+                  tone: "buy" as const,
+                },
+              ]
+            : []),
+          {
+            price: displayedRule.exitBnb,
+            label: "Saída gráfica · BNB fixo",
+            tone: "sell" as const,
+          },
+          ...(displayedRule.stopBnb != null
+            ? [
+                {
+                  price: displayedRule.stopBnb,
+                  label: "Stop gráfico · BNB fixo",
+                  tone: "stop" as const,
+                },
+              ]
+            : []),
+        ]
+    : null;
   const signalsAvailable =
     priceFresh &&
     !incompatibleBotToken(token) &&
@@ -435,6 +436,13 @@ export function RobotVision(props: {
             </p>
           </div>
         </div>
+      )}
+      {cfg?.chartRule && (
+        <p data-robot-chart className="text-xs text-muted-foreground">
+          {cfg.chartRule.priceAnchor
+            ? "Pontos de compra e venda fixos em US$. As SMA são médias móveis, não os alvos."
+            : "Esta atividade usa pontos em BNB/token; os valores em US$ variam com o BNB. Revise a regra para fixar os preços em US$."}
+        </p>
       )}
       <CandleChart
         key={`${token}:${chartPool}:${cfg?.candleInterval}`}

@@ -302,3 +302,35 @@ it("rejects an unconfirmed replacement before any API access", async () => {
   expect(io.from).not.toHaveBeenCalled();
   expect(io.rpc).not.toHaveBeenCalled();
 });
+
+it("persists the explicit USD anchor through the same paused atomic RPC without modifying allocations", async () => {
+  await saveChartPlan({
+    data: { ...data, settings: { ...settings, priceAnchor: { unit: "USD", bnbUsd: 700 } } },
+  });
+  const config = io.rpc.mock.calls[0]![1].p_config;
+  expect(config.chartRule.priceAnchor).toEqual({ unit: "USD", bnbUsd: 700 });
+  expect(config.chartRule.entries[0].amountBnb).toBe("0.00997");
+  expect(io.rpc.mock.calls[0]![0]).toBe("configure_guided_bot");
+});
+it("rejects an older client silently dropping the USD anchor before financial or configuration writes", async () => {
+  const anchored = buildChartPlanConfig(
+    { ...settings, priceAnchor: { unit: "USD", bnbUsd: 700 } },
+    "11111111-1111-4111-8111-111111111111",
+    EMPTY_CONFIG,
+  );
+  io.from.mockImplementation((table: string) => {
+    const q = {
+      select: () => q,
+      eq: () => q,
+      ilike: () => q,
+      maybeSingle: async () => ({
+        data: table === "bot_wallets" ? { address } : { config: anchored },
+        error: null,
+      }),
+    };
+    return q;
+  });
+  await expect(saveChartPlan({ data })).rejects.toThrow("Reabra o editor atualizado");
+  expect(io.rpc).not.toHaveBeenCalled();
+  expect(io.balance).not.toHaveBeenCalled();
+});

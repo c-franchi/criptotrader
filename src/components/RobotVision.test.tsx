@@ -1,10 +1,10 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RobotVision, robotLines } from "./RobotVision";
 import { EMPTY_CONFIG } from "@/lib/strategy";
 import { EMPTY_STATE } from "@/lib/autoStrategy";
-const { market } = vi.hoisted(() => ({ market: vi.fn() }));
+const { market, chart } = vi.hoisted(() => ({ market: vi.fn(), chart: vi.fn() }));
 vi.mock("@/lib/chain.functions", () => ({ getTradingMarket: market }));
 vi.mock("@/hooks/useCandles", () => ({
   useCandles: () => ({
@@ -18,7 +18,12 @@ vi.mock("@/hooks/useCandles", () => ({
     ]),
   }),
 }));
-vi.mock("./CandleChart", () => ({ CandleChart: () => <p>Gráfico</p> }));
+vi.mock("./CandleChart", () => ({
+  CandleChart: (props: unknown) => {
+    chart(props);
+    return <p>Gráfico</p>;
+  },
+}));
 vi.mock("./OrderAudit", () => ({ OrderAudit: () => null }));
 afterEach(() => {
   cleanup();
@@ -140,4 +145,74 @@ it("shows the saved manual prices without moving the exit to cover token taxes",
   expect(robotLines(c, { ...EMPTY_STATE, manualRuleConsumedId: c.manualAuto!.id }, null)).toEqual(
     [],
   );
+});
+
+it("renders unchanged USD entry lines after a live BNB/asset quote change", async () => {
+  const token = "0x1111111111111111111111111111111111111111";
+  const snapshot = (usd: string, native: string) => ({
+    fetchedAt: new Date().toISOString(),
+    error: null,
+    pools: [
+      {
+        supported: true,
+        pairAddress: "0x2222222222222222222222222222222222222222",
+        priceUsd: usd,
+        priceNative: native,
+        liquidityUsd: 100000,
+      },
+    ],
+  });
+  market.mockResolvedValue(snapshot("70000", "100"));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <RobotVision
+        token={token}
+        symbol="BTCB"
+        cfg={{
+          ...EMPTY_CONFIG,
+          chartRule: {
+            id: "11111111-1111-4111-8111-111111111111",
+            unit: "BNB",
+            priceAnchor: { unit: "USD", bnbUsd: 700 },
+            version: 2,
+            entryBnb: 68000 / 700,
+            exitBnb: 72000 / 700,
+            stopBnb: null,
+            dexFeePct: 0.25,
+            executionMarginPct: 1,
+            gasBuyBnb: 0.00001,
+            gasSellBnb: 0.00002,
+            entries: [
+              { priceBnb: 68000 / 700, amountBnb: "0.01" },
+              { priceBnb: 62000 / 700, amountBnb: "0.01" },
+            ],
+            exits: [{ priceBnb: 72000 / 700, sharePct: 100 }],
+          },
+        }}
+        state={EMPTY_STATE}
+        mode="estrategia"
+        grid={[]}
+        orders={[]}
+        armed
+      />
+    </QueryClientProvider>,
+  );
+  await waitFor(() =>
+    expect(chart.mock.calls.at(-1)![0].levels).toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: "Entrada 1", price: 68000 })]),
+    ),
+  );
+  market.mockResolvedValue(snapshot("64000", String(64000 / 550)));
+  await client.invalidateQueries({ queryKey: ["trading-market", token] });
+  await waitFor(() =>
+    expect(chart.mock.calls.at(-1)![0].levels).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Entrada 1", price: 68000 }),
+        expect.objectContaining({ label: "Entrada 2", price: 62000 }),
+      ]),
+    ),
+  );
+  expect(screen.getByText(/Pontos de compra e venda fixos em US\$/)).toBeVisible();
+  client.clear();
 });

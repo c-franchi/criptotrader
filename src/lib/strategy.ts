@@ -97,6 +97,9 @@ export function describeStrategy(c: StrategyConfig, quote = "WBNB"): string[] {
         c.chartRule.stopBnb == null
           ? "Sem stop fixo; os tokens podem perder todo o valor. Recuperação não é garantida."
           : "Stop fixo escolhido abaixo de todas as entradas.",
+        c.chartRule.priceAnchor
+          ? "Os pontos são fixos em US$. A variação do BNB não desloca entradas, saídas ou stop. As SMA são médias móveis, não os alvos."
+          : "Esta regra anterior usa BNB/token fixo. O equivalente em US$ varia com o BNB; revise os preços para fixá-los em US$.",
         "Preços marcados são gatilhos. Custos, conversão e resultados são estimativas, sem promessa de rentabilidade.",
       ];
     else

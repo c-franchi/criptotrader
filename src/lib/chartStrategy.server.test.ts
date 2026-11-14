@@ -4,7 +4,7 @@ import { parseEther } from "viem";
 import { buildChartPlanConfig } from "./chartPlan";
 import { EMPTY_CONFIG } from "./strategy";
 import { EMPTY_STATE } from "./autoStrategy";
-const io = vi.hoisted(() => ({ send: vi.fn() }));
+const io = vi.hoisted(() => ({ send: vi.fn(), usd: "100", native: 0.001 }));
 const token = "0x1111111111111111111111111111111111111111",
   pair = "0x2222222222222222222222222222222222222222";
 vi.mock("./market.server", () => ({
@@ -15,7 +15,7 @@ vi.mock("./market.server", () => ({
       {
         supported: true,
         pairAddress: "0x2222222222222222222222222222222222222222",
-        priceUsd: "100",
+        priceUsd: io.usd,
         liquidityUsd: 100000,
       },
     ],
@@ -32,7 +32,7 @@ vi.mock("./walletCapital.server", () => ({
 vi.mock("./bot.server", () => ({
   poolState: async () => ({
     pair: "0x2222222222222222222222222222222222222222",
-    price: 0.001,
+    price: io.native,
     bnb: 100000000000000000000n,
   }),
   pubClient: () => ({ getBalance: async () => 100000000000000000n }),
@@ -80,6 +80,8 @@ function admin(config: unknown) {
 const bot = { id: "bot", user_id: "u", wallet_scope: "s", token, strat_state: EMPTY_STATE };
 beforeEach(() => {
   vi.clearAllMocks();
+  io.usd = "100";
+  io.native = 0.001;
   io.send.mockResolvedValue({ order: { status: "enviada", tx_hash: null }, net: 1n });
 });
 it("routes accepted partial-fill risk through the whole-plan quote/gas guard with the exact planned amount and decision", async () => {
@@ -117,4 +119,23 @@ it("does not migrate legacy saved plans into the new execution model", async () 
   );
   expect(io.send.mock.calls[0]![0].intent.chartPlanExecution).toBeUndefined();
   expect(io.send.mock.calls[0]![0].intent.feeTargetGrossPct).toBeCloseTo(0.1);
+});
+
+it("buys at the fixed USD level even if BNB also fell, and recalculates only the quote/gas basis in native units", async () => {
+  const anchored = {
+    ...cfg,
+    chartRule: { ...cfg.chartRule!, priceAnchor: { unit: "USD" as const, bnbUsd: 100000 } },
+  };
+  io.usd = "90";
+  io.native = 0.002;
+  const before = structuredClone(anchored);
+  await runStrategyStep(admin(anchored), bot, "", "lock");
+  expect(io.send).toHaveBeenCalledOnce();
+  const o = io.send.mock.calls[0]![0];
+  expect(o.amountIn).toBe(parseEther(".01"));
+  expect(Number(o.intent.chartPlanExecution.targetPriceBnb)).toBeCloseTo(
+    (cfg.chartRule!.exitBnb * 100000) / 45000,
+  );
+  expect(o.intent.decision.chartEntryIndex).toBe(0);
+  expect(anchored).toEqual(before);
 });

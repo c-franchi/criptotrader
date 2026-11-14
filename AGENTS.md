@@ -52,3 +52,5 @@
 - Expired process history cannot mask newer durable candles during provider failure. Keep OHLC freshness independent of live spot markers and never fabricate bars to match a current quote.
 
 - Chart UI may recover true GeckoTerminal 5m OHLCV directly in the browser when the app server is stale/slow. Use only fixed public HTTPS endpoints and the same pool/token, omit credentials, coalesce/cache reads and respect 429. Never route this display recovery into signing, execution or synthetic candles.
+
+- Graphical v2 rules with priceAnchor USD compare and plot fixed saved USD levels; never multiply their targets by the current BNB/USD. Convert only the fee/cost basis to current BNB equivalents. Legacy BNB rules require explicit reviewed conversion and must not be silently migrated or have their USD anchor dropped by older clients.

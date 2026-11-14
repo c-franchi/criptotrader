@@ -1,3 +1,4 @@
+import { chartExecutionConfig } from "./chartPriceAnchor";
 import { chartExecutionBasis } from "./chartExecution";
 import { planGasReserve } from "./chartPlan";
 import type { ExecutionClock } from "./executionTiming";
@@ -102,6 +103,15 @@ async function runStrategyStepImpl(
   );
   const priceUsd = Number(best?.priceUsd);
   const priceBnb = pool?.price;
+  const priceConfig =
+    cfg.chartRule?.priceAnchor &&
+    priceBnb != null &&
+    Number.isFinite(priceBnb) &&
+    priceBnb > 0 &&
+    Number.isFinite(priceUsd) &&
+    priceUsd > 0
+      ? chartExecutionConfig(cfg, priceUsd / priceBnb)
+      : cfg;
   if (!best || !(priceUsd > 0))
     return {
       patch: {
@@ -184,12 +194,16 @@ async function runStrategyStepImpl(
     source: market.source,
     historyThrough: candles.at(-1)?.[0] ?? null,
     indicator: cfg.chartRule
-      ? "Fixed BNB/token levels; fresh on-chain quote; no historical signal"
+      ? cfg.chartRule.priceAnchor
+        ? "Fixed USD/token levels; fresh on-chain USD quote; no moving-average entry signal"
+        : "Fixed BNB/token levels; fresh on-chain quote; no historical signal"
       : cfg.rulesVersion === 2
         ? "SMA; contiguous complete closes"
         : "SMA; legacy bucket closes",
     stopFormula: cfg.chartRule
-      ? "Fresh pool price in BNB/token <= chosen stopBnb; null disables fixed stop"
+      ? cfg.chartRule.priceAnchor
+        ? "Fresh pool USD price <= saved stopBnb * saved USD anchor; null disables fixed stop"
+        : "Fresh pool price in BNB/token <= chosen stopBnb; null disables fixed stop"
       : cfg.stopLossMode === "liquido"
         ? "(price / avgPriceUsd × (1-buyTax/100) × (1-sellTax/100) - 1) × 100"
         : "(price / avgPriceUsd - 1) × 100",
@@ -301,26 +315,26 @@ async function runStrategyStepImpl(
                 ? {}
                 : {
                     feeTargetGrossPct:
-                      cfg.chartRule?.projectionVersion === 2 && priceBnb != null
-                        ? (cfg.chartRule.exits!.reduce(
+                      priceConfig.chartRule?.projectionVersion === 2 && priceBnb != null
+                        ? (priceConfig.chartRule.exits!.reduce(
                             (sum, e) => sum + (e.priceBnb * e.sharePct) / 100,
                             0,
                           ) /
                             priceBnb -
                             1) *
                           100
-                        : cfg.chartRule && priceBnb != null
-                          ? (cfg.chartRule.exitBnb / priceBnb - 1) * 100
+                        : priceConfig.chartRule && priceBnb != null
+                          ? (priceConfig.chartRule.exitBnb / priceBnb - 1) * 100
                           : cfg.guidedModel === "recovery"
                             ? grossForNet(cfg.recovery?.minNetPct ?? 4, tax)
                             : Math.min(...cfg.takeProfits.map((t) => t.pct)),
                   }),
-              ...(cfg.chartRule?.projectionVersion === 2 &&
+              ...(priceConfig.chartRule?.projectionVersion === 2 &&
               d.chartEntryIndex != null &&
               priceBnb != null
                 ? {
                     chartPlanExecution: chartExecutionBasis(
-                      cfg,
+                      priceConfig,
                       state,
                       d.chartEntryIndex,
                       priceBnb,
