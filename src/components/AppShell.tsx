@@ -18,6 +18,7 @@ import {
   Bot,
   LineChart,
   LayoutDashboard,
+  RefreshCw,
   Menu,
   Settings,
   Wallet,
@@ -101,6 +102,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div
       data-app-shell
+      data-robot-app-shell={pathname === "/grade" ? "" : undefined}
       className="exchange-shell min-h-screen w-full min-w-0 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64"
     >
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-card lg:flex">
@@ -282,6 +284,17 @@ export function AppShell({ children }: { children: ReactNode }) {
               <ThemeToggle />
             </div>
             <AppUpdateNotice />
+            {user && pathname === "/grade" && (
+              <Button
+                size="icon"
+                variant="ghost"
+                title="Atualizar tela do robô"
+                aria-label="Atualizar tela do robô"
+                onClick={() => window.location.reload()}
+              >
+                <RefreshCw className="size-5" />
+              </Button>
+            )}
             <NotificationBell />
             {!user && (
               <Button size="sm" asChild>

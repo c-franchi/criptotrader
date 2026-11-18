@@ -42,6 +42,12 @@ import { AddTokenDialog } from "@/components/AddTokenDialog";
 import {
   ChevronDown,
   Bot,
+  PauseCircle,
+  PlayCircle,
+  Pencil,
+  Maximize2,
+  Layers3,
+  ShieldCheck,
   Wallet,
   Coins,
   Settings2,
@@ -624,137 +630,132 @@ function Robo() {
       </div>
     );
   return (
-    <div className="exchange-workspace space-y-4">
+    <div className="exchange-workspace robot-native-screen space-y-4">
       <div className="mx-auto w-full max-w-[1700px] space-y-4">
-        <Panel title="Mercado">
-          <div ref={chartRef} className="mt-3 scroll-mt-24">
-            {chartOrders.isError && (
-              <p role="alert" className="mb-2 text-sm text-warning">
-                Não foi possível atualizar todas as marcações. Os registros já recebidos foram
-                mantidos.{" "}
-                <button
-                  className="text-primary underline"
-                  onClick={() => void chartOrders.refetch()}
-                >
-                  Tentar novamente
-                </button>
-              </p>
-            )}
-            <RobotVision
-              streamlined
-              key={selectionKey}
-              focusRequest={chartFocus}
-              tokenDecimals={selected.decimals}
-              token={token}
-              symbol={sym}
-              cfg={cfg}
-              state={st}
-              mode={mode}
-              grid={lines}
-              orders={plotOrders}
-              armed={armed}
-              reason={bot?.last_reason}
-              evaluatedAt={bot?.last_run_at}
-              executionBlocked={execution?.locked}
-              serverAnalysis={analysisError ? null : analysis}
-            />
-          </div>
-          <ChartRuleLauncher
-            token={token}
-            symbol={sym}
-            onSaved={load}
-            onStarted={showStartedChartBot}
-          />
-          <TokenActivity token={token} symbol={sym} decimals={selected.decimals} />
-        </Panel>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold">Bots à vista</h1>
-            <p className="text-sm text-muted-foreground">
+        <div className="robot-page-heading">
+          <span className="robot-page-icon" aria-hidden="true">
+            <Bot className="size-7" />
+          </span>
+          <div className="min-w-0">
+            <h1>Bots à vista</h1>
+            <p>
               {sym} / BNB · {walletName}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <TradingTour kind="bot" onComplete={() => setSetupOpen(true)} />
-            {armed && (
-              <Button variant="destructive" disabled={saving} onClick={() => save(false)}>
-                Pausar robô
-              </Button>
-            )}
-            {bot && st.tokens > 0 && user && (
-              <FinishAutomationButton
-                botId={bot.id}
-                walletScope={walletScope}
-                userId={user.id}
-                armed={armed}
-                symbol={sym}
-                onDone={load}
-              />
-            )}
-            <Button variant="outline" onClick={() => setFullscreen(!fullscreen)}>
-              {fullscreen ? "Sair da tela cheia" : "Abrir em tela cheia"}
+        </div>
+        <div ref={chartRef} className="scroll-mt-24">
+          {chartOrders.isError && (
+            <p
+              role="alert"
+              className="mb-2 rounded-xl border border-warning/30 p-3 text-sm text-warning"
+            >
+              Não foi possível atualizar todas as marcações. Os registros já recebidos foram
+              mantidos.{" "}
+              <button className="underline" onClick={() => void chartOrders.refetch()}>
+                Tentar novamente
+              </button>
+            </p>
+          )}
+          <RobotVision
+            streamlined
+            appHero
+            walletLabel={walletName}
+            key={selectionKey}
+            focusRequest={chartFocus}
+            tokenDecimals={selected.decimals}
+            token={token}
+            symbol={sym}
+            cfg={cfg}
+            state={st}
+            mode={mode}
+            grid={lines}
+            orders={plotOrders}
+            armed={armed}
+            reason={bot?.last_reason}
+            evaluatedAt={bot?.last_run_at}
+            executionBlocked={execution?.locked}
+            serverAnalysis={analysisError ? null : analysis}
+          />
+        </div>
+        <div className="robot-action-strip" aria-label="Ações rápidas do robô">
+          {armed ? (
+            <Button
+              variant="destructive"
+              className="robot-action robot-action-danger"
+              disabled={saving}
+              onClick={() => save(false)}
+            >
+              <PauseCircle className="size-6" />
+              <span>Pausar robô</span>
             </Button>
-            {cfg?.chartRule ? (
+          ) : (
+            <Button
+              className="robot-action"
+              disabled={!walletReady || busy || saving || cfg === undefined}
+              onClick={() => setSetupOpen(true)}
+            >
+              <PlayCircle className="size-6" />
+              <span>{bot ? "Configurar robô" : "Criar robô"}</span>
+            </Button>
+          )}
+          {cfg?.chartRule ? (
+            <div className="robot-action-launcher">
+              <Pencil className="size-6" aria-hidden="true" />
               <ChartRuleLauncher
                 token={token}
                 symbol={sym}
                 onSaved={load}
                 onStarted={showStartedChartBot}
-                label="Editar regra gráfica"
+                label="Editar regra"
               />
-            ) : (
-              <Button
-                disabled={!walletReady || busy || saving || cfg === undefined}
-                onClick={() => setSetupOpen(true)}
-              >
-                {armed ? "Editar robô" : bot ? "Configurar e iniciar" : "Criar robô"}
-              </Button>
-            )}
+            </div>
+          ) : (
             <Button
-              type="button"
+              className="robot-action"
               variant="outline"
-              disabled={!walletReady || cfg === undefined}
-              onClick={openRules}
+              disabled={!walletReady || busy || saving || cfg === undefined}
+              onClick={() => setSetupOpen(true)}
             >
-              Regras avançadas deste robô
+              <Pencil className="size-6" />
+              <span>Editar regra</span>
             </Button>
-          </div>
+          )}
+          <Button
+            className="robot-action"
+            variant="outline"
+            onClick={() => setFullscreen(!fullscreen)}
+          >
+            <Maximize2 className="size-6" />
+            <span>Tela cheia</span>
+          </Button>
+          <Button
+            className="robot-action"
+            variant="outline"
+            disabled={!walletReady || cfg === undefined}
+            onClick={openRules}
+          >
+            <Layers3 className="size-6" />
+            <span>Regras avançadas</span>
+          </Button>
         </div>
-        <div className="ux-summary-card">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-primary/10 p-3 text-primary">
-              <Bot className="size-6" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold">{walletName}</h2>
-              <p className="text-sm text-muted-foreground">
-                Token {sym} ·{" "}
-                {cfg?.manualAuto
-                  ? "Manual automático"
-                  : mode === "grade"
-                    ? "Grade de preços"
-                    : "Minha estratégia"}
-              </p>
-              <span
-                className={
-                  armed && !execution?.locked
-                    ? "text-sm font-semibold text-success"
-                    : "text-sm font-semibold text-warning"
-                }
-              >
-                {execution?.locked
-                  ? "● Operação aguardando confirmação"
-                  : armed
-                    ? "● Ligado"
-                    : "○ Pausado"}
-              </span>
-              {bot?.last_error && (
-                <p role="status" className="mt-1 text-xs text-warning">
-                  Aviso do robô: {userMessage(bot.last_error)}
-                </p>
-              )}
-            </div>
-          </div>
+        <div className="robot-secondary-actions">
+          <TradingTour kind="bot" onComplete={() => setSetupOpen(true)} />
+          {bot && st.tokens > 0 && user && (
+            <FinishAutomationButton
+              botId={bot.id}
+              walletScope={walletScope}
+              userId={user.id}
+              armed={armed}
+              symbol={sym}
+              onDone={load}
+            />
+          )}
+        </div>
+        <section className="robot-details-card">
+          <h2 className="robot-details-heading">
+            <ShieldCheck className="size-5" aria-hidden="true" />
+            Detalhes do robô
+          </h2>
           <div className="ux-summary-list mt-3 text-sm">
             <div>
               <span className="text-muted-foreground">Valor por compra</span>
@@ -777,7 +778,24 @@ function Robo() {
               <strong>{cfg?.stopLossPct ? `Stop ${cfg.stopLossPct}%` : "Conferir regras"}</strong>
             </div>
           </div>
-        </div>
+          {bot?.last_error && (
+            <p role="status" className="robot-details-alert">
+              Aviso registrado do robô: {userMessage(bot.last_error)}
+            </p>
+          )}
+        </section>
+        <details className="robot-secondary-tools">
+          <summary>Atividade do token e configuração gráfica</summary>
+          <div className="mt-3 space-y-3">
+            <ChartRuleLauncher
+              token={token}
+              symbol={sym}
+              onSaved={load}
+              onStarted={showStartedChartBot}
+            />
+            <TokenActivity token={token} symbol={sym} decimals={selected.decimals} />
+          </div>
+        </details>
         <div>
           <p className="mb-2 text-xs text-muted-foreground">Moeda / BNB</p>
           <div data-token-picker className="flex flex-wrap gap-2">
