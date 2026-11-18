@@ -69,7 +69,6 @@ async function onChainPool(
   clientOverride?: ReturnType<typeof createPublicClient>,
 ): Promise<PoolInfo[]> {
   const token = getAddress(address);
-  const info = await tokenMeta(address);
   const client =
     clientOverride ??
     createPublicClient({
@@ -79,6 +78,7 @@ async function onChainPool(
           ? robotRpcTransport(rpcUrl)
           : http(rpcUrl, { timeout: 8000, retryCount: 1 }),
     });
+  const info = await tokenMeta(address, { client, blockNumber });
   const pair = await client.readContract({
     address: PANCAKE_V2_FACTORY,
     blockNumber,
@@ -219,12 +219,18 @@ async function fetchTradingMarket(address: string, rpcUrl: string): Promise<Mark
           : "Cotação USD do par BNB compatível indisponível",
       };
     });
-  } catch {
+  } catch (error) {
+    // Only known messages leave the server; provider URLs and SDK details stay private.
+    const cause = error instanceof Error && error.cause instanceof Error ? error.cause : error;
+    const missingUsd =
+      cause instanceof Error && cause.message === "Cotação USD indisponível neste bloco";
     return {
       pools: [],
       fetchedAt: new Date().toISOString(),
       source: "PancakeSwap V2 · on-chain",
-      error: "Cotação on-chain indisponível; aguardando consulta atualizada",
+      error: missingUsd
+        ? "Cotação USD indisponível no bloco consultado; execução aguardando nova leitura"
+        : "Consulta BSC sem cotação recente nos provedores configurados; execução aguardando nova leitura",
     };
   }
 }

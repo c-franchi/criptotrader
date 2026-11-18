@@ -226,6 +226,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </span>
                 </span>
               </button>
+              <div className="flex items-center gap-2 border-t border-border p-3 sm:hidden">
+                <span className="mr-auto text-sm">Preferências e tema</span>
+                <PreferencesDialog />
+                <ThemeToggle />
+              </div>
               <div className="mt-auto border-t border-border p-3">
                 {user ? (
                   <Button
@@ -251,7 +256,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Sheet>
           <Link
             to="/"
-            className="min-w-0 break-words font-mono text-sm font-semibold tracking-wider text-primary"
+            className="min-w-0 truncate font-mono text-sm font-semibold tracking-wider text-primary"
           >
             CRYPTO·BOT
           </Link>
@@ -272,8 +277,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Wallet className="size-5" />
               </Button>
             )}
-            <PreferencesDialog />
-            <ThemeToggle />
+            <div className="hidden items-center sm:flex">
+              <PreferencesDialog />
+              <ThemeToggle />
+            </div>
             <AppUpdateNotice />
             <NotificationBell />
             {!user && (

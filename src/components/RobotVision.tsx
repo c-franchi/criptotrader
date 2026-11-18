@@ -402,41 +402,6 @@ export function RobotVision(props: {
           </p>
         </section>
       )}
-      {props.streamlined && (
-        <div data-robot-summary className="grid gap-2 text-sm">
-          <p
-            className={
-              props.executionBlocked || serverStale ? "text-warning" : "text-muted-foreground"
-            }
-            role="status"
-          >
-            {props.executionBlocked
-              ? "Execução bloqueada — confira Estado e controles do robô."
-              : serverStale && armed
-                ? "Sem avaliação recente do executor."
-                : live == null
-                  ? "Cotação atual indisponível — aguardando atualização."
-                  : props.reason ||
-                    (armed ? "Aguardando condições das regras salvas." : "Robô pausado")}
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <p>
-              <span className="block text-xs text-muted-foreground">Próxima compra</span>
-              <b className="text-success">
-                {buyLine ? usd(buyLine.price) : "Sem gatilho confirmado"}
-              </b>
-            </p>
-            <p>
-              <span className="block text-xs text-muted-foreground">Próxima venda</span>
-              <b className="text-destructive">
-                {nextSell || savedSell
-                  ? usd((nextSell || savedSell)!.price)
-                  : "Sem alvo confirmado"}
-              </b>
-            </p>
-          </div>
-        </div>
-      )}
       {cfg?.chartRule && (
         <p data-robot-chart className="text-xs text-muted-foreground">
           {cfg.chartRule.priceAnchor
@@ -545,6 +510,41 @@ export function RobotVision(props: {
             };
           })}
       />
+      {props.streamlined && (
+        <div data-robot-summary className="grid gap-2 text-sm">
+          <p
+            className={
+              props.executionBlocked || serverStale ? "text-warning" : "text-muted-foreground"
+            }
+            role="status"
+          >
+            {props.executionBlocked
+              ? "Execução bloqueada — confira Estado e controles do robô."
+              : serverStale && armed
+                ? "Sem avaliação recente do executor."
+                : live == null
+                  ? "Cotação atual indisponível — aguardando atualização."
+                  : props.reason ||
+                    (armed ? "Aguardando condições das regras salvas." : "Robô pausado")}
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <p>
+              <span className="block text-xs text-muted-foreground">Próxima compra</span>
+              <b className="text-success">
+                {buyLine ? usd(buyLine.price) : "Sem gatilho confirmado"}
+              </b>
+            </p>
+            <p>
+              <span className="block text-xs text-muted-foreground">Próxima venda</span>
+              <b className="text-destructive">
+                {nextSell || savedSell
+                  ? usd((nextSell || savedSell)!.price)
+                  : "Sem alvo confirmado"}
+              </b>
+            </p>
+          </div>
+        </div>
+      )}
       <p className="text-xs text-muted-foreground">
         Cotação do par negociado: consulta a cada 2s · {market.data?.source ?? "consultando"}.
         {priceAt > 0 ? ` Preço observado às ${new Date(priceAt).toLocaleTimeString("pt-BR")}.` : ""}

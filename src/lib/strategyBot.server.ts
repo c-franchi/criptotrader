@@ -86,8 +86,7 @@ async function runStrategyStepImpl(
   const rpc = process.env["BSC_RPC_URL"] || "https://bsc-dataseed.bnbchain.org";
 
   const market = await readMarket(token, rpc, { live: true });
-  if (market.error)
-    return { patch: { last_error: "Preço desatualizado: aguardando nova consulta" }, order: null };
+  if (market.error) return { patch: { last_error: market.error }, order: null };
   const selectedPool = market.pools.find((p) => p.supported);
   const quotedNative = Number(selectedPool?.priceNative);
   const pool = selectedPool

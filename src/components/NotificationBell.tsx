@@ -1,4 +1,4 @@
-import { botSearch, groupBotNotices } from "@/lib/botNotice";
+import { botSearch, groupBotNotices, botProblem } from "@/lib/botNotice";
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -120,6 +120,11 @@ export function NotificationBell() {
                   {n.title}
                 </p>
                 <p className="text-xs text-muted-foreground break-words">{n.body}</p>
+                {n.link?.startsWith("/grade?") && botProblem(n.body) === "market" && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Registro da falha naquele horário. Abra o robô para consultar o estado atual.
+                  </p>
+                )}
                 {(n.link === "/grade" || n.link?.startsWith("/grade?")) && (
                   <Link
                     to="/grade"

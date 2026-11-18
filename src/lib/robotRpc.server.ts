@@ -201,6 +201,7 @@ export async function withRpcSnapshot<T>(
   primary: string,
   read: (client: any, block: { number: bigint; timestamp: bigint }, endpoint: string) => Promise<T>,
 ): Promise<T> {
+  let lastError: unknown;
   for (const endpoint of rpcUrls(primary)) {
     try {
       const client = createPublicClient({
@@ -214,9 +215,12 @@ export async function withRpcSnapshot<T>(
       if (!Number.isFinite(age) || age > 15000 || age < -5000) throw new Error("Bloco antigo");
       return await read(client, block, endpoint);
     } catch (e) {
+      lastError = e;
       if ((e as any)?.code === 3 || /execution reverted/i.test((e as Error)?.message ?? ""))
         throw e;
     }
   }
-  throw new Error("Não foi possível obter uma cotação consistente de um bloco BSC recente.");
+  throw new Error("Não foi possível obter uma cotação consistente de um bloco BSC recente.", {
+    cause: lastError,
+  });
 }

@@ -626,6 +626,47 @@ function Robo() {
   return (
     <div className="exchange-workspace space-y-4">
       <div className="mx-auto w-full max-w-[1700px] space-y-4">
+        <Panel title="Mercado">
+          <div ref={chartRef} className="mt-3 scroll-mt-24">
+            {chartOrders.isError && (
+              <p role="alert" className="mb-2 text-sm text-warning">
+                Não foi possível atualizar todas as marcações. Os registros já recebidos foram
+                mantidos.{" "}
+                <button
+                  className="text-primary underline"
+                  onClick={() => void chartOrders.refetch()}
+                >
+                  Tentar novamente
+                </button>
+              </p>
+            )}
+            <RobotVision
+              streamlined
+              key={selectionKey}
+              focusRequest={chartFocus}
+              tokenDecimals={selected.decimals}
+              token={token}
+              symbol={sym}
+              cfg={cfg}
+              state={st}
+              mode={mode}
+              grid={lines}
+              orders={plotOrders}
+              armed={armed}
+              reason={bot?.last_reason}
+              evaluatedAt={bot?.last_run_at}
+              executionBlocked={execution?.locked}
+              serverAnalysis={analysisError ? null : analysis}
+            />
+          </div>
+          <ChartRuleLauncher
+            token={token}
+            symbol={sym}
+            onSaved={load}
+            onStarted={showStartedChartBot}
+          />
+          <TokenActivity token={token} symbol={sym} decimals={selected.decimals} />
+        </Panel>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">Bots à vista</h1>
@@ -919,48 +960,7 @@ function Robo() {
             {INCOMPATIBLE_BNB}
           </p>
         )}
-        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_350px]">
-          <Panel title="Mercado">
-            <div ref={chartRef} className="mt-3 scroll-mt-24">
-              {chartOrders.isError && (
-                <p role="alert" className="mb-2 text-sm text-warning">
-                  Não foi possível atualizar todas as marcações. Os registros já recebidos foram
-                  mantidos.{" "}
-                  <button
-                    className="text-primary underline"
-                    onClick={() => void chartOrders.refetch()}
-                  >
-                    Tentar novamente
-                  </button>
-                </p>
-              )}
-              <RobotVision
-                streamlined
-                key={selectionKey}
-                focusRequest={chartFocus}
-                tokenDecimals={selected.decimals}
-                token={token}
-                symbol={sym}
-                cfg={cfg}
-                state={st}
-                mode={mode}
-                grid={lines}
-                orders={plotOrders}
-                armed={armed}
-                reason={bot?.last_reason}
-                evaluatedAt={bot?.last_run_at}
-                executionBlocked={execution?.locked}
-                serverAnalysis={analysisError ? null : analysis}
-              />
-            </div>
-            <ChartRuleLauncher
-              token={token}
-              symbol={sym}
-              onSaved={load}
-              onStarted={showStartedChartBot}
-            />
-            <TokenActivity token={token} symbol={sym} decimals={selected.decimals} />
-          </Panel>
+        <div className="space-y-4">
           <div className="space-y-4">
             <UxDetailDialog
               open={toolOpen === "controls"}

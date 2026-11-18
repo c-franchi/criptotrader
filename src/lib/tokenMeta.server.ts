@@ -14,17 +14,21 @@ export const metaClient = (
 ) => createPublicClient({ chain: bsc, transport: http(rpc, { timeout: 8000, retryCount: 1 }) });
 
 /** Reads name/symbol/decimals on-chain for any BEP-20 (built-in list first). Throws if it is not a token. */
-export async function tokenMeta(address: string): Promise<TokenInfo> {
+export async function tokenMeta(
+  address: string,
+  snapshot?: { client: ReturnType<typeof createPublicClient>; blockNumber?: bigint | undefined },
+): Promise<TokenInfo> {
   const known = findToken(address);
   if (known) return known;
   const addr = getAddress(address);
   const hit = cache.get(addr);
   if (hit) return hit;
-  const c = metaClient();
+  const c = snapshot?.client ?? metaClient();
+  const blockNumber = snapshot?.blockNumber;
   const [name, symbol, decimals] = await Promise.all([
-    c.readContract({ address: addr, abi: metaAbi, functionName: "name" }),
-    c.readContract({ address: addr, abi: metaAbi, functionName: "symbol" }),
-    c.readContract({ address: addr, abi: metaAbi, functionName: "decimals" }),
+    c.readContract({ address: addr, blockNumber, abi: metaAbi, functionName: "name" }),
+    c.readContract({ address: addr, blockNumber, abi: metaAbi, functionName: "symbol" }),
+    c.readContract({ address: addr, blockNumber, abi: metaAbi, functionName: "decimals" }),
   ]);
   const info: TokenInfo = {
     address: addr,
