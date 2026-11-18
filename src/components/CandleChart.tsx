@@ -1543,9 +1543,15 @@ function ChartBody({
             <p>
               Mín.: {usd(probeBar.candle[3])} · Fech.: {usd(probeBar.candle[4])}
             </p>
-            <p>Volume USD: {probeBar.candle[5] == null ? "indisponível" : usd(probeBar.candle[5])}</p>
-            <p>SMA {fastLength}: {probeSeries?.fast != null ? usd(probeSeries.fast) : "indisponível"}</p>
-            <p>SMA {slowLength}: {probeSeries?.slow != null ? usd(probeSeries.slow) : "indisponível"}</p>
+            <p>
+              Volume USD: {probeBar.candle[5] == null ? "indisponível" : usd(probeBar.candle[5])}
+            </p>
+            <p>
+              SMA {fastLength}: {probeSeries?.fast != null ? usd(probeSeries.fast) : "indisponível"}
+            </p>
+            <p>
+              SMA {slowLength}: {probeSeries?.slow != null ? usd(probeSeries.slow) : "indisponível"}
+            </p>
           </div>
         )}
         <p className="text-[11px] text-muted-foreground">
