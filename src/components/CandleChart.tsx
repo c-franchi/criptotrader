@@ -113,7 +113,9 @@ function ChartBody({
   const levels = draggedLevel
     ? savedLevels.map((l) => (l.id === draggedLevel.id ? { ...l, price: draggedLevel.price } : l))
     : savedLevels;
-  const [minutes, setMinutes] = useState(appHero ? 60 : compact ? 30 : alignStrategy ? strategyMinutes : 5);
+  const [minutes, setMinutes] = useState(
+    appHero ? 60 : compact ? 30 : alignStrategy ? strategyMinutes : 5,
+  );
   const [height, setHeight] = useState(tall ? 420 : compact ? 260 : 320);
   const [mode, setMode] = useState("candles");
   const [showSma, setShowSma] = useState(!compact);
@@ -1120,26 +1122,312 @@ function ChartBody({
         </button>
       )}
       <div className={cn("space-y-3", appHero && !detailsOpen && !minimal && "hidden")}>
-      {(!compact || controls) && (
-        <>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted-foreground">Velas</span>
-            {[5, 15, 60].map((m) => (
+        {(!compact || controls) && (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground">Velas</span>
+              {[5, 15, 60].map((m) => (
+                <Button
+                  key={m}
+                  size="sm"
+                  variant={minutes === m ? "secondary" : "ghost"}
+                  aria-pressed={minutes === m}
+                  onClick={() => setMinutes(m)}
+                >
+                  {m === 60 ? "1h" : `${m}m`}
+                </Button>
+              ))}
+              <span className="text-xs text-muted-foreground">Janela</span>
+              {windows.map((w) => (
+                <Button
+                  key={w.hours}
+                  size="sm"
+                  variant={hours === w.hours ? "secondary" : "ghost"}
+                  aria-pressed={hours === w.hours}
+                  onClick={() => {
+                    setFitEntries(false);
+                    setHours(w.hours);
+                    setFollow(true);
+                  }}
+                >
+                  {w.id}
+                </Button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               <Button
-                key={m}
                 size="sm"
-                variant={minutes === m ? "secondary" : "ghost"}
-                aria-pressed={minutes === m}
-                onClick={() => setMinutes(m)}
+                variant="outline"
+                aria-label="Ampliar zoom"
+                onClick={() => zoomAt((v.start + v.end) / 2, 0.7)}
               >
-                {m === 60 ? "1h" : `${m}m`}
+                <Plus className="h-4 w-4" />
               </Button>
-            ))}
-            <span className="text-xs text-muted-foreground">Janela</span>
+              <Button
+                size="sm"
+                variant="outline"
+                aria-label="Reduzir zoom"
+                onClick={() => zoomAt((v.start + v.end) / 2, 1 / 0.7)}
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setFollow(true);
+                  setView(frame(hours));
+                }}
+              >
+                <RotateCcw className="mr-1 h-4 w-4" />
+                Restaurar
+              </Button>
+              {follow ? (
+                <span className="text-xs text-success">Acompanhar últimas velas: ativo</span>
+              ) : (
+                <Button size="sm" variant="secondary" onClick={() => setFollow(true)}>
+                  Voltar à última vela
+                </Button>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-xs">
+              <label>
+                Visualização{" "}
+                <select
+                  aria-label="Visualização do gráfico"
+                  className="rounded border border-border bg-background p-2"
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value)}
+                >
+                  <option value="candles">Velas</option>
+                  <option value="line">Linha de fechamento</option>
+                </select>
+              </label>
+              <label>
+                Altura{" "}
+                <select
+                  aria-label="Altura do gráfico"
+                  className="rounded border border-border bg-background p-2"
+                  value={height}
+                  onChange={(e) => setHeight(Number(e.target.value))}
+                >
+                  <option value={260}>Compacto</option>
+                  <option value={320}>Padrão</option>
+                  <option value={420}>Grande</option>
+                  <option value={560}>Extra grande</option>
+                </select>
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={showSma}
+                  onChange={(e) => setShowSma(e.target.checked)}
+                />{" "}
+                Médias do robô
+              </label>
+              <Button
+                size="sm"
+                variant={technical ? "secondary" : "outline"}
+                aria-pressed={technical}
+                onClick={() => setTechnical(!technical)}
+              >
+                {technical ? "Modo avançado · indicadores" : "Indicadores técnicos · modo avançado"}
+              </Button>
+            </div>
+            {technical && (
+              <section
+                aria-label="Indicadores técnicos"
+                className="rounded-md border border-border p-3 text-xs"
+              >
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div>
+                    RSI (14)
+                    <p className="mt-1 font-mono text-base">
+                      {indicators.rsi == null ? "—" : indicators.rsi.toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    EMA (20)
+                    <p className="mt-1 font-mono text-base">
+                      {indicators.ema == null ? "—" : `US$ ${usd(indicators.ema)}`}
+                    </p>
+                  </div>
+                  <div>
+                    ATR (14)
+                    <p className="mt-1 font-mono text-base">
+                      {indicators.atr == null ? "—" : `US$ ${usd(indicators.atr)}`}
+                    </p>
+                  </div>
+                  <div>
+                    Velas válidas<p className="mt-1 font-mono text-base">{indicators.count}</p>
+                  </div>
+                </div>
+                <p className="mt-2 text-muted-foreground">
+                  Intervalo {minutes}m · apenas velas fechadas e completas desde a última lacuna.
+                  RSI/ATR exigem 15 velas; EMA exige 20. RSI: força relativa; EMA: tendência; ATR:
+                  amplitude de oscilação. Indicadores visuais não alteram o robô e não são sinais
+                  automáticos de compra ou venda.
+                </p>
+              </section>
+            )}
+            <details className="rounded-md border border-border p-3 text-xs">
+              <summary className="cursor-pointer font-medium">
+                Ferramentas de marcação e medição
+              </summary>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <label>
+                  Ferramenta{" "}
+                  <select
+                    aria-label="Ferramenta do gráfico"
+                    value={tool}
+                    onChange={(e) => {
+                      setTool(e.target.value);
+                      setMeasure([]);
+                    }}
+                    className="rounded border border-border bg-background p-2"
+                  >
+                    <option value="inspect">Inspecionar / arrastar</option>
+                    <option value="measure">Medir dois pontos</option>
+                    <option value="support">Suporte · tocar no gráfico</option>
+                    <option value="resistance">Resistência · tocar no gráfico</option>
+                    <option value="horizontal">Linha horizontal · tocar no gráfico</option>
+                  </select>
+                </label>
+                <label>
+                  Preço USD{" "}
+                  <input
+                    aria-label="Preço da marcação"
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={drawingPrice}
+                    onChange={(e) => setDrawingPrice(e.target.value)}
+                    className="w-32 rounded border border-border bg-background p-2"
+                  />
+                </label>
+                {["Linha horizontal", "Suporte", "Resistência"].map((label) => (
+                  <Button
+                    key={label}
+                    size="sm"
+                    variant="outline"
+                    disabled={!(Number(drawingPrice) > 0 && Number.isFinite(Number(drawingPrice)))}
+                    onClick={() =>
+                      setMarks((m) => [...m.slice(-9), { price: Number(drawingPrice), label }])
+                    }
+                  >
+                    {label}
+                  </Button>
+                ))}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setMarks([]);
+                    setMeasure([]);
+                  }}
+                >
+                  Limpar marcações
+                </Button>
+              </div>
+              <p className="mt-2 text-muted-foreground">
+                Marcações temporárias em USD; não enviam ordens. Na medição, toque ou clique em dois
+                pontos da área de preços. Para desenhar suporte, resistência ou linha, selecione a
+                ferramenta e toque no gráfico.
+              </p>
+              {marks.map((m, i) => (
+                <p key={i}>
+                  {m.label}: US$ {usd(m.price)}{" "}
+                  <button
+                    aria-label={`Excluir marcação ${i + 1}`}
+                    onClick={() => setMarks((a) => a.filter((_, j) => j !== i))}
+                  >
+                    ×
+                  </button>
+                </p>
+              ))}
+              {measure.length === 1 && (
+                <p role="status">Primeiro ponto selecionado. Toque no segundo ponto do gráfico.</p>
+              )}
+              {measure.length === 2 && (
+                <p role="status">
+                  Variação: {((measure[1]!.price / measure[0]!.price - 1) * 100).toFixed(2)}% ·
+                  Intervalo: {Math.abs(measure[1]!.time - measure[0]!.time) / 60000} min
+                </p>
+              )}
+            </details>
+            <p className="text-xs font-semibold">
+              Gráfico: {minutes === 60 ? "1h" : `${minutes}m`} | Estratégia:{" "}
+              {strategyMinutes === 60 ? "1h" : `${strategyMinutes}m`}
+            </p>
+            {tool !== "inspect" && (
+              <div
+                role="status"
+                className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm"
+              >
+                {tool === "measure"
+                  ? measure.length === 0
+                    ? "Medição ativa: toque ou clique no primeiro ponto do gráfico."
+                    : measure.length === 1
+                      ? "Ponto 1 marcado. Toque ou clique no segundo ponto."
+                      : `Medição concluída: ${((measure[1]!.price / measure[0]!.price - 1) * 100).toFixed(2)}% · ${Math.abs(measure[1]!.time - measure[0]!.time) / 60000 < 1 ? "menos de 1" : Math.round(Math.abs(measure[1]!.time - measure[0]!.time) / 60000)} min. Toque para iniciar outra medição.`
+                  : "Desenho ativo: toque ou clique na altura do preço desejado."}
+                <p className="mt-1 text-xs font-normal">
+                  Clique sem arrastar para marcar. Para mover, arraste com o botão esquerdo, direito
+                  ou central do mouse. No celular, deslize para mover e toque para marcar.
+                </p>
+              </div>
+            )}
+          </>
+        )}
+        {compact && levels.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span className="font-medium">
+              {allLevels ? "Todos os níveis" : "Foco no preço e nas operações"}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              aria-pressed={allLevels}
+              onClick={() => setAllLevels(!allLevels)}
+            >
+              {allLevels ? "Focar nas operações" : "Ver todos os níveis"}
+            </Button>
+          </div>
+        )}
+        {compact && (
+          <div
+            className="flex items-center gap-2 overflow-x-auto pb-1 [&>*]:shrink-0"
+            aria-label="Controles rápidos do gráfico"
+          >
+            <div
+              className="flex rounded-full bg-secondary p-1"
+              role="group"
+              aria-label="Tipo de gráfico"
+            >
+              <Button
+                size="sm"
+                variant={mode === "candles" ? "default" : "ghost"}
+                className="rounded-full"
+                aria-pressed={mode === "candles"}
+                onClick={() => setMode("candles")}
+              >
+                Velas
+              </Button>
+              <Button
+                size="sm"
+                variant={mode === "line" ? "default" : "ghost"}
+                className="rounded-full"
+                aria-pressed={mode === "line"}
+                onClick={() => setMode("line")}
+              >
+                Linha
+              </Button>
+            </div>
             {windows.map((w) => (
               <Button
                 key={w.hours}
                 size="sm"
+                className="rounded-full"
                 variant={hours === w.hours ? "secondary" : "ghost"}
                 aria-pressed={hours === w.hours}
                 onClick={() => {
@@ -1151,516 +1439,230 @@ function ChartBody({
                 {w.id}
               </Button>
             ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+            {mode === "candles" && (
+              <select
+                aria-label="Intervalo das velas"
+                value={minutes}
+                onChange={(e) => setMinutes(Number(e.target.value))}
+                className="rounded-full border border-border bg-background px-3 py-2"
+              >
+                {[5, 15, 30, 60].map((m) => (
+                  <option key={m} value={m}>
+                    {m === 60 ? "1h" : `${m}m`}
+                  </option>
+                ))}
+              </select>
+            )}
             <Button
               size="sm"
-              variant="outline"
-              aria-label="Ampliar zoom"
-              onClick={() => zoomAt((v.start + v.end) / 2, 0.7)}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              aria-label="Reduzir zoom"
-              onClick={() => zoomAt((v.start + v.end) / 2, 1 / 0.7)}
-            >
-              <Minus className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
+              variant="ghost"
+              aria-expanded={controls}
               onClick={() => {
-                setFollow(true);
-                setView(frame(hours));
+                setControls(!controls);
+                if (controls) setTool("inspect");
               }}
             >
-              <RotateCcw className="mr-1 h-4 w-4" />
-              Restaurar
-            </Button>
-            {follow ? (
-              <span className="text-xs text-success">Acompanhar últimas velas: ativo</span>
-            ) : (
-              <Button size="sm" variant="secondary" onClick={() => setFollow(true)}>
-                Voltar à última vela
-              </Button>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            <label>
-              Visualização{" "}
-              <select
-                aria-label="Visualização do gráfico"
-                className="rounded border border-border bg-background p-2"
-                value={mode}
-                onChange={(e) => setMode(e.target.value)}
-              >
-                <option value="candles">Velas</option>
-                <option value="line">Linha de fechamento</option>
-              </select>
-            </label>
-            <label>
-              Altura{" "}
-              <select
-                aria-label="Altura do gráfico"
-                className="rounded border border-border bg-background p-2"
-                value={height}
-                onChange={(e) => setHeight(Number(e.target.value))}
-              >
-                <option value={260}>Compacto</option>
-                <option value={320}>Padrão</option>
-                <option value={420}>Grande</option>
-                <option value={560}>Extra grande</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={showSma}
-                onChange={(e) => setShowSma(e.target.checked)}
-              />{" "}
-              Médias do robô
-            </label>
-            <Button
-              size="sm"
-              variant={technical ? "secondary" : "outline"}
-              aria-pressed={technical}
-              onClick={() => setTechnical(!technical)}
-            >
-              {technical ? "Modo avançado · indicadores" : "Indicadores técnicos · modo avançado"}
+              {controls ? "Ocultar ferramentas" : "Ferramentas"}
             </Button>
           </div>
-          {technical && (
-            <section
-              aria-label="Indicadores técnicos"
-              className="rounded-md border border-border p-3 text-xs"
-            >
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div>
-                  RSI (14)
-                  <p className="mt-1 font-mono text-base">
-                    {indicators.rsi == null ? "—" : indicators.rsi.toFixed(2)}
-                  </p>
-                </div>
-                <div>
-                  EMA (20)
-                  <p className="mt-1 font-mono text-base">
-                    {indicators.ema == null ? "—" : `US$ ${usd(indicators.ema)}`}
-                  </p>
-                </div>
-                <div>
-                  ATR (14)
-                  <p className="mt-1 font-mono text-base">
-                    {indicators.atr == null ? "—" : `US$ ${usd(indicators.atr)}`}
-                  </p>
-                </div>
-                <div>
-                  Velas válidas<p className="mt-1 font-mono text-base">{indicators.count}</p>
-                </div>
-              </div>
-              <p className="mt-2 text-muted-foreground">
-                Intervalo {minutes}m · apenas velas fechadas e completas desde a última lacuna.
-                RSI/ATR exigem 15 velas; EMA exige 20. RSI: força relativa; EMA: tendência; ATR:
-                amplitude de oscilação. Indicadores visuais não alteram o robô e não são sinais
-                automáticos de compra ou venda.
-              </p>
-            </section>
-          )}
-          <details className="rounded-md border border-border p-3 text-xs">
-            <summary className="cursor-pointer font-medium">
-              Ferramentas de marcação e medição
-            </summary>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+        )}
+        {technical && (
+          <div className="rounded-md border border-border p-2">
+            <div className="flex flex-wrap gap-4 text-xs">
               <label>
-                Ferramenta{" "}
-                <select
-                  aria-label="Ferramenta do gráfico"
-                  value={tool}
-                  onChange={(e) => {
-                    setTool(e.target.value);
-                    setMeasure([]);
-                  }}
-                  className="rounded border border-border bg-background p-2"
-                >
-                  <option value="inspect">Inspecionar / arrastar</option>
-                  <option value="measure">Medir dois pontos</option>
-                  <option value="support">Suporte · tocar no gráfico</option>
-                  <option value="resistance">Resistência · tocar no gráfico</option>
-                  <option value="horizontal">Linha horizontal · tocar no gráfico</option>
-                </select>
-              </label>
-              <label>
-                Preço USD{" "}
                 <input
-                  aria-label="Preço da marcação"
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={drawingPrice}
-                  onChange={(e) => setDrawingPrice(e.target.value)}
-                  className="w-32 rounded border border-border bg-background p-2"
-                />
+                  type="checkbox"
+                  checked={showEma}
+                  onChange={(e) => setShowEma(e.target.checked)}
+                />{" "}
+                EMA 20
               </label>
-              {["Linha horizontal", "Suporte", "Resistência"].map((label) => (
-                <Button
-                  key={label}
-                  size="sm"
-                  variant="outline"
-                  disabled={!(Number(drawingPrice) > 0 && Number.isFinite(Number(drawingPrice)))}
-                  onClick={() =>
-                    setMarks((m) => [...m.slice(-9), { price: Number(drawingPrice), label }])
-                  }
-                >
-                  {label}
-                </Button>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showBands}
+                  onChange={(e) => setShowBands(e.target.checked)}
+                />{" "}
+                Bollinger 20 · 2 desvios
+              </label>
+            </div>
+            <svg
+              role="img"
+              aria-label="RSI 14, níveis 30 e 70"
+              viewBox={`0 0 ${W} 120`}
+              className="w-full"
+            >
+              {[30, 70].map((n) => (
+                <g key={n} className="text-muted-foreground">
+                  <line
+                    x1={0}
+                    x2={plot}
+                    y1={100 - n * 0.8}
+                    y2={100 - n * 0.8}
+                    stroke="currentColor"
+                    strokeDasharray="4 4"
+                  />
+                  <text x={plot + 8} y={104 - n * 0.8} fill="currentColor" fontSize={12}>
+                    {n}
+                  </text>
+                </g>
               ))}
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setMarks([]);
-                  setMeasure([]);
-                }}
-              >
-                Limpar marcações
-              </Button>
-            </div>
-            <p className="mt-2 text-muted-foreground">
-              Marcações temporárias em USD; não enviam ordens. Na medição, toque ou clique em dois
-              pontos da área de preços. Para desenhar suporte, resistência ou linha, selecione a
-              ferramenta e toque no gráfico.
-            </p>
-            {marks.map((m, i) => (
-              <p key={i}>
-                {m.label}: US$ {usd(m.price)}{" "}
-                <button
-                  aria-label={`Excluir marcação ${i + 1}`}
-                  onClick={() => setMarks((a) => a.filter((_, j) => j !== i))}
-                >
-                  ×
-                </button>
-              </p>
-            ))}
-            {measure.length === 1 && (
-              <p role="status">Primeiro ponto selecionado. Toque no segundo ponto do gráfico.</p>
-            )}
-            {measure.length === 2 && (
-              <p role="status">
-                Variação: {((measure[1]!.price / measure[0]!.price - 1) * 100).toFixed(2)}% ·
-                Intervalo: {Math.abs(measure[1]!.time - measure[0]!.time) / 60000} min
-              </p>
-            )}
-          </details>
-          <p className="text-xs font-semibold">
-            Gráfico: {minutes === 60 ? "1h" : `${minutes}m`} | Estratégia:{" "}
-            {strategyMinutes === 60 ? "1h" : `${strategyMinutes}m`}
-          </p>
-          {tool !== "inspect" && (
-            <div
-              role="status"
-              className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm"
-            >
-              {tool === "measure"
-                ? measure.length === 0
-                  ? "Medição ativa: toque ou clique no primeiro ponto do gráfico."
-                  : measure.length === 1
-                    ? "Ponto 1 marcado. Toque ou clique no segundo ponto."
-                    : `Medição concluída: ${((measure[1]!.price / measure[0]!.price - 1) * 100).toFixed(2)}% · ${Math.abs(measure[1]!.time - measure[0]!.time) / 60000 < 1 ? "menos de 1" : Math.round(Math.abs(measure[1]!.time - measure[0]!.time) / 60000)} min. Toque para iniciar outra medição.`
-                : "Desenho ativo: toque ou clique na altura do preço desejado."}
-              <p className="mt-1 text-xs font-normal">
-                Clique sem arrastar para marcar. Para mover, arraste com o botão esquerdo, direito
-                ou central do mouse. No celular, deslize para mover e toque para marcar.
-              </p>
-            </div>
-          )}
-        </>
-      )}
-      {compact && levels.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-          <span className="font-medium">
-            {allLevels ? "Todos os níveis" : "Foco no preço e nas operações"}
-          </span>
-          <Button
-            size="sm"
-            variant="outline"
-            aria-pressed={allLevels}
-            onClick={() => setAllLevels(!allLevels)}
-          >
-            {allLevels ? "Focar nas operações" : "Ver todos os níveis"}
-          </Button>
-        </div>
-      )}
-      {compact && (
-        <div
-          className="flex items-center gap-2 overflow-x-auto pb-1 [&>*]:shrink-0"
-          aria-label="Controles rápidos do gráfico"
-        >
-          <div
-            className="flex rounded-full bg-secondary p-1"
-            role="group"
-            aria-label="Tipo de gráfico"
-          >
-            <Button
-              size="sm"
-              variant={mode === "candles" ? "default" : "ghost"}
-              className="rounded-full"
-              aria-pressed={mode === "candles"}
-              onClick={() => setMode("candles")}
-            >
-              Velas
-            </Button>
-            <Button
-              size="sm"
-              variant={mode === "line" ? "default" : "ghost"}
-              className="rounded-full"
-              aria-pressed={mode === "line"}
-              onClick={() => setMode("line")}
-            >
-              Linha
-            </Button>
+              <path
+                d={(() => {
+                  let prev = 0;
+                  return studies
+                    .filter((s) => s.time >= v.start && s.time <= v.end)
+                    .map((s) => {
+                      if (s.rsi == null) {
+                        prev = 0;
+                        return "";
+                      }
+                      const cmd = !prev || s.time - prev > minutes * 60000 ? "M" : "L";
+                      prev = s.time;
+                      return `${cmd}${x(s.time)},${100 - s.rsi * 0.8}`;
+                    })
+                    .join(" ");
+                })()}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                className="text-primary"
+              />
+              <text x={8} y={14} fill="currentColor" fontSize={12}>
+                RSI 14 · {minutes}m
+              </text>
+            </svg>
           </div>
-          {windows.map((w) => (
-            <Button
-              key={w.hours}
-              size="sm"
-              className="rounded-full"
-              variant={hours === w.hours ? "secondary" : "ghost"}
-              aria-pressed={hours === w.hours}
-              onClick={() => {
-                setFitEntries(false);
-                setHours(w.hours);
-                setFollow(true);
-              }}
-            >
-              {w.id}
-            </Button>
-          ))}
-          {mode === "candles" && (
-            <select
-              aria-label="Intervalo das velas"
-              value={minutes}
-              onChange={(e) => setMinutes(Number(e.target.value))}
-              className="rounded-full border border-border bg-background px-3 py-2"
-            >
-              {[5, 15, 30, 60].map((m) => (
-                <option key={m} value={m}>
-                  {m === 60 ? "1h" : `${m}m`}
-                </option>
-              ))}
-            </select>
+        )}
+        {probe && probeBar && (
+          <div className="rounded-md border border-border p-2 text-xs">
+            <p className="font-semibold">{fmtTime(probeBar.candle[0] * 1000)}</p>
+            <p>
+              A {usd(probeBar.candle[1])} · M {usd(probeBar.candle[2])} · m {usd(probeBar.candle[3])}{" "}
+              · F {usd(probeBar.candle[4])}
+            </p>
+            <p>
+              Volume USD: {probeBar.candle[5] == null ? "indisponível" : usd(probeBar.candle[5])} ·
+              SMA {fastLength}: {probeSeries?.fast != null ? usd(probeSeries.fast) : "indisponível"} ·
+              SMA {slowLength}: {probeSeries?.slow != null ? usd(probeSeries.slow) : "indisponível"}
+            </p>
+          </div>
+        )}
+        <p className="text-[11px] text-muted-foreground">
+          {showSma && (
+            <>
+              <span className="text-primary">SMA {fastLength}</span> ·{" "}
+              <span className="text-chart-4">SMA {slowLength}</span> ·{" "}
+            </>
           )}
+          {source === "dexpaprika"
+            ? "USD · DexPaprika · token agregado (não é a pool de execução)"
+            : "USD · GeckoTerminal · velas reais da pool"}{" "}
+          {bars.some((b) => b.forming) ? "Vela recente em formação" : "Última vela registrada"} ·{" "}
+          {volumeMax ? "Volume em USD" : "Volume indisponível"}
+        </p>
+        {technical && (
+          <p className="text-[11px] text-warning">
+            Médias da regra real: fechamentos agrupados em {strategyMinutes}m; a regra antiga pode
+            aceitar grupos incompletos. A candidata exige sequência completa e não comprime lacunas.
+          </p>
+        )}
+        {levels.length > 0 && (
+          <ul className="grid gap-1 text-xs sm:grid-cols-2">
+            {levels
+              .filter((l) => l.label)
+              .map((l, i) => (
+                <li key={i} className={tones[l.tone]}>
+                  {l.label}: US$ {usd(l.price)}
+                  {l.price > max
+                    ? " · ↑ acima da área visível"
+                    : l.price < min
+                      ? " · ↓ abaixo da área visível"
+                      : ""}
+                  <FiatValue usd={l.price} hideUsdDuplicate />
+                </li>
+              ))}
+          </ul>
+        )}
+        {fitted.length > 0 && !minimal && (
           <Button
             size="sm"
-            variant="ghost"
-            aria-expanded={controls}
+            variant="secondary"
             onClick={() => {
-              setControls(!controls);
-              if (controls) setTool("inspect");
+              setFitEntries(true);
+              setFollow(true);
             }}
           >
-            {controls ? "Ocultar ferramentas" : "Ferramentas"}
+            Mostrar todas as entradas da posição
           </Button>
-        </div>
-      )}
-      {technical && (
-        <div className="rounded-md border border-border p-2">
-          <div className="flex flex-wrap gap-4 text-xs">
-            <label>
-              <input
-                type="checkbox"
-                checked={showEma}
-                onChange={(e) => setShowEma(e.target.checked)}
-              />{" "}
-              EMA 20
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={showBands}
-                onChange={(e) => setShowBands(e.target.checked)}
-              />{" "}
-              Bollinger 20 · 2 desvios
-            </label>
-          </div>
-          <svg
-            role="img"
-            aria-label="RSI 14, níveis 30 e 70"
-            viewBox={`0 0 ${W} 120`}
-            className="w-full"
-          >
-            {[30, 70].map((n) => (
-              <g key={n} className="text-muted-foreground">
-                <line
-                  x1={0}
-                  x2={plot}
-                  y1={100 - n * 0.8}
-                  y2={100 - n * 0.8}
-                  stroke="currentColor"
-                  strokeDasharray="4 4"
-                />
-                <text x={plot + 8} y={104 - n * 0.8} fill="currentColor" fontSize={12}>
-                  {n}
-                </text>
-              </g>
-            ))}
-            <path
-              d={(() => {
-                let prev = 0;
-                return studies
-                  .filter((s) => s.time >= v.start && s.time <= v.end)
-                  .map((s) => {
-                    if (s.rsi == null) {
-                      prev = 0;
-                      return "";
-                    }
-                    const cmd = !prev || s.time - prev > minutes * 60000 ? "M" : "L";
-                    prev = s.time;
-                    return `${cmd}${x(s.time)},${100 - s.rsi * 0.8}`;
-                  })
-                  .join(" ");
-              })()}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.5}
-              className="text-primary"
-            />
-            <text x={8} y={14} fill="currentColor" fontSize={12}>
-              RSI 14 · {minutes}m
-            </text>
-          </svg>
-        </div>
-      )}
-      {probe && probeBar && (
-        <div className="rounded-md border border-border p-2 text-xs">
-          <p className="font-semibold">{fmtTime(probeBar.candle[0] * 1000)}</p>
-          <p>
-            A {usd(probeBar.candle[1])} · M {usd(probeBar.candle[2])} · m {usd(probeBar.candle[3])}{" "}
-            · F {usd(probeBar.candle[4])}
-          </p>
-          <p>
-            Volume USD: {probeBar.candle[5] == null ? "indisponível" : usd(probeBar.candle[5])} ·
-            SMA {fastLength}: {probeSeries?.fast != null ? usd(probeSeries.fast) : "indisponível"} ·
-            SMA {slowLength}: {probeSeries?.slow != null ? usd(probeSeries.slow) : "indisponível"}
-          </p>
-        </div>
-      )}
-      <p className="text-[11px] text-muted-foreground">
-        {showSma && (
-          <>
-            <span className="text-primary">SMA {fastLength}</span> ·{" "}
-            <span className="text-chart-4">SMA {slowLength}</span> ·{" "}
-          </>
         )}
-        {source === "dexpaprika"
-          ? "USD · DexPaprika · token agregado (não é a pool de execução)"
-          : "USD · GeckoTerminal · velas reais da pool"}{" "}
-        {bars.some((b) => b.forming) ? "Vela recente em formação" : "Última vela registrada"} ·{" "}
-        {volumeMax ? "Volume em USD" : "Volume indisponível"}
-      </p>
-      {technical && (
-        <p className="text-[11px] text-warning">
-          Médias da regra real: fechamentos agrupados em {strategyMinutes}m; a regra antiga pode
-          aceitar grupos incompletos. A candidata exige sequência completa e não comprime lacunas.
-        </p>
-      )}
-      {levels.length > 0 && (
-        <ul className="grid gap-1 text-xs sm:grid-cols-2">
-          {levels
-            .filter((l) => l.label)
-            .map((l, i) => (
-              <li key={i} className={tones[l.tone]}>
-                {l.label}: US$ {usd(l.price)}
-                {l.price > max
-                  ? " · ↑ acima da área visível"
-                  : l.price < min
-                    ? " · ↓ abaixo da área visível"
-                    : ""}
-                <FiatValue usd={l.price} hideUsdDuplicate />
-              </li>
-            ))}
-        </ul>
-      )}
-      {fitted.length > 0 && !minimal && (
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => {
-            setFitEntries(true);
-            setFollow(true);
-          }}
-        >
-          Mostrar todas as entradas da posição
-        </Button>
-      )}
-      {numberedTrades.length > 0 && (
-        <div className="space-y-2" aria-label="Todas as operações registradas">
-          <p className="text-xs text-muted-foreground">
-            {visibleTrades.length} de {numberedTrades.length} operações neste período. Toque para
-            localizar; “?” indica ausência de cotação histórica.
-          </p>
-          <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto">
-            {numberedTrades.map((t) => (
-              <Button
-                key={t.id}
-                aria-pressed={selected?.id === t.id}
-                size="sm"
-                variant="outline"
-                onClick={() => focusTrade(t)}
-                className={cn(t.side === "compra" ? "text-success" : "text-destructive")}
-              >
-                {t.label} ·{" "}
-                {new Date(t.time).toLocaleString("pt-BR", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-                {t.time < v.start || t.time > v.end ? " · fora do período" : ""}
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
-      {selected && (
-        <div
-          role="status"
-          aria-label="Detalhes da operação selecionada"
-          className="border-t border-border pt-3 text-sm"
-        >
-          <p className="font-semibold">
-            {numberedTrades.find((t) => t.id === selected.id)?.label} · {selected.side} ·{" "}
-            {new Date(selected.time).toLocaleString("pt-BR")}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {selected.price != null
-              ? `Preço registrado: US$ ${usd(selected.price)}`
-              : bars.some(
-                    (b) =>
-                      b.candle[0] * 1000 <= selected.time &&
-                      (b.candle[0] + minutes * 60) * 1000 > selected.time,
-                  )
-                ? "Ponto de referência da vela; não é o preço efetivo da execução."
-                : "Sem vela histórica para este horário. A marca indica a data da operação, sem estimar o preço."}
-          </p>
-          {selected.details.map((d, i) => (
-            <p key={i} className="mt-1 break-words">
-              {d}
+        {numberedTrades.length > 0 && (
+          <div className="space-y-2" aria-label="Todas as operações registradas">
+            <p className="text-xs text-muted-foreground">
+              {visibleTrades.length} de {numberedTrades.length} operações neste período. Toque para
+              localizar; “?” indica ausência de cotação histórica.
             </p>
-          ))}
-          {selected.hash && (
-            <a
-              href={`https://bscscan.com/tx/${selected.hash}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-1 block break-all text-primary underline"
-            >
-              {selected.hash}
-            </a>
-          )}
-        </div>
-      )}
+            <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto">
+              {numberedTrades.map((t) => (
+                <Button
+                  key={t.id}
+                  aria-pressed={selected?.id === t.id}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => focusTrade(t)}
+                  className={cn(t.side === "compra" ? "text-success" : "text-destructive")}
+                >
+                  {t.label} ·{" "}
+                  {new Date(t.time).toLocaleString("pt-BR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  {t.time < v.start || t.time > v.end ? " · fora do período" : ""}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+        {selected && (
+          <div
+            role="status"
+            aria-label="Detalhes da operação selecionada"
+            className="border-t border-border pt-3 text-sm"
+          >
+            <p className="font-semibold">
+              {numberedTrades.find((t) => t.id === selected.id)?.label} · {selected.side} ·{" "}
+              {new Date(selected.time).toLocaleString("pt-BR")}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {selected.price != null
+                ? `Preço registrado: US$ ${usd(selected.price)}`
+                : bars.some(
+                      (b) =>
+                        b.candle[0] * 1000 <= selected.time &&
+                        (b.candle[0] + minutes * 60) * 1000 > selected.time,
+                    )
+                  ? "Ponto de referência da vela; não é o preço efetivo da execução."
+                  : "Sem vela histórica para este horário. A marca indica a data da operação, sem estimar o preço."}
+            </p>
+            {selected.details.map((d, i) => (
+              <p key={i} className="mt-1 break-words">
+                {d}
+              </p>
+            ))}
+            {selected.hash && (
+              <a
+                href={`https://bscscan.com/tx/${selected.hash}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 block break-all text-primary underline"
+              >
+                {selected.hash}
+              </a>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
