@@ -1538,14 +1538,14 @@ function ChartBody({
           <div className="rounded-md border border-border p-2 text-xs">
             <p className="font-semibold">{fmtTime(probeBar.candle[0] * 1000)}</p>
             <p>
-              A {usd(probeBar.candle[1])} · M {usd(probeBar.candle[2])} · m {usd(probeBar.candle[3])}{" "}
-              · F {usd(probeBar.candle[4])}
+              Abertura: {usd(probeBar.candle[1])} · Máx.: {usd(probeBar.candle[2])}
             </p>
             <p>
-              Volume USD: {probeBar.candle[5] == null ? "indisponível" : usd(probeBar.candle[5])} ·
-              SMA {fastLength}: {probeSeries?.fast != null ? usd(probeSeries.fast) : "indisponível"} ·
-              SMA {slowLength}: {probeSeries?.slow != null ? usd(probeSeries.slow) : "indisponível"}
+              Mín.: {usd(probeBar.candle[3])} · Fech.: {usd(probeBar.candle[4])}
             </p>
+            <p>Volume USD: {probeBar.candle[5] == null ? "indisponível" : usd(probeBar.candle[5])}</p>
+            <p>SMA {fastLength}: {probeSeries?.fast != null ? usd(probeSeries.fast) : "indisponível"}</p>
+            <p>SMA {slowLength}: {probeSeries?.slow != null ? usd(probeSeries.slow) : "indisponível"}</p>
           </div>
         )}
         <p className="text-[11px] text-muted-foreground">
