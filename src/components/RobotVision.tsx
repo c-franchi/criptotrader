@@ -351,11 +351,14 @@ export function RobotVision(props: {
           )}
         </div>
         <span
+          data-market-live={props.appHero && live != null ? "" : undefined}
           className={cn(
             "flex items-center gap-1.5 text-xs font-medium",
-            armed && !props.executionBlocked && !serverStale
-              ? "text-success"
-              : "text-muted-foreground",
+            props.appHero
+              ? live != null ? "text-success" : "text-warning"
+              : armed && !props.executionBlocked && !serverStale
+                ? "text-success"
+                : "text-muted-foreground",
           )}
         >
           <span
