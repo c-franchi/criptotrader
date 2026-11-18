@@ -1,4 +1,5 @@
 import { chartUsdPrices } from "@/lib/chartPriceAnchor";
+import { Bot as BotIcon } from "lucide-react";
 import { manualAutoEntry } from "@/lib/manualAuto";
 import { planProgress } from "@/lib/chartPlan";
 import { userMessage } from "@/lib/userMessage";
@@ -127,6 +128,8 @@ export function RobotVision(props: {
   executionBlocked?: boolean | undefined;
   chartOnly?: boolean;
   streamlined?: boolean;
+  appHero?: boolean;
+  walletLabel?: string;
   focusRequest?: { id: string; request: number } | null;
   tokenDecimals?: number;
   serverAnalysis?: { reason: string; error: string | null; at: string } | null | undefined;
@@ -326,17 +329,20 @@ export function RobotVision(props: {
 
   return (
     <div
+      data-robot-chart-only={props.chartOnly ? "" : undefined}
+      data-robot-app-vision={props.appHero ? "" : undefined}
       className={cn(
         "space-y-3",
-        props.chartOnly && "[&>*:not([data-robot-chart])]:hidden",
+        props.appHero && "robot-app-vision",
         props.streamlined &&
           !showAnalysis &&
-          "[&>*:not([data-robot-chart]):not([data-robot-analysis-toggle]):not([data-robot-summary]):not([role=alert]):not(:first-child)]:hidden",
+          "[&>*:not([data-robot-stage]):not([data-robot-analysis-toggle]):not([data-robot-summary]):not([role=alert])]:hidden",
       )}
     >
-      <div className="flex items-center justify-between gap-2">
+      <section data-robot-stage className={cn("space-y-3", props.appHero && "robot-market-card")}>
+      <div className={cn("flex items-center justify-between gap-2", props.appHero && "robot-market-heading")}>
         <div>
-          <p className="text-sm font-semibold">{symbol} · últimas 24h</p>
+          <p className="text-sm font-semibold">{props.appHero ? `${symbol} / BNB` : `${symbol} · últimas 24h`}</p>
           {live != null && (
             <>
               <p className="text-2xl font-bold">{usd(live)}</p>
@@ -358,8 +364,12 @@ export function RobotVision(props: {
               armed && !props.executionBlocked && !serverStale && "motion-safe:animate-pulse",
             )}
           />
-          {!armed
-            ? "Robô desligado"
+          {props.appHero
+            ? live != null
+              ? "Ao vivo"
+              : "Cotação indisponível"
+            : !armed
+              ? "Robô desligado"
             : props.executionBlocked
               ? "Executor bloqueado"
               : serverStale
@@ -412,6 +422,7 @@ export function RobotVision(props: {
       <CandleChart
         key={`${token}:${chartPool}:${cfg?.candleInterval}`}
         compact
+        appHero={props.appHero}
         focusRequest={props.focusRequest ?? null}
         fitTradeIds={
           state.tokens > 0
@@ -510,8 +521,21 @@ export function RobotVision(props: {
             };
           })}
       />
+      </section>
       {props.streamlined && (
-        <div data-robot-summary className="grid gap-2 text-sm">
+        <div data-robot-summary className={cn("grid gap-2 text-sm", props.appHero && "robot-status-card")}>
+          {props.appHero && (
+            <div className="robot-status-heading">
+              <span className="robot-status-icon" aria-hidden="true"><BotIcon className="size-6" /></span>
+              <div className="min-w-0">
+                <h3 className="truncate font-bold">{symbol} / BNB · {props.walletLabel ?? "Carteira"}</h3>
+                <span className={cn("robot-status-pill", armed && !props.executionBlocked ? "is-on" : "is-off")}>
+                  <span className="robot-dot" aria-hidden="true" />
+                  {props.executionBlocked ? "Bloqueado" : armed ? "Ligado" : "Pausado"}
+                </span>
+              </div>
+            </div>
+          )}
           <p
             className={
               props.executionBlocked || serverStale ? "text-warning" : "text-muted-foreground"
@@ -545,6 +569,7 @@ export function RobotVision(props: {
           </div>
         </div>
       )}
+      <div data-robot-analysis-extra className="space-y-3">
       <p className="text-xs text-muted-foreground">
         Cotação do par negociado: consulta a cada 2s · {market.data?.source ?? "consultando"}.
         {priceAt > 0 ? ` Preço observado às ${new Date(priceAt).toLocaleTimeString("pt-BR")}.` : ""}
@@ -894,6 +919,7 @@ export function RobotVision(props: {
             </div>
           );
         })()}
+      </div>
       {props.streamlined && (
         <button
           data-robot-analysis-toggle
