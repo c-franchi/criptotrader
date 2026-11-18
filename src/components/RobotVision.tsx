@@ -340,9 +340,16 @@ export function RobotVision(props: {
       )}
     >
       <section data-robot-stage className={cn("space-y-3", props.appHero && "robot-market-card")}>
-        <div className={cn("flex items-center justify-between gap-2", props.appHero && "robot-market-heading")}>
+        <div
+          className={cn(
+            "flex items-center justify-between gap-2",
+            props.appHero && "robot-market-heading",
+          )}
+        >
           <div>
-            <p className="text-sm font-semibold">{props.appHero ? `${symbol} / BNB` : `${symbol} · últimas 24h`}</p>
+            <p className="text-sm font-semibold">
+              {props.appHero ? `${symbol} / BNB` : `${symbol} · últimas 24h`}
+            </p>
             {live != null && (
               <>
                 <p className="text-2xl font-bold">{usd(live)}</p>
@@ -355,7 +362,9 @@ export function RobotVision(props: {
             className={cn(
               "flex items-center gap-1.5 text-xs font-medium",
               props.appHero
-                ? live != null ? "text-success" : "text-warning"
+                ? live != null
+                  ? "text-success"
+                  : "text-warning"
                 : armed && !props.executionBlocked && !serverStale
                   ? "text-success"
                   : "text-muted-foreground",
@@ -373,11 +382,11 @@ export function RobotVision(props: {
                 : "Cotação indisponível"
               : !armed
                 ? "Robô desligado"
-              : props.executionBlocked
-                ? "Executor bloqueado"
-                : serverStale
-                  ? "Sem avaliação recente do executor"
-                  : "Executor com avaliação recente"}
+                : props.executionBlocked
+                  ? "Executor bloqueado"
+                  : serverStale
+                    ? "Sem avaliação recente do executor"
+                    : "Executor com avaliação recente"}
           </span>
         </div>
         {incompatibleBotToken(token) && (
@@ -480,7 +489,9 @@ export function RobotVision(props: {
           }
           liveQuote={live != null ? { price: live, at: priceAt } : undefined}
           trades={orders
-            .filter((o) => o.status === "confirmada" && o.token.toLowerCase() === token.toLowerCase())
+            .filter(
+              (o) => o.status === "confirmada" && o.token.toLowerCase() === token.toLowerCase(),
+            )
             .map((o) => {
               const evidence = audited.find(
                 (r) => r.hash === o.tx_hash && r.token.toLowerCase() === token.toLowerCase(),
@@ -526,13 +537,25 @@ export function RobotVision(props: {
         />
       </section>
       {props.streamlined && (
-        <div data-robot-summary className={cn("grid gap-2 text-sm", props.appHero && "robot-status-card")}>
+        <div
+          data-robot-summary
+          className={cn("grid gap-2 text-sm", props.appHero && "robot-status-card")}
+        >
           {props.appHero && (
             <div className="robot-status-heading">
-              <span className="robot-status-icon" aria-hidden="true"><BotIcon className="size-6" /></span>
+              <span className="robot-status-icon" aria-hidden="true">
+                <BotIcon className="size-6" />
+              </span>
               <div className="min-w-0">
-                <h3 className="truncate font-bold">{symbol} / BNB · {props.walletLabel ?? "Carteira"}</h3>
-                <span className={cn("robot-status-pill", armed && !props.executionBlocked ? "is-on" : "is-off")}>
+                <h3 className="truncate font-bold">
+                  {symbol} / BNB · {props.walletLabel ?? "Carteira"}
+                </h3>
+                <span
+                  className={cn(
+                    "robot-status-pill",
+                    armed && !props.executionBlocked ? "is-on" : "is-off",
+                  )}
+                >
                   <span className="robot-dot" aria-hidden="true" />
                   {props.executionBlocked ? "Bloqueado" : armed ? "Ligado" : "Pausado"}
                 </span>
@@ -575,7 +598,9 @@ export function RobotVision(props: {
       <div data-robot-analysis-extra className="space-y-3">
         <p className="text-xs text-muted-foreground">
           Cotação do par negociado: consulta a cada 2s · {market.data?.source ?? "consultando"}.
-          {priceAt > 0 ? ` Preço observado às ${new Date(priceAt).toLocaleTimeString("pt-BR")}.` : ""}
+          {priceAt > 0
+            ? ` Preço observado às ${new Date(priceAt).toLocaleTimeString("pt-BR")}.`
+            : ""}
           {cfg?.manualAuto
             ? " Manual automático: usa somente os pontos escolhidos, sem sinal das médias."
             : ""}
@@ -601,9 +626,9 @@ export function RobotVision(props: {
         {cfg && state.tokens > 0 && (
           <p className="text-xs text-warning">
             Referência de preço do motor: referência de mercado ponderada, não custo efetivo por
-            token. Custo gerenciado: {state.costBnb.toFixed(8)} BNB / {state.tokens.toFixed(6)} tokens
-            = {(state.costBnb / state.tokens).toPrecision(6)} BNB/token; inclui os custos registrados,
-            quando apurados. Equilíbrio estimado após venda:{" "}
+            token. Custo gerenciado: {state.costBnb.toFixed(8)} BNB / {state.tokens.toFixed(6)}{" "}
+            tokens = {(state.costBnb / state.tokens).toPrecision(6)} BNB/token; inclui os custos
+            registrados, quando apurados. Equilíbrio estimado após venda:{" "}
             {(
               state.costBnb /
               state.tokens /
@@ -636,7 +661,10 @@ export function RobotVision(props: {
               · {cfg.candleInterval}. Última avaliação do servidor:{" "}
               {evaluatedAt ? new Date(evaluatedAt).toLocaleString("pt-BR") : "indisponível"} ·{" "}
               {reason ?? "sem motivo registrado"}. Cooldown restante:{" "}
-              {Math.max(0, Math.ceil((state.lastTradeAt + cfg.cooldownMin * 60_000 - now) / 60_000))}{" "}
+              {Math.max(
+                0,
+                Math.ceil((state.lastTradeAt + cfg.cooldownMin * 60_000 - now) / 60_000),
+              )}{" "}
               min.
             </p>
             <p className="text-warning">
@@ -688,8 +716,8 @@ export function RobotVision(props: {
                 <p className="text-warning">
                   Resultado líquido estimado:{" "}
                   {netPositionPct(live, state.avgPriceUsd, cfg).toFixed(1)}% · limite de perda:{" "}
-                  {cfg.stopLossPct}%. Inclui taxas do token; não inclui gás nem variação da execução.
-                  O stop vende a posição, mas o robô continua ligado e os saques continuam
+                  {cfg.stopLossPct}%. Inclui taxas do token; não inclui gás nem variação da
+                  execução. O stop vende a posição, mas o robô continua ligado e os saques continuam
                   disponíveis.
                 </p>
               )}
