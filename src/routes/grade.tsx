@@ -633,16 +633,24 @@ function Robo() {
     <div className="exchange-workspace robot-native-screen space-y-4">
       <div className="mx-auto w-full max-w-[1700px] space-y-4">
         <div className="robot-page-heading">
-          <span className="robot-page-icon" aria-hidden="true"><Bot className="size-7" /></span>
+          <span className="robot-page-icon" aria-hidden="true">
+            <Bot className="size-7" />
+          </span>
           <div className="min-w-0">
             <h1>Bots à vista</h1>
-            <p>{sym} / BNB · {walletName}</p>
+            <p>
+              {sym} / BNB · {walletName}
+            </p>
           </div>
         </div>
         <div ref={chartRef} className="scroll-mt-24">
           {chartOrders.isError && (
-            <p role="alert" className="mb-2 rounded-xl border border-warning/30 p-3 text-sm text-warning">
-              Não foi possível atualizar todas as marcações. Os registros já recebidos foram mantidos.{" "}
+            <p
+              role="alert"
+              className="mb-2 rounded-xl border border-warning/30 p-3 text-sm text-warning"
+            >
+              Não foi possível atualizar todas as marcações. Os registros já recebidos foram
+              mantidos.{" "}
               <button className="underline" onClick={() => void chartOrders.refetch()}>
                 Tentar novamente
               </button>
