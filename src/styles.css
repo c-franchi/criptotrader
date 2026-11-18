@@ -1158,10 +1158,10 @@
   color: #a9c3e9;
   text-align: center;
 }
-.robot-native-screen [data-robot-chart-only] > :not([data-robot-stage]) {
+[data-robot-chart-only] > :not([data-robot-stage]) {
   display: none;
 }
-.robot-native-screen [data-robot-chart-only] [data-robot-stage] > :not([data-robot-chart]) {
+[data-robot-chart-only] [data-robot-stage] > :not([data-robot-chart]) {
   display: none;
 }
 @media (max-width: 639px) {
@@ -1191,3 +1191,6 @@
 @media (prefers-reduced-motion: reduce) {
   .robot-native-screen .robot-dot { box-shadow: none; }
 }
+
+.robot-native-screen .robot-market-heading > span:not([data-market-live]) { color: var(--warning); border-color: #b38a3870; background: #6b4b1736; }
+.robot-native-screen .robot-market-card [aria-label="Alvo de venda salvo"] { display: none; }
