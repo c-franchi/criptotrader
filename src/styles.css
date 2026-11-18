@@ -755,415 +755,235 @@
   [data-ux-app-dialog] { animation: none; }
 }
 
-/* === Robô / app nativo — proposta visual aprovada em 18/11/2026 ===
- * A paleta fica limitada a /grade e não altera os componentes de negociação
- * nem o tema escolhido nas demais páginas. Os números e as velas são reais.
+
+/* === Layout mobile compartilhado: mantém as cores originais de ambos os temas ===
+ * Apenas estrutura e superfícies sem sobrescrever tokens do design system.
  */
-.exchange-shell[data-robot-app-shell] {
-  --background: oklch(0.13 0.032 260);
-  --foreground: oklch(0.98 0.005 260);
-  --card: oklch(0.18 0.035 260);
-  --card-foreground: oklch(0.98 0.005 260);
-  --primary: oklch(0.67 0.22 258);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.23 0.038 262);
-  --secondary-foreground: oklch(0.97 0.007 260);
-  --muted: oklch(0.20 0.03 260);
-  --muted-foreground: oklch(0.73 0.025 255);
-  --accent: oklch(0.26 0.08 255);
-  --border: oklch(0.35 0.07 258);
-  --input: oklch(0.26 0.04 259);
-  --ring: oklch(0.7 0.18 256);
-  --success: oklch(0.78 0.18 165);
-  --destructive: oklch(0.7 0.20 15);
-  --warning: oklch(0.83 0.15 80);
-  color: var(--foreground);
-  background: radial-gradient(ellipse 80% 25rem at 90% -5rem, oklch(0.33 0.12 255 / .24), transparent),
-    linear-gradient(160deg, #050a18 0%, #07132d 54%, #050b1b 100%);
+.exchange-shell nav[aria-label="Atalhos no celular"] {
+  left: .25rem; right: .25rem; gap: .25rem;
+  border: 1px solid var(--border); border-bottom: 0;
+  border-radius: 1.4rem 1.4rem 0 0;
+  padding: .35rem .4rem max(.35rem, env(safe-area-inset-bottom));
+  background: var(--background);
+  box-shadow: 0 -5px 20px color-mix(in oklch, var(--foreground) 8%, transparent);
 }
-.exchange-shell[data-robot-app-shell] > header {
-  border-color: oklch(0.36 0.065 261 / .5);
-  background: oklch(0.125 0.035 265 / .94);
+.exchange-shell nav[aria-label="Atalhos no celular"] a {
+  min-height: 4.1rem; gap: .3rem; border-radius: 1rem;
+  color: var(--muted-foreground); font-size: .72rem;
 }
-.exchange-shell[data-robot-app-shell] > header a[href="/"] {
-  color: oklch(0.74 0.17 253);
-  font-weight: 800;
-  letter-spacing: .09em;
-  text-shadow: 0 0 22px oklch(0.62 0.19 255 / .4);
+.exchange-shell nav[aria-label="Atalhos no celular"] a svg {
+  width: 1.3rem; height: 1.3rem;
 }
-.exchange-shell[data-robot-app-shell] nav[aria-label="Atalhos no celular"] {
-  left: .2rem;
-  right: .2rem;
-  bottom: 0;
-  gap: .2rem;
-  border: 1px solid oklch(0.4 0.08 260 / .6);
-  border-bottom: 0;
-  border-radius: 1.6rem 1.6rem 0 0;
-  padding: .35rem .45rem max(.4rem, env(safe-area-inset-bottom));
-  background: linear-gradient(170deg, #07132f, #050d21);
-  box-shadow: 0 -10px 36px #020819bb;
+.exchange-shell nav[aria-label="Atalhos no celular"] a[aria-current="page"] {
+  background: var(--primary); color: var(--primary-foreground);
+  font-weight: 700;
+  box-shadow: 0 4px 12px color-mix(in oklch, var(--primary) 22%, transparent);
 }
-.exchange-shell[data-robot-app-shell] nav[aria-label="Atalhos no celular"] a {
-  min-height: 4.25rem;
-  border: 1px solid transparent;
-  border-radius: 1.05rem;
-  color: oklch(0.73 0.025 255);
-  font-size: .72rem;
-  gap: .35rem;
-}
-.exchange-shell[data-robot-app-shell] nav[aria-label="Atalhos no celular"] a svg {
-  width: 1.35rem; height: 1.35rem;
-}
-.exchange-shell[data-robot-app-shell] nav[aria-label="Atalhos no celular"] a[aria-current="page"] {
-  border-color: oklch(0.64 0.2 255 / .8);
-  background: linear-gradient(150deg, #0861e9, #0a2865);
-  color: white;
-  box-shadow: inset 0 1px 5px #76bdff66, 0 0 24px #0659df44;
-}
-.exchange-shell[data-robot-app-shell] [data-app-content] {
-  max-width: 76rem;
-  padding-top: .85rem;
-}
-.exchange-shell[data-robot-app-shell] .robot-native-screen {
-  color: var(--foreground);
-  background: transparent;
-}
+.robot-native-screen { background: transparent; color: var(--foreground); }
 .robot-native-screen .robot-page-heading {
-  display: flex;
-  align-items: center;
-  gap: .85rem;
-  padding: .4rem .2rem .2rem;
+  display: flex; align-items: center; gap: .85rem; padding: .4rem .2rem .2rem;
 }
 .robot-native-screen .robot-page-heading::before {
-  content: "";
-  align-self: stretch;
-  width: .25rem;
-  min-height: 3.8rem;
-  border-radius: 999px;
-  background: #1679fb;
-  box-shadow: 0 0 13px #1689ff99;
+  content: ""; align-self: stretch; width: .25rem; min-height: 3.5rem;
+  border-radius: 999px; background: var(--primary);
 }
 .robot-native-screen .robot-page-icon,
 .robot-native-screen .robot-status-icon {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 3.7rem;
-  height: 3.7rem;
-  border-radius: 1rem;
-  color: #35a1ff;
-  background: linear-gradient(140deg, #102a60, #101b36);
+  display: grid; flex: 0 0 auto; place-items: center;
+  width: 3.5rem; height: 3.5rem; border-radius: 1rem;
+  color: var(--primary);
+  background: color-mix(in oklch, var(--primary) 12%, var(--secondary));
 }
 .robot-native-screen .robot-page-heading h1 {
-  font-weight: 800;
-  font-size: clamp(1.35rem, 5.4vw, 2rem);
-  letter-spacing: -.035em;
-  line-height: 1.15;
+  color: var(--foreground); font-size: clamp(1.35rem, 5.4vw, 2rem);
+  font-weight: 800; letter-spacing: -.035em; line-height: 1.15;
 }
 .robot-native-screen .robot-page-heading p {
-  margin-top: .25rem;
-  color: var(--muted-foreground);
-  font-size: .86rem;
-  overflow-wrap: anywhere;
+  margin-top: .25rem; color: var(--muted-foreground);
+  font-size: .86rem; overflow-wrap: anywhere;
 }
-.robot-native-screen .robot-app-vision {
-  display: grid;
-  gap: 1rem;
-}
+.robot-native-screen .robot-app-vision { display: grid; gap: 1rem; }
 .robot-native-screen .robot-market-card,
 .robot-native-screen .robot-status-card,
 .robot-native-screen .robot-details-card {
-  position: relative;
-  min-width: 0;
-  border: 1px solid oklch(0.57 0.16 256 / .75);
-  border-radius: 1.45rem;
+  position: relative; min-width: 0;
+  border: 1px solid var(--border); border-radius: 1.35rem;
   padding: clamp(.9rem, 2.9vw, 1.35rem);
-  background: linear-gradient(145deg, #0c1a3b 0%, #081329 58%, #0a193d 100%);
-  box-shadow: inset 0 1px 0 #ffffff13, 0 15px 34px #0006207a;
+  background: linear-gradient(145deg, var(--card) 72%, var(--secondary));
+  color: var(--card-foreground);
+  box-shadow: 0 8px 20px color-mix(in oklch, var(--foreground) 7%, transparent);
 }
 .robot-native-screen .robot-market-card {
-  border-color: oklch(0.62 0.19 257 / .85);
-  box-shadow: inset 0 1px 0 #ffffff12, 0 0 18px #004ce423, 0 16px 32px #00051dbb;
+  border-color: color-mix(in oklch, var(--border) 70%, var(--primary));
 }
-.robot-native-screen .robot-market-heading {
-  align-items: flex-start;
-  margin-bottom: .4rem;
-}
+.robot-native-screen .robot-market-heading { align-items: flex-start; margin-bottom: .4rem; }
 .robot-native-screen .robot-market-heading p:first-child {
-  font-size: 1.12rem;
-  font-weight: 800;
-  line-height: 1.25;
-  letter-spacing: -.02em;
+  color: var(--foreground); font-size: 1.12rem; font-weight: 800;
+  line-height: 1.25; letter-spacing: -.02em;
 }
 .robot-native-screen .robot-market-heading .text-2xl {
-  margin-top: .2rem;
-  font-size: 1.1rem;
+  margin-top: .2rem; font-size: 1.1rem;
 }
 .robot-native-screen .robot-market-heading > span {
-  flex-shrink: 0;
-  max-width: 42%;
-  border: 1px solid #15b99277;
-  border-radius: 999px;
+  flex-shrink: 0; max-width: 45%; border-radius: 999px;
+  border: 1px solid color-mix(in oklch, var(--success) 50%, var(--border));
   padding: .3rem .55rem;
-  background: #034d4255;
-  text-align: center;
-  font-size: .72rem;
-  color: #35ecc1;
+  background: color-mix(in oklch, var(--success) 9%, var(--card));
+  color: color-mix(in oklch, var(--success) 75%, var(--foreground));
+  text-align: center; font-size: .72rem;
 }
-.robot-native-screen .robot-market-heading > span:has(+ *) {
-  max-width: 100%;
+.robot-native-screen .robot-market-heading > span:not([data-market-live]) {
+  border-color: color-mix(in oklch, var(--warning) 55%, var(--border));
+  background: color-mix(in oklch, var(--warning) 9%, var(--card));
+  color: var(--warning);
 }
 .robot-native-screen .robot-market-card [data-robot-chart]:not([role="dialog"]) > div:first-child {
   display: none;
 }
 .robot-native-screen .robot-chart-quickbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: .6rem;
-  padding: .5rem 0 .75rem;
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: .6rem; padding: .5rem 0 .75rem;
 }
 .robot-native-screen .robot-chart-periods { display: flex; gap: .4rem; }
 .robot-native-screen .robot-chart-period,
 .robot-native-screen .robot-chart-interval,
 .robot-native-screen .robot-chart-focus {
-  display: inline-flex;
-  min-height: 2.35rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #5b719b77;
-  border-radius: 999px;
-  background: linear-gradient(140deg, #182a50, #0d1830);
-  padding: .35rem .75rem;
-  color: #dce8ff;
-  font-size: .82rem;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
+  display: inline-flex; min-height: 2.4rem; align-items: center;
+  justify-content: center; border: 1px solid var(--border);
+  border-radius: 999px; background: var(--secondary);
+  padding: .35rem .75rem; color: var(--secondary-foreground);
+  font-size: .82rem; font-weight: 600; white-space: nowrap; cursor: pointer;
 }
 .robot-native-screen .robot-chart-period[aria-pressed="true"] {
-  border-color: #2b99ff;
-  background: linear-gradient(150deg, #0878fa, #0e3cb0);
-  box-shadow: 0 0 13px #107bf94d;
-  color: white;
+  border-color: var(--primary); background: var(--primary);
+  color: var(--primary-foreground);
 }
 .robot-native-screen .robot-chart-focus {
   margin-left: auto;
-  border-color: #278bff;
-  color: white;
-  background: linear-gradient(145deg, #163d81, #102651);
+  border-color: color-mix(in oklch, var(--primary) 65%, var(--border));
+  background: var(--card); color: var(--primary);
 }
 .robot-native-screen .robot-chart-interval {
-  flex-shrink: 0;
-  min-width: 4.5rem;
-  appearance: auto;
-  border-radius: .85rem;
+  flex-shrink: 0; min-width: 4.5rem;
+  appearance: auto; border-radius: .85rem;
 }
 .robot-native-screen .robot-market-card [data-robot-chart] svg[role="img"] {
-  display: block;
-  width: 100%;
-  min-height: 10rem;
-  border-radius: .6rem;
-  background: linear-gradient(180deg, #06132d, #071831);
+  display: block; width: 100%; min-height: 10rem;
+  border-radius: .6rem; background: var(--card);
 }
 .robot-native-screen .robot-chart-more-toggle {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: center;
-  gap: .75rem;
-  padding: .5rem;
-  font-size: .77rem;
-  color: #9cb8e4;
+  display: flex; width: 100%; align-items: center;
+  justify-content: center; gap: .75rem; padding: .5rem;
+  font-size: .77rem; color: var(--muted-foreground);
 }
-.robot-native-screen .robot-status-card {
-  border-color: oklch(0.52 0.11 256 / .7);
-  background:
-    radial-gradient(ellipse 60% 70% at 110% 0%, #0968e64b, transparent 74%),
-    linear-gradient(135deg, #172347 0%, #0b1633 100%);
-  gap: .85rem;
-}
+.robot-native-screen .robot-status-card { gap: .85rem; }
 .robot-native-screen .robot-status-heading {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  order: 0;
+  display: flex; align-items: center; gap: .75rem; order: 0;
 }
 .robot-native-screen .robot-status-heading h3 {
-  font-size: clamp(.96rem, 3.7vw, 1.25rem);
+  color: var(--foreground); font-size: clamp(.96rem, 3.7vw, 1.25rem);
 }
-.robot-native-screen .robot-status-icon {
-  width: 3.2rem; height: 3.2rem;
-}
+.robot-native-screen .robot-status-icon { width: 3.2rem; height: 3.2rem; }
 .robot-native-screen .robot-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: .4rem;
-  margin-top: .25rem;
-  border: 1px solid #4b6c9669;
-  border-radius: 999px;
-  padding: .1rem .5rem;
-  font-size: .8rem;
-  color: #d9e6ff;
+  display: inline-flex; align-items: center; gap: .4rem;
+  margin-top: .25rem; border: 1px solid var(--border);
+  border-radius: 999px; padding: .15rem .5rem;
+  font-size: .8rem; color: var(--foreground);
 }
 .robot-native-screen .robot-status-pill.is-on {
-  border-color: #15b99277;
-  background: #034d423d;
-  color: #34edbc;
+  border-color: color-mix(in oklch, var(--success) 55%, var(--border));
+  background: color-mix(in oklch, var(--success) 9%, var(--card));
+  color: color-mix(in oklch, var(--success) 75%, var(--foreground));
 }
 .robot-native-screen .robot-dot {
-  width: .45rem; height: .45rem;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 7px currentColor;
+  width: .45rem; height: .45rem; border-radius: 50%; background: currentColor;
 }
 .robot-native-screen .robot-status-card > div.grid {
-  order: 1;
-  gap: 0;
-  border: 1px solid #6380ae66;
-  border-radius: .85rem;
-  background: #0b19374d;
-  padding: .85rem .6rem;
+  order: 1; gap: 0; border: 1px solid var(--border);
+  border-radius: .85rem; background: var(--card); padding: .85rem .6rem;
 }
 .robot-native-screen .robot-status-card > div.grid > p {
-  min-width: 0;
-  padding-inline: .5rem;
+  min-width: 0; padding-inline: .5rem;
 }
 .robot-native-screen .robot-status-card > div.grid > p + p {
-  border-left: 1px solid #5e79a26e;
+  border-left: 1px solid var(--border);
 }
 .robot-native-screen .robot-status-card > div.grid span { font-size: .73rem; }
 .robot-native-screen .robot-status-card > div.grid b {
-  display: block;
-  margin-top: .2rem;
+  display: block; margin-top: .2rem;
   font-size: clamp(.92rem, 3.4vw, 1.2rem);
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
 }
 .robot-native-screen .robot-status-card > p[role="status"] {
-  order: 2;
-  border: 1px solid #6182b16b;
-  border-radius: .85rem;
-  padding: .7rem .8rem;
-  background: #1b2e55a3;
-  font-size: .85rem;
-  color: #d4e4ff;
+  order: 2; border: 1px solid var(--border); border-radius: .85rem;
+  padding: .7rem .8rem; background: var(--secondary);
+  color: var(--secondary-foreground); font-size: .85rem;
 }
 .robot-native-screen .robot-action-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0,1fr));
-  gap: .6rem;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem;
 }
 .robot-native-screen .robot-action-strip .robot-action,
 .robot-native-screen .robot-action-strip .robot-action-launcher {
-  display: flex;
-  min-width: 0;
-  min-height: 6.1rem;
-  height: auto;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: .45rem;
-  border: 1px solid #5f79a581;
-  border-radius: 1.15rem;
-  background: linear-gradient(150deg, #1a294d, #091731);
-  padding: .65rem .35rem;
-  color: #f5f8ff;
-  box-shadow: inset 0 1px #ffffff14;
-  text-align: center;
-  white-space: normal;
-  font-weight: 600;
-  line-height: 1.18;
+  display: flex; min-width: 0; min-height: 6.1rem; height: auto;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: .45rem; border: 1px solid var(--border); border-radius: 1.15rem;
+  background: var(--card); padding: .65rem .35rem;
+  color: var(--card-foreground); text-align: center; white-space: normal;
+  font-weight: 600; line-height: 1.18;
   font-size: clamp(.7rem, 2.7vw, .86rem);
 }
 .robot-native-screen .robot-action-strip .robot-action-danger {
-  border-color: #ff5989;
-  background: linear-gradient(155deg, #e33364, #8c1644);
-  color: white;
+  border-color: var(--destructive); background: var(--destructive);
+  color: var(--destructive-foreground);
 }
 .robot-native-screen .robot-action-strip .robot-action-launcher > button {
-  width: 100%;
-  min-width: 0;
-  height: auto;
-  min-height: 2rem;
-  border: 0;
-  background: none;
-  padding: 0;
-  margin: 0;
-  color: inherit;
-  box-shadow: none;
-  font: inherit;
-  text-align: center;
-  white-space: normal;
+  width: 100%; min-width: 0; height: auto; min-height: 2rem;
+  border: 0; background: none; padding: 0; margin: 0; color: inherit;
+  box-shadow: none; font: inherit; text-align: center; white-space: normal;
 }
 .robot-native-screen .robot-action-strip .robot-action:focus-visible,
 .robot-native-screen .robot-chart-period:focus-visible,
 .robot-native-screen .robot-chart-focus:focus-visible {
-  outline: 2px solid #64baff;
-  outline-offset: 3px;
+  outline: 2px solid var(--ring); outline-offset: 3px;
 }
 .robot-native-screen .robot-secondary-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: .6rem;
+  display: flex; align-items: center; flex-wrap: wrap; gap: .6rem;
 }
 .robot-native-screen .robot-secondary-actions > button {
-  border-radius: .8rem;
-  font-size: .8rem;
-}
-.robot-native-screen .robot-details-card {
-  border-color: #59719b9c;
-  background: linear-gradient(150deg, #172440, #0d1934);
+  border-radius: .8rem; font-size: .8rem;
 }
 .robot-native-screen .robot-details-heading {
-  display: flex;
-  align-items: center;
-  gap: .65rem;
-  font-weight: 800;
-  font-size: 1.05rem;
+  display: flex; align-items: center; gap: .65rem;
+  color: var(--foreground); font-weight: 800; font-size: 1.05rem;
 }
 .robot-native-screen .robot-details-card .ux-summary-list > div {
-  min-height: 2.8rem;
-  border-color: #7890af30;
+  min-height: 2.8rem; border-color: var(--border);
 }
 .robot-native-screen .robot-details-card .ux-summary-list strong {
-  color: #edf5ff;
+  color: var(--foreground);
 }
 .robot-native-screen .robot-details-alert {
-  margin-top: .8rem;
-  border-radius: .8rem;
-  padding: .65rem .75rem;
+  margin-top: .8rem; border-radius: .8rem; padding: .65rem .75rem;
   color: var(--warning);
-  background: #51412233;
+  background: color-mix(in oklch, var(--warning) 10%, var(--card));
   font-size: .8rem;
 }
 .robot-native-screen .robot-secondary-tools {
-  border: 1px solid #546b965f;
-  border-radius: 1rem;
-  padding: .8rem 1rem;
-  background: #0b1936ae;
-  font-size: .83rem;
+  border: 1px solid var(--border); border-radius: 1rem;
+  padding: .8rem 1rem; background: var(--card);
+  color: var(--card-foreground); font-size: .83rem;
 }
 .robot-native-screen .robot-secondary-tools summary {
-  cursor: pointer;
-  font-weight: 650;
-  color: #afcafa;
+  cursor: pointer; font-weight: 650; color: var(--primary);
 }
 .robot-native-screen [data-robot-analysis-toggle] {
-  border: 1px solid #526b9b91;
-  border-radius: .9rem;
-  padding: .8rem;
-  background: #112346c0;
-  color: #a9c3e9;
-  text-align: center;
+  border: 1px solid var(--border); border-radius: .9rem;
+  padding: .8rem; background: var(--secondary);
+  color: var(--secondary-foreground); text-align: center;
 }
-[data-robot-chart-only] > :not([data-robot-stage]) {
-  display: none;
-}
-[data-robot-chart-only] [data-robot-stage] > :not([data-robot-chart]) {
-  display: none;
-}
+/* A visualização fullscreen fica fora da tela /grade. */
+[data-robot-chart-only] > :not([data-robot-stage]) { display: none; }
+[data-robot-chart-only] [data-robot-stage] > :not([data-robot-chart]) { display: none; }
 @media (max-width: 639px) {
   .robot-native-screen .robot-market-card,
   .robot-native-screen .robot-status-card,
@@ -1171,26 +991,17 @@
   .robot-native-screen .robot-chart-quickbar { gap: .5rem; }
   .robot-native-screen .robot-chart-period,
   .robot-native-screen .robot-chart-interval,
-  .robot-native-screen .robot-chart-focus { font-size: .74rem; padding: .35rem .55rem; }
   .robot-native-screen .robot-chart-focus {
-    order: -1;
-    flex: 1 1 100%;
-    justify-content: flex-end;
-    padding-right: .8rem;
-    background: transparent;
-    border: none;
+    font-size: .74rem; padding: .35rem .55rem;
+  }
+  .robot-native-screen .robot-chart-focus {
+    order: -1; flex: 1 1 100%;
+    justify-content: flex-end; padding-right: .8rem;
+    background: var(--card);
   }
   .robot-native-screen .robot-action-strip { gap: .4rem; }
   .robot-native-screen .robot-action-strip .robot-action,
   .robot-native-screen .robot-action-strip .robot-action-launcher {
-    min-height: 5.65rem;
-    padding: .6rem .2rem;
-    font-size: .7rem;
+    min-height: 5.65rem; padding: .6rem .2rem; font-size: .7rem;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .robot-native-screen .robot-dot { box-shadow: none; }
-}
-
-.robot-native-screen .robot-market-heading > span:not([data-market-live]) { color: var(--warning); border-color: #b38a3870; background: #6b4b1736; }
-.robot-native-screen .robot-market-card [aria-label="Alvo de venda salvo"] { display: none; }
