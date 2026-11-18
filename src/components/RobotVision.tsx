@@ -340,190 +340,190 @@ export function RobotVision(props: {
       )}
     >
       <section data-robot-stage className={cn("space-y-3", props.appHero && "robot-market-card")}>
-      <div className={cn("flex items-center justify-between gap-2", props.appHero && "robot-market-heading")}>
-        <div>
-          <p className="text-sm font-semibold">{props.appHero ? `${symbol} / BNB` : `${symbol} · últimas 24h`}</p>
-          {live != null && (
-            <>
-              <p className="text-2xl font-bold">{usd(live)}</p>
-              <FiatValue usd={live} hideUsdDuplicate />
-            </>
-          )}
-        </div>
-        <span
-          data-market-live={props.appHero && live != null ? "" : undefined}
-          className={cn(
-            "flex items-center gap-1.5 text-xs font-medium",
-            props.appHero
-              ? live != null ? "text-success" : "text-warning"
-              : armed && !props.executionBlocked && !serverStale
-                ? "text-success"
-                : "text-muted-foreground",
-          )}
-        >
-          <span
-            className={cn(
-              "h-2 w-2 rounded-full bg-current",
-              armed && !props.executionBlocked && !serverStale && "motion-safe:animate-pulse",
+        <div className={cn("flex items-center justify-between gap-2", props.appHero && "robot-market-heading")}>
+          <div>
+            <p className="text-sm font-semibold">{props.appHero ? `${symbol} / BNB` : `${symbol} · últimas 24h`}</p>
+            {live != null && (
+              <>
+                <p className="text-2xl font-bold">{usd(live)}</p>
+                <FiatValue usd={live} hideUsdDuplicate />
+              </>
             )}
-          />
-          {props.appHero
-            ? live != null
-              ? "Ao vivo"
-              : "Cotação indisponível"
-            : !armed
-              ? "Robô desligado"
-            : props.executionBlocked
-              ? "Executor bloqueado"
-              : serverStale
-                ? "Sem avaliação recente do executor"
-                : "Executor com avaliação recente"}
-        </span>
-      </div>
-      {incompatibleBotToken(token) && (
-        <p role="alert" className="rounded border border-warning/40 p-3 text-sm text-warning">
-          {INCOMPATIBLE_BNB}
-        </p>
-      )}
-      {!signalsAvailable && !incompatibleBotToken(token) && (
-        <p className="text-sm text-warning">
-          Sem condições confirmadas para exibir gatilhos de operação. O gráfico é uma consulta de
-          mercado; consulte o motivo do executor abaixo.
-        </p>
-      )}
-      {savedSell && (
-        <section
-          aria-label="Alvo de venda salvo"
-          className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm space-y-1"
-        >
-          <p className="font-semibold">Próxima venda · {usd(savedSell.price)}</p>
-          <FiatValue usd={savedSell.price} hideUsdDuplicate />
-          <p>Preço médio da compra: {usd(state.avgPriceUsd)}.</p>
-          <p className="text-xs text-muted-foreground">
-            A linha “Agora” é a cotação atual, não o alvo de venda. O robô compara a cotação
-            on-chain com este alvo sem esperar a vela fechar.
+          </div>
+          <span
+            data-market-live={props.appHero && live != null ? "" : undefined}
+            className={cn(
+              "flex items-center gap-1.5 text-xs font-medium",
+              props.appHero
+                ? live != null ? "text-success" : "text-warning"
+                : armed && !props.executionBlocked && !serverStale
+                  ? "text-success"
+                  : "text-muted-foreground",
+            )}
+          >
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full bg-current",
+                armed && !props.executionBlocked && !serverStale && "motion-safe:animate-pulse",
+              )}
+            />
+            {props.appHero
+              ? live != null
+                ? "Ao vivo"
+                : "Cotação indisponível"
+              : !armed
+                ? "Robô desligado"
+              : props.executionBlocked
+                ? "Executor bloqueado"
+                : serverStale
+                  ? "Sem avaliação recente do executor"
+                  : "Executor com avaliação recente"}
+          </span>
+        </div>
+        {incompatibleBotToken(token) && (
+          <p role="alert" className="rounded border border-warning/40 p-3 text-sm text-warning">
+            {INCOMPATIBLE_BNB}
           </p>
-          {!signalsAvailable && (
-            <p className="text-xs text-warning">
-              Alvo da estratégia salva; a execução não está confirmada nesta consulta. Confira o
-              estado do executor.
+        )}
+        {!signalsAvailable && !incompatibleBotToken(token) && (
+          <p className="text-sm text-warning">
+            Sem condições confirmadas para exibir gatilhos de operação. O gráfico é uma consulta de
+            mercado; consulte o motivo do executor abaixo.
+          </p>
+        )}
+        {savedSell && (
+          <section
+            aria-label="Alvo de venda salvo"
+            className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm space-y-1"
+          >
+            <p className="font-semibold">Próxima venda · {usd(savedSell.price)}</p>
+            <FiatValue usd={savedSell.price} hideUsdDuplicate />
+            <p>Preço médio da compra: {usd(state.avgPriceUsd)}.</p>
+            <p className="text-xs text-muted-foreground">
+              A linha “Agora” é a cotação atual, não o alvo de venda. O robô compara a cotação
+              on-chain com este alvo sem esperar a vela fechar.
             </p>
-          )}
-          <p className="text-xs text-muted-foreground">
-            O envio depende das verificações de saldo, gás e impacto; preço final e confirmação
-            dependem da rede.
+            {!signalsAvailable && (
+              <p className="text-xs text-warning">
+                Alvo da estratégia salva; a execução não está confirmada nesta consulta. Confira o
+                estado do executor.
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              O envio depende das verificações de saldo, gás e impacto; preço final e confirmação
+              dependem da rede.
+            </p>
+          </section>
+        )}
+        {cfg?.chartRule && (
+          <p data-robot-chart className="text-xs text-muted-foreground">
+            {cfg.chartRule.priceAnchor
+              ? "Pontos de compra e venda fixos em US$. As SMA são médias móveis, não os alvos."
+              : "Esta atividade usa pontos em BNB/token; os valores em US$ variam com o BNB. Revise a regra para fixar os preços em US$."}
           </p>
-        </section>
-      )}
-      {cfg?.chartRule && (
-        <p data-robot-chart className="text-xs text-muted-foreground">
-          {cfg.chartRule.priceAnchor
-            ? "Pontos de compra e venda fixos em US$. As SMA são médias móveis, não os alvos."
-            : "Esta atividade usa pontos em BNB/token; os valores em US$ variam com o BNB. Revise a regra para fixar os preços em US$."}
-        </p>
-      )}
-      <CandleChart
-        key={`${token}:${chartPool}:${cfg?.candleInterval}`}
-        compact
-        appHero={!!props.appHero}
-        focusRequest={props.focusRequest ?? null}
-        fitTradeIds={
-          state.tokens > 0
-            ? orders
-                .filter((o) => o.status === "confirmada" && o.side === "compra")
-                .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
-                .slice(0, state.entries)
-                .map((o) => o.id ?? o.tx_hash ?? `${o.side}:${Date.parse(o.created_at)}`)
-            : []
-        }
-        minimal={!!props.chartOnly}
-        position={{
-          symbol,
-          quantity: state.tokens,
-          costBnb: state.costBnb,
-          averageUsd:
-            mode === "grade" && quoteUsd ? state.avgPriceUsd * quoteUsd : state.avgPriceUsd,
-        }}
-        preferenceKey="cryptobot:robot-chart-view"
-        alignStrategy
-        history={candles.history}
-        source={candles.source}
-        candles={candles.data ?? []}
-        now={now}
-        strategyMinutes={intervalMinutes(cfg?.candleInterval ?? "15m")}
-        rulesVersion={cfg?.recovery?.enabled ? 2 : (cfg?.rulesVersion ?? 1)}
-        fastLength={cfg?.maFast ?? 9}
-        slowLength={cfg?.maSlow ?? 21}
-        levels={
-          cfg?.chartRule
-            ? (chartLines ?? []).map((l) =>
-                l.tone === "sell" ? { ...l, tone: "target" as const } : l,
-              )
-            : props.chartOnly
-              ? mode === "grade"
-                ? quoteUsd == null
-                  ? []
-                  : [
-                      ...grid.map((p, i) => ({
-                        price: p * quoteUsd,
-                        label: `Nível ${i + 1}`,
-                        tone: "grid" as const,
-                      })),
-                      ...robotLines(
-                        cfg,
-                        { ...state, avgPriceUsd: state.avgPriceUsd * quoteUsd },
-                        null,
-                      ).filter((l) => l.tone !== "buy"),
+        )}
+        <CandleChart
+          key={`${token}:${chartPool}:${cfg?.candleInterval}`}
+          compact
+          appHero={!!props.appHero}
+          focusRequest={props.focusRequest ?? null}
+          fitTradeIds={
+            state.tokens > 0
+              ? orders
+                  .filter((o) => o.status === "confirmada" && o.side === "compra")
+                  .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+                  .slice(0, state.entries)
+                  .map((o) => o.id ?? o.tx_hash ?? `${o.side}:${Date.parse(o.created_at)}`)
+              : []
+          }
+          minimal={!!props.chartOnly}
+          position={{
+            symbol,
+            quantity: state.tokens,
+            costBnb: state.costBnb,
+            averageUsd:
+              mode === "grade" && quoteUsd ? state.avgPriceUsd * quoteUsd : state.avgPriceUsd,
+          }}
+          preferenceKey="cryptobot:robot-chart-view"
+          alignStrategy
+          history={candles.history}
+          source={candles.source}
+          candles={candles.data ?? []}
+          now={now}
+          strategyMinutes={intervalMinutes(cfg?.candleInterval ?? "15m")}
+          rulesVersion={cfg?.recovery?.enabled ? 2 : (cfg?.rulesVersion ?? 1)}
+          fastLength={cfg?.maFast ?? 9}
+          slowLength={cfg?.maSlow ?? 21}
+          levels={
+            cfg?.chartRule
+              ? (chartLines ?? []).map((l) =>
+                  l.tone === "sell" ? { ...l, tone: "target" as const } : l,
+                )
+              : props.chartOnly
+                ? mode === "grade"
+                  ? quoteUsd == null
+                    ? []
+                    : [
+                        ...grid.map((p, i) => ({
+                          price: p * quoteUsd,
+                          label: `Nível ${i + 1}`,
+                          tone: "grid" as const,
+                        })),
+                        ...robotLines(
+                          cfg,
+                          { ...state, avgPriceUsd: state.avgPriceUsd * quoteUsd },
+                          null,
+                        ).filter((l) => l.tone !== "buy"),
+                      ]
+                  : robotLines(cfg, state, high)
+                : lines
+          }
+          liveQuote={live != null ? { price: live, at: priceAt } : undefined}
+          trades={orders
+            .filter((o) => o.status === "confirmada" && o.token.toLowerCase() === token.toLowerCase())
+            .map((o) => {
+              const evidence = audited.find(
+                (r) => r.hash === o.tx_hash && r.token.toLowerCase() === token.toLowerCase(),
+              );
+              const quantity = (raw: string | null | undefined, decimals: number) => {
+                try {
+                  return Number(formatUnits(BigInt(raw ?? ""), decimals)).toLocaleString("pt-BR", {
+                    maximumSignificantDigits: 10,
+                  });
+                } catch {
+                  return "Não apurado";
+                }
+              };
+              const summary = [
+                `Valor enviado: ${quantity(o.amount_in, o.side === "compra" ? 18 : (props.tokenDecimals ?? 18))} ${o.side === "compra" ? "BNB" : symbol}.`,
+                `Quantidade efetiva de ${symbol}: ${quantity(o.actual_token_delta, props.tokenDecimals ?? 18)}.`,
+              ];
+              return {
+                id: o.id ?? o.tx_hash ?? `${o.side}:${Date.parse(o.created_at)}`,
+                time: evidence?.timestamp ?? Date.parse(o.created_at),
+                side: o.side,
+                hash: o.tx_hash,
+                details: evidence
+                  ? [
+                      ...summary,
+                      `Comprovante BSC: ${evidence.symbol}, quantidade efetiva ${evidence.tokenDelta}.`,
+                      `BNB enviado ${evidence.bnbSpent ?? "indisponível"}; gás confirmado ${evidence.gasBnb} BNB.`,
+                      evidence.nativeReceivedStatus,
+                      evidence.snapshot
+                        ? `Decisão registrada: ${JSON.stringify(evidence.snapshot)}`
+                        : "Sinal/versão/parâmetros antigos indisponíveis; não reconstruídos da configuração atual.",
+                      "Posição vertical aproximada pelo histórico, não preço de execução.",
                     ]
-                : robotLines(cfg, state, high)
-              : lines
-        }
-        liveQuote={live != null ? { price: live, at: priceAt } : undefined}
-        trades={orders
-          .filter((o) => o.status === "confirmada" && o.token.toLowerCase() === token.toLowerCase())
-          .map((o) => {
-            const evidence = audited.find(
-              (r) => r.hash === o.tx_hash && r.token.toLowerCase() === token.toLowerCase(),
-            );
-            const quantity = (raw: string | null | undefined, decimals: number) => {
-              try {
-                return Number(formatUnits(BigInt(raw ?? ""), decimals)).toLocaleString("pt-BR", {
-                  maximumSignificantDigits: 10,
-                });
-              } catch {
-                return "Não apurado";
-              }
-            };
-            const summary = [
-              `Valor enviado: ${quantity(o.amount_in, o.side === "compra" ? 18 : (props.tokenDecimals ?? 18))} ${o.side === "compra" ? "BNB" : symbol}.`,
-              `Quantidade efetiva de ${symbol}: ${quantity(o.actual_token_delta, props.tokenDecimals ?? 18)}.`,
-            ];
-            return {
-              id: o.id ?? o.tx_hash ?? `${o.side}:${Date.parse(o.created_at)}`,
-              time: evidence?.timestamp ?? Date.parse(o.created_at),
-              side: o.side,
-              hash: o.tx_hash,
-              details: evidence
-                ? [
-                    ...summary,
-                    `Comprovante BSC: ${evidence.symbol}, quantidade efetiva ${evidence.tokenDelta}.`,
-                    `BNB enviado ${evidence.bnbSpent ?? "indisponível"}; gás confirmado ${evidence.gasBnb} BNB.`,
-                    evidence.nativeReceivedStatus,
-                    evidence.snapshot
-                      ? `Decisão registrada: ${JSON.stringify(evidence.snapshot)}`
-                      : "Sinal/versão/parâmetros antigos indisponíveis; não reconstruídos da configuração atual.",
-                    "Posição vertical aproximada pelo histórico, não preço de execução.",
-                  ]
-                : [
-                    ...summary,
-                    "Reconstruído: horário do registro; consulte a auditoria para horário da transação e quantidades efetivas.",
-                    `Valor de entrada registrado (unidades mínimas): ${o.amount_in ?? "indisponível"}`,
-                    "Preço vertical aproximado pelo histórico; não é preço efetivo de execução.",
-                    "Sinal, versão e parâmetros antigos não foram registrados; não são reconstruídos a partir da estratégia atual.",
-                  ],
-            };
-          })}
-      />
+                  : [
+                      ...summary,
+                      "Reconstruído: horário do registro; consulte a auditoria para horário da transação e quantidades efetivas.",
+                      `Valor de entrada registrado (unidades mínimas): ${o.amount_in ?? "indisponível"}`,
+                      "Preço vertical aproximado pelo histórico; não é preço efetivo de execução.",
+                      "Sinal, versão e parâmetros antigos não foram registrados; não são reconstruídos a partir da estratégia atual.",
+                    ],
+              };
+            })}
+        />
       </section>
       {props.streamlined && (
         <div data-robot-summary className={cn("grid gap-2 text-sm", props.appHero && "robot-status-card")}>
@@ -573,355 +573,355 @@ export function RobotVision(props: {
         </div>
       )}
       <div data-robot-analysis-extra className="space-y-3">
-      <p className="text-xs text-muted-foreground">
-        Cotação do par negociado: consulta a cada 2s · {market.data?.source ?? "consultando"}.
-        {priceAt > 0 ? ` Preço observado às ${new Date(priceAt).toLocaleTimeString("pt-BR")}.` : ""}
-        {cfg?.manualAuto
-          ? " Manual automático: usa somente os pontos escolhidos, sem sinal das médias."
-          : ""}
-        {!cfg?.manualAuto && cfg?.entryType === "queda"
-          ? ` A compra segue a queda de ${cfg.dropPct}% da referência; SMA 9/21 são apenas indicadores visuais nesta estratégia.`
-          : ""}
-        {cfg?.entryType === "medias"
-          ? ` As médias usam velas fechadas de ${cfg.candleInterval}; a cotação do preço é atualizada entre os fechamentos.`
-          : ""}
-      </p>
-      {!priceFresh && (
-        <p role="alert" className="text-warning text-sm">
-          Cotação atual indisponível ou antiga. Aguardando nova consulta; não há confirmação de
-          ponto de compra.
+        <p className="text-xs text-muted-foreground">
+          Cotação do par negociado: consulta a cada 2s · {market.data?.source ?? "consultando"}.
+          {priceAt > 0 ? ` Preço observado às ${new Date(priceAt).toLocaleTimeString("pt-BR")}.` : ""}
+          {cfg?.manualAuto
+            ? " Manual automático: usa somente os pontos escolhidos, sem sinal das médias."
+            : ""}
+          {!cfg?.manualAuto && cfg?.entryType === "queda"
+            ? ` A compra segue a queda de ${cfg.dropPct}% da referência; SMA 9/21 são apenas indicadores visuais nesta estratégia.`
+            : ""}
+          {cfg?.entryType === "medias"
+            ? ` As médias usam velas fechadas de ${cfg.candleInterval}; a cotação do preço é atualizada entre os fechamentos.`
+            : ""}
         </p>
-      )}
-      <OrderAudit
-        hashes={orders
-          .filter((o) => o.token.toLowerCase() === token.toLowerCase())
-          .flatMap((o) => (o.tx_hash ? [o.tx_hash] : []))}
-        onAudited={setAudited}
-      />
-      {cfg && state.tokens > 0 && (
-        <p className="text-xs text-warning">
-          Referência de preço do motor: referência de mercado ponderada, não custo efetivo por
-          token. Custo gerenciado: {state.costBnb.toFixed(8)} BNB / {state.tokens.toFixed(6)} tokens
-          = {(state.costBnb / state.tokens).toPrecision(6)} BNB/token; inclui os custos registrados,
-          quando apurados. Equilíbrio estimado após venda:{" "}
-          {(
-            state.costBnb /
-            state.tokens /
-            Math.max(0.000001, 1 - (cfg.sellTaxPct ?? 0) / 100)
-          ).toPrecision(6)}{" "}
-          BNB/token (sem DEX, impacto e gás). Trailing:{" "}
-          {cfg.trailingEnabled
-            ? `pico US$ ${state.peakUsd.toPrecision(6)}; regra real por preço, ativa em +${cfg.trailingActivatePct}%, distância ${cfg.trailingDistancePct}%`
-            : "desativado"}
-          .
-        </p>
-      )}
-      {cfg && live != null && (
-        <div className="border-t border-border pt-3 text-xs">
-          <p className="font-semibold">Por que o bot está esperando?</p>
-          <p>
-            {!armed
-              ? "Robô desligado"
-              : analysisStale
-                ? "Prévia do servidor indisponível ou antiga; não confirma execução."
-                : props.serverAnalysis?.error
-                  ? userMessage(props.serverAnalysis.error)
-                  : props.serverAnalysis?.reason}
+        {!priceFresh && (
+          <p role="alert" className="text-warning text-sm">
+            Cotação atual indisponível ou antiga. Aguardando nova consulta; não há confirmação de
+            ponto de compra.
           </p>
-          <p className="text-muted-foreground">
-            Prévia do servidor às{" "}
-            {props.serverAnalysis
-              ? new Date(props.serverAnalysis.at).toLocaleTimeString("pt-BR")
-              : "indisponível"}{" "}
-            · {cfg.candleInterval}. Última avaliação do servidor:{" "}
-            {evaluatedAt ? new Date(evaluatedAt).toLocaleString("pt-BR") : "indisponível"} ·{" "}
-            {reason ?? "sem motivo registrado"}. Cooldown restante:{" "}
-            {Math.max(0, Math.ceil((state.lastTradeAt + cfg.cooldownMin * 60_000 - now) / 60_000))}{" "}
-            min.
+        )}
+        <OrderAudit
+          hashes={orders
+            .filter((o) => o.token.toLowerCase() === token.toLowerCase())
+            .flatMap((o) => (o.tx_hash ? [o.tx_hash] : []))}
+          onAudited={setAudited}
+        />
+        {cfg && state.tokens > 0 && (
+          <p className="text-xs text-warning">
+            Referência de preço do motor: referência de mercado ponderada, não custo efetivo por
+            token. Custo gerenciado: {state.costBnb.toFixed(8)} BNB / {state.tokens.toFixed(6)} tokens
+            = {(state.costBnb / state.tokens).toPrecision(6)} BNB/token; inclui os custos registrados,
+            quando apurados. Equilíbrio estimado após venda:{" "}
+            {(
+              state.costBnb /
+              state.tokens /
+              Math.max(0.000001, 1 - (cfg.sellTaxPct ?? 0) / 100)
+            ).toPrecision(6)}{" "}
+            BNB/token (sem DEX, impacto e gás). Trailing:{" "}
+            {cfg.trailingEnabled
+              ? `pico US$ ${state.peakUsd.toPrecision(6)}; regra real por preço, ativa em +${cfg.trailingActivatePct}%, distância ${cfg.trailingDistancePct}%`
+              : "desativado"}
+            .
           </p>
-          <p className="text-warning">
-            {cfg.entryType !== "adaptativa"
-              ? ""
-              : cfg.recovery?.enabled
-                ? "Recuperação habilitada no executor REAL. Uma entrada por fundo confirmado, sujeita aos limites e à disponibilidade da execução."
-                : "Recuperação real desativada na estratégia salva. Ative e configure em Estratégia para usar esse tipo de entrada."}
-            {serverStale &&
-              " Sem avaliação recente do executor: não é possível afirmar que acompanhou o movimento."}
+        )}
+        {cfg && live != null && (
+          <div className="border-t border-border pt-3 text-xs">
+            <p className="font-semibold">Por que o bot está esperando?</p>
+            <p>
+              {!armed
+                ? "Robô desligado"
+                : analysisStale
+                  ? "Prévia do servidor indisponível ou antiga; não confirma execução."
+                  : props.serverAnalysis?.error
+                    ? userMessage(props.serverAnalysis.error)
+                    : props.serverAnalysis?.reason}
+            </p>
+            <p className="text-muted-foreground">
+              Prévia do servidor às{" "}
+              {props.serverAnalysis
+                ? new Date(props.serverAnalysis.at).toLocaleTimeString("pt-BR")
+                : "indisponível"}{" "}
+              · {cfg.candleInterval}. Última avaliação do servidor:{" "}
+              {evaluatedAt ? new Date(evaluatedAt).toLocaleString("pt-BR") : "indisponível"} ·{" "}
+              {reason ?? "sem motivo registrado"}. Cooldown restante:{" "}
+              {Math.max(0, Math.ceil((state.lastTradeAt + cfg.cooldownMin * 60_000 - now) / 60_000))}{" "}
+              min.
+            </p>
+            <p className="text-warning">
+              {cfg.entryType !== "adaptativa"
+                ? ""
+                : cfg.recovery?.enabled
+                  ? "Recuperação habilitada no executor REAL. Uma entrada por fundo confirmado, sujeita aos limites e à disponibilidade da execução."
+                  : "Recuperação real desativada na estratégia salva. Ative e configure em Estratégia para usar esse tipo de entrada."}
+              {serverStale &&
+                " Sem avaliação recente do executor: não é possível afirmar que acompanhou o movimento."}
+            </p>
+          </div>
+        )}
+        {lastAt != null && now - lastAt > 20 * 60_000 && (
+          <p role="status" className="text-xs text-warning">
+            Gráfico com dados até{" "}
+            {new Date(lastAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} —
+            buscando atualização. A linha de cotação atual é independente das velas históricas.
           </p>
+        )}
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          <span>
+            <span className="text-warning">●</span> Preço agora
+          </span>
+          <span>
+            <span className="text-success">- -</span> Onde compra
+          </span>
+          <span>
+            <span className="text-destructive">- -</span> Onde vende
+          </span>
+          <span>
+            <span className="text-destructive">- -</span> Stop (proteção)
+          </span>
+          <span>
+            <span className="text-success">●</span>/<span className="text-primary">●</span>{" "}
+            Compras/vendas feitas
+          </span>
         </div>
-      )}
-      {lastAt != null && now - lastAt > 20 * 60_000 && (
-        <p role="status" className="text-xs text-warning">
-          Gráfico com dados até{" "}
-          {new Date(lastAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} —
-          buscando atualização. A linha de cotação atual é independente das velas históricas.
-        </p>
-      )}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-        <span>
-          <span className="text-warning">●</span> Preço agora
-        </span>
-        <span>
-          <span className="text-success">- -</span> Onde compra
-        </span>
-        <span>
-          <span className="text-destructive">- -</span> Onde vende
-        </span>
-        <span>
-          <span className="text-destructive">- -</span> Stop (proteção)
-        </span>
-        <span>
-          <span className="text-success">●</span>/<span className="text-primary">●</span>{" "}
-          Compras/vendas feitas
-        </span>
-      </div>
-      {live != null && (
-        <div className="rounded-md border border-border p-3 text-xs space-y-1">
-          <p>
-            Preço agora: <strong>{usd(live)}</strong>
-            <FiatValue usd={live} hideUsdDuplicate />
-          </p>
-          {mode !== "grade" &&
-            cfg?.stopLossMode === "liquido" &&
-            state.tokens > 0 &&
-            state.avgPriceUsd > 0 && (
-              <p className="text-warning">
-                Resultado líquido estimado:{" "}
-                {netPositionPct(live, state.avgPriceUsd, cfg).toFixed(1)}% · limite de perda:{" "}
-                {cfg.stopLossPct}%. Inclui taxas do token; não inclui gás nem variação da execução.
-                O stop vende a posição, mas o robô continua ligado e os saques continuam
-                disponíveis.
+        {live != null && (
+          <div className="rounded-md border border-border p-3 text-xs space-y-1">
+            <p>
+              Preço agora: <strong>{usd(live)}</strong>
+              <FiatValue usd={live} hideUsdDuplicate />
+            </p>
+            {mode !== "grade" &&
+              cfg?.stopLossMode === "liquido" &&
+              state.tokens > 0 &&
+              state.avgPriceUsd > 0 && (
+                <p className="text-warning">
+                  Resultado líquido estimado:{" "}
+                  {netPositionPct(live, state.avgPriceUsd, cfg).toFixed(1)}% · limite de perda:{" "}
+                  {cfg.stopLossPct}%. Inclui taxas do token; não inclui gás nem variação da execução.
+                  O stop vende a posição, mas o robô continua ligado e os saques continuam
+                  disponíveis.
+                </p>
+              )}
+            {buyLine &&
+              (live <= buyLine.price ? (
+                <p className="text-success">
+                  O preço está abaixo do limite de compra. O robô ainda confere liquidez, cooldown,
+                  saldo e limites; isso não garante uma ordem.
+                </p>
+              ) : (
+                <p className="text-success">
+                  Distância do gatilho de compra:{" "}
+                  {formatDistancePct((1 - buyLine.price / live) * 100)}
+                  abaixo do preço atual. A execução ainda depende das verificações do servidor.
+                </p>
+              ))}
+            {nextSell && (
+              <p className="text-primary">
+                Falta {Math.max(0, (nextSell.price / live - 1) * 100).toFixed(1)}% de alta para a
+                próxima venda com lucro.
               </p>
             )}
-          {buyLine &&
-            (live <= buyLine.price ? (
-              <p className="text-success">
-                O preço está abaixo do limite de compra. O robô ainda confere liquidez, cooldown,
-                saldo e limites; isso não garante uma ordem.
+            {mode !== "grade" && cfg?.entryType === "medias" && (
+              <p className="text-muted-foreground">
+                {slowAvg?.up
+                  ? "Tendência de alta: o robô compra quando o preço recuar até a linha verde (a média)."
+                  : "Tendência de queda: o robô não compra enquanto o preço cai. A linha de compra aparece quando a tendência virar para alta."}
               </p>
-            ) : (
-              <p className="text-success">
-                Distância do gatilho de compra:{" "}
-                {formatDistancePct((1 - buyLine.price / live) * 100)}
-                abaixo do preço atual. A execução ainda depende das verificações do servidor.
+            )}
+            {mode !== "grade" && cfg?.entryType === "adaptativa" && (
+              <p className="text-muted-foreground">
+                {cfg.recovery?.enabled && observation
+                  ? decide(cfg, state, observation).reason
+                  : !regime
+                    ? "Juntando histórico para reconhecer o padrão do preço…"
+                    : regime.kind === "lateral"
+                      ? regime.rangePct >= regime.targetGrossPct
+                        ? `Padrão: preço parado (faixa de ${regime.rangePct.toFixed(1)}%). O robô compra no fundo da faixa e vende com ganho curto.`
+                        : `Padrão: preço parado, mas a faixa (${regime.rangePct.toFixed(1)}%) não paga as taxas (${regime.targetGrossPct.toFixed(1)}%). O robô não entra.`
+                      : regime.kind === "alta"
+                        ? "Padrão: alta. O robô compra quando o preço recuar até a linha verde (a média)."
+                        : "Padrão: queda. O robô não compra enquanto o preço cai."}
               </p>
-            ))}
-          {nextSell && (
-            <p className="text-primary">
-              Falta {Math.max(0, (nextSell.price / live - 1) * 100).toFixed(1)}% de alta para a
-              próxima venda com lucro.
-            </p>
-          )}
-          {mode !== "grade" && cfg?.entryType === "medias" && (
-            <p className="text-muted-foreground">
-              {slowAvg?.up
-                ? "Tendência de alta: o robô compra quando o preço recuar até a linha verde (a média)."
-                : "Tendência de queda: o robô não compra enquanto o preço cai. A linha de compra aparece quando a tendência virar para alta."}
-            </p>
-          )}
-          {mode !== "grade" && cfg?.entryType === "adaptativa" && (
-            <p className="text-muted-foreground">
-              {cfg.recovery?.enabled && observation
-                ? decide(cfg, state, observation).reason
-                : !regime
-                  ? "Juntando histórico para reconhecer o padrão do preço…"
-                  : regime.kind === "lateral"
-                    ? regime.rangePct >= regime.targetGrossPct
-                      ? `Padrão: preço parado (faixa de ${regime.rangePct.toFixed(1)}%). O robô compra no fundo da faixa e vende com ganho curto.`
-                      : `Padrão: preço parado, mas a faixa (${regime.rangePct.toFixed(1)}%) não paga as taxas (${regime.targetGrossPct.toFixed(1)}%). O robô não entra.`
-                    : regime.kind === "alta"
-                      ? "Padrão: alta. O robô compra quando o preço recuar até a linha verde (a média)."
-                      : "Padrão: queda. O robô não compra enquanto o preço cai."}
-            </p>
-          )}
-          {reason && (
-            <p className="text-muted-foreground">
-              Motivo registrado na última avaliação do executor: {reason}
-            </p>
-          )}
-        </div>
-      )}
-      {live != null &&
-        all.length > 1 &&
-        (() => {
-          const closes = all.map((c) => c[4]);
-          const lo24 = Math.min(...all.map((c) => c[3])),
-            hi24 = Math.max(...all.map((c) => c[2]));
-          const pos =
-            hi24 > lo24 ? Math.min(100, Math.max(0, ((live - lo24) / (hi24 - lo24)) * 100)) : 50;
-          const at = (minAgo: number) =>
-            all.reduce(
-              (b, c) =>
-                Math.abs(c[0] * 1000 - (now - minAgo * 60_000)) <
-                Math.abs(b[0] * 1000 - (now - minAgo * 60_000))
-                  ? c
-                  : b,
-              all[0]!,
-            )[4];
-          const pct = (a: number) => (live / a - 1) * 100;
-          const ch = [
-            { l: "15 min", v: pct(at(15)) },
-            { l: "1h", v: pct(at(60)) },
-            { l: "6h", v: pct(at(360)) },
-            { l: "24h", v: pct(closes[0]!) },
-          ];
-          const zone =
-            pos < 25
-              ? { t: "Perto da mínima do dia (preço baixo)", c: "text-success" }
-              : pos > 75
-                ? { t: "Perto da máxima do dia (preço alto)", c: "text-destructive" }
-                : { t: "No meio da faixa do dia", c: "text-warning" };
-          const recent = closes.slice(-12);
-          const vol =
-            recent.length > 1
-              ? ((Math.max(...recent) - Math.min(...recent)) / Math.min(...recent)) * 100
-              : 0;
-          const entriesLeft = state.entries < Math.max(1, cfg?.maxEntries ?? 1);
-          const checks: { ok: boolean; t: string }[] = [];
-          if (mode !== "grade" && cfg) {
-            checks.push({ ok: armed, t: armed ? "Robô ligado" : "Robô desligado" });
-            checks.push({
-              ok: entriesLeft,
-              t: `Compras feitas: ${state.entries} de ${Math.max(1, cfg.maxEntries)}`,
-            });
-            if (cfg.entryType === "medias") {
+            )}
+            {reason && (
+              <p className="text-muted-foreground">
+                Motivo registrado na última avaliação do executor: {reason}
+              </p>
+            )}
+          </div>
+        )}
+        {live != null &&
+          all.length > 1 &&
+          (() => {
+            const closes = all.map((c) => c[4]);
+            const lo24 = Math.min(...all.map((c) => c[3])),
+              hi24 = Math.max(...all.map((c) => c[2]));
+            const pos =
+              hi24 > lo24 ? Math.min(100, Math.max(0, ((live - lo24) / (hi24 - lo24)) * 100)) : 50;
+            const at = (minAgo: number) =>
+              all.reduce(
+                (b, c) =>
+                  Math.abs(c[0] * 1000 - (now - minAgo * 60_000)) <
+                  Math.abs(b[0] * 1000 - (now - minAgo * 60_000))
+                    ? c
+                    : b,
+                all[0]!,
+              )[4];
+            const pct = (a: number) => (live / a - 1) * 100;
+            const ch = [
+              { l: "15 min", v: pct(at(15)) },
+              { l: "1h", v: pct(at(60)) },
+              { l: "6h", v: pct(at(360)) },
+              { l: "24h", v: pct(closes[0]!) },
+            ];
+            const zone =
+              pos < 25
+                ? { t: "Perto da mínima do dia (preço baixo)", c: "text-success" }
+                : pos > 75
+                  ? { t: "Perto da máxima do dia (preço alto)", c: "text-destructive" }
+                  : { t: "No meio da faixa do dia", c: "text-warning" };
+            const recent = closes.slice(-12);
+            const vol =
+              recent.length > 1
+                ? ((Math.max(...recent) - Math.min(...recent)) / Math.min(...recent)) * 100
+                : 0;
+            const entriesLeft = state.entries < Math.max(1, cfg?.maxEntries ?? 1);
+            const checks: { ok: boolean; t: string }[] = [];
+            if (mode !== "grade" && cfg) {
+              checks.push({ ok: armed, t: armed ? "Robô ligado" : "Robô desligado" });
               checks.push({
-                ok: !!slowAvg?.up,
-                t: slowAvg
-                  ? slowAvg.up
-                    ? "Tendência de alta (média rápida acima da lenta)"
-                    : "Tendência de queda (média rápida abaixo da lenta)"
-                  : "Calculando médias…",
+                ok: entriesLeft,
+                t: `Compras feitas: ${state.entries} de ${Math.max(1, cfg.maxEntries)}`,
               });
-              if (slowAvg)
+              if (cfg.entryType === "medias") {
                 checks.push({
-                  ok: live <= slowAvg.s,
-                  t:
-                    live <= slowAvg.s
-                      ? "Preço recuou até a média"
-                      : `Preço ${pct(slowAvg.s).toFixed(1)}% acima da média lenta`,
+                  ok: !!slowAvg?.up,
+                  t: slowAvg
+                    ? slowAvg.up
+                      ? "Tendência de alta (média rápida acima da lenta)"
+                      : "Tendência de queda (média rápida abaixo da lenta)"
+                    : "Calculando médias…",
                 });
-            } else if (cfg.entryType === "adaptativa" && cfg.recovery?.enabled && observation) {
-              const decision = decide(cfg, state, observation);
-              checks.push({ ok: decision.action === "compra", t: decision.reason });
-            } else if (cfg.entryType === "adaptativa") {
-              checks.push({
-                ok: !!regime && regime.kind !== "queda",
-                t: !regime
-                  ? "Reconhecendo o padrão…"
-                  : regime.kind === "lateral"
-                    ? "Padrão: preço parado"
-                    : regime.kind === "alta"
-                      ? "Padrão: alta"
-                      : "Padrão: queda (não compra)",
-              });
-              if (regime?.kind === "lateral")
+                if (slowAvg)
+                  checks.push({
+                    ok: live <= slowAvg.s,
+                    t:
+                      live <= slowAvg.s
+                        ? "Preço recuou até a média"
+                        : `Preço ${pct(slowAvg.s).toFixed(1)}% acima da média lenta`,
+                  });
+              } else if (cfg.entryType === "adaptativa" && cfg.recovery?.enabled && observation) {
+                const decision = decide(cfg, state, observation);
+                checks.push({ ok: decision.action === "compra", t: decision.reason });
+              } else if (cfg.entryType === "adaptativa") {
                 checks.push({
-                  ok: regime.rangePct >= regime.targetGrossPct,
-                  t: `Faixa ${regime.rangePct.toFixed(1)}% ${regime.rangePct >= regime.targetGrossPct ? "paga" : "não paga"} as taxas (precisa ${regime.targetGrossPct.toFixed(1)}%)`,
+                  ok: !!regime && regime.kind !== "queda",
+                  t: !regime
+                    ? "Reconhecendo o padrão…"
+                    : regime.kind === "lateral"
+                      ? "Padrão: preço parado"
+                      : regime.kind === "alta"
+                        ? "Padrão: alta"
+                        : "Padrão: queda (não compra)",
                 });
-              if (buyLine)
+                if (regime?.kind === "lateral")
+                  checks.push({
+                    ok: regime.rangePct >= regime.targetGrossPct,
+                    t: `Faixa ${regime.rangePct.toFixed(1)}% ${regime.rangePct >= regime.targetGrossPct ? "paga" : "não paga"} as taxas (precisa ${regime.targetGrossPct.toFixed(1)}%)`,
+                  });
+                if (buyLine)
+                  checks.push({
+                    ok: live <= buyLine.price,
+                    t:
+                      live <= buyLine.price
+                        ? "Preço no ponto de compra"
+                        : `Faltam ${formatDistancePct((live / buyLine.price - 1) * 100)} de queda`,
+                  });
+                if (regime)
+                  checks.push({
+                    ok: true,
+                    t: `Meta de lucro: ~${regime.targetNetPct}% líquido (preço precisa subir ${regime.targetGrossPct.toFixed(1)}%)`,
+                  });
+              } else if (buyLine) {
                 checks.push({
                   ok: live <= buyLine.price,
                   t:
                     live <= buyLine.price
-                      ? "Preço no ponto de compra"
+                      ? "Preço abaixo do ponto de compra"
                       : `Faltam ${formatDistancePct((live / buyLine.price - 1) * 100)} de queda`,
                 });
-              if (regime)
-                checks.push({
-                  ok: true,
-                  t: `Meta de lucro: ~${regime.targetNetPct}% líquido (preço precisa subir ${regime.targetGrossPct.toFixed(1)}%)`,
-                });
-            } else if (buyLine) {
-              checks.push({
-                ok: live <= buyLine.price,
-                t:
-                  live <= buyLine.price
-                    ? "Preço abaixo do ponto de compra"
-                    : `Faltam ${formatDistancePct((live / buyLine.price - 1) * 100)} de queda`,
-              });
+              }
             }
-          }
-          return (
-            <div className="rounded-md border border-border p-3 text-xs space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="font-semibold">Acompanhamento rápido</p>
-                <span className="text-[10px] text-muted-foreground">
-                  preço a cada 2s · executor programado a cada 2s
-                  {priceAt
-                    ? ` · ${new Date(priceAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
-                    : ""}
-                </span>
-              </div>
-              <div>
-                <p className="mb-1 text-muted-foreground">Faixa de preço das últimas 24h</p>
-                <div className="relative h-2 rounded-full bg-gradient-to-r from-success/60 via-warning/60 to-destructive/60">
-                  <span
-                    className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-foreground"
-                    style={{ left: `${pos}%` }}
-                  />
+            return (
+              <div className="rounded-md border border-border p-3 text-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold">Acompanhamento rápido</p>
+                  <span className="text-[10px] text-muted-foreground">
+                    preço a cada 2s · executor programado a cada 2s
+                    {priceAt
+                      ? ` · ${new Date(priceAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+                      : ""}
+                  </span>
                 </div>
-                <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
-                  <span>Mín {usd(lo24)}</span>
-                  <span>Máx {usd(hi24)}</span>
+                <div>
+                  <p className="mb-1 text-muted-foreground">Faixa de preço das últimas 24h</p>
+                  <div className="relative h-2 rounded-full bg-gradient-to-r from-success/60 via-warning/60 to-destructive/60">
+                    <span
+                      className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-foreground"
+                      style={{ left: `${pos}%` }}
+                    />
+                  </div>
+                  <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
+                    <span>Mín {usd(lo24)}</span>
+                    <span>Máx {usd(hi24)}</span>
+                  </div>
+                  <p className={cn("mt-1 font-medium", zone.c)}>
+                    {zone.t} · {pos.toFixed(0)}% da faixa
+                  </p>
                 </div>
-                <p className={cn("mt-1 font-medium", zone.c)}>
-                  {zone.t} · {pos.toFixed(0)}% da faixa
+                <div className="grid grid-cols-4 gap-1 text-center">
+                  {ch.map((c) => (
+                    <div key={c.l} className="rounded bg-background/50 p-1.5">
+                      <p className="text-[10px] text-muted-foreground">{c.l}</p>
+                      <p
+                        className={cn(
+                          "font-mono font-semibold",
+                          c.v >= 0 ? "text-success" : "text-destructive",
+                        )}
+                      >
+                        {c.v >= 0 ? "+" : ""}
+                        {c.v.toFixed(1)}%
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-muted-foreground">
+                  Agitação na última hora:{" "}
+                  <strong className={vol > 5 ? "text-warning" : "text-foreground"}>
+                    {vol.toFixed(1)}%
+                  </strong>{" "}
+                  {vol > 5 ? "(preço oscilando bastante)" : "(preço calmo)"}
                 </p>
-              </div>
-              <div className="grid grid-cols-4 gap-1 text-center">
-                {ch.map((c) => (
-                  <div key={c.l} className="rounded bg-background/50 p-1.5">
-                    <p className="text-[10px] text-muted-foreground">{c.l}</p>
-                    <p
-                      className={cn(
-                        "font-mono font-semibold",
-                        c.v >= 0 ? "text-success" : "text-destructive",
-                      )}
-                    >
-                      {c.v >= 0 ? "+" : ""}
-                      {c.v.toFixed(1)}%
+                {slowAvg && cfg && (
+                  <p className="text-muted-foreground">
+                    Média rápida ({cfg.maFast}):{" "}
+                    <strong className="text-foreground">{usd(slowAvg.f)}</strong> · Média lenta (
+                    {cfg.maSlow}): <strong className="text-foreground">{usd(slowAvg.s)}</strong>
+                  </p>
+                )}
+                {checks.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-muted-foreground">
+                      O que o robô confere antes de comprar:
+                    </p>
+                    <ul className="space-y-0.5">
+                      {checks.map((c, i) => (
+                        <li key={i} className={c.ok ? "text-success" : "text-muted-foreground"}>
+                          {c.ok ? "✓" : "○"} {c.t}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-1 font-medium">
+                      {checks.every((c) => c.ok)
+                        ? "Condições visuais atendidas; aguardando avaliação completa no servidor."
+                        : "Ainda existem condições pendentes."}
                     </p>
                   </div>
-                ))}
+                )}
               </div>
-              <p className="text-muted-foreground">
-                Agitação na última hora:{" "}
-                <strong className={vol > 5 ? "text-warning" : "text-foreground"}>
-                  {vol.toFixed(1)}%
-                </strong>{" "}
-                {vol > 5 ? "(preço oscilando bastante)" : "(preço calmo)"}
-              </p>
-              {slowAvg && cfg && (
-                <p className="text-muted-foreground">
-                  Média rápida ({cfg.maFast}):{" "}
-                  <strong className="text-foreground">{usd(slowAvg.f)}</strong> · Média lenta (
-                  {cfg.maSlow}): <strong className="text-foreground">{usd(slowAvg.s)}</strong>
-                </p>
-              )}
-              {checks.length > 0 && (
-                <div>
-                  <p className="mb-1 text-muted-foreground">
-                    O que o robô confere antes de comprar:
-                  </p>
-                  <ul className="space-y-0.5">
-                    {checks.map((c, i) => (
-                      <li key={i} className={c.ok ? "text-success" : "text-muted-foreground"}>
-                        {c.ok ? "✓" : "○"} {c.t}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-1 font-medium">
-                    {checks.every((c) => c.ok)
-                      ? "Condições visuais atendidas; aguardando avaliação completa no servidor."
-                      : "Ainda existem condições pendentes."}
-                  </p>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+            );
+          })()}
       </div>
       {props.streamlined && (
         <button
