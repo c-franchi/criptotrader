@@ -184,3 +184,34 @@ it("rejects divergent reconstructed reserves without persisting the inconsistent
     poolState(BGA, BigInt(quote.blockNumber!), Number(quote.pools[0]?.priceNative) * 1.1),
   ).rejects.toThrow("Reservas do bloco divergentes");
 });
+
+it("reads custom-token metadata at the same block as the recovered quote", async () => {
+  vi.clearAllMocks();
+  liveRpc();
+  const custom = "0x1111111111111111111111111111111111111111";
+  const result = await readMarket(custom, "live-custom-metadata", { live: true });
+  expect(result.error).toBeNull();
+  const metadata = readContract.mock.calls
+    .map(([call]) => call)
+    .filter((call) => ["name", "symbol", "decimals"].includes(call.functionName));
+  expect(metadata).toHaveLength(3);
+  expect(metadata.every((call) => call.blockNumber === 123n)).toBe(true);
+});
+
+it("distinguishes a missing USD conversion from a generic provider failure", async () => {
+  vi.clearAllMocks();
+  liveRpc();
+  const read = readContract.getMockImplementation()!;
+  readContract.mockImplementation(async (args) => {
+    if (
+      args.functionName === "getPair" &&
+      String(args.args?.[1]).toLowerCase() === "0x55d398326f99059ff775485246999027b3197955"
+    )
+      throw new Error("private provider details https://secret.example");
+    return read(args);
+  });
+  const result = await readMarket(BGA, "live-usd-unavailable", { live: true });
+  expect(result.error).toContain("Cotação USD indisponível no bloco");
+  expect(result.error).not.toContain("secret");
+  expect(result.pools).toEqual([]);
+});

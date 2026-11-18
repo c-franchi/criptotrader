@@ -188,3 +188,12 @@ it("previews manual automation entries without indicator history or unknown-tax 
   expect(io.history).not.toHaveBeenCalled();
   expect(io.signer).not.toHaveBeenCalled();
 });
+
+it("keeps the safe market failure reason and never signs or requests history without a live quote", async () => {
+  const reason = "Cotação USD indisponível no bloco consultado; execução aguardando nova leitura";
+  io.market.mockResolvedValue({ error: reason, pools: [] });
+  const result = await runStrategyStep(admin(), bot, "", "", true);
+  expect(result.patch.last_error).toBe(reason);
+  expect(io.history).not.toHaveBeenCalled();
+  expect(io.signer).not.toHaveBeenCalled();
+});
