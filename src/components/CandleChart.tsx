@@ -82,6 +82,7 @@ function ChartBody({
   onEditLevel,
   onCommitLevel,
   initialAllLevels = false,
+  appHero = false,
 }: {
   candles: Candle[];
   history?: ChartHistory | undefined;
@@ -102,6 +103,7 @@ function ChartBody({
   preferenceKey?: string;
   minimal?: boolean;
   initialAllLevels?: boolean;
+  appHero?: boolean;
   pickingPrice?: boolean;
   onPickPrice?: ((point: { time: number; price: number }) => void) | undefined;
   onEditLevel?: ((id: string, price: number) => void) | undefined;
@@ -111,11 +113,12 @@ function ChartBody({
   const levels = draggedLevel
     ? savedLevels.map((l) => (l.id === draggedLevel.id ? { ...l, price: draggedLevel.price } : l))
     : savedLevels;
-  const [minutes, setMinutes] = useState(compact ? 30 : alignStrategy ? strategyMinutes : 5);
+  const [minutes, setMinutes] = useState(appHero ? 60 : compact ? 30 : alignStrategy ? strategyMinutes : 5);
   const [height, setHeight] = useState(tall ? 420 : compact ? 260 : 320);
   const [mode, setMode] = useState("candles");
   const [showSma, setShowSma] = useState(!compact);
   const [controls, setControls] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [allLevels, setAllLevels] = useState(initialAllLevels);
   const areaId = useId();
   const storageKey =
@@ -551,6 +554,52 @@ function ChartBody({
           "[&>div:not([data-history-status])]:hidden [&>p:not([data-history-status])]:hidden [&>details]:hidden",
       )}
     >
+      {appHero && !minimal && (
+        <div className="robot-chart-quickbar" aria-label="Período e visualização do gráfico">
+          <div className="robot-chart-periods" role="group" aria-label="Período do gráfico">
+            {[
+              { label: "24h", hours: 24 },
+              { label: "7d", hours: 168 },
+              { label: "30d", hours: 720 },
+            ].map((period) => (
+              <button
+                key={period.hours}
+                type="button"
+                className="robot-chart-period"
+                aria-pressed={hours === period.hours}
+                onClick={() => {
+                  setFitEntries(false);
+                  setHours(period.hours);
+                  setFollow(true);
+                }}
+              >
+                {period.label}
+              </button>
+            ))}
+          </div>
+          <select
+            aria-label="Intervalo das velas"
+            className="robot-chart-interval"
+            value={minutes}
+            onChange={(event) => setMinutes(Number(event.target.value))}
+          >
+            <option value={5}>5m</option>
+            <option value={15}>15m</option>
+            <option value={30}>30m</option>
+            <option value={60}>1h</option>
+          </select>
+          {levels.length > 0 && (
+            <button
+              type="button"
+              className="robot-chart-focus"
+              aria-pressed={!allLevels}
+              onClick={() => setAllLevels(!allLevels)}
+            >
+              {allLevels ? "Focar nas operações" : "Todos os níveis"}
+            </button>
+          )}
+        </div>
+      )}
       <ChartHistoryStatus
         candles={candles}
         now={now}
@@ -1059,6 +1108,18 @@ function ChartBody({
           Histórico indisponível neste período.
         </p>
       )}
+      {appHero && !minimal && (
+        <button
+          type="button"
+          className="robot-chart-more-toggle"
+          aria-expanded={detailsOpen}
+          onClick={() => setDetailsOpen(!detailsOpen)}
+        >
+          {detailsOpen ? "Ocultar ferramentas e histórico" : "Ferramentas e histórico do gráfico"}
+          <span aria-hidden="true">{detailsOpen ? "−" : "+"}</span>
+        </button>
+      )}
+      <div className={cn("space-y-3", appHero && !detailsOpen && !minimal && "hidden")}>
       {(!compact || controls) && (
         <>
           <div className="flex flex-wrap items-center gap-2">
@@ -1600,12 +1661,14 @@ function ChartBody({
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }
 
 export function CandleChart(props: {
   initialAllLevels?: boolean;
+  appHero?: boolean;
   pickingPrice?: boolean;
   onPickPrice?: ((point: { time: number; price: number }) => void) | undefined;
   onEditLevel?: ((id: string, price: number) => void) | undefined;
